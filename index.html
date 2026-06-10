@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trip Clubhouse</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #0f1117; color: #f0f0f0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; min-height: 100vh; }
+      #boot-msg { padding: 40px; color: #4ade80; font-size: 16px; }
+      #fatal-error { display: none; padding: 32px; }
+      #fatal-error h2 { color: #f87171; margin-bottom: 12px; font-size: 20px; }
+      #fatal-error pre { background: #1a1d27; padding: 16px; border-radius: 8px; font-size: 13px; color: #fca5a5; white-space: pre-wrap; overflow-x: auto; border: 1px solid #444; }
+    </style>
+  </head>
+  <body>
+    <!-- Shown until React mounts (React will replace #root content) -->
+    <div id="boot-msg">Trip Clubhouse — loading…</div>
+
+    <div id="fatal-error">
+      <h2>⚠ JavaScript error — app could not load</h2>
+      <pre id="fatal-error-msg">Capturing error…</pre>
+    </div>
+
+    <div id="root"></div>
+
+    <script>
+      // Hide the boot message once JS starts running
+      document.getElementById('boot-msg').textContent = 'Trip Clubhouse — starting React…';
+
+      function showFatal(text) {
+        document.getElementById('boot-msg').style.display = 'none';
+        var box = document.getElementById('fatal-error');
+        box.style.display = 'block';
+        document.getElementById('fatal-error-msg').textContent = text;
+      }
+
+      window.addEventListener('error', function(e) {
+        showFatal(
+          (e.message || 'Unknown error') +
+          '\n\nFile: ' + (e.filename || 'unknown') + ':' + e.lineno +
+          '\n\n' + (e.error && e.error.stack ? e.error.stack : '')
+        );
+      });
+
+      window.addEventListener('unhandledrejection', function(e) {
+        var reason = e.reason;
+        showFatal(
+          'Unhandled Promise rejection:\n' +
+          (reason && reason.stack ? reason.stack : String(reason))
+        );
+      });
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
