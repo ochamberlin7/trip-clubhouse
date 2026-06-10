@@ -2,19 +2,15 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  plugins: [
-    react({
-      // Fast Refresh injects a self-import with a mismatched timestamp on every
-      // HMR cycle, which causes the browser's ESM loader to report that named
-      // exports (useAuth, useGroup, etc.) don't exist — the white screen / "does
-      // not provide an export" error. Disabling it makes Vite fall back to full
-      // page reloads on component changes, which is stable.
-      fastRefresh: false,
-    }),
-  ],
+  plugins: [react()],
   server: {
     port: 5173,
     strictPort: true,
+    // hmr:false is the only way to skip Fast Refresh in @vitejs/plugin-react v6.
+    // Without it the plugin injects a self-import on every HMR cycle whose
+    // timestamp differs from the cached module, causing the ESM loader to report
+    // "does not provide an export named 'useAuth'" on every page load.
+    hmr: false,
     watch: {
       ignored: ['**/package.json', '**/package-lock.json'],
     },

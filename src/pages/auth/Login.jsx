@@ -23,20 +23,33 @@ export default function Login() {
   }
 
   return (
-    <div className="auth-container">
-      <h1>Trip Clubhouse</h1>
-      <h2>Sign In</h2>
-      <form onSubmit={handleLogin}>
-        <input type="email" placeholder="Email" value={email}
-          onChange={e => setEmail(e.target.value)} required />
-        <input type="password" placeholder="Password" value={password}
-          onChange={e => setPassword(e.target.value)} required />
-        {error && <p className="error">{error}</p>}
-        <button type="submit" disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign In'}
-        </button>
-      </form>
-      <p>Don't have an account? <Link to="/signup">Sign Up</Link></p>
+    <div className="auth-page">
+      <div className="auth-card">
+        <div>
+          <p className="auth-brand">Trip Clubhouse</p>
+          <h2>Sign In</h2>
+        </div>
+        <form className="auth-form" onSubmit={handleLogin}>
+          <div>
+            <label className="field-label">Email</label>
+            <input type="email" placeholder="you@example.com" value={email}
+              onChange={e => setEmail(e.target.value)} required />
+          </div>
+          <div>
+            <label className="field-label">Password</label>
+            <input type="password" placeholder="••••••••" value={password}
+              onChange={e => setPassword(e.target.value)} required />
+          </div>
+          {error && <p className="error-msg">{error}</p>}
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? 'Signing in…' : 'Sign In'}
+          </button>
+        </form>
+        <p style={{ textAlign: 'center', fontSize: 14, color: '#6b7280' }}>
+          No account?{' '}
+          <Link to="/signup" style={{ color: '#3b82f6', fontWeight: 600 }}>Create one</Link>
+        </p>
+      </div>
     </div>
   )
 }
