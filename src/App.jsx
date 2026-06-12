@@ -7,6 +7,7 @@ import InviteAccept from './pages/auth/InviteAccept'
 import GroupSelector from './pages/home/GroupSelector'
 import TripWizard from './pages/onboarding/TripWizard'
 import TripDashboard from './pages/dashboard/TripDashboard'
+import JoinTrip from './pages/JoinTrip'
 import AppShell from './components/layout/AppShell'
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/invite/:token" element={<InviteAccept />} />
+            <Route path="/join/:inviteToken" element={<JoinTrip />} />
             <Route element={<AppShell />}>
               <Route path="/groups" element={<GroupSelector />} />
               <Route path="/onboarding/trip" element={<TripWizard />} />

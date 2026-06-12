@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -8,6 +8,7 @@ export default function Login() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -18,7 +19,9 @@ export default function Login() {
       setError(error.message)
       setLoading(false)
     } else {
-      navigate('/groups')
+      // Honor ?redirect= (e.g. from an invite link), but only allow internal paths.
+      const redirect = searchParams.get('redirect')
+      navigate(redirect && redirect.startsWith('/') ? redirect : '/groups', { replace: true })
     }
   }
 

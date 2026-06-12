@@ -3,22 +3,16 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
+import TripHeader from '../../components/TripHeader'
+import CountdownWidget from '../../components/CountdownWidget'
+import TeeTimesWidget from '../../components/TeeTimesWidget'
+import ChatWidget from '../../components/ChatWidget'
+import DailyMVPCard from '../../components/DailyMVPCard'
+import TournamentPurseWidget from '../../components/TournamentPurseWidget'
+import MenuDrawer from '../../components/MenuDrawer'
+import ScoringTab from '../../components/ScoringTab'
 
 // ── Helpers ──────────────────────────────────────────────────────
-
-function daysUntil(dateStr) {
-  if (!dateStr) return null
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  return Math.ceil((new Date(dateStr + 'T00:00:00') - today) / 86400000)
-}
-
-function formatDateRange(start, end) {
-  if (!start) return ''
-  const opts = { month: 'short', day: 'numeric' }
-  const s = new Date(start + 'T00:00:00').toLocaleDateString('en-US', opts)
-  const e = end ? new Date(end + 'T00:00:00').toLocaleDateString('en-US', { ...opts, year: 'numeric' }) : ''
-  return e ? `${s} – ${e}` : s
-}
 
 function fmtDayHeader(dateStr) {
   const d = new Date(dateStr + 'T00:00:00')
@@ -53,320 +47,243 @@ function TabIcon({ id }) {
   return null
 }
 
-// ── Weather widget ───────────────────────────────────────────────
+// ── Weather widget — single-day current conditions ───────────────
 
-const WX_CODES = {
-  0: ['☀️','Clear'], 1: ['🌤','Mostly Clear'], 2: ['⛅','Partly Cloudy'], 3: ['☁️','Overcast'],
-  45: ['🌫','Fog'], 48: ['🌫','Icy Fog'],
-  51: ['🌦','Light Drizzle'], 53: ['🌦','Drizzle'], 55: ['🌦','Heavy Drizzle'],
-  61: ['🌧','Light Rain'], 63: ['🌧','Rain'], 65: ['🌧','Heavy Rain'],
-  71: ['❄️','Light Snow'], 73: ['❄️','Snow'], 75: ['❄️','Heavy Snow'], 77: ['🌨','Sleet'],
-  80: ['🌦','Showers'], 81: ['🌧','Heavy Showers'], 82: ['⛈','Violent Showers'],
-  85: ['🌨','Snow Showers'], 86: ['🌨','Heavy Snow Showers'],
-  95: ['⛈','Thunderstorm'], 96: ['⛈','Thunderstorm + Hail'], 99: ['⛈','Heavy Thunderstorm'],
+const WX_ICONS = {
+  0:'☀️',1:'☀️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',
+  61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',80:'🌦️',81:'🌧️',82:'⛈️',
+  95:'⛈️',96:'⛈️',99:'⛈️',
+}
+const WX_DESC = {
+  0:'Clear skies',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',
+  45:'Foggy',48:'Rime fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',
+  61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',
+  80:'Light showers',81:'Showers',82:'Violent showers',
+  95:'Thunderstorm',96:'Thunderstorm w/ hail',99:'Severe thunderstorm',
+}
+function wxIcon(code) { return WX_ICONS[code] ?? '☁️' }
+function wxDesc(code) { return WX_DESC[code] ?? '—' }
+
+const wxStyles = {
+  card: { background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '10px' },
+  header: { background: '#1B3F6E', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: '6px', color: '#fff', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' },
+  headerRight: { fontSize: '12px', color: 'rgba(255,255,255,0.65)', fontWeight: 500 },
+  inner: { padding: '14px' },
+  mainRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  temp: { fontSize: '42px', fontWeight: 900, color: '#0D1B2A', lineHeight: 1 },
+  condition: { fontSize: '13px', color: '#2C3E50', marginTop: '4px' },
+  rightCol: { display: 'flex', alignItems: 'center', gap: '10px' },
+  hiloBlock: { textAlign: 'right', lineHeight: 1.6 },
+  hi: { fontSize: '13px', fontWeight: 700, color: '#0D1B2A' },
+  lo: { fontSize: '13px', fontWeight: 700, color: '#7A8FA6' },
+  emoji: { fontSize: '36px' },
+  detailsRow: { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #E8EDF3', display: 'flex', gap: '16px' },
+  detailLabel: { fontSize: '11px', color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  detailValue: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#2C3E50' },
+  loading: { padding: '14px', fontSize: '13px', color: '#7A8FA6', textAlign: 'center' },
 }
 
-function wxIcon(code) { return (WX_CODES[code] ?? ['🌡','—'])[0] }
-function wxDesc(code) { return (WX_CODES[code] ?? ['🌡','—'])[1] }
+function WeatherIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
+    </svg>
+  )
+}
 
-const FALLBACK_LAT = 44.5
-const FALLBACK_LNG = -84.5
+// Strip a trailing 4-digit year (e.g. "Northern Michigan 2026" → "Northern Michigan")
+// so the trip name geocodes cleanly.
+function cleanLocationName(name) {
+  return (name || '').replace(/\b(19|20)\d{2}\b/g, '').replace(/\s+/g, ' ').trim()
+}
 
-function WeatherWidget({ tripName, startDate }) {
-  const [days, setDays] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [locationLabel, setLocationLabel] = useState('')
+// eslint-disable-next-line no-unused-vars -- tripEndDate kept in interface for parent-side gating
+function WeatherWidget({ locationName, locationLat, locationLon, tripEndDate }) {
+  const [wx, setWx] = useState(null)
+  const [status, setStatus] = useState('loading') // 'loading' | 'ok' | 'error'
+  const [locationLabel, setLocationLabel] = useState(cleanLocationName(locationName) || 'Trip Location')
 
   useEffect(() => {
     let cancelled = false
     async function load() {
+      setStatus('loading')
       try {
-        let lat = FALLBACK_LAT, lng = FALLBACK_LNG, label = 'Northern Michigan'
-        try {
+        let lat = locationLat
+        let lon = locationLon
+        let label = cleanLocationName(locationName) || 'Trip Location'
+
+        // No coords supplied — geocode from the location name.
+        if (lat == null || lon == null) {
+          const query = cleanLocationName(locationName)
+          if (!query) { if (!cancelled) setStatus('error'); return }
           const geoRes = await fetch(
-            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(tripName)}&count=1&language=en&format=json`
+            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`
           )
           const geoJson = await geoRes.json()
           const hit = geoJson?.results?.[0]
-          if (hit) { lat = hit.latitude; lng = hit.longitude; label = hit.name }
-        } catch { /* geocoding failed — use fallback coords */ }
+          if (!hit) { if (!cancelled) { setLocationLabel(label); setStatus('error') } return }
+          lat = hit.latitude
+          lon = hit.longitude
+          label = hit.name
+        }
 
-        const wxRes = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
-          `&daily=weathercode,temperature_2m_max,temperature_2m_min` +
-          `&temperature_unit=fahrenheit&timezone=auto&forecast_days=7`
+        const res = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+          `&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m` +
+          `&daily=temperature_2m_max,temperature_2m_min` +
+          `&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=AUTO&forecast_days=1`
         )
-        const wx = await wxRes.json()
-        if (!cancelled && wx?.daily?.time) {
-          setDays(wx.daily.time.map((t, i) => ({
-            date: t,
-            code: wx.daily.weathercode[i],
-            hi: Math.round(wx.daily.temperature_2m_max[i]),
-            lo: Math.round(wx.daily.temperature_2m_min[i]),
-          })))
+        const data = await res.json()
+        if (cancelled) return
+        if (data?.current) {
+          setWx({
+            temp: Math.round(data.current.temperature_2m),
+            code: data.current.weathercode,
+            wind: Math.round(data.current.windspeed_10m),
+            humidity: data.current.relativehumidity_2m,
+            hi: Math.round(data.daily.temperature_2m_max[0]),
+            lo: Math.round(data.daily.temperature_2m_min[0]),
+          })
           setLocationLabel(label)
+          setStatus('ok')
+        } else {
+          setLocationLabel(label)
+          setStatus('error')
         }
       } catch {
-        if (!cancelled) setDays([])
-      } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setStatus('error')
       }
     }
     load()
     return () => { cancelled = true }
-  }, [tripName])
+  }, [locationName, locationLat, locationLon])
 
-  if (loading) return (
-    <div className="widget-card">
-      <div className="widget-header">
-        <span className="widget-title">☁️ Weather</span>
-      </div>
-      <div className="widget-loading">Loading forecast…</div>
+  // Always render the card shell — never return null.
+  const header = (
+    <div style={wxStyles.header}>
+      <span style={wxStyles.headerLeft}><WeatherIcon /> Weather</span>
+      <span style={wxStyles.headerRight}>{locationLabel}</span>
     </div>
   )
 
-  if (!days || days.length === 0) return null
+  if (status === 'loading') return (
+    <div style={wxStyles.card}>
+      {header}
+      <div style={wxStyles.loading}>Loading conditions…</div>
+    </div>
+  )
 
-  return (
-    <div className="widget-card">
-      <div className="widget-header">
-        <span className="widget-title">☁️ Weather</span>
-        <span className="widget-sub">{locationLabel}</span>
-      </div>
-      <div className="wx-row">
-        {days.map(d => {
-          const dt = new Date(d.date + 'T00:00:00')
-          const dayLabel = ['Su','Mo','Tu','We','Th','Fr','Sa'][dt.getDay()]
-          return (
-            <div key={d.date} className="wx-day">
-              <div className="wx-day-label">{dayLabel}</div>
-              <div className="wx-icon" title={wxDesc(d.code)}>{wxIcon(d.code)}</div>
-              <div className="wx-hi">{d.hi}°</div>
-              <div className="wx-lo">{d.lo}°</div>
+  if (status === 'error' || !wx) return (
+    <div style={wxStyles.card}>
+      {header}
+      <div style={wxStyles.inner}>
+        <div style={wxStyles.mainRow}>
+          <div>
+            <div style={wxStyles.temp}>—°F</div>
+            <div style={wxStyles.condition}>Weather unavailable</div>
+          </div>
+          <div style={wxStyles.rightCol}>
+            <div style={wxStyles.hiloBlock}>
+              <div style={wxStyles.hi}>↑ —°</div>
+              <div style={wxStyles.lo}>↓ —°</div>
             </div>
-          )
-        })}
+            <div style={wxStyles.emoji}>☁️</div>
+          </div>
+        </div>
+        <div style={wxStyles.detailsRow}>
+          <div>
+            <span style={wxStyles.detailLabel}>Wind</span>
+            <span style={wxStyles.detailValue}>—</span>
+          </div>
+          <div>
+            <span style={wxStyles.detailLabel}>Humidity</span>
+            <span style={wxStyles.detailValue}>—</span>
+          </div>
+        </div>
       </div>
     </div>
   )
-}
-
-// ── Chat widget ──────────────────────────────────────────────────
-
-function ChatWidget({ tripId, userId, displayName }) {
-  const [messages, setMessages] = useState([])
-  const [text, setText] = useState('')
-  const [sending, setSending] = useState(false)
-  const [error, setError] = useState(null)
-  const bottomRef = React.useRef(null)
-
-  useEffect(() => {
-    let sub
-    async function init() {
-      const { data, error: fetchErr } = await supabase
-        .from('messages')
-        .select('id, display_name, content, created_at, user_id')
-        .eq('trip_id', tripId)
-        .order('created_at', { ascending: true })
-        .limit(100)
-
-      if (fetchErr) {
-        setError(fetchErr.message)
-        return
-      }
-      setMessages(data || [])
-
-      sub = supabase
-        .channel(`messages:${tripId}`)
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `trip_id=eq.${tripId}`,
-        }, payload => {
-          setMessages(prev => [...prev, payload.new])
-        })
-        .subscribe()
-    }
-    init()
-    return () => { if (sub) supabase.removeChannel(sub) }
-  }, [tripId])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  async function send(e) {
-    e.preventDefault()
-    const content = text.trim()
-    if (!content || sending) return
-    setSending(true)
-    const { error: sendErr } = await supabase.from('messages').insert({
-      trip_id: tripId,
-      user_id: userId,
-      display_name: displayName,
-      content,
-    })
-    if (!sendErr) setText('')
-    setSending(false)
-  }
-
-  function fmtTime(ts) {
-    return new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  }
 
   return (
-    <div className="widget-card chat-widget">
-      <div className="widget-header">
-        <span className="widget-title">💬 Sh*t Talk Thread</span>
-      </div>
-
-      {error ? (
-        <div className="chat-error">Chat unavailable — table may not exist yet.</div>
-      ) : (
-        <div className="chat-messages">
-          {messages.length === 0 && (
-            <div className="chat-empty">No messages yet. Start the trash talk.</div>
-          )}
-          {messages.map(m => {
-            const isMe = m.user_id === userId
-            return (
-              <div key={m.id} className={`chat-bubble-wrap ${isMe ? 'me' : 'them'}`}>
-                {!isMe && <div className="chat-sender">{m.display_name}</div>}
-                <div className={`chat-bubble ${isMe ? 'me' : 'them'}`}>{m.content}</div>
-                <div className="chat-time">{fmtTime(m.created_at)}</div>
-              </div>
-            )
-          })}
-          <div ref={bottomRef} />
+    <div style={wxStyles.card}>
+      {header}
+      <div style={wxStyles.inner}>
+        <div style={wxStyles.mainRow}>
+          <div>
+            <div style={wxStyles.temp}>{wx.temp}°F</div>
+            <div style={wxStyles.condition}>{wxDesc(wx.code)}</div>
+          </div>
+          <div style={wxStyles.rightCol}>
+            <div style={wxStyles.hiloBlock}>
+              <div style={wxStyles.hi}>↑ {wx.hi}°</div>
+              <div style={wxStyles.lo}>↓ {wx.lo}°</div>
+            </div>
+            <div style={wxStyles.emoji}>{wxIcon(wx.code)}</div>
+          </div>
         </div>
-      )}
-
-      {!error && (
-        <form className="chat-input-row" onSubmit={send}>
-          <input
-            type="text"
-            className="chat-input"
-            placeholder="Say something…"
-            value={text}
-            onChange={e => setText(e.target.value)}
-            maxLength={500}
-          />
-          <button type="submit" className="chat-send-btn" disabled={!text.trim() || sending}>
-            ↑
-          </button>
-        </form>
-      )}
+        <div style={wxStyles.detailsRow}>
+          <div>
+            <span style={wxStyles.detailLabel}>Wind</span>
+            <span style={wxStyles.detailValue}>{wx.wind} mph</span>
+          </div>
+          <div>
+            <span style={wxStyles.detailLabel}>Humidity</span>
+            <span style={wxStyles.detailValue}>{wx.humidity}%</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
 // ── Tab: Home ────────────────────────────────────────────────────
 
-function TabHome({ trip, rounds, userId, displayName }) {
-  const n = daysUntil(trip.start_date)
-  const dateRange = formatDateRange(trip.start_date, trip.end_date)
-  const groups = groupByDate(rounds)
-  const isTournament = !!trip.team_mode
-
+function TabHome({ trip, rounds, userId, displayName, isCommissioner, onPurseUpdate }) {
   return (
     <div>
       {/* Countdown */}
-      {n !== null && (
-        <div className="countdown-card">
-          <div className="countdown-number">
-            {n > 0 ? n : n === 0 ? '🏌' : '⛳'}
-          </div>
-          <div className="countdown-label">
-            {n > 0 ? 'Days Until Tee Off' : n === 0 ? 'Tee Off Today' : 'Trip In Progress'}
-          </div>
-          {dateRange && <div className="countdown-date-str">{dateRange}</div>}
-        </div>
-      )}
+      <CountdownWidget
+        tripName={trip.name}
+        startDate={trip.start_date}
+        endDate={trip.end_date}
+        rounds={rounds}
+      />
 
-      {/* Tee Times section */}
-      {groups.length > 0 ? groups.map(([date, dayRounds]) => (
-        <div key={date} className="tee-group">
-          <div className="tee-group-header">{fmtDayHeader(date)}</div>
-          {dayRounds.map(r => (
-            <div key={r.id} className="tee-group-row">
-              <div>
-                <div className="tee-group-course">{r.course_name}</div>
-                <span className={`type-pill ${isTournament ? 'tournament' : 'practice'}`}>
-                  {isTournament ? 'Tournament' : 'Practice'}
-                </span>
-              </div>
-              <div className="tee-group-time">TBD</div>
-            </div>
-          ))}
-        </div>
-      )) : (
-        <div className="empty-state">
-          <span className="empty-state-icon">⛳</span>
-          No rounds scheduled yet.
-        </div>
-      )}
+      {/* Today's / next tee times — single day only */}
+      <TeeTimesWidget
+        tripId={trip.id}
+        tripStartDate={trip.start_date}
+        tripEndDate={trip.end_date}
+        today={new Date()}
+      />
 
       {/* Weather */}
-      <WeatherWidget tripName={trip.name} startDate={trip.start_date} />
+      <WeatherWidget
+        locationName={trip.location || trip.name}
+        locationLat={trip.location_lat ?? null}
+        locationLon={trip.location_lon ?? null}
+        tripEndDate={trip.end_date ?? null}
+      />
 
       {/* Chat */}
-      <ChatWidget tripId={trip.id} userId={userId} displayName={displayName} />
-    </div>
-  )
-}
+      <ChatWidget
+        tripId={trip.id}
+        currentUserId={userId}
+        currentUserName={(displayName || '').split(' ')[0] || displayName}
+      />
 
-// ── Tab: Scores ──────────────────────────────────────────────────
+      {/* Daily MVPs — below the chat thread */}
+      <DailyMVPCard tripId={trip.id} today={new Date()} />
 
-function TabScores({ rounds }) {
-  const [selectedId, setSelectedId] = useState(rounds[0]?.id ?? null)
-  const [pairing, setPairing] = useState(1)
-
-  if (rounds.length === 0) {
-    return (
-      <div className="empty-state">
-        <span className="empty-state-icon">📊</span>
-        No rounds to score yet.
-      </div>
-    )
-  }
-
-  const selected = rounds.find(r => r.id === selectedId)
-
-  return (
-    <div>
-      {/* Round pill selectors */}
-      <div className="pill-row">
-        {rounds.map(r => (
-          <button
-            key={r.id}
-            className={`pill-btn ${selectedId === r.id ? 'active' : ''}`}
-            onClick={() => setSelectedId(r.id)}
-          >
-            {r.course_name.slice(0, 8)}
-          </button>
-        ))}
-      </div>
-
-      {/* Pairing segmented control */}
-      <div className="pair-tabs">
-        <button className={`pair-tab ${pairing === 1 ? 'active' : ''}`} onClick={() => setPairing(1)}>
-          Pairing 1
-        </button>
-        <button className={`pair-tab ${pairing === 2 ? 'active' : ''}`} onClick={() => setPairing(2)}>
-          Pairing 2
-        </button>
-      </div>
-
-      {/* Scorecard placeholder */}
-      {selected && (
-        <div className="card" style={{ textAlign: 'center', padding: '32px 16px' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--navy)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-            {selected.course_name} · Pairing {pairing}
-          </div>
-          <div style={{ fontSize: 14, color: 'var(--muted)' }}>Live scorecard coming soon</div>
-        </div>
-      )}
+      {/* Tournament purse — bottom of the stack */}
+      <TournamentPurseWidget
+        tripId={trip.id}
+        isCommissioner={isCommissioner}
+        purseAmount={trip.purse_amount || 0}
+        onPurseUpdate={onPurseUpdate}
+      />
     </div>
   )
 }
@@ -374,8 +291,6 @@ function TabScores({ rounds }) {
 // ── Tab: Leaderboard ─────────────────────────────────────────────
 
 function TabLeaderboard({ trip, teams, rounds }) {
-  const [view, setView] = useState('tournament')
-
   if (!trip.team_mode) {
     return (
       <div className="empty-state">
@@ -396,16 +311,6 @@ function TabLeaderboard({ trip, teams, rounds }) {
 
   return (
     <div>
-      {/* Toggle */}
-      <div className="lb-toggle">
-        <button className={`lb-toggle-btn ${view === 'tournament' ? 'active' : ''}`} onClick={() => setView('tournament')}>
-          Tournament
-        </button>
-        <button className={`lb-toggle-btn ${view === 'wales' ? 'active' : ''}`} onClick={() => setView('wales')}>
-          Prince of Wales
-        </button>
-      </div>
-
       {/* Team cards */}
       {teams.map((team, i) => (
         <div key={team.id} className="lb-team-card">
@@ -434,7 +339,29 @@ function TabLeaderboard({ trip, teams, rounds }) {
 
 // ── Tab: Tee Times ───────────────────────────────────────────────
 
-function TabTeeTimes({ rounds, trip }) {
+// "09:00" → "9:00 AM"
+function to12(t) {
+  if (!t) return ''
+  const [h, m] = t.split(':').map(Number)
+  const ap = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ap}`
+}
+// "9:00 AM" → "09:00" (for prefilling the time input)
+function to24(disp) {
+  const m = (disp || '').match(/(\d+):(\d+)\s*(AM|PM)/i)
+  if (!m) return ''
+  let h = Number(m[1]); const ap = m[3].toUpperCase()
+  if (ap === 'PM' && h !== 12) h += 12
+  if (ap === 'AM' && h === 12) h = 0
+  return `${String(h).padStart(2, '0')}:${m[2]}`
+}
+
+function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound }) {
+  // Single inline editor / type toggle open at a time across the whole tab.
+  const [editing, setEditing] = useState(null)   // { roundId, slot }
+  const [editValue, setEditValue] = useState('')
+  const [typeOpen, setTypeOpen] = useState(null)  // roundId
+
   if (rounds.length === 0) {
     return (
       <div className="empty-state">
@@ -445,24 +372,102 @@ function TabTeeTimes({ rounds, trip }) {
   }
 
   const groups = groupByDate(rounds)
-  const isTournament = !!trip?.team_mode
+
+  function openEditor(round, slot) {
+    const cur = slot === 1 ? round.tee_time_1 : round.tee_time_2
+    setEditValue(to24(cur))
+    setTypeOpen(null)
+    setEditing({ roundId: round.id, slot })
+  }
+
+  async function saveTime() {
+    const display = to12(editValue)
+    const col = editing.slot === 1 ? 'tee_time_1' : 'tee_time_2'
+    await supabase.from('rounds').update({ [col]: display || null }).eq('id', editing.roundId)
+    onUpdateRound(editing.roundId, { [col]: display || null })
+    setEditing(null)
+  }
+
+  async function setType(roundId, type) {
+    await supabase.from('rounds').update({ round_type: type }).eq('id', roundId)
+    onUpdateRound(roundId, { round_type: type })
+    setTypeOpen(null)
+  }
+
+  function TimeCell({ round, slot }) {
+    const isEditing = editing && editing.roundId === round.id && editing.slot === slot
+    const value = slot === 1 ? round.tee_time_1 : round.tee_time_2
+
+    if (isEditing) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input type="time" value={editValue} onChange={e => setEditValue(e.target.value)}
+            style={{ background: '#E8EDF3', border: '1px solid #1B3F6E', borderRadius: 6, padding: '5px 8px', fontSize: 14, color: '#0D1B2A', fontFamily: 'inherit', width: 'auto' }} />
+          <button onClick={saveTime} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 8px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginLeft: 6 }}>✓</button>
+          <button onClick={() => setEditing(null)} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 16, cursor: 'pointer', marginLeft: 4 }}>✕</button>
+        </div>
+      )
+    }
+
+    const display = value
+      ? <span style={{ fontSize: 14, fontWeight: 700, color: '#0D1B2A' }}>{value}</span>
+      : <span style={{ fontSize: 13, fontWeight: 600, color: '#DDE3EA' }}>TBD</span>
+
+    if (!isCommissioner) return display
+    return (
+      <button onClick={() => openEditor(round, slot)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6, padding: 0 }}>
+        {display}
+        <span style={{ fontSize: 11, color: '#7A8FA6' }}>✎</span>
+      </button>
+    )
+  }
 
   return (
     <div>
       {groups.map(([date, dayRounds]) => (
         <div key={date} className="tee-group">
           <div className="tee-group-header">{fmtDayHeader(date)}</div>
-          {dayRounds.map(r => (
-            <div key={r.id} className="tee-group-row">
-              <div>
-                <div className="tee-group-course">{r.course_name}</div>
-                <span className={`type-pill ${isTournament ? 'tournament' : 'practice'}`}>
-                  {isTournament ? 'Tournament' : 'Practice'}
-                </span>
+          {dayRounds.map(r => {
+            const isTournament = r.round_type !== 'practice'
+            return (
+              <div key={r.id} style={{ background: 'var(--bg1)', padding: '12px 14px', borderTop: '1px solid var(--bg2)' }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A' }}>{r.course_name}</div>
+
+                {/* Badge + Change */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, marginBottom: 10 }}>
+                  <span className={`type-pill ${isTournament ? 'tournament' : 'practice'}`}>
+                    {isTournament ? 'Tournament' : 'Practice'}
+                  </span>
+                  {isCommissioner && (
+                    <span onClick={() => { setEditing(null); setTypeOpen(typeOpen === r.id ? null : r.id) }}
+                      style={{ fontSize: 11, color: '#1B3F6E', cursor: 'pointer', marginLeft: 4 }}>Change</span>
+                  )}
+                  {isCommissioner && typeOpen === r.id && (
+                    <span style={{ display: 'inline-flex', gap: 6, marginLeft: 4 }}>
+                      {['practice', 'tournament'].map(t => {
+                        const active = (t === 'tournament') === isTournament
+                        return (
+                          <button key={t} onClick={() => active ? setTypeOpen(null) : setType(r.id, t)}
+                            style={{ borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
+                              ...(active ? { background: '#1B3F6E', color: '#fff', border: 'none' } : { background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }) }}>
+                            {t}
+                          </button>
+                        )
+                      })}
+                    </span>
+                  )}
+                </div>
+
+                {/* Pairing tee-time rows */}
+                {[1, 2].map(slot => (
+                  <div key={slot} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0' }}>
+                    <span style={{ fontSize: 12, color: '#7A8FA6', fontWeight: 500 }}>Pairing {slot}</span>
+                    <TimeCell round={r} slot={slot} />
+                  </div>
+                ))}
               </div>
-              <div className="tee-group-time">TBD</div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ))}
     </div>
@@ -607,11 +612,13 @@ export default function TripDashboard() {
   const location = useLocation()
 
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [showTripBanner, setShowTripBanner] = useState(location.state?.singleTripWarning ?? false)
   const [trip, setTrip] = useState(null)
   const [rounds, setRounds] = useState([])
   const [players, setPlayers] = useState([])
   const [teams, setTeams] = useState([])
+  const [isCommissioner, setIsCommissioner] = useState(false)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(null)
 
@@ -651,12 +658,16 @@ export default function TripDashboard() {
       if (!tripData) { setLoading(false); return }
       setTrip(tripData)
 
-      const [roundsRes, playersRes, teamsRes] = await Promise.all([
+      const [roundsRes, playersRes, teamsRes, memberRes] = await Promise.all([
         supabase.from('rounds').select('*').eq('trip_id', tripData.id).order('round_number'),
         supabase.from('trip_players').select('id, user_id, guest_name, handicap_index').eq('trip_id', tripData.id),
         supabase.from('teams').select('*').eq('trip_id', tripData.id).order('name'),
+        user?.id
+          ? supabase.from('group_members').select('role').eq('group_id', activeGroup.id).eq('user_id', user.id).maybeSingle()
+          : Promise.resolve({ data: null }),
       ])
       if (roundsRes.error) throw roundsRes.error
+      setIsCommissioner(memberRes.data?.role === 'admin')
 
       const rawPlayers = playersRes.data || []
       const userIds = rawPlayers.map(p => p.user_id).filter(Boolean)
@@ -680,6 +691,17 @@ export default function TripDashboard() {
     }
   }
 
+  async function refetchTrip() {
+    if (!trip?.id) return
+    const { data } = await supabase.from('trips').select('*').eq('id', trip.id).maybeSingle()
+    if (data) setTrip(data)
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    navigate('/login', { replace: true })
+  }
+
   if (loading) return <div className="loading-screen">Loading trip…</div>
 
   if (fetchError) return (
@@ -700,9 +722,9 @@ export default function TripDashboard() {
     </div>
   )
 
-  // Page header content per tab
+  // Page header content per tab (dashboard uses the TripHeader component instead)
   const headers = {
-    dashboard:   { eyebrow: 'Trip Clubhouse', title: trip.name, sub: formatDateRange(trip.start_date, trip.end_date) },
+    dashboard:   null,
     scores:      { eyebrow: 'Live Scoring',   title: trip.name },
     leaderboard: { eyebrow: 'Trip Leaderboard', title: trip.name },
     'tee-times': { eyebrow: 'Tee Times',     title: trip.name },
@@ -717,8 +739,8 @@ export default function TripDashboard() {
         {TABS.map(tab => (
           <button
             key={tab.id}
-            className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            className={`tab-btn ${tab.id !== 'menu' && activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => tab.id === 'menu' ? setDrawerOpen(true) : setActiveTab(tab.id)}
           >
             <TabIcon id={tab.id} />
             <span className="tab-label">{tab.label}</span>
@@ -727,6 +749,9 @@ export default function TripDashboard() {
       </nav>
 
       {/* ── Page header ── */}
+      {activeTab === 'dashboard' && (
+        <TripHeader tripName={trip.name} startDate={trip.start_date} endDate={trip.end_date} />
+      )}
       {hdr && (
         <div className="page-header">
           <h1>{hdr.eyebrow}</h1>
@@ -745,12 +770,26 @@ export default function TripDashboard() {
 
       {/* ── Tab content ── */}
       <div className="dashboard-content">
-        {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} />}
-        {activeTab === 'scores'      && <TabScores rounds={rounds} />}
+        {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={isCommissioner} onPurseUpdate={refetchTrip} />}
+        {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
-        {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} />}
-        {activeTab === 'menu'        && <TabMenu players={players} navigate={navigate} trip={trip} activeGroup={activeGroup} onDevReset={devReset} user={user} />}
+        {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={isCommissioner} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
       </div>
+
+      {/* Slide-out menu drawer (opened by the MENU tab) */}
+      <MenuDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        tripId={trip.id}
+        groupId={activeGroup.id}
+        groupName={activeGroup.name}
+        tripName={trip.name}
+        tripStartDate={trip.start_date}
+        tripEndDate={trip.end_date}
+        inviteToken={trip.invite_token}
+        isCommissioner={isCommissioner}
+        onSignOut={handleSignOut}
+      />
     </div>
   )
 }

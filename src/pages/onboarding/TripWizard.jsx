@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
+import CourseSearchInput from '../../components/CourseSearchInput'
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -132,6 +133,24 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
     }))
   }
 
+  // Store the full selected course (or null when cleared) on the round.
+  function setRoundCourse(dayIdx, roundIdx, courseData) {
+    setSchedule(schedule.map((d, i) => {
+      if (i !== dayIdx) return d
+      return {
+        ...d,
+        rounds: d.rounds.map((r, j) => {
+          if (j !== roundIdx) return r
+          return {
+            ...r,
+            course: courseData,
+            courseName: courseData ? (courseData.club_name || courseData.course_name || r.courseName) : r.courseName,
+          }
+        }),
+      }
+    }))
+  }
+
   function addRound(dayIdx) {
     setSchedule(schedule.map((d, i) => {
       if (i !== dayIdx) return d
@@ -176,13 +195,15 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
           {day.type === 'golf' && (
             <div className="round-inputs">
               {day.rounds.map((round, rIdx) => (
-                <div key={round.id} className="round-input-row">
-                  <input
-                    type="text"
-                    placeholder={`Course name${day.rounds.length > 1 ? ` (Round ${rIdx + 1})` : ''}`}
-                    value={round.courseName}
-                    onChange={e => updateCourseName(idx, rIdx, e.target.value)}
-                  />
+                <div key={round.id} className="round-input-row" style={{ alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <CourseSearchInput
+                      placeholder={`Search course${day.rounds.length > 1 ? ` (Round ${rIdx + 1})` : ''}...`}
+                      initialValue={round.courseName}
+                      onQueryChange={text => updateCourseName(idx, rIdx, text)}
+                      onCourseSelected={data => setRoundCourse(idx, rIdx, data)}
+                    />
+                  </div>
                   <button
                     className="btn-remove-round"
                     onClick={() => removeRound(idx, round.id)}
@@ -211,48 +232,91 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
   )
 }
 
-// ── Step 2: Player Count ──────────────────────────────────────────
-// Change 2: counter only — no name entry, no player list
+// ── Step 2: Add Players ───────────────────────────────────────────
 
-function StepPlayerCount({ playerCount, setPlayerCount, onBack, onNext }) {
-  function decrement() { setPlayerCount(c => Math.max(2, c - 1)) }
-  function increment() { setPlayerCount(c => Math.min(20, c + 1)) }
+const MAX_PLAYERS = 20
+
+const playerInputStyle = { background: '#F5F8FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 14, width: '100%', fontFamily: 'inherit', color: '#0D1B2A' }
+const playerInputErr = { ...playerInputStyle, borderColor: '#C0392B' }
+
+function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
+  const [showErrors, setShowErrors] = useState(false)
+
+  function update(id, field, value) {
+    setPlayers(players.map(p => p.id === id ? { ...p, [field]: value } : p))
+  }
+  function addRow() {
+    if (players.length >= MAX_PLAYERS) return
+    setPlayers([...players, { id: uid(), first_name: '', last_name: '', email: '' }])
+  }
+  function removeRow(id) {
+    setPlayers(players.filter(p => p.id !== id))
+  }
+  function handleNext() {
+    const valid = players.every(p => p.first_name.trim() && p.last_name.trim())
+    if (!valid) { setShowErrors(true); return }
+    onNext()
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
-        <label className="field-label" style={{ fontSize: 16, marginBottom: 16, display: 'block' }}>
-          How many players are in your group?
-        </label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <button
-            className="btn btn-outline btn-auto"
-            onClick={decrement}
-            disabled={playerCount <= 2}
-            style={{ width: 52, height: 52, fontSize: 24, padding: 0, borderRadius: 12 }}
-          >
-            −
-          </button>
-          <span style={{ fontSize: 48, fontWeight: 800, color: '#1a2b4a', minWidth: 60, textAlign: 'center' }}>
-            {playerCount}
-          </span>
-          <button
-            className="btn btn-outline btn-auto"
-            onClick={increment}
-            disabled={playerCount >= 20}
-            style={{ width: 52, height: 52, fontSize: 24, padding: 0, borderRadius: 12 }}
-          >
-            +
-          </button>
-        </div>
-        <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 12 }}>
-          You're automatically included as Player 1. Min 2 · Max 20.
-        </p>
+        <p className="wizard-step-subtitle" style={{ marginTop: 0 }}>Add everyone who's coming on the trip</p>
       </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {players.map(p => {
+          const fErr = showErrors && !p.first_name.trim()
+          const lErr = showErrors && !p.last_name.trim()
+          return (
+            <div key={p.id} style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              <input
+                style={{ ...(fErr ? playerInputErr : playerInputStyle), flex: '1 1 100px' }}
+                placeholder="First name"
+                value={p.first_name}
+                disabled={p.isCommissioner}
+                onChange={e => update(p.id, 'first_name', e.target.value)}
+              />
+              <input
+                style={{ ...(lErr ? playerInputErr : playerInputStyle), flex: '1 1 100px' }}
+                placeholder="Last name"
+                value={p.last_name}
+                disabled={p.isCommissioner}
+                onChange={e => update(p.id, 'last_name', e.target.value)}
+              />
+              <input
+                style={{ ...playerInputStyle, flex: '1 1 140px' }}
+                placeholder="Email (optional)"
+                value={p.email}
+                disabled={p.isCommissioner}
+                onChange={e => update(p.id, 'email', e.target.value)}
+              />
+              {p.isCommissioner
+                ? <span className="you-badge" style={{ flexShrink: 0 }}>You</span>
+                : (
+                  <button
+                    onClick={() => removeRow(p.id)}
+                    aria-label="Remove player"
+                    style={{ width: 28, height: 28, background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 18, cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}
+                  >×</button>
+                )}
+            </div>
+          )
+        })}
+      </div>
+
+      {players.length < MAX_PLAYERS && (
+        <button
+          onClick={addRow}
+          style={{ background: 'transparent', border: '1px dashed #DDE3EA', borderRadius: 8, padding: 10, width: '100%', color: '#7A8FA6', fontSize: 13, textAlign: 'center', cursor: 'pointer', fontFamily: 'inherit' }}
+        >+ Add Player</button>
+      )}
+
+      {showErrors && <p className="error-msg">First and last name are required for every player.</p>}
 
       <div style={{ display: 'flex', gap: 12 }}>
         <button className="btn btn-outline" onClick={onBack}>← Back</button>
-        <button className="btn btn-primary" onClick={onNext}>Next →</button>
+        <button className="btn btn-primary" onClick={handleNext}>Next →</button>
       </div>
     </div>
   )
@@ -337,7 +401,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
 
 // ── Main Wizard ───────────────────────────────────────────────────
 
-const STEP_TITLES = ['Create a Trip', 'Day Schedule', 'Player Count', 'Tournament']
+const STEP_TITLES = ['Create a Trip', 'Day Schedule', 'Add Players', 'Tournament']
 
 export default function TripWizard() {
   const { user } = useAuth()
@@ -359,8 +423,9 @@ export default function TripWizard() {
   // Step 1
   const [schedule, setSchedule] = useState([])
 
-  // Step 2 — Change 2: integer count instead of player array
-  const [playerCount, setPlayerCount] = useState(2)
+  // Step 2 — player entry rows (row 1 = commissioner, prefilled & locked)
+  const [players, setPlayers] = useState([])
+  const playerCount = players.length
 
   // Step 3
   const [hasTournament, setHasTournament] = useState(null)
@@ -397,6 +462,23 @@ export default function TripWizard() {
       setChecking(false)
     }
     checkExistingTrip()
+  }, [user])
+
+  // Seed the player list: commissioner (locked, from profile) + one blank row.
+  useEffect(() => {
+    if (!user || players.length > 0) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle()
+      if (cancelled) return
+      const dn = (data?.display_name || user.email.split('@')[0]).trim()
+      const parts = dn.split(/\s+/)
+      setPlayers([
+        { id: 'me', isCommissioner: true, first_name: parts[0] || dn, last_name: parts.slice(1).join(' '), email: user.email },
+        { id: uid(), first_name: '', last_name: '', email: '' },
+      ])
+    })()
+    return () => { cancelled = true }
   }, [user])
 
   // Change 4: guard date changes — confirm+clear schedule if already built
@@ -464,10 +546,17 @@ export default function TripWizard() {
       for (const day of schedule) {
         if (day.type === 'golf') {
           for (const r of day.rounds) {
+            const c = r.course
             roundRows.push({
               trip_id: trip.id,
               round_number: roundNum++,
-              course_name: r.courseName.trim() || 'TBD',
+              course_name: (c?.course_name || c?.club_name || r.courseName || '').trim() || 'TBD',
+              club_name: c?.club_name ?? null,
+              golfcourse_id: c?.golfcourse_id ?? null,
+              tee_name: c?.tee_name ?? null,
+              course_rating: c?.course_rating ?? null,
+              slope_rating: c?.slope_rating ?? null,
+              holes: c?.holes ?? null,
               date: day.date,
               status: 'upcoming',
             })
@@ -479,14 +568,35 @@ export default function TripWizard() {
         if (roundErr) throw roundErr
       }
 
-      // 5. Create trip_players from count (Change 2)
-      // Member 1 = the auth user; Members 2..N are anonymous placeholders
-      const playerRows = Array.from({ length: playerCount }, (_, i) => ({
-        trip_id: trip.id,
-        user_id: i === 0 ? user.id : null,
-        guest_name: i === 0 ? null : `Member ${i + 1}`,
-        handicap_index: null,
-      }))
+      // 5. Create trip_players from the entered players. The commissioner's
+      //    row is linked to their account (claimed); the rest are unclaimed.
+      const playerRows = players.map(p => {
+        const first = p.first_name.trim()
+        const last = p.last_name.trim()
+        const fullName = `${first} ${last}`.trim()
+        if (p.isCommissioner) {
+          return {
+            trip_id: trip.id,
+            user_id: user.id,
+            claimed_user_id: user.id,
+            is_claimed: true,
+            first_name: first,
+            last_name: last,
+            email: user.email,
+            handicap_index: null,
+          }
+        }
+        return {
+          trip_id: trip.id,
+          user_id: null,
+          is_claimed: false,
+          first_name: first,
+          last_name: last,
+          email: p.email.trim() || null,
+          guest_name: fullName || null, // compatibility for legacy name displays
+          handicap_index: null,
+        }
+      })
       const { error: playersErr } = await supabase.from('trip_players').insert(playerRows)
       if (playersErr) throw playersErr
 
@@ -552,9 +662,9 @@ export default function TripWizard() {
         )}
 
         {step === 2 && (
-          <StepPlayerCount
-            playerCount={playerCount}
-            setPlayerCount={setPlayerCount}
+          <StepAddPlayers
+            players={players}
+            setPlayers={setPlayers}
             onBack={() => setStep(1)}
             onNext={() => setStep(3)}
           />

@@ -252,14 +252,7 @@ select {
 .widget-sub { font-size: 11px; color: var(--muted); }
 .widget-loading { padding: 14px; font-size: 13px; color: var(--muted); text-align: center; }
 
-/* ── Weather ── */
-.wx-row { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 10px 10px 12px; gap: 4px; }
-.wx-row::-webkit-scrollbar { display: none; }
-.wx-day { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 40px; padding: 4px 2px; }
-.wx-day-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
-.wx-icon { font-size: 20px; line-height: 1.2; }
-.wx-hi { font-size: 13px; font-weight: 700; color: var(--cream); }
-.wx-lo { font-size: 11px; color: var(--muted); }
+/* Weather widget styles are inline in WeatherWidget (single-day current conditions). */
 
 /* ── Chat ── */
 .chat-widget { display: flex; flex-direction: column; }
@@ -280,6 +273,57 @@ select {
 .chat-send-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--navy); color: #fff; border: none; font-size: 16px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .chat-send-btn:disabled { background: var(--bg3); color: var(--muted); cursor: not-allowed; }
 .chat-send-btn:not(:disabled):active { background: #163460; }
+
+/* ── Scorecard (Scoring tab) ── */
+.sc-card { background: var(--bg1); border: 1px solid var(--bg3); border-radius: var(--radius); padding: 8px 8px 12px; }
+.sc-row { display: grid; grid-template-columns: 30px 24px 24px 1fr 1fr 32px 1fr 1fr; align-items: center; column-gap: 2px; }
+.sc-head { margin-bottom: 4px; }
+.sc-head .sc-h { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; text-align: center; padding-bottom: 4px; }
+.sc-th-name { font-size: 10px; font-weight: 700; color: #fff; text-align: center; padding: 4px 2px; border-radius: 4px 4px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-th-t1 { background: var(--navy); }
+.sc-th-t2 { background: #1E8A6E; }
+.sc-hole-row { border-bottom: 1px solid var(--bg2); }
+.sc-hole-row.nine-divider { border-top: 2px solid var(--bg3); }
+.sc-cell-hole { font-size: 13px; font-weight: 700; color: var(--cream2); text-align: center; }
+.sc-cell-par, .sc-cell-si { font-size: 11px; color: var(--muted); text-align: center; }
+
+.sc-score-wrap { position: relative; display: inline-flex; justify-self: center; }
+.sc-score { width: 100%; aspect-ratio: 1; min-width: 36px; max-width: 52px; border-radius: 8px; border: none; font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; justify-self: center; font-family: inherit; }
+.sc-score:active { transform: scale(0.92); }
+.sc-score.empty  { background: var(--bg2); color: var(--bg3); font-size: 20px; }
+.sc-score.eagle  { background: var(--navy); color: #fff; border-radius: 50%; outline: 3px solid var(--navy); outline-offset: 3px; box-shadow: 0 0 0 6px rgba(27,63,110,0.15); }
+.sc-score.birdie { background: rgba(27,63,110,0.1); color: var(--navy); border: 2px solid var(--navy); border-radius: 50%; }
+.sc-score.par    { background: transparent; color: var(--cream2); border: none; }
+.sc-score.bogey  { background: rgba(192,57,43,0.12); color: var(--red); }
+.sc-score.double { background: var(--red); color: #fff; outline: 3px solid var(--red); outline-offset: 3px; box-shadow: 0 0 0 6px rgba(192,57,43,0.15); }
+.sc-score.triple { background: repeating-linear-gradient(45deg,#C0392B,#C0392B 4px,#a02318 4px,#a02318 8px); color: #fff; outline: 3px solid var(--red); outline-offset: 3px; box-shadow: 0 0 0 6px rgba(192,57,43,0.15); }
+
+.stroke-dot { position: absolute; bottom: -4px; left: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--navy); border: 1px solid #fff; pointer-events: none; z-index: 2; }
+.stroke-dot.two::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--navy); }
+
+.drink-badge { position: absolute; bottom: -5px; right: -5px; background: var(--bg2); border: 1px solid var(--blue); border-radius: 6px; font-size: 9px; font-weight: 800; color: var(--navy); padding: 1px 4px; line-height: 1.3; pointer-events: none; z-index: 2; }
+
+/* Commissioner pairing header pickers */
+.sc-th-btn { width: 100%; border: none; cursor: pointer; font-family: inherit; padding: 12px 2px; min-height: 38px; font-size: 14px; line-height: 1; }
+.sc-th-dropdown { position: absolute; z-index: 50; background: #fff; border: 1px solid var(--bg3); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); min-width: 160px; max-height: 220px; overflow-y: auto; }
+.sc-th-opt { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--bg2); cursor: pointer; background: #fff; width: 100%; border: none; text-align: left; font-family: inherit; }
+.sc-th-opt:last-child { border-bottom: none; }
+.sc-th-opt:hover { background: #F5F8FA; }
+.sc-th-opt-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+
+.sc-pts-chip { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; font-size: 12px; }
+.sc-pts-chip.t1 { background: var(--navy); color: #fff; }
+.sc-pts-chip.t2 { background: #1E8A6E; color: #fff; }
+.sc-pts-chip.halve { background: var(--bg3); color: var(--cream2); }
+.sc-pts-chip.null { background: transparent; color: var(--bg3); }
+
+.sc-sub-row { background: var(--bg2); border-radius: 4px; margin-top: 4px; padding: 4px 0; }
+.sc-sub-label { font-size: 11px; font-weight: 700; color: var(--navy); text-align: center; }
+.sc-sub-par { font-size: 11px; color: var(--muted); text-align: center; }
+.sc-sub-score { font-size: 13px; font-weight: 800; text-align: center; }
+.sc-sub-score.t1 { color: var(--navy); }
+.sc-sub-score.t2 { color: #1E8A6E; }
+.sc-sub-pts { font-size: 11px; font-weight: 800; color: var(--cream); text-align: center; }
 
 /* ── Misc ── */
 .you-badge { font-size: 10px; background: var(--navy); color: #fff; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.3px; }
