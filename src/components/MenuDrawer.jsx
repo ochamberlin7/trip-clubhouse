@@ -82,6 +82,9 @@ const MENU_ITEMS = [
   { id: 'app-info', label: 'App Info', sub: 'Install guide & about', icon: <g><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></g> },
 ]
 
+// Commissioner-only item, rendered at the top of the drawer when isCommissioner.
+const COMMISSIONER_ITEM = { id: 'commissioner', label: 'Commissioner Tools', sub: 'Teams, allowance & invites', icon: <g><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></g> }
+
 // ── small building blocks ─────────────────────────────────────────
 function Chevron({ open }) {
   return (
@@ -191,11 +194,13 @@ const pc = {
   joined: { color: '#2E7D32', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 8, fontWeight: 600 },
   joinedDot: { width: 8, height: 8, borderRadius: '50%', background: '#2E7D32', display: 'inline-block' },
   badge: { background: 'rgba(27,63,110,0.12)', color: '#1B3F6E', border: '1px solid rgba(27,63,110,0.25)', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, letterSpacing: '0.5px', flexShrink: 0, whiteSpace: 'nowrap' },
+  teamPill: { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis' },
   pencil: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#7A8FA6', flexShrink: 0, display: 'flex', alignItems: 'center' },
   detailRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #E8EDF3', fontSize: 13, color: '#2C3E50' },
   detailLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', minWidth: 72 },
   muted: { color: '#7A8FA6' },
   editInput: { background: '#F5F8FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: '100%', fontFamily: 'inherit', color: '#0D1B2A' },
+  saveBtn: { background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 }
 
 function PencilIcon() {
@@ -225,7 +230,13 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
     }
   }, [editing, player])
 
-  const team = teams.find(t => t.id === player.team_id)
+  // Colour the team pill by slot: teams[0] = Team 1 (navy), teams[1] = Team 2 (teal),
+  // matching the T1/T2 colours in the scoring modal.
+  const teamIdx = teams.findIndex(t => t.id === player.team_id)
+  const team = teamIdx >= 0 ? teams[teamIdx] : null
+  const teamPillColor = teamIdx === 0
+    ? { background: 'rgba(27,63,110,0.15)', color: '#1B3F6E' }
+    : { background: 'rgba(30,138,110,0.15)', color: '#1E8A6E' }
 
   async function save() {
     setSaving(true)
@@ -252,6 +263,7 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
             <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>
           )}
         </div>
+        {team && <span style={{ ...pc.teamPill, ...teamPillColor }}>{team.name}</span>}
         {commissioner && <span style={pc.badge}>Commissioner</span>}
         {isCommissioner && !editing && (
           <button style={pc.pencil} onClick={onStartEdit} aria-label="Edit player"><PencilIcon /></button>
@@ -385,7 +397,8 @@ function PlayersPage({ data, isCommissioner, inviteToken, onReload }) {
       {commissioner && renderCard(commissioner)}
       {commissioner && rest.length > 0 && <RosterDivider />}
       {rest.map(renderCard)}
-      <InviteSection inviteToken={inviteToken} />
+      {/* Invite link mirrors the Commissioner Tools page; hidden from non-commissioners. */}
+      {isCommissioner && <InviteSection inviteToken={inviteToken} />}
     </>
   )
 }
@@ -810,6 +823,140 @@ function RulesPage({ tripId, isCommissioner, allowance, onUpdate }) {
   )
 }
 
+// ── Commissioner Tools ────────────────────────────────────────────
+// Every trip has exactly two teams. Shows a read-only display of the two names with
+// an Edit button; clicking Edit reveals the inputs. Save persists (creating any missing
+// rows so teams[0]/teams[1], ordered by created_at, stay aligned with the T1/T2 slots
+// used everywhere else) and returns to the read-only state.
+function teamsHaveNames(teams) {
+  return teams.length >= 2 && !!teams[0]?.name && !!teams[1]?.name
+}
+
+function TeamNamesCard({ teams, tripId, onSaved }) {
+  // First load: read-only if names already exist, otherwise start in the editable state.
+  const [editing, setEditing] = useState(() => !teamsHaveNames(teams))
+  const [names, setNames] = useState(() => [teams[0]?.name || '', teams[1]?.name || ''])
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  // Re-sync the inputs if the underlying teams change (e.g. after a reload).
+  useEffect(() => { setNames([teams[0]?.name || '', teams[1]?.name || '']) }, [teams])
+
+  async function save() {
+    setSaving(true)
+    // teams.name is NOT NULL — fall back to the default label for blank inputs.
+    const desired = [names[0].trim() || 'Team 1', names[1].trim() || 'Team 2']
+    const result = []
+    // Sequential so freshly-inserted rows get distinct created_at values, keeping order stable.
+    for (let i = 0; i < 2; i++) {
+      const existing = teams[i]
+      if (existing) {
+        if (existing.name !== desired[i]) {
+          await supabase.from('teams').update({ name: desired[i] }).eq('id', existing.id)
+        }
+        result.push({ ...existing, name: desired[i] })
+      } else {
+        const { data } = await supabase.from('teams').insert({ trip_id: tripId, name: desired[i] }).select('id, name').single()
+        if (data) result.push(data)
+      }
+    }
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+    setEditing(false)
+    onSaved(result)
+  }
+
+  return (
+    <Card title="Team Names">
+      {editing ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[0, 1].map(i => (
+            <div key={i}>
+              <div style={pc.detailLabel}>Team {i + 1} Name</div>
+              <input
+                style={{ ...pc.editInput, marginTop: 4 }}
+                value={names[i]}
+                placeholder={`Team ${i + 1}`}
+                onChange={e => setNames(n => n.map((v, j) => (j === i ? e.target.value : v)))}
+              />
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
+            <button onClick={save} disabled={saving} style={pc.saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[0, 1].map(i => (
+            <div key={i}>
+              <div style={pc.detailLabel}>Team {i + 1}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0D1B2A', marginTop: 2 }}>{teams[i]?.name || `Team ${i + 1}`}</div>
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
+            <button onClick={() => setEditing(true)} style={s.editCourseBtn}>Edit</button>
+            {saved && <span style={{ fontSize: 12, color: '#2E7D32' }}>Saved ✓</span>}
+          </div>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+const ALLOWANCE_OPTIONS = [100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50] // descending
+
+function AllowanceInputCard({ tripId, allowance, onUpdate }) {
+  const [value, setValue] = useState(allowance ?? 100)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => { setValue(allowance ?? 100) }, [allowance])
+
+  async function save() {
+    const v = Number(value)
+    setSaving(true)
+    const { error } = await supabase.from('trips').update({ handicap_allowance: v }).eq('id', tripId)
+    setSaving(false)
+    if (!error) {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      if (onUpdate) onUpdate()
+    }
+  }
+
+  return (
+    <Card title="Handicap Allowance">
+      <div style={{ fontSize: 13, color: '#2C3E50', lineHeight: 1.5, marginBottom: 10 }}>
+        The percentage of the handicap difference players receive. 100% is full allowance.
+        Strokes are calculated on the fly from this setting.
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <select
+          style={{ ...pc.editInput, width: 110, flex: 'none' }}
+          value={String(value)}
+          onChange={e => setValue(Number(e.target.value))}
+        >
+          {ALLOWANCE_OPTIONS.map(v => <option key={v} value={v}>{v}%</option>)}
+        </select>
+        <button onClick={save} disabled={saving} style={{ ...pc.saveBtn, marginLeft: 'auto' }}>{saving ? 'Saving…' : 'Save'}</button>
+      </div>
+      {saved && <div style={{ fontSize: 12, color: '#2E7D32', marginTop: 8 }}>Saved ✓</div>}
+    </Card>
+  )
+}
+
+function CommissionerPage({ data, tripId, handicapAllowance, inviteToken, onTeamsSaved, onTripUpdate }) {
+  if (!data) return <div style={s.muted}>Loading…</div>
+  return (
+    <>
+      <TeamNamesCard teams={data.teams} tripId={tripId} onSaved={onTeamsSaved} />
+      <AllowanceInputCard tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} />
+      <InviteSection inviteToken={inviteToken} />
+    </>
+  )
+}
+
 function ArchivesPage({ data }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   if (data.length === 0) {
@@ -874,6 +1021,7 @@ export default function MenuDrawer({
 }) {
   const [page, setPage] = useState(null)
   const [playersData, setPlayersData] = useState(null)
+  const [commissionerData, setCommissionerData] = useState(null)
   const [coursesData, setCoursesData] = useState(null)
   const [scoredRounds, setScoredRounds] = useState(() => new Set()) // round_ids that have any score
   const [archivesData, setArchivesData] = useState(null)
@@ -922,7 +1070,8 @@ export default function MenuDrawer({
           supabase.from('trip_players')
             .select('id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed')
             .eq('trip_id', tripId).order('last_name'),
-          supabase.from('teams').select('id, name').eq('trip_id', tripId).order('name'),
+          // created_at + id ordering so teams[0]/teams[1] match the T1/T2 colors used in scoring.
+          supabase.from('teams').select('id, name').eq('trip_id', tripId).order('created_at').order('id'),
           supabase.from('group_members').select('user_id').eq('group_id', groupId).eq('role', 'admin'),
         ])
         // The commissioner is the group admin; flag whichever player record they own/claimed.
@@ -933,6 +1082,14 @@ export default function MenuDrawer({
           is_commissioner: adminIds.has(tp.user_id) || adminIds.has(tp.claimed_user_id),
         }))
         if (!cancelled) setPlayersData({ players: tps, teams: teamsRes.data || [] })
+      })()
+    }
+    if (page === 'commissioner' && !commissionerData) {
+      (async () => {
+        // Same ordering as ScoringTab (created_at + id tiebreaker) so "Team 1"/"Team 2"
+        // here line up with the T1/T2 slots used in scoring.
+        const { data: teams } = await supabase.from('teams').select('id, name').eq('trip_id', tripId).order('created_at').order('id')
+        if (!cancelled) setCommissionerData({ teams: teams || [] })
       })()
     }
     if (page === 'courses' && !coursesData) {
@@ -990,7 +1147,7 @@ export default function MenuDrawer({
       })()
     }
     return () => { cancelled = true }
-  }, [page, tripId, groupId, playersData, coursesData, archivesData, flightsData])
+  }, [page, tripId, groupId, playersData, commissionerData, coursesData, archivesData, flightsData])
 
   const drawerVisible = open && !page
   const backToDrawer = () => setPage(null)
@@ -1048,7 +1205,7 @@ export default function MenuDrawer({
           <button style={s.closeBtn} onClick={onClose} aria-label="Close menu">✕</button>
         </div>
         <div style={s.nav}>
-          {MENU_ITEMS.map(item => (
+          {[...(isCommissioner ? [COMMISSIONER_ITEM] : []), ...MENU_ITEMS].map(item => (
             <button key={item.id} style={s.item} onClick={() => setPage(item.id)}>
               <span style={s.iconBox}>
                 <svg {...svgProps}>{item.icon}</svg>
@@ -1077,6 +1234,21 @@ export default function MenuDrawer({
       </div>
 
       {/* Secondary pages */}
+      {page === 'commissioner' && isCommissioner && (
+        <SecondaryPage context={tripName} title="Commissioner Tools" onBack={backToDrawer}>
+          <CommissionerPage
+            data={commissionerData}
+            tripId={tripId}
+            handicapAllowance={handicapAllowance}
+            inviteToken={inviteToken}
+            onTripUpdate={onTripUpdate}
+            onTeamsSaved={next => {
+              setCommissionerData(prev => (prev ? { ...prev, teams: next } : prev))
+              setPlayersData(null)   // refresh team names on the Players tab
+            }}
+          />
+        </SecondaryPage>
+      )}
       {page === 'players' && (
         <SecondaryPage context={groupName} title="Players" onBack={backToDrawer}>
           <PlayersPage data={playersData} isCommissioner={isCommissioner} inviteToken={inviteToken} onReload={() => setPlayersData(null)} />

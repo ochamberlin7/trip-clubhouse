@@ -95,7 +95,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       if (roundIds.length === 0) { setLoading(false); return }
       const [tpRes, teamRes, scoreRes, drinkRes] = await Promise.all([
         supabase.from('trip_players').select('id, user_id, first_name, last_name, guest_name, handicap_index, team_id').eq('trip_id', trip.id),
-        supabase.from('teams').select('id, name, color').eq('trip_id', trip.id).order('name'),
+        // Order by created_at (id as a stable tiebreaker, since wizard-created rows
+        // share a created_at) so teams[0]/teams[1] map to the T1/T2 slots (SLOT_TEAM)
+        // consistently with the commissioner editor, regardless of renaming.
+        supabase.from('teams').select('id, name, color').eq('trip_id', trip.id).order('created_at').order('id'),
         supabase.from('scores').select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds),
         supabase.from('drinks').select('round_id, trip_player_id, hole_number, count').in('round_id', roundIds),
       ])
@@ -448,6 +451,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       {modal && (
         <ScoreModal
           modal={modal} round={round} player={playersById[modal.tpId]}
+          teamName={modal.teamSide === 'T1' ? teams[0]?.name : teams[1]?.name}
           par={holes?.[modal.hole - 1]?.par} si={holes?.[modal.hole - 1]?.handicap}
           courseHcp={phOf(modal.tpId)} canSave={isInPairing}
           existingScore={getScore(modal.tpId, modal.hole)} existingDrinks={getDrinks(modal.tpId, modal.hole)}
@@ -474,7 +478,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 }
 
 // ── Score + drink entry modal ─────────────────────────────────────
-function ScoreModal({ modal, round, player, par, si, courseHcp, canSave, existingScore, existingDrinks, onClose, onSaved, onRemoved }) {
+function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSave, existingScore, existingDrinks, onClose, onSaved, onRemoved }) {
   const { tpId, hole, teamSide } = modal
   const [score, setScore] = useState(existingScore ?? par ?? 4)
   const [drinkCount, setDrinkCount] = useState(existingDrinks ?? 0)
@@ -554,7 +558,7 @@ function ScoreModal({ modal, round, player, par, si, courseHcp, canSave, existin
         <div style={m.parInfo}>Par {par ?? '—'} · Index {si ?? '—'}{netPar != null ? ` · Net Par ${netPar}` : ''}</div>
 
         <div style={m.playerRow}>
-          <span style={{ ...m.team, ...teamStyle }}>{teamSide === 'T1' ? 'Team 1' : 'Team 2'}</span>
+          <span style={{ ...m.team, ...teamStyle }}>{teamName || (teamSide === 'T1' ? 'Team 1' : 'Team 2')}</span>
           <span style={m.name}>{firstName(player?.name)}</span>
           <div style={m.controls}>
             <button style={m.scoreBtn} onClick={() => setScore(s => Math.max(1, s - 1))}>−</button>
