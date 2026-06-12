@@ -561,6 +561,8 @@ export default function TripWizard() {
               location_state: c?.location_state ?? null,
               location_lat: c?.location_lat ?? null,
               location_lon: c?.location_lon ?? null,
+              par_total: c?.par_total ?? null,
+              number_of_holes: c?.number_of_holes ?? null,
               date: day.date,
               status: 'upcoming',
             })

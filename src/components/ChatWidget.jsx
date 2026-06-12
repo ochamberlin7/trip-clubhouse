@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-// Sh*t Talk Thread — trip chat for the dashboard home tab.
+// Trash Talk Thread — trip chat for the dashboard home tab.
 //
 // iOS keyboard stability: the card shell (header / message area / input row) is
 // rendered once and never conditionally removed. Only the message list contents
@@ -154,7 +154,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   return (
     <div style={styles.card}>
       <div style={styles.header}>
-        <span style={styles.headerText}>Sh*t Talk Thread</span>
+        <span style={styles.headerText}>Trash Talk Thread</span>
       </div>
 
       <div style={styles.area} ref={areaRef}>

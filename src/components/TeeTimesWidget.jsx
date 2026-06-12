@@ -95,45 +95,33 @@ function Badge({ type }) {
   return <span style={{ ...badgeBase, ...cfg.style }}>{cfg.label}</span>
 }
 
-export default function TeeTimesWidget({ tripId, tripStartDate, tripEndDate, today }) {
-  const [rounds, setRounds] = useState([])
+// `rounds` comes from the shared dashboard state so course edits reflect
+// instantly; only per-round completeness (scores) is fetched here.
+export default function TeeTimesWidget({ rounds = [], tripStartDate, tripEndDate, today }) {
   const [completeMap, setCompleteMap] = useState({})
   const [loaded, setLoaded] = useState(false)
 
+  const roundIdsKey = rounds.map(r => r.id).join(',')
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const { data: roundData, error } = await supabase
-        .from('rounds')
-        .select('*')
-        .eq('trip_id', tripId)
-        .order('date', { ascending: true })
-        .order('round_number', { ascending: true })
-
+      const roundIds = rounds.map(r => r.id)
+      if (roundIds.length === 0) { setCompleteMap({}); setLoaded(true); return }
+      const { data: scoreData } = await supabase
+        .from('scores')
+        .select('round_id, hole_number')
+        .in('round_id', roundIds)
       if (cancelled) return
-      if (error || !roundData) { setLoaded(true); return }
-      setRounds(roundData)
-
-      const roundIds = roundData.map(r => r.id)
-      if (roundIds.length > 0) {
-        const { data: scoreData } = await supabase
-          .from('scores')
-          .select('round_id, hole_number')
-          .in('round_id', roundIds)
-
-        if (!cancelled && scoreData) {
-          const holes = {}
-          scoreData.forEach(s => { (holes[s.round_id] ??= new Set()).add(s.hole_number) })
-          const map = {}
-          roundIds.forEach(id => { map[id] = (holes[id]?.size ?? 0) >= 18 })
-          setCompleteMap(map)
-        }
-      }
+      const holes = {}
+      ;(scoreData || []).forEach(s => { (holes[s.round_id] ??= new Set()).add(s.hole_number) })
+      const map = {}
+      roundIds.forEach(id => { map[id] = (holes[id]?.size ?? 0) >= 18 })
+      setCompleteMap(map)
       setLoaded(true)
     }
     load()
     return () => { cancelled = true }
-  }, [tripId])
+  }, [roundIdsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Hide once the trip is over.
   const todayIso = toIso(today)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
 
@@ -430,18 +430,112 @@ function HandicapCalculator({ round, players, allowance }) {
   )
 }
 
-function CoursesPage({ data, isCommissioner, onEditCourse, allowance }) {
+const editRowStyle = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }
+const lockToastStyle = { flexBasis: '100%', fontSize: 12, color: '#C0392B', padding: '6px 10px', background: 'rgba(192,57,43,0.08)', borderRadius: 6, border: '1px solid rgba(192,57,43,0.2)' }
+
+function EditCourseButton({ round, locked, onEditCourse }) {
+  const [toast, setToast] = useState(false) // tap-to-show message (mobile-safe)
+  const timer = useRef(null)
+
+  function showToast() {
+    setToast(true)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => setToast(false), 3000)
+  }
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+
+  if (locked) {
+    return (
+      <div style={editRowStyle}>
+        <button
+          style={{ ...s.editCourseBtn, marginTop: 0, opacity: 0.4, cursor: 'not-allowed', background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }}
+          onClick={showToast}
+        >Edit Course</button>
+        {toast && <div style={lockToastStyle}>Scoring has started — course cannot be changed</div>}
+      </div>
+    )
+  }
+  return (
+    <div style={editRowStyle}>
+      <button style={{ ...s.editCourseBtn, marginTop: 0 }} onClick={() => onEditCourse(round)}>Edit Course</button>
+    </div>
+  )
+}
+
+const typeBadgeBase = { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit', whiteSpace: 'nowrap' }
+const typeBadgeTour = { ...typeBadgeBase, background: 'rgba(27,63,110,0.1)', color: '#1B3F6E', border: '1px solid #1B3F6E' }
+const typeBadgePrac = { ...typeBadgeBase, background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }
+
+function RoundTypeBadge({ round, isCommissioner, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const isTournament = round.round_type !== 'practice'
+  const style = isTournament ? typeBadgeTour : typeBadgePrac
+  const label = isTournament ? 'Tournament' : 'Practice'
+
+  useEffect(() => {
+    if (!open) return
+    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  if (!isCommissioner) return <span style={style}>{label}</span>
+
+  return (
+    <span ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <button style={{ ...style, cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>{label} ▾</button>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', minWidth: 130 }}>
+          {[['tournament', 'Tournament'], ['practice', 'Practice']].map(([val, txt]) => {
+            const active = (val === 'tournament') === isTournament
+            return (
+              <div key={val} onClick={() => { setOpen(false); if (!active) onChange(round.id, val) }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#0D1B2A' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
+                <span>{txt}</span>
+                {active && <span style={{ color: '#1B3F6E' }}>✓</span>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </span>
+  )
+}
+
+const cdRow = (last) => ({ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'baseline', padding: '4px 0', borderBottom: last ? 'none' : '1px solid #E8EDF3' })
+const cdLabel = { fontSize: 9, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7A8FA6' }
+const cdValue = { fontSize: 12, fontWeight: 600, color: '#0D1B2A' }
+
+function locationText(r) {
+  if (r.location_city && r.location_state) return `${r.location_city}, ${r.location_state}`
+  return r.location_city || r.location_state || '—'
+}
+function parText(r) {
+  let par = r.par_total
+  let holes = r.number_of_holes
+  if (par == null && Array.isArray(r.holes) && r.holes.length) {
+    par = r.holes.reduce((sum, h) => sum + (h?.par || 0), 0)
+    holes = r.holes.length
+  }
+  return par != null ? `Par ${par} · ${holes || 18} holes` : '—'
+}
+
+function CoursesPage({ data, isCommissioner, onEditCourse, allowance, scoredRounds, onRoundTypeChange }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const { groups, players, playersByRound } = data
   if (!groups || groups.length === 0) {
     return <Card title="Schedule"><div style={s.muted}>Course schedule will appear once rounds are set up.</div></Card>
   }
+  const todayIso = new Date().toISOString().slice(0, 10)
   return groups.map(([date, rounds]) => (
     <Card key={date} title={fmtShort(date)}>
       {rounds.map((r, i, arr) => {
-        const tour = r.round_type !== 'practice'
         const assigned = playersByRound[r.id]
         const calcPlayers = (assigned && assigned.size) ? players.filter(p => assigned.has(p.id)) : players
+        const locked = scoredRounds?.has(r.id) || (r.date != null && r.date < todayIso)
         return (
           <div key={r.id} style={{ padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
@@ -452,16 +546,27 @@ function CoursesPage({ data, isCommissioner, onEditCourse, allowance }) {
                 )}
                 {(r.course_rating != null || r.slope_rating != null) && (
                   <div style={{ fontSize: '11px', color: '#7A8FA6', marginTop: '3px' }}>
-                    CR: {r.course_rating ?? '—'} · Slope: {r.slope_rating ?? '—'}
+                    Rating: {r.course_rating ?? '—'} · Slope: {r.slope_rating ?? '—'}
                   </div>
                 )}
               </div>
-              {r.tee_name
-                ? <span style={{ ...s.badge, ...teeBadgeStyle(r.tee_name) }}>{r.tee_name}</span>
-                : <span style={{ ...s.badge, ...(tour ? s.badgeTour : s.badgePrac) }}>{tour ? 'Tournament' : 'Practice'}</span>}
+              <RoundTypeBadge round={r} isCommissioner={isCommissioner} onChange={onRoundTypeChange} />
             </div>
+
+            {/* Detail rows */}
+            <div style={{ paddingTop: 8 }}>
+              <div style={cdRow(false)}>
+                <span style={cdLabel}>Location</span>
+                <span style={cdValue}>{locationText(r)}</span>
+              </div>
+              <div style={cdRow(true)}>
+                <span style={cdLabel}>Par</span>
+                <span style={cdValue}>{parText(r)}</span>
+              </div>
+            </div>
+
             {isCommissioner && (
-              <button style={s.editCourseBtn} onClick={() => onEditCourse(r)}>Edit Course</button>
+              <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />
             )}
             <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} />
           </div>
@@ -469,17 +574,6 @@ function CoursesPage({ data, isCommissioner, onEditCourse, allowance }) {
       })}
     </Card>
   ))
-}
-
-// Colored pill style for a tee name (mirrors CourseSearchInput).
-function teeBadgeStyle(name) {
-  const n = (name || '').toLowerCase()
-  if (n.includes('black')) return { background: '#222', color: '#fff', border: '1px solid #222' }
-  if (n.includes('blue')) return { background: '#1B3F6E', color: '#fff', border: '1px solid #1B3F6E' }
-  if (n.includes('white')) return { background: '#fff', color: '#0D1B2A', border: '1px solid #DDE3EA' }
-  if (n.includes('gold')) return { background: '#D4A017', color: '#fff', border: '1px solid #D4A017' }
-  if (n.includes('red')) return { background: '#C0392B', color: '#fff', border: '1px solid #C0392B' }
-  return { background: '#E8EDF3', color: '#0D1B2A', border: '1px solid #DDE3EA' }
 }
 
 const ARRIVE_FIELDS = [
@@ -748,11 +842,12 @@ function AppInfoPage() {
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, currentUserId, handicapAllowance, onTripUpdate, onSignOut,
+  inviteToken, isCommissioner, currentUserId, handicapAllowance, onTripUpdate, onRoundsChanged, onSignOut,
 }) {
   const [page, setPage] = useState(null)
   const [playersData, setPlayersData] = useState(null)
   const [coursesData, setCoursesData] = useState(null)
+  const [scoredRounds, setScoredRounds] = useState(() => new Set()) // round_ids that have any score
   const [archivesData, setArchivesData] = useState(null)
   const [flightsData, setFlightsData] = useState(null)
   const [editRound, setEditRound] = useState(null)
@@ -770,6 +865,25 @@ export default function MenuDrawer({
       return () => { document.body.style.overflow = prev }
     }
   }, [open, page])
+
+  // While the Courses page is open, recompute scored rounds in real time as
+  // scores are added/removed.
+  useEffect(() => {
+    if (page !== 'courses' || !coursesData) return
+    const roundIds = coursesData.roundIds || []
+    if (roundIds.length === 0) return
+
+    async function refreshScoredRounds() {
+      const { data } = await supabase.from('scores').select('round_id').in('round_id', roundIds)
+      setScoredRounds(new Set((data || []).map(s => s.round_id)))
+    }
+
+    const ch = supabase
+      .channel(`courses-lock-${tripId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scores', filter: `round_id=in.(${roundIds.join(',')})` }, () => { refreshScoredRounds() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [page, coursesData, tripId])
 
   // Lazy-load data per page.
   useEffect(() => {
@@ -812,7 +926,17 @@ export default function MenuDrawer({
         const groups = {}
         roundList.forEach(r => { (groups[r.date] ??= []).push(r) })
         const sorted = Object.entries(groups).sort(([a], [b]) => String(a).localeCompare(String(b)))
-        if (!cancelled) setCoursesData({ groups: sorted, players, playersByRound })
+
+        // A round is locked if it has any score (else it locks once its date passes).
+        let scored = new Set()
+        if (roundIds.length) {
+          const { data: sc } = await supabase.from('scores').select('round_id').in('round_id', roundIds)
+          ;(sc || []).forEach(s => scored.add(s.round_id))
+        }
+        if (!cancelled) {
+          setScoredRounds(scored)
+          setCoursesData({ groups: sorted, players, playersByRound, roundIds })
+        }
       })()
     }
     if (page === 'archives' && !archivesData) {
@@ -854,12 +978,26 @@ export default function MenuDrawer({
       location_state: courseData.location_state ?? null,
       location_lat: courseData.location_lat ?? null,
       location_lon: courseData.location_lon ?? null,
+      par_total: courseData.par_total ?? null,
+      number_of_holes: courseData.number_of_holes ?? null,
     }).eq('id', editRound.id)
     setSavingCourse(false)
     if (!error) {
       setEditRound(null)
-      setCoursesData(null) // force reload of the courses page
+      setCoursesData(null)       // reload the courses page
+      if (onRoundsChanged) onRoundsChanged() // update every other widget instantly
     }
+  }
+
+  async function changeRoundType(roundId, type) {
+    const { error } = await supabase.from('rounds').update({ round_type: type }).eq('id', roundId)
+    if (error) return
+    // Update the badge locally and refresh the home tee-times widget.
+    setCoursesData(prev => prev ? {
+      ...prev,
+      groups: prev.groups.map(([d, rs]) => [d, rs.map(r => r.id === roundId ? { ...r, round_type: type } : r)]),
+    } : prev)
+    if (onRoundsChanged) onRoundsChanged()
   }
 
   return (
@@ -914,7 +1052,7 @@ export default function MenuDrawer({
       )}
       {page === 'courses' && (
         <SecondaryPage context={tripName} title="Courses" onBack={backToDrawer}>
-          <CoursesPage data={coursesData} isCommissioner={isCommissioner} onEditCourse={setEditRound} allowance={handicapAllowance} />
+          <CoursesPage data={coursesData} isCommissioner={isCommissioner} onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds} onRoundTypeChange={changeRoundType} />
         </SecondaryPage>
       )}
       {page === 'flights' && (

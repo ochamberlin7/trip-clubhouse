@@ -21,6 +21,18 @@ function scoreClass(gross, par) {
   return 'triple'
 }
 function firstName(name) { return (name || '').trim().split(/\s+/)[0] || '—' }
+
+// Word-aware round pill name: drop generic suffixes, then fit ~12 chars or
+// take the first two meaningful words.
+function formatRoundPillName(clubName) {
+  if (!clubName) return '—'
+  const stripped = clubName
+    .replace(/\b(Golf Club|Golf Course|Country Club|CC|GC|Golf)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (stripped.length <= 12) return stripped
+  return stripped.split(' ').filter(Boolean).slice(0, 2).join(' ')
+}
 function initialsOf(p) {
   return `${(p?.first_name || '')[0] || ''}${(p?.last_name || '')[0] || ''}`.toUpperCase()
     || (p?.name || '?').trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -40,19 +52,24 @@ function Chevron({ dir }) {
   )
 }
 
-export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner }) {
+export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, initialRoundId, initialPairingNum, onConnStatus }) {
   const [pairings, setPairings] = useState([])
   const [pairingPlayers, setPairingPlayers] = useState([]) // {id, pairing_id, trip_player_id, team_slot}
   const [playersById, setPlayersById] = useState({})
   const [teams, setTeams] = useState([])
   const [scores, setScores] = useState({}) // `${roundId}:${tpId}:${hole}` -> gross
   const [drinks, setDrinks] = useState({}) // `${roundId}:${tpId}:${hole}` -> count
-  const [activeRoundId, setActiveRoundId] = useState(rounds[0]?.id ?? null)
-  const [activePairingNum, setActivePairingNum] = useState(1)
+  // Open the active round/pairing when provided (auto-detected), else the first round.
+  const [activeRoundId, setActiveRoundId] = useState(initialRoundId ?? rounds[0]?.id ?? null)
+  const [activePairingNum, setActivePairingNum] = useState(initialPairingNum ?? 1)
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
   const [openSlot, setOpenSlot] = useState(null) // commissioner header dropdown
   const [assignError, setAssignError] = useState(null)
+  const [connStatus, setConnStatus] = useState('connecting') // connecting | connected | disconnected
+  const [reconnectTick, setReconnectTick] = useState(0)
+  const reconnectTimer = useRef(null)
+  const channelRef = useRef(null)
   const headerRef = useRef(null)
 
   const roundIds = useMemo(() => rounds.map(r => r.id), [rounds])
@@ -108,31 +125,65 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     return () => { cancelled = true }
   }, [trip.id, roundIds])
 
-  // Realtime: scores, drinks, pairing assignments.
+  // Realtime for the active round. INSERT/UPDATE come via postgres_changes;
+  // DELETE syncs via Broadcast (postgres_changes DELETE is unreliable because
+  // its server-side filter matches the absent new_record).
   useEffect(() => {
     if (!activeRoundId) return
+    const filter = `round_id=eq.${activeRoundId}`
+
+    // INSERT/UPDATE: write the new value (UPDATE to null clears the cell).
+    function applyScore(p) {
+      const key = `${p.new.round_id}:${p.new.trip_player_id}:${p.new.hole_number}`
+      setScores(prev => {
+        if (p.new.gross_score == null) {
+          if (!(key in prev)) return prev
+          const n = { ...prev }; delete n[key]; return n
+        }
+        if (prev[key] === p.new.gross_score) return prev // dedup — no flicker
+        return { ...prev, [key]: p.new.gross_score }
+      })
+    }
+    function applyDrink(p) {
+      const key = `${p.new.round_id}:${p.new.trip_player_id}:${p.new.hole_number}`
+      setDrinks(prev => {
+        if (!(p.new.count > 0)) {
+          if (!(key in prev)) return prev
+          const n = { ...prev }; delete n[key]; return n
+        }
+        if (prev[key] === p.new.count) return prev
+        return { ...prev, [key]: p.new.count }
+      })
+    }
+    function onStatus(status) {
+      if (status === 'SUBSCRIBED') setConnStatus('connected')
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        setConnStatus('disconnected')
+        if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+        reconnectTimer.current = setTimeout(() => setReconnectTick(t => t + 1), 3000)
+      }
+    }
+
     const ch = supabase.channel(`scoring:${activeRoundId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'scores', filter: `round_id=eq.${activeRoundId}` }, p => {
-        setScores(prev => {
-          const n = { ...prev }
-          if (p.eventType === 'DELETE') delete n[`${p.old.round_id}:${p.old.trip_player_id}:${p.old.hole_number}`]
-          else if (p.new.gross_score != null) n[`${p.new.round_id}:${p.new.trip_player_id}:${p.new.hole_number}`] = p.new.gross_score
-          return n
-        })
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'drinks', filter: `round_id=eq.${activeRoundId}` }, p => {
-        setDrinks(prev => {
-          const n = { ...prev }
-          const key = `${(p.new || p.old).round_id}:${(p.new || p.old).trip_player_id}:${(p.new || p.old).hole_number}`
-          if (p.eventType === 'DELETE' || !(p.new?.count > 0)) delete n[key]
-          else n[key] = p.new.count
-          return n
-        })
-      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'scores', filter }, applyScore)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scores', filter }, applyScore)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'drinks', filter }, applyDrink)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drinks', filter }, applyDrink)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => { loadPairings() })
-      .subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [activeRoundId])
+      .on('broadcast', { event: 'score_deleted' }, ({ payload }) => {
+        const key = `${payload.round_id}:${payload.trip_player_id}:${payload.hole_number}`
+        setScores(prev => { const n = { ...prev }; delete n[key]; return n })
+        setDrinks(prev => { const n = { ...prev }; delete n[key]; return n })
+      })
+      .subscribe(onStatus)
+    channelRef.current = ch
+
+    return () => {
+      channelRef.current = null
+      supabase.removeChannel(ch)
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+    }
+  }, [activeRoundId, reconnectTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ESC closes modal/dropdown; outside-click closes dropdown.
   useEffect(() => {
@@ -143,7 +194,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onClick) }
   }, [])
 
-  useEffect(() => { setActivePairingNum(1); setOpenSlot(null) }, [activeRoundId])
+  // Pairing reset on round change is handled in the pill onClick, so the
+  // auto-selected pairing isn't clobbered on mount.
+  useEffect(() => { setOpenSlot(null) }, [activeRoundId])
+
+  // Report realtime status up so the page header can show the live dot.
+  useEffect(() => { onConnStatus?.(connStatus) }, [connStatus, onConnStatus])
 
   if (loading) return <div className="empty-state">Loading scorecard…</div>
   if (rounds.length === 0) return <div className="empty-state"><span className="empty-state-icon">📊</span>No rounds to score yet.</div>
@@ -325,8 +381,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       {/* Round pills */}
       <div className="pill-row">
         {rounds.map(r => (
-          <button key={r.id} className={`pill-btn ${round.id === r.id ? 'active' : ''}`} onClick={() => setActiveRoundId(r.id)}>
-            {(r.club_name || r.course_name || 'Round').slice(0, 10)}
+          <button key={r.id} className={`pill-btn ${round.id === r.id ? 'active' : ''}`} onClick={() => { setActiveRoundId(r.id); setActivePairingNum(1); setOpenSlot(null) }}>
+            <span className="round-pill-name">{formatRoundPillName(r.club_name || r.course_name)}</span>
+            {r.round_type === 'practice' && <span className="round-practice-badge">P</span>}
           </button>
         ))}
       </div>
@@ -403,6 +460,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           onRemoved={(hole, tpId) => {
             setScores(prev => { const n = { ...prev }; delete n[`${round.id}:${tpId}:${hole}`]; return n })
             setDrinks(prev => { const n = { ...prev }; delete n[`${round.id}:${tpId}:${hole}`]; return n })
+            channelRef.current?.send({
+              type: 'broadcast',
+              event: 'score_deleted',
+              payload: { round_id: round.id, trip_player_id: tpId, hole_number: hole },
+            })
             setModal(null)
           }}
         />
@@ -417,13 +479,15 @@ function ScoreModal({ modal, round, player, par, si, courseHcp, canSave, existin
   const [score, setScore] = useState(existingScore ?? par ?? 4)
   const [drinkCount, setDrinkCount] = useState(existingDrinks ?? 0)
   const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
   const netPar = par != null ? par - strokesOnHole(courseHcp, si) : null
 
   async function save() {
-    setBusy(true)
-    await supabase.from('scores').upsert(
+    setBusy(true); setErr(null)
+    const { error } = await supabase.from('scores').upsert(
       { round_id: round.id, trip_player_id: tpId, hole_number: hole, gross_score: score },
       { onConflict: 'round_id,trip_player_id,hole_number' })
+    if (error) { setBusy(false); setErr(error.message); return }
     if (drinkCount > 0) {
       await supabase.from('drinks').upsert(
         { round_id: round.id, trip_player_id: tpId, hole_number: hole, count: drinkCount },
@@ -435,11 +499,28 @@ function ScoreModal({ modal, round, player, par, si, courseHcp, canSave, existin
     onSaved(hole, tpId, score, drinkCount)
   }
   async function remove() {
-    setBusy(true)
-    await supabase.from('scores').delete().eq('round_id', round.id).eq('trip_player_id', tpId).eq('hole_number', hole)
+    setBusy(true); setErr(null)
+    // .select() returns the deleted rows, so we can confirm the DB actually
+    // removed something (RLS blocks silently with a 204 / 0 rows).
+    const { data, error } = await supabase.from('scores').delete()
+      .eq('round_id', round.id).eq('trip_player_id', tpId).eq('hole_number', hole)
+      .select()
+    if (error) {
+      setBusy(false); setErr(error.message)
+      // eslint-disable-next-line no-console
+      console.error('Score delete failed:', error)
+      return
+    }
+    if (!data || data.length === 0) {
+      setBusy(false)
+      setErr('Delete blocked — you may not have permission (check RLS).')
+      // eslint-disable-next-line no-console
+      console.warn('Score delete: 0 rows affected — check RLS')
+      return
+    }
     await supabase.from('drinks').delete().eq('round_id', round.id).eq('trip_player_id', tpId).eq('hole_number', hole)
     setBusy(false)
-    onRemoved(hole, tpId)
+    onRemoved(hole, tpId) // confirmed deleted — update shared state
   }
 
   const m = {
@@ -493,6 +574,7 @@ function ScoreModal({ modal, round, player, par, si, courseHcp, canSave, existin
           </div>
         </div>
 
+        {err && <div style={{ color: '#C0392B', fontSize: 12, textAlign: 'center', marginTop: 8 }}>Couldn’t save: {err}</div>}
         {canSave
           ? <button style={m.save} onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
           : <div style={m.disabled}>You're not in this pairing</div>}

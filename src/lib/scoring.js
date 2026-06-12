@@ -9,6 +9,50 @@
 //   teams         : id, trip_id, name, color
 //   profiles      : id, display_name
 
+// Practice rounds never count toward tournament aggregations.
+export function isTournamentRound(round) {
+  return !round.round_type || round.round_type === 'tournament'
+}
+
+// Parse a display tee time ("7:45 AM") into minutes from midnight; null → 0.
+export function parseTeeTimeToMinutes(str) {
+  if (!str) return 0
+  const m = String(str).match(/(\d+):(\d+)\s*(AM|PM)/i)
+  if (!m) return 0
+  let h = Number(m[1]); const min = Number(m[2]); const ap = m[3].toUpperCase()
+  if (ap === 'PM' && h !== 12) h += 12
+  if (ap === 'AM' && h === 12) h = 0
+  return h * 60 + min
+}
+
+// A round is complete when every player assigned to a pairing for it has all
+// 18 holes scored. `assignedByRound`: roundId -> Set(trip_player_id);
+// `holesByRoundPlayer`: `${roundId}:${tpId}` -> Set(hole).
+export function isRoundComplete(roundId, assignedByRound, holesByRoundPlayer) {
+  const assigned = assignedByRound[roundId]
+  if (!assigned || assigned.size === 0) return false
+  for (const tp of assigned) {
+    const holes = holesByRoundPlayer[`${roundId}:${tp}`]
+    if (!holes || holes.size < 18) return false
+  }
+  return true
+}
+
+// The round currently being played today: started (within 30 min of tee_time_1)
+// and not yet complete. If several are active, prefer the most recently started.
+export function getActiveRound(rounds, ctx) {
+  const now = new Date()
+  const todayISO = now.toISOString().split('T')[0]
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  let best = null
+  for (const r of rounds.filter(r => r.date === todayISO)) {
+    if (isRoundComplete(r.id, ctx.assignedByRound, ctx.holesByRoundPlayer)) continue
+    const tee = parseTeeTimeToMinutes(r.tee_time_1)
+    if (nowMinutes >= tee - 30 && (!best || tee > best.tee)) best = { round: r, tee }
+  }
+  return best?.round || null
+}
+
 // Raw course handicap: handicap_index * (slope / 113), rounded.
 export function courseHandicap(handicapIndex, slopeRating) {
   const hi = Number(handicapIndex) || 0
@@ -161,8 +205,9 @@ export function analyzeScoring(
   const pointsByPlayer = new Map()
   const vsParByPlayer = new Map()
 
+  // Practice rounds save scores but never count in points/standings/best-net.
   const toProcess = rounds.filter(
-    r => completeRoundIds.has(r.id) && (!includeRoundIds || includeRoundIds.has(r.id))
+    r => completeRoundIds.has(r.id) && isTournamentRound(r) && (!includeRoundIds || includeRoundIds.has(r.id))
   )
 
   for (const r of toProcess) {

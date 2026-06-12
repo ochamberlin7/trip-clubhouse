@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { analyzeScoring, playerName, initialsOf, formatVsPar } from '../lib/scoring'
+import { analyzeScoring, playerName, initialsOf, formatVsPar, isTournamentRound } from '../lib/scoring'
 
 // Daily MVPs — shows "Most Points" and "Best Net" once a round today is complete.
 
@@ -74,7 +74,7 @@ export default function DailyMVPCard({ tripId, today }) {
       const todayRoundIds = new Set(roundIds)
       const { completeRoundIds, pointsByPlayer, vsParByPlayer } = analyzeScoring(data, todayRoundIds)
 
-      const completeToday = todaysRounds.filter(r => completeRoundIds.has(r.id))
+      const completeToday = todaysRounds.filter(r => completeRoundIds.has(r.id) && isTournamentRound(r))
 
       if (cancelled) return
 

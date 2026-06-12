@@ -38,7 +38,6 @@ const s = {
   teeMeta: { fontSize: '10px', opacity: 0.85, marginTop: '2px' },
   confirm: { width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: '#1B3F6E', color: '#fff', fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   loadingCard: { padding: '14px', fontSize: '13px', color: '#7A8FA6', textAlign: 'center' },
-  confirmedCard: { background: '#E8EDF3', borderRadius: '8px', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' },
 }
 
 function courseLocation(course) {
@@ -60,7 +59,6 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   const [femaleTees, setFemaleTees] = useState([])
   const [selectedTee, setSelectedTee] = useState(null)
   const [loadingCourse, setLoadingCourse] = useState(false)
-  const [confirmed, setConfirmed] = useState(null) // { name, tee } after adding
   const [rect, setRect] = useState(null)
   const wrapRef = useRef(null)
   const dropRef = useRef(null)
@@ -68,7 +66,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
 
   // Debounced search.
   useEffect(() => {
-    if (course || confirmed) return
+    if (course) return
     if (!typedRef.current) return // skip the initial mount / prefilled value
     const q = query.trim()
     if (q.length < 2) { setResults([]); setOpen(false); return }
@@ -86,7 +84,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
       }
     }, 300)
     return () => clearTimeout(t)
-  }, [query, course, confirmed])
+  }, [query, course])
 
   // Track the input position so the portaled dropdown sits right under it.
   useEffect(() => {
@@ -144,13 +142,12 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
     setResults([])
   }
 
+  // Hand the full selection to the parent and let it decide what happens next
+  // (e.g. the edit flow saves and closes the modal). No internal confirmation UI.
   function confirm() {
-    // eslint-disable-next-line no-console
-    console.log('[CourseSearchInput] Add clicked. selectedTee:', selectedTee,
-      'holes:', selectedTee?.holes?.length)
     if (!selectedTee) return
     const loc = course.location || {}
-    const payload = {
+    onCourseSelected({
       golfcourse_id: course.id,
       club_name: course.club_name,
       course_name: course.course_name,
@@ -163,21 +160,10 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
       course_rating: selectedTee.course_rating,
       slope_rating: selectedTee.slope_rating,
       par_total: selectedTee.par_total,
+      number_of_holes: selectedTee.number_of_holes || 18,
       holes: selectedTee.holes,
-    }
-    onCourseSelected(payload)
-    setConfirmed({ name: course.club_name, tee: selectedTee.tee_name })
+    })
     setOpen(false)
-  }
-
-  function changeCourse() {
-    setConfirmed(null)
-    setCourse(null)
-    setMaleTees([])
-    setFemaleTees([])
-    setSelectedTee(null)
-    setQuery('')
-    setResults([])
   }
 
   function TeeSection({ title, tees, topMargin }) {
@@ -204,21 +190,6 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
             )
           })}
         </div>
-      </div>
-    )
-  }
-
-  // ── Confirmed state (feedback that the course was added) ──
-  if (confirmed) {
-    return (
-      <div style={s.confirmedCard}>
-        <div>
-          <div style={s.selName}>✓ {confirmed.name}</div>
-          <div style={s.selSub}>{confirmed.tee} tees added</div>
-        </div>
-        <button style={{ ...s.clearBtn, fontSize: '12px', fontWeight: 700, color: '#1B3F6E' }} onClick={changeCourse}>
-          Change
-        </button>
       </div>
     )
   }

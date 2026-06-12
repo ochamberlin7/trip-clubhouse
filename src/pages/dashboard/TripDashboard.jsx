@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
+import { getActiveRound } from '../../lib/scoring'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
@@ -105,33 +106,32 @@ function roundLocationLabel(r) {
 }
 
 // eslint-disable-next-line no-unused-vars -- tripStartDate/tripEndDate kept in the interface
-function WeatherWidget({ tripId, tripStartDate, tripEndDate }) {
+// `rounds` comes from shared dashboard state; the effect re-runs (and re-fetches
+// weather) whenever rounds change — e.g. after a commissioner edits a course.
+function WeatherWidget({ rounds = [], tripName }) {
   const [wx, setWx] = useState(null)
   const [status, setStatus] = useState('loading') // 'loading' | 'ok' | 'error'
   const [locationLabel, setLocationLabel] = useState('Weather')
+
+  // Stable dependency: only the locations that affect which weather we show.
+  const locationKey = rounds.map(r => `${r.date}|${r.location_lat}|${r.location_lon}|${r.location_city}|${r.location_state}|${r.club_name}`).join(';')
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       setStatus('loading')
       try {
-        // Pull this trip's rounds + name to pick the relevant location.
-        const [roundsRes, tripRes] = await Promise.all([
-          supabase.from('rounds').select('id, date, club_name, location_city, location_state, location_lat, location_lon').eq('trip_id', tripId),
-          supabase.from('trips').select('name').eq('id', tripId).maybeSingle(),
-        ])
-        const tripName = tripRes.data?.name || 'Trip'
-        const dated = (roundsRes.data || []).filter(r => r.date).sort((a, b) => a.date.localeCompare(b.date))
+        const dated = rounds.filter(r => r.date).slice().sort((a, b) => a.date.localeCompare(b.date))
 
         // Next upcoming round (earliest date >= today), else the last round.
         const today = todayIsoLocal()
         const selected = dated.find(r => r.date >= today) || dated[dated.length - 1] || null
 
-        if (!selected) { if (!cancelled) { setLocationLabel(tripName); setStatus('error') } return }
+        if (!selected) { if (!cancelled) { setLocationLabel(tripName || 'Weather'); setStatus('error') } return }
 
         let lat = selected.location_lat
         let lon = selected.location_lon
-        let label = roundLocationLabel(selected) || tripName
+        let label = roundLocationLabel(selected) || tripName || 'Weather'
 
         // No stored coords → geocode from city + state.
         if (lat == null || lon == null) {
@@ -175,7 +175,7 @@ function WeatherWidget({ tripId, tripStartDate, tripEndDate }) {
     }
     load()
     return () => { cancelled = true }
-  }, [tripId])
+  }, [locationKey, tripName]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Always render the card shell — never return null.
   const header = (
@@ -270,18 +270,14 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onPurseUpd
 
       {/* Today's / next tee times — single day only */}
       <TeeTimesWidget
-        tripId={trip.id}
+        rounds={rounds}
         tripStartDate={trip.start_date}
         tripEndDate={trip.end_date}
         today={new Date()}
       />
 
       {/* Weather */}
-      <WeatherWidget
-        tripId={trip.id}
-        tripStartDate={trip.start_date}
-        tripEndDate={trip.end_date}
-      />
+      <WeatherWidget rounds={rounds} tripName={trip.name} />
 
       {/* Chat */}
       <ChatWidget
@@ -635,6 +631,9 @@ export default function TripDashboard() {
   const [players, setPlayers] = useState([])
   const [teams, setTeams] = useState([])
   const [isCommissioner, setIsCommissioner] = useState(false)
+  const [scoringInit, setScoringInit] = useState(null) // { roundId, pairingNum } — active round to auto-open
+  const [scoreConnStatus, setScoreConnStatus] = useState('connecting') // realtime status from ScoringTab
+  const autoNavedRef = React.useRef(false)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(null)
 
@@ -693,13 +692,17 @@ export default function TripDashboard() {
         if (profileRows) profileRows.forEach(pr => { profileMap[pr.id] = pr.display_name })
       }
 
-      setRounds(roundsRes.data || [])
+      const roundList = roundsRes.data || []
+      setRounds(roundList)
       setPlayers(rawPlayers.map(p => ({
         ...p,
         displayName: p.guest_name ?? profileMap[p.user_id] ?? '(unknown)',
         isGuest: !!p.guest_name,
       })))
       setTeams(teamsRes.data || [])
+
+      // Determine the round being played right now → auto-open Score on load.
+      await computeActiveScoring(roundList, rawPlayers)
     } catch (err) {
       setFetchError(err?.message || String(err))
     } finally {
@@ -707,10 +710,58 @@ export default function TripDashboard() {
     }
   }
 
+  // Build the maps getActiveRound needs, find the active round + the user's
+  // pairing, and (once) auto-navigate to the Score tab.
+  async function computeActiveScoring(roundList, rawPlayers) {
+    const roundIds = roundList.map(r => r.id)
+    if (roundIds.length === 0) return
+    const [pairRes, scoreRes] = await Promise.all([
+      supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', roundIds),
+      supabase.from('scores').select('round_id, trip_player_id, hole_number').in('round_id', roundIds),
+    ])
+    const pairings = pairRes.data || []
+    const pairIds = pairings.map(p => p.id)
+    let pp = []
+    if (pairIds.length) {
+      const r = await supabase.from('pairing_players').select('pairing_id, trip_player_id, team_slot').in('pairing_id', pairIds)
+      pp = r.data || []
+    }
+    const roundOfPairing = {}; pairings.forEach(p => { roundOfPairing[p.id] = p.round_id })
+    const assignedByRound = {}
+    pp.forEach(x => { const rid = roundOfPairing[x.pairing_id]; if (rid) (assignedByRound[rid] ??= new Set()).add(x.trip_player_id) })
+    const holesByRoundPlayer = {}
+    ;(scoreRes.data || []).forEach(sc => {
+      const k = `${sc.round_id}:${sc.trip_player_id}`
+      ;(holesByRoundPlayer[k] ??= new Set()).add(sc.hole_number)
+    })
+
+    const active = getActiveRound(roundList, { assignedByRound, holesByRoundPlayer })
+    if (!active) { setScoringInit(null); return }
+
+    // The user's pairing for the active round.
+    const myTp = rawPlayers.find(p => p.user_id === user?.id)?.id
+    let pairingNum = 1
+    if (myTp) {
+      const myPairingId = pp.find(x => x.trip_player_id === myTp && roundOfPairing[x.pairing_id] === active.id)?.pairing_id
+      const num = pairings.find(p => p.id === myPairingId)?.pairing_number
+      if (num) pairingNum = num
+    }
+    setScoringInit({ roundId: active.id, pairingNum })
+    if (!autoNavedRef.current) { autoNavedRef.current = true; setActiveTab('scores') }
+  }
+
   async function refetchTrip() {
     if (!trip?.id) return
     const { data } = await supabase.from('trips').select('*').eq('id', trip.id).maybeSingle()
     if (data) setTrip(data)
+  }
+
+  // Re-fetch rounds into shared state so every consumer (tee times, weather,
+  // scoring, courses) updates instantly after a course change.
+  async function refreshRounds() {
+    if (!trip?.id) return
+    const { data } = await supabase.from('rounds').select('*').eq('trip_id', trip.id).order('round_number')
+    if (data) setRounds(data)
   }
 
   async function handleSignOut() {
@@ -770,7 +821,18 @@ export default function TripDashboard() {
       )}
       {hdr && (
         <div className="page-header">
-          <h1>{hdr.eyebrow}</h1>
+          <h1>
+            {hdr.eyebrow}
+            {activeTab === 'scores' && (
+              <span
+                title={scoreConnStatus === 'connected' ? 'Live' : scoreConnStatus === 'disconnected' ? 'Reconnecting…' : 'Connecting…'}
+                style={{
+                  display: 'inline-block', width: 7, height: 7, borderRadius: '50%', marginLeft: 4, verticalAlign: 'super',
+                  background: scoreConnStatus === 'connected' ? '#2E7D32' : scoreConnStatus === 'disconnected' ? '#C0392B' : '#DDE3EA',
+                }}
+              />
+            )}
+          </h1>
           <h2>{hdr.title}</h2>
           {hdr.sub && <p>{hdr.sub}</p>}
         </div>
@@ -787,7 +849,7 @@ export default function TripDashboard() {
       {/* ── Tab content ── */}
       <div className="dashboard-content">
         {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={isCommissioner} onPurseUpdate={refetchTrip} />}
-        {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} />}
+        {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={isCommissioner} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
       </div>
@@ -807,6 +869,7 @@ export default function TripDashboard() {
         currentUserId={user?.id}
         handicapAllowance={trip.handicap_allowance ?? 100}
         onTripUpdate={refetchTrip}
+        onRoundsChanged={refreshRounds}
         onSignOut={handleSignOut}
       />
     </div>
