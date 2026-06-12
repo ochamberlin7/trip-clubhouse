@@ -206,7 +206,7 @@ function PencilIcon() {
   )
 }
 
-function PlayerCard({ player, teams, isCommissioner, editing, onStartEdit, onCloseEdit, onSaved }) {
+function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onStartEdit, onCloseEdit, onSaved }) {
   const [form, setForm] = useState({
     first_name: player.first_name || '', last_name: player.last_name || '',
     email: player.email || '',
@@ -252,6 +252,7 @@ function PlayerCard({ player, teams, isCommissioner, editing, onStartEdit, onClo
             <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>
           )}
         </div>
+        {commissioner && <span style={pc.badge}>Commissioner</span>}
         {isCommissioner && !editing && (
           <button style={pc.pencil} onClick={onStartEdit} aria-label="Edit player"><PencilIcon /></button>
         )}
@@ -335,28 +336,55 @@ function InviteSection({ inviteToken }) {
   )
 }
 
+// Intentional section break between the pinned commissioner and the roster:
+// a hairline rule with a small folded-corner marker and label, in the navy palette.
+const pd = {
+  wrap: { display: 'flex', alignItems: 'center', gap: 10, margin: '4px 2px 14px' },
+  line: { flex: 1, height: 1, background: '#DDE3EA' },
+  marker: { width: 8, height: 8, background: '#1B3F6E', borderTopRightRadius: 2, transform: 'rotate(45deg)', flexShrink: 0 },
+  label: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.2px', color: '#7A8FA6', flexShrink: 0 },
+}
+
+function RosterDivider() {
+  return (
+    <div style={pd.wrap}>
+      <span style={pd.line} />
+      <span style={pd.marker} />
+      <span style={pd.label}>Players</span>
+      <span style={pd.line} />
+    </div>
+  )
+}
+
 function PlayersPage({ data, isCommissioner, inviteToken, onReload }) {
   const [editingId, setEditingId] = useState(null)
   if (!data) return <div style={s.muted}>Loading…</div>
   const { players, teams } = data
 
-  // Flat list, sorted by last name (data already ordered, but be safe).
-  const sorted = [...players].sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''))
+  // One commissioner pinned to the top; everyone else sorted alphabetically by first name.
+  const byFirstName = (a, b) => (a.first_name || a.name || '').localeCompare(b.first_name || b.name || '')
+  const commissioner = players.find(p => p.is_commissioner)
+  const rest = players.filter(p => p !== commissioner).sort(byFirstName)
+
+  const renderCard = p => (
+    <PlayerCard
+      key={p.id}
+      player={p}
+      teams={teams}
+      isCommissioner={isCommissioner}
+      commissioner={p.is_commissioner}
+      editing={editingId === p.id}
+      onStartEdit={() => setEditingId(p.id)}        // only one open at a time
+      onCloseEdit={() => setEditingId(null)}
+      onSaved={() => { setEditingId(null); onReload() }}
+    />
+  )
 
   return (
     <>
-      {sorted.map(p => (
-        <PlayerCard
-          key={p.id}
-          player={p}
-          teams={teams}
-          isCommissioner={isCommissioner}
-          editing={editingId === p.id}
-          onStartEdit={() => setEditingId(p.id)}        // only one open at a time
-          onCloseEdit={() => setEditingId(null)}
-          onSaved={() => { setEditingId(null); onReload() }}
-        />
-      ))}
+      {commissioner && renderCard(commissioner)}
+      {commissioner && rest.length > 0 && <RosterDivider />}
+      {rest.map(renderCard)}
       <InviteSection inviteToken={inviteToken} />
     </>
   )
@@ -890,15 +918,19 @@ export default function MenuDrawer({
     let cancelled = false
     if (page === 'players' && !playersData) {
       (async () => {
-        const [tpRes, teamsRes] = await Promise.all([
+        const [tpRes, teamsRes, adminRes] = await Promise.all([
           supabase.from('trip_players')
-            .select('id, user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed')
+            .select('id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed')
             .eq('trip_id', tripId).order('last_name'),
           supabase.from('teams').select('id, name').eq('trip_id', tripId).order('name'),
+          supabase.from('group_members').select('user_id').eq('group_id', groupId).eq('role', 'admin'),
         ])
+        // The commissioner is the group admin; flag whichever player record they own/claimed.
+        const adminIds = new Set((adminRes.data || []).map(m => m.user_id))
         const tps = (tpRes.data || []).map(tp => ({
           ...tp,
           name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || 'Unnamed Player',
+          is_commissioner: adminIds.has(tp.user_id) || adminIds.has(tp.claimed_user_id),
         }))
         if (!cancelled) setPlayersData({ players: tps, teams: teamsRes.data || [] })
       })()
