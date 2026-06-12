@@ -48,7 +48,9 @@ function courseLocation(course) {
 }
 
 export default function CourseSearchInput({ onCourseSelected, onQueryChange, placeholder = 'Search for a course...', initialValue = '' }) {
-  const [query, setQuery] = useState(initialValue)
+  // initialValue indicates the currently-selected course but never pre-fills
+  // the input — the field always starts empty.
+  const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -62,10 +64,12 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   const [rect, setRect] = useState(null)
   const wrapRef = useRef(null)
   const dropRef = useRef(null)
+  const typedRef = useRef(false) // only search after the user actively types
 
   // Debounced search.
   useEffect(() => {
     if (course || confirmed) return
+    if (!typedRef.current) return // skip the initial mount / prefilled value
     const q = query.trim()
     if (q.length < 2) { setResults([]); setOpen(false); return }
     setLoading(true); setError(null)
@@ -145,11 +149,16 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
     console.log('[CourseSearchInput] Add clicked. selectedTee:', selectedTee,
       'holes:', selectedTee?.holes?.length)
     if (!selectedTee) return
+    const loc = course.location || {}
     const payload = {
       golfcourse_id: course.id,
       club_name: course.club_name,
       course_name: course.course_name,
       location: courseLocation(course),
+      location_city: loc.city ?? null,
+      location_state: loc.state ?? null,
+      location_lat: loc.latitude ?? null,
+      location_lon: loc.longitude ?? null,
       tee_name: selectedTee.tee_name,
       course_rating: selectedTee.course_rating,
       slope_rating: selectedTee.slope_rating,
@@ -280,9 +289,9 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
       <input
         type="text"
         style={s.input}
-        placeholder={placeholder}
+        placeholder={placeholder || 'Search for a course...'}
         value={query}
-        onChange={e => { setQuery(e.target.value); onQueryChange?.(e.target.value) }}
+        onChange={e => { typedRef.current = true; setQuery(e.target.value); onQueryChange?.(e.target.value) }}
         onFocus={() => { if (results.length) setOpen(true) }}
       />
       {loadingCourse && <div style={s.loadingCard}>Loading course…</div>}

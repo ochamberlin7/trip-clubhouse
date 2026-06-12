@@ -1,22 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { strokesOnHole, computePlayingHandicaps } from '../lib/scoring'
 
 // Live interactive scorecard — better-ball match play with drink tracking.
 // Scores/drinks keyed by trip_player_id. Pairings use team_slot 1..4
-// (1=T1P1, 2=T1P2, 3=T2P1, 4=T2P2).
+// (1=T1P1, 2=T1P2, 3=T2P1, 4=T2P2). Strokes use low-ball playing handicaps
+// (course handicap minus the pairing's lowest, times the trip's allowance %).
 
 const SLOT_TEAM = { 1: 0, 2: 0, 3: 1, 4: 1 } // slot -> team index
 
 // ── scoring math ──────────────────────────────────────────────────
-function courseHandicap(handicapIndex, slopeRating) {
-  const hi = Number(handicapIndex) || 0
-  const slope = Number(slopeRating) || 113
-  return Math.round(hi * (slope / 113))
-}
-function strokesOnHole(courseHcp, strokeIndex) {
-  if (strokeIndex == null) return 0
-  return (courseHcp >= strokeIndex ? 1 : 0) + (courseHcp >= 18 + strokeIndex ? 1 : 0)
-}
 function scoreClass(gross, par) {
   if (gross == null) return 'empty'
   if (par == null) return 'par'
@@ -175,12 +168,17 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const slotPlayers = [1, 2, 3, 4].map(s => slotMap[s] ? playersById[slotMap[s]] : null)
   const allFilled = [1, 2, 3, 4].every(s => slotMap[s])
 
-  const chOf = tpId => courseHandicap(playersById[tpId]?.handicap_index, round.slope_rating)
+  // Low-ball playing handicaps for the players currently in this pairing.
+  const allowance = trip.handicap_allowance ?? 100
+  const filledPlayers = [1, 2, 3, 4].map(s => slotMap[s]).filter(Boolean).map(id => ({ id, handicap_index: playersById[id]?.handicap_index }))
+  const playingByTp = computePlayingHandicaps(filledPlayers, round.slope_rating, allowance)
+  const phOf = tpId => playingByTp.get(tpId) ?? 0
+
   const getScore = (tpId, hole) => scores[`${round.id}:${tpId}:${hole}`] ?? null
   const getDrinks = (tpId, hole) => drinks[`${round.id}:${tpId}:${hole}`] ?? 0
   const netOf = (tpId, hole) => {
     const g = getScore(tpId, hole); if (g == null) return null
-    return g - strokesOnHole(chOf(tpId), holes?.[hole - 1]?.handicap)
+    return g - strokesOnHole(phOf(tpId), holes?.[hole - 1]?.handicap)
   }
 
   function holeResult(hole) {
@@ -196,7 +194,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   function strokesShown(hole) {
     if (!allFilled) return new Set()
     const si = holes?.[hole - 1]?.handicap
-    const strokers = [1, 2, 3, 4].map(s => slotMap[s]).filter(tp => strokesOnHole(chOf(tp), si) >= 1)
+    const strokers = [1, 2, 3, 4].map(s => slotMap[s]).filter(tp => strokesOnHole(phOf(tp), si) >= 1)
     if (strokers.length === 4) return new Set()
     return new Set(strokers)
   }
@@ -281,14 +279,18 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const gross = getScore(tpId, hole)
     const par = holes?.[hole - 1]?.par
     const cls = scoreClass(gross, par)
-    const st = strokesOnHole(chOf(tpId), holes?.[hole - 1]?.handicap)
+    const st = strokesOnHole(phOf(tpId), holes?.[hole - 1]?.handicap)
     const showDot = shownSet.has(tpId) && st >= 1
     const dc = getDrinks(tpId, hole)
     return (
       <span className="sc-score-wrap">
         <button className={`sc-score ${cls}`} onClick={() => openModal(slot, hole)}>
           {gross == null ? '+' : gross}
-          {showDot && <span className={`stroke-dot ${st >= 2 ? 'two' : ''}`} />}
+          {showDot && (
+            <span className="stroke-dots">
+              {Array.from({ length: st }).map((_, i) => <span key={i} className="stroke-dot" />)}
+            </span>
+          )}
           {dc > 0 && <span className="drink-badge">🍺{dc}</span>}
         </button>
       </span>
@@ -390,7 +392,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         <ScoreModal
           modal={modal} round={round} player={playersById[modal.tpId]}
           par={holes?.[modal.hole - 1]?.par} si={holes?.[modal.hole - 1]?.handicap}
-          courseHcp={chOf(modal.tpId)} canSave={isInPairing}
+          courseHcp={phOf(modal.tpId)} canSave={isInPairing}
           existingScore={getScore(modal.tpId, modal.hole)} existingDrinks={getDrinks(modal.tpId, modal.hole)}
           onClose={() => setModal(null)}
           onSaved={(hole, tpId, score, drinkCount) => {

@@ -557,6 +557,10 @@ export default function TripWizard() {
               course_rating: c?.course_rating ?? null,
               slope_rating: c?.slope_rating ?? null,
               holes: c?.holes ?? null,
+              location_city: c?.location_city ?? null,
+              location_state: c?.location_state ?? null,
+              location_lat: c?.location_lat ?? null,
+              location_lon: c?.location_lon ?? null,
               date: day.date,
               status: 'upcoming',
             })

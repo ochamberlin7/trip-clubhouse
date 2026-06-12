@@ -93,47 +93,64 @@ function WeatherIcon() {
   )
 }
 
-// Strip a trailing 4-digit year (e.g. "Northern Michigan 2026" → "Northern Michigan")
-// so the trip name geocodes cleanly.
-function cleanLocationName(name) {
-  return (name || '').replace(/\b(19|20)\d{2}\b/g, '').replace(/\s+/g, ' ').trim()
+function todayIsoLocal() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function roundLocationLabel(r) {
+  if (r.location_city && r.location_state) return `${r.location_city}, ${r.location_state}`
+  if (r.location_city) return r.location_city
+  if (r.club_name) return r.club_name.slice(0, 20)
+  return null
 }
 
-// eslint-disable-next-line no-unused-vars -- tripEndDate kept in interface for parent-side gating
-function WeatherWidget({ locationName, locationLat, locationLon, tripEndDate }) {
+// eslint-disable-next-line no-unused-vars -- tripStartDate/tripEndDate kept in the interface
+function WeatherWidget({ tripId, tripStartDate, tripEndDate }) {
   const [wx, setWx] = useState(null)
   const [status, setStatus] = useState('loading') // 'loading' | 'ok' | 'error'
-  const [locationLabel, setLocationLabel] = useState(cleanLocationName(locationName) || 'Trip Location')
+  const [locationLabel, setLocationLabel] = useState('Weather')
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       setStatus('loading')
       try {
-        let lat = locationLat
-        let lon = locationLon
-        let label = cleanLocationName(locationName) || 'Trip Location'
+        // Pull this trip's rounds + name to pick the relevant location.
+        const [roundsRes, tripRes] = await Promise.all([
+          supabase.from('rounds').select('id, date, club_name, location_city, location_state, location_lat, location_lon').eq('trip_id', tripId),
+          supabase.from('trips').select('name').eq('id', tripId).maybeSingle(),
+        ])
+        const tripName = tripRes.data?.name || 'Trip'
+        const dated = (roundsRes.data || []).filter(r => r.date).sort((a, b) => a.date.localeCompare(b.date))
 
-        // No coords supplied — geocode from the location name.
+        // Next upcoming round (earliest date >= today), else the last round.
+        const today = todayIsoLocal()
+        const selected = dated.find(r => r.date >= today) || dated[dated.length - 1] || null
+
+        if (!selected) { if (!cancelled) { setLocationLabel(tripName); setStatus('error') } return }
+
+        let lat = selected.location_lat
+        let lon = selected.location_lon
+        let label = roundLocationLabel(selected) || tripName
+
+        // No stored coords → geocode from city + state.
         if (lat == null || lon == null) {
-          const query = cleanLocationName(locationName)
-          if (!query) { if (!cancelled) setStatus('error'); return }
-          const geoRes = await fetch(
-            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`
-          )
-          const geoJson = await geoRes.json()
-          const hit = geoJson?.results?.[0]
-          if (!hit) { if (!cancelled) { setLocationLabel(label); setStatus('error') } return }
-          lat = hit.latitude
-          lon = hit.longitude
-          label = hit.name
+          const query = [selected.location_city, selected.location_state].filter(Boolean).join(' ')
+          if (query) {
+            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`)
+            const geo = await geoRes.json()
+            const hit = geo?.results?.[0]
+            if (hit) { lat = hit.latitude; lon = hit.longitude }
+          }
         }
+
+        if (lat == null || lon == null) { if (!cancelled) { setLocationLabel(label); setStatus('error') } return }
 
         const res = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
           `&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m` +
           `&daily=temperature_2m_max,temperature_2m_min` +
-          `&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=AUTO&forecast_days=1`
+          `&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto&forecast_days=1`
         )
         const data = await res.json()
         if (cancelled) return
@@ -158,7 +175,7 @@ function WeatherWidget({ locationName, locationLat, locationLon, tripEndDate }) 
     }
     load()
     return () => { cancelled = true }
-  }, [locationName, locationLat, locationLon])
+  }, [tripId])
 
   // Always render the card shell — never return null.
   const header = (
@@ -261,10 +278,9 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onPurseUpd
 
       {/* Weather */}
       <WeatherWidget
-        locationName={trip.location || trip.name}
-        locationLat={trip.location_lat ?? null}
-        locationLon={trip.location_lon ?? null}
-        tripEndDate={trip.end_date ?? null}
+        tripId={trip.id}
+        tripStartDate={trip.start_date}
+        tripEndDate={trip.end_date}
       />
 
       {/* Chat */}
@@ -789,6 +805,8 @@ export default function TripDashboard() {
         inviteToken={trip.invite_token}
         isCommissioner={isCommissioner}
         currentUserId={user?.id}
+        handicapAllowance={trip.handicap_allowance ?? 100}
+        onTripUpdate={refetchTrip}
         onSignOut={handleSignOut}
       />
     </div>

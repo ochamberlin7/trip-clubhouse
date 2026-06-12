@@ -9,16 +9,34 @@
 //   teams         : id, trip_id, name, color
 //   profiles      : id, display_name
 
-// Strokes a player receives on a hole given their (course) handicap and the
-// hole's stroke index: one stroke if handicap >= stroke_index, a second on
-// double-stroke holes (handicap >= 18 + stroke_index).
-export function strokesGiven(handicap, strokeIndex) {
-  const h = handicap ?? 0
-  if (strokeIndex == null) return 0
-  let s = 0
-  if (h >= strokeIndex) s += 1
-  if (h >= 18 + strokeIndex) s += 1
-  return s
+// Raw course handicap: handicap_index * (slope / 113), rounded.
+export function courseHandicap(handicapIndex, slopeRating) {
+  const hi = Number(handicapIndex) || 0
+  const slope = Number(slopeRating) || 113
+  return Math.round(hi * (slope / 113))
+}
+
+// Strokes on a hole given a PLAYING handicap (low-ball allowance already
+// applied). Allows extra strokes for high handicaps: a 2nd at 18+SI, a 3rd
+// at 36+SI.
+export function strokesOnHole(playingHandicap, strokeIndex) {
+  const ph = Number(playingHandicap) || 0
+  if (ph <= 0 || strokeIndex == null) return 0
+  let strokes = ph >= strokeIndex ? 1 : 0
+  if (ph >= 18 + strokeIndex) strokes += 1
+  if (ph >= 36 + strokeIndex) strokes += 1
+  return strokes
+}
+
+// Low-ball handicap allowance for a group of players:
+//   playing = round((courseHandicap - minCourseHandicap) * allowance/100)
+// `players` is an array of { id, handicap_index }. Returns Map id -> playing.
+export function computePlayingHandicaps(players, slopeRating, allowance = 100) {
+  const chs = players.map(p => courseHandicap(p.handicap_index, slopeRating))
+  const min = chs.length ? Math.min(...chs) : 0
+  const map = new Map()
+  players.forEach((p, i) => map.set(p.id, Math.round((chs[i] - min) * (allowance / 100))))
+  return map
 }
 
 // Display name for a trip player (guest name, else profile display name).
@@ -50,10 +68,12 @@ export function firstName(name) {
 //   vsParByPlayer    : Map trip_player_id -> cumulative (net - par)
 export function analyzeScoring(
   { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers },
-  includeRoundIds = null
+  includeRoundIds = null,
+  allowance = 100
 ) {
   const hcpByPlayer = new Map(tripPlayers.map(p => [p.id, p.handicap_index]))
   const teamByPlayer = new Map(tripPlayers.map(p => [p.id, p.team_id]))
+  const slopeByRound = new Map(rounds.map(r => [r.id, r.slope_rating]))
 
   // course holes: `${roundId}:${hole}` -> { par, stroke_index }
   const holeInfo = new Map()
@@ -109,11 +129,32 @@ export function analyzeScoring(
     if (ok) completeRoundIds.add(r.id)
   }
 
+  // Players in each pairing group for a round (fallback: all round players).
+  const groupsForRound = (r) => {
+    const prs = pairingsByRound.get(r.id) || []
+    return prs.length
+      ? prs.map(pr => playersByPairing.get(pr.id) || [])
+      : [[...(roundPlayers.get(r.id) || [])]]
+  }
+
+  // Low-ball playing handicaps per round (per pairing group + allowance).
+  const playingByRound = new Map() // roundId -> Map(tp -> playingHandicap)
+  for (const r of rounds) {
+    const playing = new Map()
+    for (const group of groupsForRound(r)) {
+      const objs = group.map(tp => ({ id: tp, handicap_index: hcpByPlayer.get(tp) }))
+      const phMap = computePlayingHandicaps(objs, slopeByRound.get(r.id), allowance)
+      for (const [tp, ph] of phMap) playing.set(tp, ph)
+    }
+    playingByRound.set(r.id, playing)
+  }
+
   const net = (roundId, tp, hole) => {
     const gross = scoreMap.get(`${roundId}:${tp}:${hole}`)
     if (gross == null) return null
     const si = holeInfo.get(`${roundId}:${hole}`)?.stroke_index
-    return gross - strokesGiven(hcpByPlayer.get(tp), si)
+    const ph = playingByRound.get(roundId)?.get(tp) ?? 0
+    return gross - strokesOnHole(ph, si)
   }
 
   const holeWinsByTeam = new Map()
@@ -125,10 +166,7 @@ export function analyzeScoring(
   )
 
   for (const r of toProcess) {
-    const prs = pairingsByRound.get(r.id) || []
-    const groups = prs.length
-      ? prs.map(pr => playersByPairing.get(pr.id) || [])
-      : [[...(roundPlayers.get(r.id) || [])]]
+    const groups = groupsForRound(r)
 
     for (let hole = 1; hole <= 18; hole++) {
       const par = holeInfo.get(`${r.id}:${hole}`)?.par

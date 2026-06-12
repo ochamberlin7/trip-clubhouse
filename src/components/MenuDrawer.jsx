@@ -362,15 +362,86 @@ function PlayersPage({ data, isCommissioner, inviteToken, onReload }) {
   )
 }
 
-function CoursesPage({ data, isCommissioner, onEditCourse }) {
+function HandicapCalculator({ round, players, allowance }) {
+  const [open, setOpen] = useState(false)
+  const slope = round.slope_rating
+  const alw = allowance ?? 100
+
+  const grid = { display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px' }
+  const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6' }
+  const muted = { color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
+
+  // Build rows: course HCP = round(index*slope/113); playing = round((ch-min)*allowance/100).
+  const rows = players.map(p => {
+    const idx = p.handicap_index
+    const courseHCP = (idx != null && slope != null) ? Math.round(idx * slope / 113) : null
+    return { id: p.id, name: p.name, idx, courseHCP }
+  })
+  const minCH = rows.length ? Math.min(...rows.map(r => r.courseHCP ?? 0)) : 0
+  rows.forEach(r => { r.playing = r.courseHCP != null ? Math.round((r.courseHCP - minCH) * (alw / 100)) : null })
+  rows.sort((a, b) => (a.playing ?? 999) - (b.playing ?? 999))
+
+  function playingColor(v) {
+    if (v == null) return '#7A8FA6'
+    if (v === 0) return '#7A8FA6'
+    if (v <= 9) return '#0D1B2A'
+    if (v <= 18) return '#1B3F6E'
+    return '#C0392B'
+  }
+
+  const allNull = rows.every(r => r.idx == null)
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 4px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#1B3F6E' }}>Handicap Calculator</span>
+        <Chevron open={open} />
+      </div>
+      {open && (
+        <div style={{ borderRadius: '0 0 10px 10px', overflow: 'hidden', marginBottom: 12 }}>
+          {slope == null ? (
+            <div style={muted}>Set a course to calculate handicaps</div>
+          ) : allNull ? (
+            <div style={muted}>Add player handicaps in the Players tab</div>
+          ) : (
+            <>
+              <div style={{ ...grid, padding: '8px 14px', background: '#F5F8FA', borderBottom: '1px solid #DDE3EA' }}>
+                <span style={headCell}>Player</span>
+                <span style={headCell}>Index</span>
+                <span style={headCell}>Course</span>
+                <span style={headCell}>Playing</span>
+              </div>
+              {rows.map((r, i) => (
+                <div key={r.id} style={{ ...grid, padding: '10px 14px', borderBottom: i === rows.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>{r.name}</span>
+                  <span style={{ fontSize: 13, color: r.idx == null ? '#7A8FA6' : '#2C3E50' }}>{r.idx ?? 'TBD'}</span>
+                  <span style={{ fontSize: 13, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: playingColor(r.playing) }}>{r.playing ?? '—'}</span>
+                </div>
+              ))}
+              <div style={{ background: '#F5F8FA', padding: '8px 14px', fontSize: 11, color: '#7A8FA6', fontStyle: 'italic' }}>
+                {allowance == null ? 'Allowance: 100% (default)' : `Allowance: ${alw}%`} · Slope: {slope} · Low ball: lowest playing HCP = 0
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CoursesPage({ data, isCommissioner, onEditCourse, allowance }) {
   if (!data) return <div style={s.muted}>Loading…</div>
-  if (data.length === 0) {
+  const { groups, players, playersByRound } = data
+  if (!groups || groups.length === 0) {
     return <Card title="Schedule"><div style={s.muted}>Course schedule will appear once rounds are set up.</div></Card>
   }
-  return data.map(([date, rounds]) => (
+  return groups.map(([date, rounds]) => (
     <Card key={date} title={fmtShort(date)}>
       {rounds.map((r, i, arr) => {
-        const tour = r.type === 'tournament'
+        const tour = r.round_type !== 'practice'
+        const assigned = playersByRound[r.id]
+        const calcPlayers = (assigned && assigned.size) ? players.filter(p => assigned.has(p.id)) : players
         return (
           <div key={r.id} style={{ padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
@@ -392,6 +463,7 @@ function CoursesPage({ data, isCommissioner, onEditCourse }) {
             {isCommissioner && (
               <button style={s.editCourseBtn} onClick={() => onEditCourse(r)}>Edit Course</button>
             )}
+            <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} />
           </div>
         )
       })}
@@ -535,9 +607,59 @@ function FlightsPage({ data, tripId, isCommissioner, currentUserId, onUpdate }) 
   )
 }
 
-function RulesPage() {
+const ALLOWANCE_VALUES = Array.from({ length: 20 }, (_, i) => (i + 1) * 5) // 5..100
+
+function HandicapAllowanceCard({ tripId, isCommissioner, allowance, onUpdate }) {
+  const [value, setValue] = useState(allowance ?? 100)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => { setValue(allowance ?? 100) }, [allowance])
+
+  async function pick(v) {
+    setValue(v)
+    const { error } = await supabase.from('trips').update({ handicap_allowance: v }).eq('id', tripId)
+    if (!error) {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      if (onUpdate) onUpdate()
+    }
+  }
+
+  return (
+    <Card title="Handicap Allowance">
+      <div style={{ fontSize: 13, color: '#2C3E50', lineHeight: 1.5, marginBottom: 10 }}>
+        The percentage of the handicap difference players receive. 100% is full allowance.
+      </div>
+      <div style={{ fontSize: 32, fontWeight: 900, color: '#1B3F6E', textAlign: 'center', marginBottom: 12 }}>
+        {value}%
+      </div>
+      {isCommissioner ? (
+        <>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {ALLOWANCE_VALUES.map(v => {
+              const sel = v === value
+              return (
+                <button key={v} onClick={() => pick(v)}
+                  style={{ padding: '6px 12px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
+                    ...(sel ? { background: '#1B3F6E', color: '#fff', border: '1px solid #1B3F6E' } : { background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }) }}>
+                  {v}%
+                </button>
+              )
+            })}
+          </div>
+          {saved && <div style={{ fontSize: 12, color: '#2E7D32', marginTop: 8 }}>Saved ✓</div>}
+        </>
+      ) : (
+        <div style={{ fontSize: 11, color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center' }}>Set by commissioner</div>
+      )}
+    </Card>
+  )
+}
+
+function RulesPage({ tripId, isCommissioner, allowance, onUpdate }) {
   return (
     <>
+      <HandicapAllowanceCard tripId={tripId} isCommissioner={isCommissioner} allowance={allowance} onUpdate={onUpdate} />
       <Card title="Local Rules">
         <RuleList rules={[
           'Lift, clean & place throughout',
@@ -626,7 +748,7 @@ function AppInfoPage() {
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, currentUserId, onSignOut,
+  inviteToken, isCommissioner, currentUserId, handicapAllowance, onTripUpdate, onSignOut,
 }) {
   const [page, setPage] = useState(null)
   const [playersData, setPlayersData] = useState(null)
@@ -669,11 +791,28 @@ export default function MenuDrawer({
     }
     if (page === 'courses' && !coursesData) {
       (async () => {
-        const { data } = await supabase.from('rounds').select('*').eq('trip_id', tripId).order('date').order('round_number')
+        const { data: roundData } = await supabase.from('rounds').select('*').eq('trip_id', tripId).order('date').order('round_number')
+        const roundList = roundData || []
+        const roundIds = roundList.map(r => r.id)
+        const [tpRes, pairRes] = await Promise.all([
+          supabase.from('trip_players').select('id, first_name, last_name, guest_name, handicap_index').eq('trip_id', tripId),
+          roundIds.length ? supabase.from('pairings').select('id, round_id').in('round_id', roundIds) : Promise.resolve({ data: [] }),
+        ])
+        const pairings = pairRes.data || []
+        const pairIds = pairings.map(p => p.id)
+        let pp = []
+        if (pairIds.length) {
+          const r = await supabase.from('pairing_players').select('pairing_id, trip_player_id').in('pairing_id', pairIds)
+          pp = r.data || []
+        }
+        const roundOfPairing = {}; pairings.forEach(p => { roundOfPairing[p.id] = p.round_id })
+        const playersByRound = {} // roundId -> Set(trip_player_id)
+        pp.forEach(x => { const rid = roundOfPairing[x.pairing_id]; if (rid) (playersByRound[rid] ??= new Set()).add(x.trip_player_id) })
+        const players = (tpRes.data || []).map(tp => ({ ...tp, name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || 'Player' }))
         const groups = {}
-        ;(data || []).forEach(r => { (groups[r.date] ??= []).push(r) })
+        roundList.forEach(r => { (groups[r.date] ??= []).push(r) })
         const sorted = Object.entries(groups).sort(([a], [b]) => String(a).localeCompare(String(b)))
-        if (!cancelled) setCoursesData(sorted)
+        if (!cancelled) setCoursesData({ groups: sorted, players, playersByRound })
       })()
     }
     if (page === 'archives' && !archivesData) {
@@ -711,6 +850,10 @@ export default function MenuDrawer({
       course_rating: courseData.course_rating ?? null,
       slope_rating: courseData.slope_rating ?? null,
       holes: courseData.holes ?? null,
+      location_city: courseData.location_city ?? null,
+      location_state: courseData.location_state ?? null,
+      location_lat: courseData.location_lat ?? null,
+      location_lon: courseData.location_lon ?? null,
     }).eq('id', editRound.id)
     setSavingCourse(false)
     if (!error) {
@@ -771,7 +914,7 @@ export default function MenuDrawer({
       )}
       {page === 'courses' && (
         <SecondaryPage context={tripName} title="Courses" onBack={backToDrawer}>
-          <CoursesPage data={coursesData} isCommissioner={isCommissioner} onEditCourse={setEditRound} />
+          <CoursesPage data={coursesData} isCommissioner={isCommissioner} onEditCourse={setEditRound} allowance={handicapAllowance} />
         </SecondaryPage>
       )}
       {page === 'flights' && (
@@ -788,7 +931,7 @@ export default function MenuDrawer({
       )}
       {page === 'rules' && (
         <SecondaryPage context={tripName} title="Rules" onBack={backToDrawer}>
-          <RulesPage />
+          <RulesPage tripId={tripId} isCommissioner={isCommissioner} allowance={handicapAllowance} onUpdate={onTripUpdate} />
         </SecondaryPage>
       )}
       {page === 'archives' && (
