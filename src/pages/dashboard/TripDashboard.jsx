@@ -788,6 +788,7 @@ export default function TripDashboard() {
         tripEndDate={trip.end_date}
         inviteToken={trip.invite_token}
         isCommissioner={isCommissioner}
+        currentUserId={user?.id}
         onSignOut={handleSignOut}
       />
     </div>

@@ -410,18 +410,127 @@ function teeBadgeStyle(name) {
   return { background: '#E8EDF3', color: '#0D1B2A', border: '1px solid #DDE3EA' }
 }
 
-function FlightsPage({ startDate, endDate }) {
+const ARRIVE_FIELDS = [
+  { key: 'arrive_date', label: 'Date' },
+  { key: 'arrive_time', label: 'Time' },
+  { key: 'arrive_airport', label: 'Airport' },
+  { key: 'flight_number_in', label: 'Flight #' },
+]
+const DEPART_FIELDS = [
+  { key: 'depart_date', label: 'Date' },
+  { key: 'depart_time', label: 'Time' },
+  { key: 'depart_airport', label: 'Airport' },
+  { key: 'flight_number_out', label: 'Flight #' },
+]
+
+const fl = {
+  card: { border: '1px solid #DDE3EA', borderRadius: 6, overflow: 'hidden', marginBottom: 14, background: '#fff' },
+  header: { background: '#1B3F6E', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  name: { fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px' },
+  driving: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', letterSpacing: '1px', textTransform: 'uppercase' },
+  link: { fontSize: 11, color: 'rgba(255,255,255,0.6)', cursor: 'pointer', textDecoration: 'underline', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0 },
+  cols: { display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: '#fff' },
+  col: { padding: '10px 12px' },
+  divider: { background: '#DDE3EA' },
+  colHeader: { fontSize: 8, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#1B3F6E', marginBottom: 8 },
+  colRow: { display: 'flex', flexDirection: 'column', marginBottom: 7 },
+  label: { fontSize: 8, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#7A8FA6', marginBottom: 2 },
+  cellValue: { fontSize: 13, fontWeight: 600, color: '#0D1B2A' },
+  placeholder: { fontSize: 12, fontWeight: 400, color: '#7A8FA6' },
+  input: { width: '100%', border: 'none', borderBottom: '1px dashed #DDE3EA', background: 'transparent', color: '#0D1B2A', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '2px 0', boxSizing: 'border-box', minWidth: 0 },
+}
+
+function FlightField({ label, value, canEdit, onSave, isLast }) {
+  const rowStyle = { ...fl.colRow, ...(isLast ? { marginBottom: 0 } : null) }
+  return (
+    <div style={rowStyle}>
+      <span style={fl.label}>{label}</span>
+      {canEdit
+        ? <input
+            defaultValue={value || ''} placeholder="—"
+            autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+            style={fl.input}
+            onBlur={e => { const v = e.target.value.trim(); if (v !== (value || '')) onSave(v) }}
+            onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+            onFocus={e => { e.target.style.borderBottom = '2px solid #1B3F6E' }}
+          />
+        : (value ? <span style={fl.cellValue}>{value}</span> : <span style={fl.placeholder}>—</span>)}
+    </div>
+  )
+}
+
+function FlightCard({ player, flight, canEdit, onPatch }) {
+  const driving = !!flight?.is_driving
+  const first = firstNameOf(player.name)
+
+  if (driving) {
+    return (
+      <div style={fl.card}>
+        <div style={fl.header}>
+          <span style={fl.name}>{first}</span>
+          {canEdit
+            ? <button style={fl.link} onClick={() => onPatch({ is_driving: false })}>Has flights?</button>
+            : <span style={fl.driving}>Driving</span>}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={fl.card}>
+      <div style={fl.header}>
+        <span style={fl.name}>{first}</span>
+        {canEdit && <button style={fl.link} onClick={() => onPatch({ is_driving: true })}>Driving?</button>}
+      </div>
+      <div style={fl.cols}>
+        <div style={fl.col}>
+          <div style={fl.colHeader}>Arrival</div>
+          {ARRIVE_FIELDS.map((f, i) => (
+            <FlightField key={f.key} label={f.label} value={flight?.[f.key]} canEdit={canEdit}
+              isLast={i === ARRIVE_FIELDS.length - 1} onSave={v => onPatch({ [f.key]: v || null })} />
+          ))}
+        </div>
+        <div style={fl.divider} />
+        <div style={fl.col}>
+          <div style={fl.colHeader}>Departure</div>
+          {DEPART_FIELDS.map((f, i) => (
+            <FlightField key={f.key} label={f.label} value={flight?.[f.key]} canEdit={canEdit}
+              isLast={i === DEPART_FIELDS.length - 1} onSave={v => onPatch({ [f.key]: v || null })} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function firstNameOf(name) { return (name || '').trim().split(/\s+/)[0] || 'Player' }
+
+function FlightsPage({ data, tripId, isCommissioner, currentUserId, onUpdate }) {
+  if (!data) return <div style={s.muted}>Loading…</div>
+  const { players, byPlayer } = data
+  if (players.length === 0) return <div style={{ ...s.muted, textAlign: 'center', padding: '24px 12px' }}>No players on this trip yet.</div>
+
+  async function patch(player, fields) {
+    const existing = byPlayer[player.id] || {}
+    const merged = {
+      trip_id: tripId, trip_player_id: player.id,
+      is_driving: existing.is_driving ?? false,
+      arrive_date: existing.arrive_date ?? null, arrive_time: existing.arrive_time ?? null,
+      arrive_airport: existing.arrive_airport ?? null, flight_number_in: existing.flight_number_in ?? null,
+      depart_date: existing.depart_date ?? null, depart_time: existing.depart_time ?? null,
+      depart_airport: existing.depart_airport ?? null, flight_number_out: existing.flight_number_out ?? null,
+      ...fields,
+    }
+    onUpdate(player.id, fields) // optimistic
+    await supabase.from('flights').upsert(merged, { onConflict: 'trip_id,trip_player_id' })
+  }
+
   return (
     <>
-      <Card title="Trip Dates">
-        <InfoRow label="Arrival" value={fmtLong(startDate)} />
-        <InfoRow label="Departure" value={fmtLong(endDate)} last />
-      </Card>
-      <Card title="Travel Notes">
-        <div style={s.muted}>
-          Coordinate arrival and departure details with your group. This page can be updated by the commissioner in a future release.
-        </div>
-      </Card>
+      {players.map(p => {
+        const canEdit = isCommissioner || p.claimed_user_id === currentUserId
+        return <FlightCard key={p.id} player={p} flight={byPlayer[p.id]} canEdit={canEdit} onPatch={fields => patch(p, fields)} />
+      })}
     </>
   )
 }
@@ -517,12 +626,13 @@ function AppInfoPage() {
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, onSignOut,
+  inviteToken, isCommissioner, currentUserId, onSignOut,
 }) {
   const [page, setPage] = useState(null)
   const [playersData, setPlayersData] = useState(null)
   const [coursesData, setCoursesData] = useState(null)
   const [archivesData, setArchivesData] = useState(null)
+  const [flightsData, setFlightsData] = useState(null)
   const [editRound, setEditRound] = useState(null)
   const [savingCourse, setSavingCourse] = useState(false)
 
@@ -573,8 +683,19 @@ export default function MenuDrawer({
         if (!cancelled) setArchivesData(data || [])
       })()
     }
+    if (page === 'flights' && !flightsData) {
+      (async () => {
+        const [tpRes, flRes] = await Promise.all([
+          supabase.from('trip_players').select('id, claimed_user_id, first_name, last_name, guest_name').eq('trip_id', tripId).order('last_name'),
+          supabase.from('flights').select('*').eq('trip_id', tripId),
+        ])
+        const players = (tpRes.data || []).map(tp => ({ ...tp, name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || 'Player' }))
+        const byPlayer = {}; (flRes.data || []).forEach(f => { byPlayer[f.trip_player_id] = f })
+        if (!cancelled) setFlightsData({ players, byPlayer })
+      })()
+    }
     return () => { cancelled = true }
-  }, [page, tripId, groupId, playersData, coursesData, archivesData])
+  }, [page, tripId, groupId, playersData, coursesData, archivesData, flightsData])
 
   const drawerVisible = open && !page
   const backToDrawer = () => setPage(null)
@@ -655,7 +776,14 @@ export default function MenuDrawer({
       )}
       {page === 'flights' && (
         <SecondaryPage context={tripName} title="Flights" onBack={backToDrawer}>
-          <FlightsPage startDate={tripStartDate} endDate={tripEndDate} />
+          <FlightsPage
+            data={flightsData} tripId={tripId}
+            isCommissioner={isCommissioner} currentUserId={currentUserId}
+            onUpdate={(tpId, fields) => setFlightsData(prev => ({
+              ...prev,
+              byPlayer: { ...prev.byPlayer, [tpId]: { ...(prev.byPlayer[tpId] || {}), trip_player_id: tpId, ...fields } },
+            }))}
+          />
         </SecondaryPage>
       )}
       {page === 'rules' && (
