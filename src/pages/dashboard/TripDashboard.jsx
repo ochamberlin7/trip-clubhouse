@@ -11,7 +11,6 @@ import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
 import ChatWidget from '../../components/ChatWidget'
 import DailyMVPCard from '../../components/DailyMVPCard'
-import TournamentPurseWidget from '../../components/TournamentPurseWidget'
 import MenuDrawer from '../../components/MenuDrawer'
 import ScoringTab from '../../components/ScoringTab'
 
@@ -259,7 +258,7 @@ function WeatherWidget({ rounds = [], tripName }) {
 
 // ── Tab: Home ────────────────────────────────────────────────────
 
-function TabHome({ trip, rounds, userId, displayName, isCommissioner, onPurseUpdate }) {
+function TabHome({ trip, rounds, userId, displayName, isCommissioner }) {
   return (
     <div>
       {/* Countdown */}
@@ -290,14 +289,6 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onPurseUpd
 
       {/* Daily MVPs — below the chat thread */}
       <DailyMVPCard tripId={trip.id} today={new Date()} />
-
-      {/* Tournament purse — bottom of the stack */}
-      <TournamentPurseWidget
-        tripId={trip.id}
-        isCommissioner={isCommissioner}
-        purseAmount={trip.purse_amount || 0}
-        onPurseUpdate={onPurseUpdate}
-      />
     </div>
   )
 }
@@ -865,7 +856,7 @@ export default function TripDashboard() {
 
       {/* ── Tab content ── */}
       <div className="dashboard-content">
-        {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={isCommissioner} onPurseUpdate={refetchTrip} />}
+        {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={isCommissioner} />}
         {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={isCommissioner} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}

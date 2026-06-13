@@ -724,67 +724,94 @@ function FlightsPage({ data, tripId, isCommissioner, currentUserId, onUpdate }) 
   )
 }
 
-const ALLOWANCE_VALUES = Array.from({ length: 20 }, (_, i) => (i + 1) * 5) // 5..100
+const DEFAULT_LOCAL_RULES = [
+  'Lift, clean & place throughout',
+  'Everything is a lateral hazard',
+  'Divots are ground under repair',
+  'Breakfast ball on the 1st tee — use it or lose it',
+]
 
-function HandicapAllowanceCard({ tripId, isCommissioner, allowance, onUpdate }) {
-  const [value, setValue] = useState(allowance ?? 100)
+// Local rules, stored per trip in trips.local_rules (JSONB array). Commissioners get
+// editable rows + Add Rule + per-row delete + Save; everyone else sees them read-only
+// with the same styling. Falls back to the defaults when nothing is saved yet.
+function LocalRulesCard({ tripId, isCommissioner }) {
+  const [rules, setRules] = useState(null)   // null = loading; the saved list
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState([])     // working copy while editing
+  const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  useEffect(() => { setValue(allowance ?? 100) }, [allowance])
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase.from('trips').select('local_rules').eq('id', tripId).maybeSingle()
+      if (cancelled) return
+      const stored = data?.local_rules
+      setRules(Array.isArray(stored) ? stored : DEFAULT_LOCAL_RULES)
+    })()
+    return () => { cancelled = true }
+  }, [tripId])
 
-  async function pick(v) {
-    setValue(v)
-    const { error } = await supabase.from('trips').update({ handicap_allowance: v }).eq('id', tripId)
+  function startEdit() { setDraft(rules); setEditing(true) }
+
+  async function save() {
+    setSaving(true)
+    const cleaned = draft.map(r => r.trim()).filter(Boolean)
+    const { error } = await supabase.from('trips').update({ local_rules: cleaned }).eq('id', tripId)
+    setSaving(false)
     if (!error) {
+      setRules(cleaned)
+      setEditing(false)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-      if (onUpdate) onUpdate()
     }
   }
 
-  return (
-    <Card title="Handicap Allowance">
-      <div style={{ fontSize: 13, color: '#2C3E50', lineHeight: 1.5, marginBottom: 10 }}>
-        The percentage of the handicap difference players receive. 100% is full allowance.
-      </div>
-      <div style={{ fontSize: 32, fontWeight: 900, color: '#1B3F6E', textAlign: 'center', marginBottom: 12 }}>
-        {value}%
-      </div>
-      {isCommissioner ? (
-        <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {ALLOWANCE_VALUES.map(v => {
-              const sel = v === value
-              return (
-                <button key={v} onClick={() => pick(v)}
-                  style={{ padding: '6px 12px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
-                    ...(sel ? { background: '#1B3F6E', color: '#fff', border: '1px solid #1B3F6E' } : { background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }) }}>
-                  {v}%
-                </button>
-              )
-            })}
+  if (rules == null) return <Card title="Local Rules"><div style={s.muted}>Loading…</div></Card>
+
+  // Read-only — non-commissioners, or commissioners who haven't tapped Edit.
+  if (!isCommissioner || !editing) {
+    return (
+      <Card title="Local Rules">
+        <RuleList rules={rules} />
+        {isCommissioner && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+            <button onClick={startEdit} style={s.editCourseBtn}>Edit</button>
+            {saved && <span style={{ fontSize: 12, color: '#2E7D32' }}>Saved ✓</span>}
           </div>
-          {saved && <div style={{ fontSize: 12, color: '#2E7D32', marginTop: 8 }}>Saved ✓</div>}
-        </>
-      ) : (
-        <div style={{ fontSize: 11, color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center' }}>Set by commissioner</div>
-      )}
+        )}
+      </Card>
+    )
+  }
+
+  return (
+    <Card title="Local Rules">
+      {draft.map((rule, i) => (
+        <div key={i} style={{ ...s.ruleRow, ...(i === draft.length - 1 ? { borderBottom: 'none' } : null) }}>
+          <span style={s.dot} />
+          <input
+            value={rule} placeholder="Rule…"
+            onChange={e => setDraft(rs => rs.map((v, j) => (j === i ? e.target.value : v)))}
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, lineHeight: 1.5, color: '#0D1B2A', fontFamily: 'inherit', padding: 0 }}
+          />
+          <button onClick={() => setDraft(rs => rs.filter((_, j) => j !== i))} aria-label="Remove rule"
+            style={{ background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, cursor: 'pointer', padding: '0 0 0 6px', flexShrink: 0, lineHeight: 1 }}>✕</button>
+        </div>
+      ))}
+      <button onClick={() => setDraft(rs => [...rs, ''])}
+        style={{ background: 'none', border: 'none', color: '#1B3F6E', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '10px 0 0' }}>+ Add Rule</button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+        <button onClick={save} disabled={saving} style={pc.saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
+        <button onClick={() => setEditing(false)} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+      </div>
     </Card>
   )
 }
 
-function RulesPage({ tripId, isCommissioner, allowance, onUpdate }) {
+function RulesPage({ tripId, isCommissioner }) {
   return (
     <>
-      <HandicapAllowanceCard tripId={tripId} isCommissioner={isCommissioner} allowance={allowance} onUpdate={onUpdate} />
-      <Card title="Local Rules">
-        <RuleList rules={[
-          'Lift, clean & place throughout',
-          'Everything is a lateral hazard',
-          'Divots are ground under repair',
-          'Breakfast ball on the 1st tee — use it or lose it',
-        ]} />
-      </Card>
+      <LocalRulesCard tripId={tripId} isCommissioner={isCommissioner} />
       <Card title="Match Play Format">
         <RuleList rules={[
           '2 teams — partners rotate each round',
@@ -792,13 +819,6 @@ function RulesPage({ tripId, isCommissioner, allowance, onUpdate }) {
           'Each hole worth 1 point — tied holes = 0 pts to both',
           'Handicap strokes applied to hole by stroke index',
           'Most total points after all rounds wins',
-        ]} />
-      </Card>
-      <Card title="Tournament Purse">
-        <RuleList rules={[
-          'The losing team at the end of the tournament pays the stakes',
-          "Bill is split evenly among the losing team's players",
-          'If tied, both teams split it equally',
         ]} />
       </Card>
     </>
@@ -1274,7 +1294,7 @@ export default function MenuDrawer({
       )}
       {page === 'rules' && (
         <SecondaryPage context={tripName} title="Rules" onBack={backToDrawer}>
-          <RulesPage tripId={tripId} isCommissioner={isCommissioner} allowance={handicapAllowance} onUpdate={onTripUpdate} />
+          <RulesPage tripId={tripId} isCommissioner={isCommissioner} />
         </SecondaryPage>
       )}
       {page === 'archives' && (
