@@ -416,9 +416,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         </div>
       )}
 
-      {availableNums.length > 1 && (
+      {/* Only show the pairing tabs when two pairings actually exist for this round. */}
+      {existingNums.length > 1 && (
         <div className="pair-tabs">
-          {availableNums.map(n => (
+          {existingNums.map(n => (
             <button key={n} className={`pair-tab ${pairNum === n ? 'active' : ''}`} onClick={() => setActivePairingNum(n)}>Pairing {n}</button>
           ))}
         </div>

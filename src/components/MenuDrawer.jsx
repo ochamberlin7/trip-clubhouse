@@ -194,7 +194,7 @@ const pc = {
   name: { fontSize: 16, fontWeight: 700, color: '#0D1B2A', flex: 1, minWidth: 0 },
   joined: { color: '#2E7D32', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 8, fontWeight: 600 },
   joinedDot: { width: 8, height: 8, borderRadius: '50%', background: '#2E7D32', display: 'inline-block' },
-  badge: { background: 'rgba(27,63,110,0.12)', color: '#1B3F6E', border: '1px solid rgba(27,63,110,0.25)', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, letterSpacing: '0.5px', flexShrink: 0, whiteSpace: 'nowrap' },
+  badge: { background: 'rgba(192,57,43,0.08)', color: '#C0392B', border: '1px solid rgba(192,57,43,0.25)', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, letterSpacing: '0.5px', flexShrink: 0, whiteSpace: 'nowrap' },
   teamPill: { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis' },
   pencil: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#7A8FA6', flexShrink: 0, display: 'flex', alignItems: 'center' },
   detailRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #E8EDF3', fontSize: 13, color: '#2C3E50' },
@@ -260,8 +260,8 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
             <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>
           )}
         </div>
-        {team && <span style={{ ...pc.teamPill, ...teamPillColor }}>{getTeamDisplayName(team)}</span>}
         {commissioner && <span style={pc.badge}>Commissioner</span>}
+        {team && <span style={{ ...pc.teamPill, ...teamPillColor }}>{getTeamDisplayName(team)}</span>}
         {isCommissioner && !editing && (
           <button style={pc.pencil} onClick={onStartEdit} aria-label="Edit player"><PencilIcon /></button>
         )}
@@ -345,27 +345,7 @@ function InviteSection({ inviteToken }) {
   )
 }
 
-// Intentional section break between the pinned commissioner and the roster:
-// a hairline rule with a small folded-corner marker and label, in the navy palette.
-const pd = {
-  wrap: { display: 'flex', alignItems: 'center', gap: 10, margin: '4px 2px 14px' },
-  line: { flex: 1, height: 1, background: '#DDE3EA' },
-  marker: { width: 8, height: 8, background: '#1B3F6E', borderTopRightRadius: 2, transform: 'rotate(45deg)', flexShrink: 0 },
-  label: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.2px', color: '#7A8FA6', flexShrink: 0 },
-}
-
-function RosterDivider() {
-  return (
-    <div style={pd.wrap}>
-      <span style={pd.line} />
-      <span style={pd.marker} />
-      <span style={pd.label}>Players</span>
-      <span style={pd.line} />
-    </div>
-  )
-}
-
-function PlayersPage({ data, isCommissioner, inviteToken, onReload }) {
+function PlayersPage({ data, isCommissioner, onReload }) {
   const [editingId, setEditingId] = useState(null)
   if (!data) return <div style={s.muted}>Loading…</div>
   const { players, teams } = data
@@ -392,10 +372,7 @@ function PlayersPage({ data, isCommissioner, inviteToken, onReload }) {
   return (
     <>
       {commissioner && renderCard(commissioner)}
-      {commissioner && rest.length > 0 && <RosterDivider />}
       {rest.map(renderCard)}
-      {/* Invite link mirrors the Commissioner Tools page; hidden from non-commissioners. */}
-      {isCommissioner && <InviteSection inviteToken={inviteToken} />}
     </>
   )
 }
@@ -1275,7 +1252,7 @@ export default function MenuDrawer({
       )}
       {page === 'players' && (
         <SecondaryPage context={groupName} title="Players" onBack={backToDrawer}>
-          <PlayersPage data={playersData} isCommissioner={isCommissioner} inviteToken={inviteToken} onReload={() => setPlayersData(null)} />
+          <PlayersPage data={playersData} isCommissioner={isCommissioner} onReload={() => setPlayersData(null)} />
         </SecondaryPage>
       )}
       {page === 'courses' && (

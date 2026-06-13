@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -63,7 +64,7 @@ const WX_DESC = {
   80:'Light showers',81:'Showers',82:'Violent showers',
   95:'Thunderstorm',96:'Thunderstorm w/ hail',99:'Severe thunderstorm',
 }
-function wxIcon(code) { return WX_ICONS[code] ?? '☁️' }
+function wxIcon(code) { return WX_ICONS[code] ?? '-' }
 function wxDesc(code) { return WX_DESC[code] ?? '—' }
 
 const wxStyles = {
@@ -207,7 +208,7 @@ function WeatherWidget({ rounds = [], tripName }) {
               <div style={wxStyles.hi}>↑ —°</div>
               <div style={wxStyles.lo}>↓ —°</div>
             </div>
-            <div style={wxStyles.emoji}>☁️</div>
+            <div style={wxStyles.emoji}>-</div>
           </div>
         </div>
         <div style={wxStyles.detailsRow}>
@@ -344,29 +345,114 @@ function TabLeaderboard({ trip, teams, rounds }) {
 
 // ── Tab: Tee Times ───────────────────────────────────────────────
 
-// "09:00" → "9:00 AM"
-function to12(t) {
-  if (!t) return ''
-  const [h, m] = t.split(':').map(Number)
-  const ap = h >= 12 ? 'PM' : 'AM'
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ap}`
-}
-// "9:00 AM" → "09:00" (for prefilling the time input)
-function to24(disp) {
+const TEE_HOURS = Array.from({ length: 12 }, (_, i) => i + 1)      // 1..12
+const TEE_MINUTES = Array.from({ length: 12 }, (_, i) => i * 5)    // 0,5,...,55
+
+// Parse a stored display time ("7:45 AM") into picker parts; default 8:00 AM.
+function parseDisplayTime(disp) {
   const m = (disp || '').match(/(\d+):(\d+)\s*(AM|PM)/i)
-  if (!m) return ''
-  let h = Number(m[1]); const ap = m[3].toUpperCase()
-  if (ap === 'PM' && h !== 12) h += 12
-  if (ap === 'AM' && h === 12) h = 0
-  return `${String(h).padStart(2, '0')}:${m[2]}`
+  if (!m) return { h: 8, m: 0, ap: 'AM' }
+  return { h: Number(m[1]), m: Number(m[2]), ap: m[3].toUpperCase() }
+}
+
+// Custom time-picker popover styles — navy/white, card-style, no native control.
+const tp = {
+  // Rendered via a portal to document.body and fixed-centred so the parent card's
+  // overflow:hidden (.tee-group) can't clip it.
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 999 },
+  popover: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 12, boxShadow: '0 8px 28px rgba(13,27,42,0.18)', padding: 16, width: 240 },
+  cols: { display: 'flex', gap: 8 },
+  colWrap: { flex: 1, minWidth: 0 },
+  colLabel: { fontSize: 9, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: '#7A8FA6', textAlign: 'center', marginBottom: 4 },
+  list: { height: 150, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: '#F5F8FA', borderRadius: 8 },
+  item: { padding: '7px 0', fontSize: 14, fontWeight: 600, color: '#2C3E50', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
+  itemActive: { background: '#1B3F6E', color: '#fff', fontWeight: 800 },
+  apCol: { display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' },
+  ap: { padding: '8px 12px', fontSize: 13, fontWeight: 700, color: '#7A8FA6', background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' },
+  apActive: { background: '#1B3F6E', color: '#fff', border: '1px solid #1B3F6E' },
+  footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+  cancel: { background: 'none', border: 'none', color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '6px 4px' },
+  confirm: { width: 38, height: 38, borderRadius: '50%', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+}
+
+// Tee-time cell: TBD placeholder or formatted time + Clear. Tapping opens a custom
+// popover time picker (hour / minute / AM-PM) with a ✓ to confirm — no native control.
+function TimeCell({ round, slot, isCommissioner, onSave }) {
+  const col = slot === 1 ? 'tee_time_1' : 'tee_time_2'
+  const value = slot === 1 ? round.tee_time_1 : round.tee_time_2
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(() => parseDisplayTime(value))
+
+  function openPicker() {
+    setDraft(parseDisplayTime(value))
+    setOpen(true)
+  }
+  function confirm() {
+    onSave(round.id, col, `${draft.h}:${String(draft.m).padStart(2, '0')} ${draft.ap}`)
+    setOpen(false)
+  }
+
+  if (!isCommissioner) {
+    return value
+      ? <span style={{ fontSize: 14, fontWeight: 700, color: '#0D1B2A' }}>{value}</span>
+      : <span style={{ fontSize: 13, fontWeight: 600, color: '#7A8FA6' }}>TBD</span>
+  }
+
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      {value ? (
+        <>
+          <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: '#0D1B2A' }}>{value}</button>
+          <button onClick={() => onSave(round.id, col, null)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: '#7A8FA6' }}>Clear</button>
+        </>
+      ) : (
+        <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: '#7A8FA6' }}>TBD</button>
+      )}
+
+      {open && createPortal(
+        <>
+          {/* Tap outside to cancel. */}
+          <div onClick={() => setOpen(false)} style={tp.backdrop} />
+          <div style={tp.popover} role="dialog" aria-label="Pick tee time">
+            <div style={tp.cols}>
+              <div style={tp.colWrap}>
+                <div style={tp.colLabel}>Hour</div>
+                <div style={tp.list}>
+                  {TEE_HOURS.map(h => (
+                    <button key={h} onClick={() => setDraft(d => ({ ...d, h }))}
+                      style={{ ...tp.item, ...(draft.h === h ? tp.itemActive : null) }}>{h}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={tp.colWrap}>
+                <div style={tp.colLabel}>Min</div>
+                <div style={tp.list}>
+                  {TEE_MINUTES.map(m => (
+                    <button key={m} onClick={() => setDraft(d => ({ ...d, m }))}
+                      style={{ ...tp.item, ...(draft.m === m ? tp.itemActive : null) }}>{String(m).padStart(2, '0')}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={tp.apCol}>
+                {['AM', 'PM'].map(ap => (
+                  <button key={ap} onClick={() => setDraft(d => ({ ...d, ap }))}
+                    style={{ ...tp.ap, ...(draft.ap === ap ? tp.apActive : null) }}>{ap}</button>
+                ))}
+              </div>
+            </div>
+            <div style={tp.footer}>
+              <button onClick={() => setOpen(false)} style={tp.cancel}>Cancel</button>
+              <button onClick={confirm} style={tp.confirm} aria-label="Confirm time">✓</button>
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
+    </span>
+  )
 }
 
 function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound }) {
-  // Single inline editor / type toggle open at a time across the whole tab.
-  const [editing, setEditing] = useState(null)   // { roundId, slot }
-  const [editValue, setEditValue] = useState('')
-  const [typeOpen, setTypeOpen] = useState(null)  // roundId
-
   if (rounds.length === 0) {
     return (
       <div className="empty-state">
@@ -378,53 +464,9 @@ function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound }) {
 
   const groups = groupByDate(rounds)
 
-  function openEditor(round, slot) {
-    const cur = slot === 1 ? round.tee_time_1 : round.tee_time_2
-    setEditValue(to24(cur))
-    setTypeOpen(null)
-    setEditing({ roundId: round.id, slot })
-  }
-
-  async function saveTime() {
-    const display = to12(editValue)
-    const col = editing.slot === 1 ? 'tee_time_1' : 'tee_time_2'
-    await supabase.from('rounds').update({ [col]: display || null }).eq('id', editing.roundId)
-    onUpdateRound(editing.roundId, { [col]: display || null })
-    setEditing(null)
-  }
-
-  async function setType(roundId, type) {
-    await supabase.from('rounds').update({ round_type: type }).eq('id', roundId)
-    onUpdateRound(roundId, { round_type: type })
-    setTypeOpen(null)
-  }
-
-  function TimeCell({ round, slot }) {
-    const isEditing = editing && editing.roundId === round.id && editing.slot === slot
-    const value = slot === 1 ? round.tee_time_1 : round.tee_time_2
-
-    if (isEditing) {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <input type="time" value={editValue} onChange={e => setEditValue(e.target.value)}
-            style={{ background: '#E8EDF3', border: '1px solid #1B3F6E', borderRadius: 6, padding: '5px 8px', fontSize: 14, color: '#0D1B2A', fontFamily: 'inherit', width: 'auto' }} />
-          <button onClick={saveTime} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 8px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginLeft: 6 }}>✓</button>
-          <button onClick={() => setEditing(null)} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 16, cursor: 'pointer', marginLeft: 4 }}>✕</button>
-        </div>
-      )
-    }
-
-    const display = value
-      ? <span style={{ fontSize: 14, fontWeight: 700, color: '#0D1B2A' }}>{value}</span>
-      : <span style={{ fontSize: 13, fontWeight: 600, color: '#DDE3EA' }}>TBD</span>
-
-    if (!isCommissioner) return display
-    return (
-      <button onClick={() => openEditor(round, slot)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6, padding: 0 }}>
-        {display}
-        <span style={{ fontSize: 11, color: '#7A8FA6' }}>✎</span>
-      </button>
-    )
+  async function saveTeeTime(roundId, col, display) {
+    await supabase.from('rounds').update({ [col]: display }).eq('id', roundId)
+    onUpdateRound(roundId, { [col]: display })
   }
 
   return (
@@ -438,36 +480,18 @@ function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound }) {
               <div key={r.id} style={{ background: 'var(--bg1)', padding: '12px 14px', borderTop: '1px solid var(--bg2)' }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A' }}>{r.course_name}</div>
 
-                {/* Badge + Change */}
+                {/* Round type — read-only; managed in the Courses page. */}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, marginBottom: 10 }}>
                   <span className={`type-pill ${isTournament ? 'tournament' : 'practice'}`}>
                     {isTournament ? 'Tournament' : 'Practice'}
                   </span>
-                  {isCommissioner && (
-                    <span onClick={() => { setEditing(null); setTypeOpen(typeOpen === r.id ? null : r.id) }}
-                      style={{ fontSize: 11, color: '#1B3F6E', cursor: 'pointer', marginLeft: 4 }}>Change</span>
-                  )}
-                  {isCommissioner && typeOpen === r.id && (
-                    <span style={{ display: 'inline-flex', gap: 6, marginLeft: 4 }}>
-                      {['practice', 'tournament'].map(t => {
-                        const active = (t === 'tournament') === isTournament
-                        return (
-                          <button key={t} onClick={() => active ? setTypeOpen(null) : setType(r.id, t)}
-                            style={{ borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
-                              ...(active ? { background: '#1B3F6E', color: '#fff', border: 'none' } : { background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }) }}>
-                            {t}
-                          </button>
-                        )
-                      })}
-                    </span>
-                  )}
                 </div>
 
                 {/* Pairing tee-time rows */}
                 {[1, 2].map(slot => (
                   <div key={slot} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0' }}>
                     <span style={{ fontSize: 12, color: '#7A8FA6', fontWeight: 500 }}>Pairing {slot}</span>
-                    <TimeCell round={r} slot={slot} />
+                    <TimeCell round={r} slot={slot} isCommissioner={isCommissioner} onSave={saveTeeTime} />
                   </div>
                 ))}
               </div>
