@@ -645,7 +645,9 @@ const fl = {
   cellValue: { fontSize: 13, fontWeight: 600, color: '#0D1B2A' },
   placeholder: { fontSize: 12, fontWeight: 400, color: '#7A8FA6' },
   // All four field types share this box — same height, padding, border; no focus underline.
-  input: { width: '100%', border: '1px solid #DDE3EA', borderRadius: 5, background: '#F5F8FA', color: '#0D1B2A', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '5px 7px', boxSizing: 'border-box', minWidth: 0 },
+  // appearance:none stops mobile from giving date/time inputs an intrinsic (thin) width,
+  // so they fill 100% and match the text inputs even when empty.
+  input: { width: '100%', display: 'block', appearance: 'none', WebkitAppearance: 'none', border: '1px solid #DDE3EA', borderRadius: 5, background: '#F5F8FA', color: '#0D1B2A', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '5px 7px', minHeight: 30, boxSizing: 'border-box', minWidth: 0 },
 }
 
 function FlightField({ label, type = 'text', placeholder, value, canEdit, onSave, isLast }) {
@@ -1031,6 +1033,29 @@ export default function MenuDrawer({
 
   // Reset to the drawer root whenever it is closed externally.
   useEffect(() => { if (!open) setPage(null) }, [open])
+
+  // Mobile swipe-back / browser back should close the drawer instead of leaving the
+  // site. While open, push a history entry; a back gesture pops it and we close the
+  // drawer. When the drawer is closed by button/overlay instead, pop our entry to keep
+  // the history stack clean. onClose is read via a ref so this only runs on open changes.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+  useEffect(() => {
+    if (!open) return
+    window.history.pushState({ drawerOpen: true }, '')
+
+    function onPopState() {
+      // Our entry was already popped by the back gesture — just close the drawer.
+      onCloseRef.current()
+    }
+    window.addEventListener('popstate', onPopState)
+
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+      // Closed via button/overlay (not back): our pushed entry is still on the stack.
+      if (window.history.state && window.history.state.drawerOpen) window.history.back()
+    }
+  }, [open])
 
   // Lock body scroll while the drawer or a page is showing.
   useEffect(() => {
