@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { strokesOnHole, computePlayingHandicaps } from '../lib/scoring'
+import { teamPillStyle, getTeamDisplayName } from '../lib/teamColors'
 
 // Live interactive scorecard — better-ball match play with drink tracking.
 // Scores/drinks keyed by trip_player_id. Pairings use team_slot 1..4
@@ -95,10 +96,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       if (roundIds.length === 0) { setLoading(false); return }
       const [tpRes, teamRes, scoreRes, drinkRes] = await Promise.all([
         supabase.from('trip_players').select('id, user_id, first_name, last_name, guest_name, handicap_index, team_id').eq('trip_id', trip.id),
-        // Order by created_at (id as a stable tiebreaker, since wizard-created rows
-        // share a created_at) so teams[0]/teams[1] map to the T1/T2 slots (SLOT_TEAM)
-        // consistently with the commissioner editor, regardless of renaming.
-        supabase.from('teams').select('id, name, color').eq('trip_id', trip.id).order('created_at').order('id'),
+        // Order by team_index so teams[0]/teams[1] map to the T1/T2 slots (SLOT_TEAM).
+        supabase.from('teams').select('id, name, team_index').eq('trip_id', trip.id).order('team_index'),
         supabase.from('scores').select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds),
         supabase.from('drinks').select('round_id, trip_player_id, hole_number, count').in('round_id', roundIds),
       ])
@@ -451,7 +450,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       {modal && (
         <ScoreModal
           modal={modal} round={round} player={playersById[modal.tpId]}
-          teamName={modal.teamSide === 'T1' ? teams[0]?.name : teams[1]?.name}
+          teamName={getTeamDisplayName(modal.teamSide === 'T1' ? teams[0] : teams[1])}
           par={holes?.[modal.hole - 1]?.par} si={holes?.[modal.hole - 1]?.handicap}
           courseHcp={phOf(modal.tpId)} canSave={isInPairing}
           existingScore={getScore(modal.tpId, modal.hole)} existingDrinks={getDrinks(modal.tpId, modal.hole)}
@@ -548,7 +547,7 @@ function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSav
     remove: { width: '100%', padding: 10, background: 'none', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 10, color: '#f08080', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8, fontFamily: 'inherit' },
     cancel: { width: '100%', padding: 10, background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
   }
-  const teamStyle = teamSide === 'T1' ? { background: 'rgba(27,63,110,0.15)', color: '#1B3F6E' } : { background: 'rgba(30,138,110,0.15)', color: '#1E8A6E' }
+  const teamStyle = teamPillStyle(teamSide === 'T1' ? 1 : 2)
 
   return (
     <div style={m.overlay} onClick={onClose}>

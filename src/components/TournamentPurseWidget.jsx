@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { analyzeScoring, playerName, firstName } from '../lib/scoring'
+import { getTeamDisplayName } from '../lib/teamColors'
 
 // Tournament Purse — current standings + who owes the purse. Always renders.
 
@@ -49,7 +50,7 @@ export default function TournamentPurseWidget({ tripId, isCommissioner, purseAmo
         roundIds.length ? supabase.from('course_holes').select('round_id, hole_number, par, stroke_index').in('round_id', roundIds) : Promise.resolve({ data: [] }),
         roundIds.length ? supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', roundIds) : Promise.resolve({ data: [] }),
         supabase.from('trip_players').select('id, user_id, guest_name, handicap_index, team_id').eq('trip_id', tripId),
-        supabase.from('teams').select('id, trip_id, name, color').eq('trip_id', tripId).order('name'),
+        supabase.from('teams').select('id, trip_id, name, team_index').eq('trip_id', tripId).order('team_index'),
       ])
 
       const pairings = pairingsRes.data || []
@@ -151,7 +152,7 @@ export default function TournamentPurseWidget({ tripId, isCommissioner, purseAmo
         {header}{editPanel}
         <div style={styles.body}>
           <div style={{ ...styles.status, ...styles.statusMuted }}>
-            {tied || !winningTeam ? 'Teams are tied' : `${winningTeam.name} is currently winning`}
+            {tied || !winningTeam ? 'Teams are tied' : `${getTeamDisplayName(winningTeam)} is currently winning`}
           </div>
         </div>
       </div>
@@ -187,7 +188,7 @@ export default function TournamentPurseWidget({ tripId, isCommissioner, purseAmo
       {header}{editPanel}
       <div style={styles.body}>
         <div style={{ ...styles.status, ...styles.statusRed }}>
-          {losingTeam.name} currently owes the purse
+          {getTeamDisplayName(losingTeam)} currently owes the purse
         </div>
         <div style={styles.grid}>
           {losingPlayers.map(tp => (

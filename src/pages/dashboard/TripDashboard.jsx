@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import { getActiveRound } from '../../lib/scoring'
+import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
@@ -312,22 +313,14 @@ function TabLeaderboard({ trip, teams, rounds }) {
     )
   }
 
-  if (teams.length === 0) {
-    return (
-      <div className="empty-state">
-        <span className="empty-state-icon">🏆</span>
-        Teams not yet created.
-      </div>
-    )
-  }
-
   return (
     <div>
-      {/* Team cards */}
-      {teams.map((team, i) => (
+      {/* One card per team — teams exist from trip creation, so always show them. */}
+      {teams.map(team => (
         <div key={team.id} className="lb-team-card">
-          <div className={`lb-team-header ${i % 2 === 0 ? 't1' : 't2'}`}>
-            <span className="lb-team-name">{team.name}</span>
+          {/* Colour by stable index (1 navy, 2 teal, 3 brown, 4 purple), never by name. */}
+          <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
+            <span className="lb-team-name">{getTeamDisplayName(team)}</span>
             <span className="lb-team-pts">—</span>
           </div>
           <div className="lb-rounds">
@@ -676,7 +669,7 @@ export default function TripDashboard() {
       const [roundsRes, playersRes, teamsRes, memberRes] = await Promise.all([
         supabase.from('rounds').select('*').eq('trip_id', tripData.id).order('round_number'),
         supabase.from('trip_players').select('id, user_id, guest_name, handicap_index').eq('trip_id', tripData.id),
-        supabase.from('teams').select('*').eq('trip_id', tripData.id).order('name'),
+        supabase.from('teams').select('*').eq('trip_id', tripData.id).order('team_index'),
         user?.id
           ? supabase.from('group_members').select('role').eq('group_id', activeGroup.id).eq('user_id', user.id).maybeSingle()
           : Promise.resolve({ data: null }),

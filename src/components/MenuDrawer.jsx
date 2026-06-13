@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
+import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -230,13 +231,9 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
     }
   }, [editing, player])
 
-  // Colour the team pill by slot: teams[0] = Team 1 (navy), teams[1] = Team 2 (teal),
-  // matching the T1/T2 colours in the scoring modal.
-  const teamIdx = teams.findIndex(t => t.id === player.team_id)
-  const team = teamIdx >= 0 ? teams[teamIdx] : null
-  const teamPillColor = teamIdx === 0
-    ? { background: 'rgba(27,63,110,0.15)', color: '#1B3F6E' }
-    : { background: 'rgba(30,138,110,0.15)', color: '#1E8A6E' }
+  // Colour the team pill by the team's stable index (1 navy, 2 teal, …), never by name.
+  const team = teams.find(t => t.id === player.team_id) || null
+  const teamPillColor = teamPillStyle(colorIndexOf(team))
 
   async function save() {
     setSaving(true)
@@ -263,7 +260,7 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
             <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>
           )}
         </div>
-        {team && <span style={{ ...pc.teamPill, ...teamPillColor }}>{team.name}</span>}
+        {team && <span style={{ ...pc.teamPill, ...teamPillColor }}>{getTeamDisplayName(team)}</span>}
         {commissioner && <span style={pc.badge}>Commissioner</span>}
         {isCommissioner && !editing && (
           <button style={pc.pencil} onClick={onStartEdit} aria-label="Edit player"><PencilIcon /></button>
@@ -294,7 +291,7 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
           {isCommissioner && (
             <div style={{ ...pc.detailRow, borderBottom: 'none', cursor: 'pointer' }} onClick={onStartEdit}>
               <span style={pc.detailLabel}>Team</span>
-              <span>{team ? team.name : 'Unassigned'}</span>
+              <span>{team ? getTeamDisplayName(team) : 'Unassigned'}</span>
             </div>
           )}
         </div>
@@ -311,7 +308,7 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
             <input style={pc.editInput} type="number" step="0.1" min="0" max="54" placeholder="e.g. 14.2" value={form.handicap_index} onChange={e => setForm({ ...form, handicap_index: e.target.value })} />
             <select style={pc.editInput} value={form.team_id} onChange={e => setForm({ ...form, team_id: e.target.value })}>
               <option value="">Unassigned</option>
-              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {teams.map(t => <option key={t.id} value={t.id}>{getTeamDisplayName(t)}</option>)}
             </select>
           </div>
           <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
@@ -824,60 +821,54 @@ function RulesPage({ tripId, isCommissioner, allowance, onUpdate }) {
 }
 
 // ── Commissioner Tools ────────────────────────────────────────────
-// Every trip has exactly two teams. Shows a read-only display of the two names with
-// an Edit button; clicking Edit reveals the inputs. Save persists (creating any missing
-// rows so teams[0]/teams[1], ordered by created_at, stay aligned with the T1/T2 slots
-// used everywhere else) and returns to the read-only state.
-function teamsHaveNames(teams) {
-  return teams.length >= 2 && !!teams[0]?.name && !!teams[1]?.name
+// The team rows always exist (created with the trip), so this just edits their names.
+// Read-only display (one row per team, coloured by index) with an Edit toggle; Save
+// does a direct UPDATE by team id (blank clears the name back to null → "Team N") and
+// returns to read-only.
+function teamsAllNamed(teams) {
+  return teams.length > 0 && teams.every(t => !!t.name)
 }
 
-function TeamNamesCard({ teams, tripId, onSaved }) {
-  // First load: read-only if names already exist, otherwise start in the editable state.
-  const [editing, setEditing] = useState(() => !teamsHaveNames(teams))
-  const [names, setNames] = useState(() => [teams[0]?.name || '', teams[1]?.name || ''])
+function TeamNamesCard({ teams, onSaved }) {
+  // First load: read-only if every team already has a name, else start editable.
+  const [editing, setEditing] = useState(() => !teamsAllNamed(teams))
+  const [names, setNames] = useState(() => teams.map(t => t.name || ''))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   // Re-sync the inputs if the underlying teams change (e.g. after a reload).
-  useEffect(() => { setNames([teams[0]?.name || '', teams[1]?.name || '']) }, [teams])
+  useEffect(() => { setNames(teams.map(t => t.name || '')) }, [teams])
 
   async function save() {
     setSaving(true)
-    // teams.name is NOT NULL — fall back to the default label for blank inputs.
-    const desired = [names[0].trim() || 'Team 1', names[1].trim() || 'Team 2']
-    const result = []
-    // Sequential so freshly-inserted rows get distinct created_at values, keeping order stable.
-    for (let i = 0; i < 2; i++) {
-      const existing = teams[i]
-      if (existing) {
-        if (existing.name !== desired[i]) {
-          await supabase.from('teams').update({ name: desired[i] }).eq('id', existing.id)
-        }
-        result.push({ ...existing, name: desired[i] })
-      } else {
-        const { data } = await supabase.from('teams').insert({ trip_id: tripId, name: desired[i] }).select('id, name').single()
-        if (data) result.push(data)
-      }
-    }
+    // Direct UPDATE by row id — rows always exist. Blank input clears to null.
+    const next = teams.map((t, i) => ({ ...t, name: (names[i] || '').trim() || null }))
+    const results = await Promise.all(
+      next.map(t => supabase.from('teams').update({ name: t.name }).eq('id', t.id)),
+    )
     setSaving(false)
+    if (results.some(r => r.error)) return
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     setEditing(false)
-    onSaved(result)
+    onSaved(next)
+  }
+
+  if (teams.length === 0) {
+    return <Card title="Team Names"><div style={s.muted}>No teams for this trip.</div></Card>
   }
 
   return (
     <Card title="Team Names">
       {editing ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {[0, 1].map(i => (
-            <div key={i}>
-              <div style={pc.detailLabel}>Team {i + 1} Name</div>
+          {teams.map((t, i) => (
+            <div key={t.id}>
+              <div style={pc.detailLabel}>Team {t.team_index ?? i + 1} Name</div>
               <input
                 style={{ ...pc.editInput, marginTop: 4 }}
-                value={names[i]}
-                placeholder={`Team ${i + 1}`}
+                value={names[i] ?? ''}
+                placeholder={`Team ${t.team_index ?? i + 1}`}
                 onChange={e => setNames(n => n.map((v, j) => (j === i ? e.target.value : v)))}
               />
             </div>
@@ -888,10 +879,13 @@ function TeamNamesCard({ teams, tripId, onSaved }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {[0, 1].map(i => (
-            <div key={i}>
-              <div style={pc.detailLabel}>Team {i + 1}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#0D1B2A', marginTop: 2 }}>{teams[i]?.name || `Team ${i + 1}`}</div>
+          {teams.map((t, i) => (
+            <div key={t.id}>
+              <div style={pc.detailLabel}>Team {t.team_index ?? i + 1}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: teamColor(colorIndexOf(t)).solid, flexShrink: 0 }} />
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#0D1B2A' }}>{getTeamDisplayName(t)}</span>
+              </div>
             </div>
           ))}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
@@ -950,7 +944,7 @@ function CommissionerPage({ data, tripId, handicapAllowance, inviteToken, onTeam
   if (!data) return <div style={s.muted}>Loading…</div>
   return (
     <>
-      <TeamNamesCard teams={data.teams} tripId={tripId} onSaved={onTeamsSaved} />
+      <TeamNamesCard teams={data.teams} onSaved={onTeamsSaved} />
       <AllowanceInputCard tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} />
       <InviteSection inviteToken={inviteToken} />
     </>
@@ -1070,8 +1064,8 @@ export default function MenuDrawer({
           supabase.from('trip_players')
             .select('id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed')
             .eq('trip_id', tripId).order('last_name'),
-          // created_at + id ordering so teams[0]/teams[1] match the T1/T2 colors used in scoring.
-          supabase.from('teams').select('id, name').eq('trip_id', tripId).order('created_at').order('id'),
+          // Ordered by team_index; includes color_index for the team-pill colours.
+          supabase.from('teams').select('id, name, team_index, color_index').eq('trip_id', tripId).order('team_index'),
           supabase.from('group_members').select('user_id').eq('group_id', groupId).eq('role', 'admin'),
         ])
         // The commissioner is the group admin; flag whichever player record they own/claimed.
@@ -1086,9 +1080,8 @@ export default function MenuDrawer({
     }
     if (page === 'commissioner' && !commissionerData) {
       (async () => {
-        // Same ordering as ScoringTab (created_at + id tiebreaker) so "Team 1"/"Team 2"
-        // here line up with the T1/T2 slots used in scoring.
-        const { data: teams } = await supabase.from('teams').select('id, name').eq('trip_id', tripId).order('created_at').order('id')
+        // Ordered by team_index; includes color_index for display/colour helpers.
+        const { data: teams } = await supabase.from('teams').select('id, name, team_index, color_index').eq('trip_id', tripId).order('team_index')
         if (!cancelled) setCommissionerData({ teams: teams || [] })
       })()
     }

@@ -28,9 +28,11 @@ function uid() {
   return Math.random().toString(36).slice(2)
 }
 
+// Supported team counts: 2 (default), 3, or 4 — only those that divide the players
+// into equal teams.
 function getValidTeamCounts(n) {
   const counts = []
-  for (let i = 2; i <= Math.floor(n / 2); i++) {
+  for (let i = 2; i <= Math.min(4, Math.floor(n / 2)); i++) {
     if (n % i === 0) counts.push(i)
   }
   return counts
@@ -326,7 +328,7 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 
 function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams, setNumTeams, onBack, onFinish, loading, submitError }) {
   const validCounts = getValidTeamCounts(playerCount)
-  const canFinish = hasTournament === false || (hasTournament === true && numTeams !== null)
+  const canFinish = hasTournament === false || (hasTournament === true && validCounts.includes(numTeams))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -341,7 +343,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
           </button>
           <button
             className={`yes-no-btn ${hasTournament === false ? 'selected' : ''}`}
-            onClick={() => { setHasTournament(false); setNumTeams(null) }}
+            onClick={() => { setHasTournament(false); setNumTeams(2) }}
           >
             No
           </button>
@@ -429,7 +431,7 @@ export default function TripWizard() {
 
   // Step 3
   const [hasTournament, setHasTournament] = useState(null)
-  const [numTeams, setNumTeams] = useState(null)
+  const [numTeams, setNumTeams] = useState(2) // 2 teams is the default
 
   // Change 5: block wizard if user already has an active trip
   useEffect(() => {
@@ -606,11 +608,15 @@ export default function TripWizard() {
       const { error: playersErr } = await supabase.from('trip_players').insert(playerRows)
       if (playersErr) throw playersErr
 
-      // 6. Create teams if tournament
+      // 6. Create teams if tournament. Rows exist from creation; names start null
+      //    (computed as "Team N" until the commissioner names them). color_index is
+      //    fixed to team_index.
       if (hasTournament && numTeams) {
         const teamRows = Array.from({ length: numTeams }, (_, i) => ({
           trip_id: trip.id,
-          name: `Team ${i + 1}`,
+          name: null,
+          team_index: i + 1,
+          color_index: i + 1,
         }))
         const { error: teamsErr } = await supabase.from('teams').insert(teamRows)
         if (teamsErr) throw teamsErr
