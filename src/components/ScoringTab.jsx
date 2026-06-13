@@ -349,7 +349,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
               {Array.from({ length: st }).map((_, i) => <span key={i} className="stroke-dot" />)}
             </span>
           )}
-          {dc > 0 && <span className="drink-badge">🍺{dc}</span>}
+          {dc > 0 && <span className="drink-badge">{dc}</span>}
         </button>
       </span>
     )
@@ -374,6 +374,26 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         <div className="sc-sub-pts">{allFilled ? st.pts : '—'}</div>
         <div className="sc-sub-score t2">{cell(slotMap[3])}</div>
         <div className="sc-sub-score t2">{cell(slotMap[4])}</div>
+      </div>
+    )
+  }
+  // Total drinks per player across all 18 holes of the active round ("—" for 0).
+  function DrinkRow() {
+    const total = tpId => {
+      if (!tpId) return '—'
+      let s = 0
+      for (let h = 1; h <= 18; h++) s += getDrinks(tpId, h)
+      return s > 0 ? s : '—'
+    }
+    return (
+      <div className="sc-row sc-sub-row">
+        <div className="sc-sub-label">Drinks</div>
+        <div className="sc-sub-par" /><div />
+        <div className="sc-sub-score t1">{total(slotMap[1])}</div>
+        <div className="sc-sub-score t1">{total(slotMap[2])}</div>
+        <div className="sc-sub-pts" />
+        <div className="sc-sub-score t2">{total(slotMap[3])}</div>
+        <div className="sc-sub-score t2">{total(slotMap[4])}</div>
       </div>
     )
   }
@@ -442,6 +462,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
               {hole === 9 && <SubRow label="Out" start={1} end={9} />}
               {hole === 18 && <SubRow label="In" start={10} end={18} />}
               {hole === 18 && <SubRow label="Tot" start={1} end={18} />}
+              {hole === 18 && <DrinkRow />}
             </div>
           )
         })}

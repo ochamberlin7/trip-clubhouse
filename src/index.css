@@ -151,7 +151,7 @@ select {
 .pill-btn { position: relative; flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: 1px solid var(--bg3); background: none; color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all 0.15s; }
 .pill-btn.active { background: var(--navy); border-color: var(--navy); color: #fff; }
 .round-pill-name { display: inline-block; }
-.round-practice-badge { position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; border-radius: 50%; background: #C0392B; color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; pointer-events: none; border: 1.5px solid #fff; z-index: 2; }
+.round-practice-badge { position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; border-radius: 50%; background: #7A8FA6; color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; pointer-events: none; border: 1.5px solid #fff; z-index: 2; }
 
 /* ── Pairing tabs — CTI .pair-tabs ── */
 .pair-tabs { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--bg3); border-radius: var(--radius); overflow: hidden; margin-bottom: 14px; }
