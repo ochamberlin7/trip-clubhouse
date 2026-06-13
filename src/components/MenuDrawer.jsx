@@ -615,24 +615,27 @@ function CoursesPage({ data, isCommissioner, onEditCourse, allowance, scoredRoun
 }
 
 const ARRIVE_FIELDS = [
-  { key: 'arrive_date', label: 'Date' },
-  { key: 'arrive_time', label: 'Time' },
-  { key: 'arrive_airport', label: 'Airport' },
-  { key: 'flight_number_in', label: 'Flight #' },
+  { key: 'arrive_date', label: 'Date', type: 'date' },
+  { key: 'arrive_time', label: 'Time', type: 'time' },
+  { key: 'arrive_airport', label: 'Airport', type: 'text', placeholder: 'e.g. DTW' },
+  { key: 'flight_number_in', label: 'Flight #', type: 'text', placeholder: 'e.g. AA 1234' },
 ]
 const DEPART_FIELDS = [
-  { key: 'depart_date', label: 'Date' },
-  { key: 'depart_time', label: 'Time' },
-  { key: 'depart_airport', label: 'Airport' },
-  { key: 'flight_number_out', label: 'Flight #' },
+  { key: 'depart_date', label: 'Date', type: 'date' },
+  { key: 'depart_time', label: 'Time', type: 'time' },
+  { key: 'depart_airport', label: 'Airport', type: 'text', placeholder: 'e.g. DTW' },
+  { key: 'flight_number_out', label: 'Flight #', type: 'text', placeholder: 'e.g. AA 1234' },
 ]
 
 const fl = {
   card: { border: '1px solid #DDE3EA', borderRadius: 6, overflow: 'hidden', marginBottom: 14, background: '#fff' },
   header: { background: '#1B3F6E', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   name: { fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px' },
-  driving: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', letterSpacing: '1px', textTransform: 'uppercase' },
-  link: { fontSize: 11, color: 'rgba(255,255,255,0.6)', cursor: 'pointer', textDecoration: 'underline', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0 },
+  // Prominent bold label shown in the header when a person is driving.
+  driving: { fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '0.5px' },
+  drivingBtn: { fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '0.5px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 },
+  // Visible toggle button on the navy header (off state).
+  toggleBtn: { fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.45)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
   cols: { display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: '#fff' },
   col: { padding: '10px 12px' },
   divider: { background: '#DDE3EA' },
@@ -641,22 +644,23 @@ const fl = {
   label: { fontSize: 8, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#7A8FA6', marginBottom: 2 },
   cellValue: { fontSize: 13, fontWeight: 600, color: '#0D1B2A' },
   placeholder: { fontSize: 12, fontWeight: 400, color: '#7A8FA6' },
-  input: { width: '100%', border: 'none', borderBottom: '1px dashed #DDE3EA', background: 'transparent', color: '#0D1B2A', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '2px 0', boxSizing: 'border-box', minWidth: 0 },
+  // All four field types share this box — same height, padding, border; no focus underline.
+  input: { width: '100%', border: '1px solid #DDE3EA', borderRadius: 5, background: '#F5F8FA', color: '#0D1B2A', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '5px 7px', boxSizing: 'border-box', minWidth: 0 },
 }
 
-function FlightField({ label, value, canEdit, onSave, isLast }) {
+function FlightField({ label, type = 'text', placeholder, value, canEdit, onSave, isLast }) {
   const rowStyle = { ...fl.colRow, ...(isLast ? { marginBottom: 0 } : null) }
   return (
     <div style={rowStyle}>
       <span style={fl.label}>{label}</span>
       {canEdit
         ? <input
-            defaultValue={value || ''} placeholder="—"
-            autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+            type={type}
+            defaultValue={value || ''} placeholder={placeholder}
+            autoComplete="off" autoCorrect="off" autoCapitalize="characters" spellCheck={false}
             style={fl.input}
             onBlur={e => { const v = e.target.value.trim(); if (v !== (value || '')) onSave(v) }}
             onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
-            onFocus={e => { e.target.style.borderBottom = '2px solid #1B3F6E' }}
           />
         : (value ? <span style={fl.cellValue}>{value}</span> : <span style={fl.placeholder}>—</span>)}
     </div>
@@ -667,13 +671,15 @@ function FlightCard({ player, flight, canEdit, onPatch }) {
   const driving = !!flight?.is_driving
   const first = firstNameOf(player.name)
 
+  // Driving: collapse the flight fields, show a bold "Driving" label. Editors can tap
+  // it to switch back to entering flights.
   if (driving) {
     return (
       <div style={fl.card}>
         <div style={fl.header}>
           <span style={fl.name}>{first}</span>
           {canEdit
-            ? <button style={fl.link} onClick={() => onPatch({ is_driving: false })}>Has flights?</button>
+            ? <button style={fl.drivingBtn} title="Tap to add flights instead" onClick={() => onPatch({ is_driving: false })}>Driving</button>
             : <span style={fl.driving}>Driving</span>}
         </div>
       </div>
@@ -684,13 +690,13 @@ function FlightCard({ player, flight, canEdit, onPatch }) {
     <div style={fl.card}>
       <div style={fl.header}>
         <span style={fl.name}>{first}</span>
-        {canEdit && <button style={fl.link} onClick={() => onPatch({ is_driving: true })}>Driving?</button>}
+        {canEdit && <button style={fl.toggleBtn} onClick={() => onPatch({ is_driving: true })}>Driving?</button>}
       </div>
       <div style={fl.cols}>
         <div style={fl.col}>
           <div style={fl.colHeader}>Arrival</div>
           {ARRIVE_FIELDS.map((f, i) => (
-            <FlightField key={f.key} label={f.label} value={flight?.[f.key]} canEdit={canEdit}
+            <FlightField key={f.key} label={f.label} type={f.type} placeholder={f.placeholder} value={flight?.[f.key]} canEdit={canEdit}
               isLast={i === ARRIVE_FIELDS.length - 1} onSave={v => onPatch({ [f.key]: v || null })} />
           ))}
         </div>
@@ -698,7 +704,7 @@ function FlightCard({ player, flight, canEdit, onPatch }) {
         <div style={fl.col}>
           <div style={fl.colHeader}>Departure</div>
           {DEPART_FIELDS.map((f, i) => (
-            <FlightField key={f.key} label={f.label} value={flight?.[f.key]} canEdit={canEdit}
+            <FlightField key={f.key} label={f.label} type={f.type} placeholder={f.placeholder} value={flight?.[f.key]} canEdit={canEdit}
               isLast={i === DEPART_FIELDS.length - 1} onSave={v => onPatch({ [f.key]: v || null })} />
           ))}
         </div>
