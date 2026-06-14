@@ -26,10 +26,10 @@ function fmtRange(s, e) {
 const s = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, transition: 'opacity 0.25s ease' },
   drawer: { position: 'fixed', right: 0, top: 0, bottom: 0, width: '280px', maxWidth: '85vw', background: '#FFFFFF', borderLeft: '1px solid #DDE3EA', zIndex: 301, display: 'flex', flexDirection: 'column', transition: 'transform 0.25s ease', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)' },
-  drawerHeader: { padding: '20px 16px 12px', borderBottom: '1px solid #DDE3EA', position: 'relative' },
+  drawerHeader: { padding: '20px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 20px)', borderBottom: '1px solid #DDE3EA', position: 'relative' },
   groupLine: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 600 },
   tripLine: { fontSize: '18px', fontWeight: 700, color: '#0D1B2A', marginTop: '2px' },
-  closeBtn: { position: 'absolute', top: '16px', right: '16px', width: '32px', height: '32px', borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  closeBtn: { position: 'absolute', top: 'max(env(safe-area-inset-top), 16px)', right: '16px', width: '32px', height: '32px', borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   nav: { flex: 1, overflowY: 'auto', padding: '12px 0' },
   item: { display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3', background: '#fff', width: '100%', border: 'none', textAlign: 'left', fontFamily: 'inherit' },
   iconBox: { width: '36px', height: '36px', borderRadius: '6px', background: '#E8EDF3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -37,7 +37,7 @@ const s = {
   itemSub: { fontSize: '11px', color: '#7A8FA6', marginTop: '1px' },
 
   page: { position: 'fixed', inset: 0, zIndex: 200, background: '#F0F4F8', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
-  pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: '16px 16px 12px', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: '12px' },
+  pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: '16px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 16px)', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: '12px' },
   backBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1B3F6E', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 },
   pageContext: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 500 },
   pageTitle: { fontSize: '20px', fontWeight: 700, color: '#0D1B2A', marginTop: '1px' },
