@@ -14,15 +14,23 @@
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: #f5f5f5; color: #1a1a2e; font-family: -apple-system, BlinkMacSystemFont, sans-serif; min-height: 100vh; }
-      #boot-msg { padding: 40px; color: #3b82f6; font-size: 16px; }
+      #boot-msg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+      #boot-msg .spinner {
+        width: 40px; height: 40px;
+        border: 4px solid rgba(27, 63, 110, 0.15);
+        border-top-color: #1B3F6E;
+        border-radius: 50%;
+        animation: boot-spin 0.8s linear infinite;
+      }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
       #fatal-error { display: none; padding: 32px; }
       #fatal-error h2 { color: #ef4444; margin-bottom: 12px; font-size: 20px; }
       #fatal-error pre { background: #fff; padding: 16px; border-radius: 8px; font-size: 13px; color: #dc2626; white-space: pre-wrap; overflow-x: auto; border: 1px solid #fecaca; }
     </style>
   </head>
   <body>
-    <!-- Shown until React mounts (React will replace #root content) -->
-    <div id="boot-msg">Trip Clubhouse — loading…</div>
+    <!-- Centered loading spinner; hidden (display:none) as soon as React mounts -->
+    <div id="boot-msg"><div class="spinner"></div></div>
 
     <div id="fatal-error">
       <h2>⚠ JavaScript error — app could not load</h2>
@@ -32,9 +40,6 @@
     <div id="root"></div>
 
     <script>
-      // Hide the boot message once JS starts running
-      document.getElementById('boot-msg').textContent = 'Trip Clubhouse — starting React…';
-
       function showFatal(text) {
         document.getElementById('boot-msg').style.display = 'none';
         var box = document.getElementById('fatal-error');
