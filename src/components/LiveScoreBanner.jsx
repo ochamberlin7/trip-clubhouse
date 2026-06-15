@@ -1,19 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { liveMatchTally, isTournamentRound } from '../lib/scoring'
+import { liveMatchTally } from '../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 
 // Floating live-score banner, fixed to the bottom of the screen. Mounted once at
 // the dashboard level so it persists across every tab. Shows a per-pairing
-// better-ball match-play status for today's tournament round.
+// better-ball match-play status for the most relevant round with scores —
+// any round type (practice or tournament) qualifies.
 //
-// Visibility (mirrors the CTI Clubhouse banner, simplified):
-//   • only during the trip's date window
+// Round selection priority (see the selection memo below):
+//   1. Today's date matches a round's scheduled date AND scores exist
+//   2. Any round in progress (scores exist, not complete), regardless of date
+//   3. (Subsumed by 2) Outside the trip dates, an in-progress round still surfaces
+// A round only ever surfaces once it has scores, so a past-dated round with no
+// scores is excluded; a round with scores is never excluded by date alone.
+//
+// Other visibility gates:
 //   • hidden at or after 9pm (re-checked every 60s)
 //   • hidden when no holes have been scored yet
 //   • dismissible with × — in-memory only, so it returns on the next load
 
-// Local YYYY-MM-DD (not UTC) so the date window matches the user's day.
+// Local YYYY-MM-DD (not UTC) so the date comparison matches the user's day.
 function todayIsoLocal() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -37,19 +44,19 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   const [pairingPlayers, setPairingPlayers] = useState([])
   const [scoresMap, setScoresMap] = useState({})
   const [hcpByPlayer, setHcpByPlayer] = useState({})
-  // Bumped every 60s so the 9pm cutoff (and trip-window) is re-evaluated.
+  // Bumped every 60s so the 9pm cutoff is re-evaluated.
   const [, setClockTick] = useState(0)
   const channelRef = useRef(null)
 
   const allowance = trip?.handicap_allowance ?? 100
 
-  // Today's tournament rounds (date window aside — used to decide what to fetch).
+  // Today's local date, for the round-selection priority (any round type).
   const todayISO = todayIsoLocal()
-  const todaysRoundIds = useMemo(
-    () => rounds.filter(r => r.date === todayISO && isTournamentRound(r)).map(r => r.id),
-    [rounds, todayISO],
-  )
-  const todaysRoundKey = todaysRoundIds.join(',')
+
+  // Every round (any type) is a candidate — selection is decided by scores +
+  // date in the memo below, so we fetch/track them all.
+  const allRoundIds = useMemo(() => rounds.map(r => r.id), [rounds])
+  const allRoundKey = allRoundIds.join(',')
 
   // Re-check the 9pm cutoff every 60 seconds.
   useEffect(() => {
@@ -57,17 +64,15 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     return () => clearInterval(id)
   }, [])
 
-  // Fetch pairings / scores / handicaps for today's rounds, and stay live.
+  // Fetch pairings / scores / handicaps for every round, and stay live.
   useEffect(() => {
-    // No today rounds → nothing to fetch. Any stale fetched data is harmless:
-    // the tally memo iterates todaysRoundIds, so it yields no round to show.
-    if (!trip?.id || todaysRoundIds.length === 0) return
+    if (!trip?.id || allRoundIds.length === 0) return
     let cancelled = false
 
     async function loadScores() {
       const { data } = await supabase
         .from('scores').select('round_id, trip_player_id, hole_number, gross_score')
-        .in('round_id', todaysRoundIds)
+        .in('round_id', allRoundIds)
       if (cancelled) return
       const map = {}
       ;(data || []).forEach(s => {
@@ -78,7 +83,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
 
     async function loadAll() {
       const [pairRes, tpRes] = await Promise.all([
-        supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', todaysRoundIds),
+        supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', allRoundIds),
         supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
       ])
       const pairs = pairRes.data || []
@@ -100,11 +105,11 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
 
     loadAll()
 
-    // Live updates: any score change on a today round refreshes the tally.
-    const ch = supabase.channel(`live-banner:${todaysRoundKey}`)
+    // Live updates: any score change on a trip round refreshes the tally.
+    const ch = supabase.channel(`live-banner:${allRoundKey}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, payload => {
         const rid = payload.new?.round_id ?? payload.old?.round_id
-        if (rid && todaysRoundIds.includes(rid)) loadScores()
+        if (rid && allRoundIds.includes(rid)) loadScores()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => loadAll())
       .subscribe()
@@ -115,30 +120,47 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       channelRef.current = null
       supabase.removeChannel(ch)
     }
-  }, [trip?.id, todaysRoundKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trip?.id, allRoundKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Visibility gates ────────────────────────────────────────────
   const now = new Date()
-  const inTripWindow = trip?.start_date && trip?.end_date
-    && todayISO >= trip.start_date && todayISO <= trip.end_date
   const beforeNine = now.getHours() < 21
 
-  // Pick the today round with the most holes scored, then its per-pairing rows.
+  // Round selection by priority. Only rounds that already have scores can
+  // surface (so a past-dated, score-less round is excluded automatically; a
+  // round with scores is never excluded by date alone).
+  //   1. Today's scheduled round with scores (prefer in-progress, then most holes)
+  //   2. Any in-progress round (scores, not complete), regardless of date
+  //      — this also covers "outside trip dates, an in-progress round surfaces"
   const { round, tallies } = useMemo(() => {
-    let best = null
-    for (const rid of todaysRoundIds) {
-      const r = rounds.find(x => x.id === rid)
-      if (!r) continue
+    // Per-round summary, keeping only rounds that have at least one scored hole.
+    const summaries = rounds.map(r => {
       const t = liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance)
       const scored = t.reduce((a, p) => a + p.holesScored, 0)
-      if (scored > 0 && (!best || scored > best.scored)) best = { round: r, tallies: t, scored }
-    }
-    return best ? { round: best.round, tallies: best.tallies } : { round: null, tallies: [] }
-  }, [todaysRoundIds, rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance])
+      return { round: r, tallies: t, scored, complete: t.length > 0 && t.every(p => p.complete) }
+    }).filter(sum => sum.scored > 0)
+
+    if (summaries.length === 0) return { round: null, tallies: [] }
+
+    // In-progress first (complete sorts last), then most holes scored.
+    const pickBest = list => list.slice().sort(
+      (a, b) => (Number(a.complete) - Number(b.complete)) || (b.scored - a.scored),
+    )[0]
+
+    // Priority 1: today's scheduled round(s) with scores.
+    const todays = summaries.filter(sum => sum.round.date === todayISO)
+    if (todays.length) { const best = pickBest(todays); return { round: best.round, tallies: best.tallies } }
+
+    // Priority 2 & 3: any in-progress round with scores, regardless of date.
+    const inProgress = summaries.filter(sum => !sum.complete)
+    if (inProgress.length) { const best = pickBest(inProgress); return { round: best.round, tallies: best.tallies } }
+
+    return { round: null, tallies: [] }
+  }, [rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, todayISO])
 
   const anyHolesScored = tallies.some(t => t.holesScored > 0)
 
-  if (dismissed || !inTripWindow || !beforeNine || !round || !anyHolesScored) return null
+  if (dismissed || !beforeNine || !round || !anyHolesScored) return null
 
   const n1 = getTeamDisplayName(teams?.[0]) || 'Team 1'
   const n2 = getTeamDisplayName(teams?.[1]) || 'Team 2'
