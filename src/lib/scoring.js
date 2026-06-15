@@ -265,3 +265,74 @@ export function formatVsPar(value) {
   if (value === 0) return 'E'
   return value > 0 ? `+${value}` : `${value}`
 }
+
+// Live better-ball match-play tally for one round, one row per pairing.
+// Slots 1 & 2 are Team 1, slots 3 & 4 are Team 2 (mirrors ScoringTab's SLOT_TEAM).
+// Mirrors ScoringTab's holeResult math: low-ball playing handicaps within each
+// pairing, best net per side, the hole goes to the lower net (equal nets halve).
+// Only holes where all four slots are filled AND every player has a gross score
+// count — this matches what the on-screen scorecard shows.
+//
+// Inputs:
+//   round          : the round row (uses round.holes[].par/.handicap and slope_rating)
+//   pairings       : [{ id, round_id, pairing_number }] (any rounds; filtered here)
+//   pairingPlayers : [{ pairing_id, trip_player_id, team_slot }]
+//   scoresMap      : `${roundId}:${tpId}:${hole}` -> gross_score
+//   hcpByPlayer    : Map or object trip_player_id -> handicap_index
+//   allowance      : handicap allowance % (default 100)
+//
+// Returns an array sorted by pairing_number, each:
+//   { pairingNumber, t1pts, t2pts, holesScored, totalHoles, complete }
+export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance = 100) {
+  if (!round) return []
+  const holes = Array.isArray(round.holes) ? round.holes : null
+  const totalHoles = holes?.length || 18
+  const getHcp = (tp) => (hcpByPlayer instanceof Map ? hcpByPlayer.get(tp) : hcpByPlayer?.[tp])
+
+  const roundPairings = pairings
+    .filter(p => p.round_id === round.id)
+    .sort((a, b) => a.pairing_number - b.pairing_number)
+
+  return roundPairings.map(pairing => {
+    // slot (1..4) -> trip_player_id
+    const slotMap = {}
+    pairingPlayers
+      .filter(pp => pp.pairing_id === pairing.id)
+      .forEach(pp => { slotMap[pp.team_slot] = pp.trip_player_id })
+
+    const filled = [1, 2, 3, 4].map(s => slotMap[s])
+    const allFilled = filled.every(Boolean)
+
+    let t1pts = 0, t2pts = 0, holesScored = 0
+    if (allFilled) {
+      // Low-ball playing handicaps for the four players in this pairing.
+      const objs = filled.map(id => ({ id, handicap_index: getHcp(id) }))
+      const playing = computePlayingHandicaps(objs, round.slope_rating, allowance)
+
+      const net = (tp, hole) => {
+        const gross = scoresMap[`${round.id}:${tp}:${hole}`]
+        if (gross == null) return null
+        return gross - strokesOnHole(playing.get(tp) ?? 0, holes?.[hole - 1]?.handicap)
+      }
+
+      for (let hole = 1; hole <= totalHoles; hole++) {
+        const t1 = [slotMap[1], slotMap[2]].map(tp => net(tp, hole))
+        const t2 = [slotMap[3], slotMap[4]].map(tp => net(tp, hole))
+        if (t1.some(n => n == null) || t2.some(n => n == null)) continue
+        holesScored++
+        const b1 = Math.min(...t1), b2 = Math.min(...t2)
+        if (b1 < b2) t1pts++
+        else if (b2 < b1) t2pts++
+      }
+    }
+
+    return {
+      pairingNumber: pairing.pairing_number,
+      t1pts,
+      t2pts,
+      holesScored,
+      totalHoles,
+      complete: holesScored === totalHoles,
+    }
+  })
+}

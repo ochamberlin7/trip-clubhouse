@@ -13,6 +13,7 @@ import ChatWidget from '../../components/ChatWidget'
 import DailyMVPCard from '../../components/DailyMVPCard'
 import MenuDrawer from '../../components/MenuDrawer'
 import ScoringTab from '../../components/ScoringTab'
+import LiveScoreBanner from '../../components/LiveScoreBanner'
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -861,6 +862,9 @@ export default function TripDashboard() {
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={isCommissioner} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
       </div>
+
+      {/* Floating live-score banner — mounted once here so it persists across tabs */}
+      <LiveScoreBanner trip={trip} rounds={rounds} teams={teams} />
 
       {/* Slide-out menu drawer (opened by the MENU tab) */}
       <MenuDrawer
