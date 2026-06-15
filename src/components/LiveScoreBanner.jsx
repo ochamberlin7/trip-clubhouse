@@ -16,6 +16,8 @@ import { teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 // scores is excluded; a round with scores is never excluded by date alone.
 //
 // Other visibility gates:
+//   • a COMPLETED round's result only shows during the trip dates; an
+//     in-progress round can surface the banner any day
 //   • hidden at or after 9pm (re-checked every 60s)
 //   • hidden when no holes have been scored yet
 //   • dismissible with × — in-memory only, so it returns on the next load
@@ -160,7 +162,14 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
 
   const anyHolesScored = tallies.some(t => t.holesScored > 0)
 
+  // Completed-round results only show during the trip dates; an in-progress
+  // round can surface the banner any day.
+  const inTripWindow = trip?.start_date && trip?.end_date
+    && todayISO >= trip.start_date && todayISO <= trip.end_date
+  const selectedComplete = tallies.length > 0 && tallies.every(t => t.complete)
+
   if (dismissed || !beforeNine || !round || !anyHolesScored) return null
+  if (selectedComplete && !inTripWindow) return null
 
   const n1 = getTeamDisplayName(teams?.[0]) || 'Team 1'
   const n2 = getTeamDisplayName(teams?.[1]) || 'Team 2'
