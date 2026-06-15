@@ -67,6 +67,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const [modal, setModal] = useState(null)
   const [openSlot, setOpenSlot] = useState(null) // commissioner header dropdown
   const [assignError, setAssignError] = useState(null)
+  const [saveError, setSaveError] = useState(null) // transient toast when an optimistic score save fails
   const [connStatus, setConnStatus] = useState('connecting') // connecting | connected | disconnected
   const [reconnectTick, setReconnectTick] = useState(0)
   const reconnectTimer = useRef(null)
@@ -203,6 +204,13 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // Report realtime status up so the page header can show the live dot.
   useEffect(() => { onConnStatus?.(connStatus) }, [connStatus, onConnStatus])
 
+  // Auto-dismiss the optimistic-save error toast after a few seconds.
+  useEffect(() => {
+    if (!saveError) return
+    const id = setTimeout(() => setSaveError(null), 4000)
+    return () => clearTimeout(id)
+  }, [saveError])
+
   if (loading) return <div className="empty-state">Loading scorecard…</div>
   if (rounds.length === 0) return <div className="empty-state"><span className="empty-state-icon">📊</span>No rounds to score yet.</div>
 
@@ -327,6 +335,61 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   function openModal(slot, hole) {
     const tpId = slotMap[slot]; if (!tpId) return
     setModal({ tpId, hole, teamSide: slot <= 2 ? 'T1' : 'T2' })
+  }
+
+  // Optimistic score save: update the scorecard and close the modal instantly,
+  // then write to Supabase in the background. On failure, roll the score (and
+  // its drink cell) back to the previous value and surface a toast. Our own
+  // successful write echoes back via postgres_changes, but applyScore dedups
+  // identical values so there's no flicker. INSERT/UPDATE already reach other
+  // clients through realtime, so no explicit broadcast is needed here.
+  function commitScore(hole, tpId, score, drinkCount) {
+    const key = `${round.id}:${tpId}:${hole}`
+    const hadScore = key in scores
+    const prevScore = scores[key]
+    const hadDrinks = key in drinks
+    const prevDrinks = drinks[key]
+
+    // 1 & 2 — optimistic UI update + immediate modal close.
+    setScores(prev => ({ ...prev, [key]: score }))
+    setDrinks(prev => {
+      const n = { ...prev }
+      if (drinkCount > 0) n[key] = drinkCount; else delete n[key]
+      return n
+    })
+    setModal(null)
+
+    // 3 — background write; roll both cells back on failure.
+    ;(async () => {
+      const { error } = await supabase.from('scores').upsert(
+        { round_id: round.id, trip_player_id: tpId, hole_number: hole, gross_score: score },
+        { onConflict: 'round_id,trip_player_id,hole_number' })
+      if (error) {
+        setScores(prev => {
+          const n = { ...prev }
+          if (hadScore) n[key] = prevScore; else delete n[key]
+          return n
+        })
+        setDrinks(prev => {
+          const n = { ...prev }
+          if (hadDrinks) n[key] = prevDrinks; else delete n[key]
+          return n
+        })
+        // eslint-disable-next-line no-console
+        console.error('[ScoringTab] score save failed:', error)
+        setSaveError('Couldn’t save score — check your connection and try again.')
+        return
+      }
+      // The drink count rides along with the score (one user action). A
+      // drink-only write failure is non-critical and left silent, as before.
+      if (drinkCount > 0) {
+        await supabase.from('drinks').upsert(
+          { round_id: round.id, trip_player_id: tpId, hole_number: hole, count: drinkCount },
+          { onConflict: 'round_id,trip_player_id,hole_number' })
+      } else {
+        await supabase.from('drinks').delete().eq('round_id', round.id).eq('trip_player_id', tpId).eq('hole_number', hole)
+      }
+    })()
   }
 
   function ScoreCell({ slot, hole, shownSet }) {
@@ -477,11 +540,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           courseHcp={phOf(modal.tpId)} canSave={isInPairing}
           existingScore={getScore(modal.tpId, modal.hole)} existingDrinks={getDrinks(modal.tpId, modal.hole)}
           onClose={() => setModal(null)}
-          onSaved={(hole, tpId, score, drinkCount) => {
-            setScores(prev => ({ ...prev, [`${round.id}:${tpId}:${hole}`]: score }))
-            setDrinks(prev => { const n = { ...prev }; const k = `${round.id}:${tpId}:${hole}`; if (drinkCount > 0) n[k] = drinkCount; else delete n[k]; return n })
-            setModal(null)
-          }}
+          onCommit={commitScore}
           onRemoved={(hole, tpId) => {
             setScores(prev => { const n = { ...prev }; delete n[`${round.id}:${tpId}:${hole}`]; return n })
             setDrinks(prev => { const n = { ...prev }; delete n[`${round.id}:${tpId}:${hole}`]; return n })
@@ -494,34 +553,35 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           }}
         />
       )}
+
+      {/* Transient toast shown if an optimistic score save fails to persist. */}
+      {saveError && (
+        <div role="alert" onClick={() => setSaveError(null)} style={{
+          position: 'fixed', top: 'calc(env(safe-area-inset-top) + 12px)', left: '50%',
+          transform: 'translateX(-50%)', zIndex: 300, maxWidth: '90%', textAlign: 'center',
+          background: '#C0392B', color: '#fff', padding: '10px 16px', borderRadius: 8,
+          fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', cursor: 'pointer',
+        }}>
+          {saveError}
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Score + drink entry modal ─────────────────────────────────────
-function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSave, existingScore, existingDrinks, onClose, onSaved, onRemoved }) {
+function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSave, existingScore, existingDrinks, onClose, onCommit, onRemoved }) {
   const { tpId, hole, teamSide } = modal
   const [score, setScore] = useState(existingScore ?? par ?? 4)
   const [drinkCount, setDrinkCount] = useState(existingDrinks ?? 0)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(false) // used by remove() only — save is optimistic/instant
   const [err, setErr] = useState(null)
   const netPar = par != null ? par - strokesOnHole(courseHcp, si) : null
 
-  async function save() {
-    setBusy(true); setErr(null)
-    const { error } = await supabase.from('scores').upsert(
-      { round_id: round.id, trip_player_id: tpId, hole_number: hole, gross_score: score },
-      { onConflict: 'round_id,trip_player_id,hole_number' })
-    if (error) { setBusy(false); setErr(error.message); return }
-    if (drinkCount > 0) {
-      await supabase.from('drinks').upsert(
-        { round_id: round.id, trip_player_id: tpId, hole_number: hole, count: drinkCount },
-        { onConflict: 'round_id,trip_player_id,hole_number' })
-    } else {
-      await supabase.from('drinks').delete().eq('round_id', round.id).eq('trip_player_id', tpId).eq('hole_number', hole)
-    }
-    setBusy(false)
-    onSaved(hole, tpId, score, drinkCount)
+  // Hand the values straight to the parent, which updates the scorecard and
+  // closes this modal immediately, then persists to Supabase in the background.
+  function save() {
+    onCommit(hole, tpId, score, drinkCount)
   }
   async function remove() {
     setBusy(true); setErr(null)
