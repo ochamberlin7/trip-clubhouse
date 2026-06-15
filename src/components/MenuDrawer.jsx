@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
+import { FEATURES } from '../lib/features'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -735,36 +736,58 @@ const DEFAULT_LOCAL_RULES = [
 // editable rows + Add Rule + per-row delete + Save; everyone else sees them read-only
 // with the same styling. Falls back to the defaults when nothing is saved yet.
 function LocalRulesCard({ tripId, isCommissioner }) {
-  const [rules, setRules] = useState(null)   // null = loading; the saved list
+  const [rules, setRules] = useState(null)   // null = loading; the live/saved list
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState([])     // working copy while editing
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  // Load once on mount (per trip) — not on every render.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const { data } = await supabase.from('trips').select('local_rules').eq('id', tripId).maybeSingle()
+      const { data, error } = await supabase.from('trips').select('local_rules').eq('id', tripId).maybeSingle()
       if (cancelled) return
+      if (error) { console.error('[LocalRules] load failed:', error); setRules(DEFAULT_LOCAL_RULES); return }
       const stored = data?.local_rules
       setRules(Array.isArray(stored) ? stored : DEFAULT_LOCAL_RULES)
     })()
     return () => { cancelled = true }
   }, [tripId])
 
-  function startEdit() { setDraft(rules); setEditing(true) }
+  // Write the full rules array to trips.local_rules. Returns true only if it persisted.
+  async function persist(next) {
+    const { error } = await supabase.from('trips').update({ local_rules: next }).eq('id', tripId)
+    if (error) { console.error('[LocalRules] save failed:', error); return false }
+    return true
+  }
 
+  // Add/delete write immediately and only update local state once the write succeeds.
+  async function addRule() {
+    const next = [...rules, '']
+    if (await persist(next)) setRules(next)
+  }
+  async function deleteRule(i) {
+    const next = rules.filter((_, j) => j !== i)
+    if (await persist(next)) setRules(next)
+  }
+  // Text edits stay local while typing, then persist on blur.
+  function editRule(i, text) {
+    setRules(rs => rs.map((v, j) => (j === i ? text : v)))
+  }
+  async function blurSave() {
+    if (rules) await persist(rules)
+  }
+  // Explicit Save: drop blank rows, persist, then leave edit mode.
   async function save() {
     setSaving(true)
-    const cleaned = draft.map(r => r.trim()).filter(Boolean)
-    const { error } = await supabase.from('trips').update({ local_rules: cleaned }).eq('id', tripId)
+    const cleaned = rules.map(r => r.trim()).filter(Boolean)
+    const ok = await persist(cleaned)
     setSaving(false)
-    if (!error) {
-      setRules(cleaned)
-      setEditing(false)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-    }
+    if (!ok) return
+    setRules(cleaned)
+    setEditing(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
   }
 
   if (rules == null) return <Card title="Local Rules"><div style={s.muted}>Loading…</div></Card>
@@ -776,7 +799,7 @@ function LocalRulesCard({ tripId, isCommissioner }) {
         <RuleList rules={rules} />
         {isCommissioner && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-            <button onClick={startEdit} style={s.editCourseBtn}>Edit</button>
+            <button onClick={() => setEditing(true)} style={s.editCourseBtn}>Edit</button>
             {saved && <span style={{ fontSize: 12, color: '#2E7D32' }}>Saved ✓</span>}
           </div>
         )}
@@ -786,19 +809,20 @@ function LocalRulesCard({ tripId, isCommissioner }) {
 
   return (
     <Card title="Local Rules">
-      {draft.map((rule, i) => (
-        <div key={i} style={{ ...s.ruleRow, ...(i === draft.length - 1 ? { borderBottom: 'none' } : null) }}>
+      {rules.map((rule, i) => (
+        <div key={i} style={{ ...s.ruleRow, ...(i === rules.length - 1 ? { borderBottom: 'none' } : null) }}>
           <span style={s.dot} />
           <input
             value={rule} placeholder="Rule…"
-            onChange={e => setDraft(rs => rs.map((v, j) => (j === i ? e.target.value : v)))}
+            onChange={e => editRule(i, e.target.value)}
+            onBlur={blurSave}
             style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, lineHeight: 1.5, color: '#0D1B2A', fontFamily: 'inherit', padding: 0 }}
           />
-          <button onClick={() => setDraft(rs => rs.filter((_, j) => j !== i))} aria-label="Remove rule"
+          <button onClick={() => deleteRule(i)} aria-label="Remove rule"
             style={{ background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, cursor: 'pointer', padding: '0 0 0 6px', flexShrink: 0, lineHeight: 1 }}>✕</button>
         </div>
       ))}
-      <button onClick={() => setDraft(rs => [...rs, ''])}
+      <button onClick={addRule}
         style={{ background: 'none', border: 'none', color: '#1B3F6E', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '10px 0 0' }}>+ Add Rule</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
         <button onClick={save} disabled={saving} style={pc.saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
@@ -1226,7 +1250,9 @@ export default function MenuDrawer({
           <button style={s.closeBtn} onClick={onClose} aria-label="Close menu">✕</button>
         </div>
         <div style={s.nav}>
-          {[...(isCommissioner ? [COMMISSIONER_ITEM] : []), ...MENU_ITEMS].map(item => (
+          {[...(isCommissioner ? [COMMISSIONER_ITEM] : []), ...MENU_ITEMS]
+            .filter(item => item.id !== 'archives' || FEATURES.archives)
+            .map(item => (
             <button key={item.id} style={s.item} onClick={() => setPage(item.id)}>
               <span style={s.iconBox}>
                 <svg {...svgProps}>{item.icon}</svg>
