@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { strokesOnHole, computePlayingHandicaps } from '../lib/scoring'
+import { strokesOnHole, courseHandicapForTee, resolvePlayerTee, playingFromCourseHandicaps } from '../lib/scoring'
 import { teamPillStyle, getTeamDisplayName } from '../lib/teamColors'
 
 // Live interactive scorecard — better-ball match play with drink tracking.
@@ -68,6 +68,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const [openSlot, setOpenSlot] = useState(null) // commissioner header dropdown
   const [assignError, setAssignError] = useState(null)
   const [saveError, setSaveError] = useState(null) // transient toast when an optimistic score save fails
+  const [playerRoundsMap, setPlayerRoundsMap] = useState({}) // `${roundId}:${tpId}` -> player_rounds row (per-player tee)
   const [connStatus, setConnStatus] = useState('connecting') // connecting | connected | disconnected
   const [reconnectTick, setReconnectTick] = useState(0)
   const reconnectTimer = useRef(null)
@@ -88,6 +89,16 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     }
     setPairings(pairList)
     setPairingPlayers(pp)
+  }
+
+  // Per-player tee selections for every round (drives per-player course handicap).
+  async function loadPlayerRounds() {
+    if (roundIds.length === 0) return
+    const { data } = await supabase.from('player_rounds')
+      .select('trip_player_id, round_id, tee_name, slope, rating, par').in('round_id', roundIds)
+    const m = {}
+    ;(data || []).forEach(pr => { m[`${pr.round_id}:${pr.trip_player_id}`] = pr })
+    setPlayerRoundsMap(m)
   }
 
   useEffect(() => {
@@ -122,6 +133,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       setScores(sMap)
       setDrinks(dMap)
       await loadPairings()
+      await loadPlayerRounds()
       setLoading(false)
     }
     load()
@@ -173,6 +185,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'drinks', filter }, applyDrink)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drinks', filter }, applyDrink)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => { loadPairings() })
+      // A commissioner changing a player's tee recalculates net scores live.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_rounds', filter }, () => { loadPlayerRounds() })
       .on('broadcast', { event: 'score_deleted' }, ({ payload }) => {
         const key = `${payload.round_id}:${payload.trip_player_id}:${payload.hole_number}`
         setScores(prev => { const n = { ...prev }; delete n[key]; return n })
@@ -234,10 +248,14 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const slotPlayers = [1, 2, 3, 4].map(s => slotMap[s] ? playersById[slotMap[s]] : null)
   const allFilled = [1, 2, 3, 4].every(s => slotMap[s])
 
-  // Low-ball playing handicaps for the players currently in this pairing.
+  // Low-ball playing handicaps for the players in this pairing, each from their
+  // individual tee (player_rounds → round default). Course HCP is WHS per tee.
   const allowance = trip.handicap_allowance ?? 100
-  const filledPlayers = [1, 2, 3, 4].map(s => slotMap[s]).filter(Boolean).map(id => ({ id, handicap_index: playersById[id]?.handicap_index }))
-  const playingByTp = computePlayingHandicaps(filledPlayers, round.slope_rating, allowance)
+  const chEntries = [1, 2, 3, 4].map(s => slotMap[s]).filter(Boolean).map(id => {
+    const tee = resolvePlayerTee(round, playerRoundsMap[`${round.id}:${id}`])
+    return { id, ch: courseHandicapForTee(playersById[id]?.handicap_index, tee.slope, tee.rating, tee.par) }
+  })
+  const playingByTp = playingFromCourseHandicaps(chEntries, allowance)
   const phOf = tpId => playingByTp.get(tpId) ?? 0
 
   const getScore = (tpId, hole) => scores[`${round.id}:${tpId}:${hole}`] ?? null

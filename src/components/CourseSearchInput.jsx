@@ -147,6 +147,11 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   function confirm() {
     if (!selectedTee) return
     const loc = course.location || {}
+    // Cache every available tee (men's + women's) so per-player tee selection
+    // in Commissioner Tools can offer them all. Normalised to {name,slope,rating,par}.
+    const allTees = [...maleTees, ...femaleTees]
+      .filter(t => t && t.tee_name)
+      .map(t => ({ name: t.tee_name, slope: t.slope_rating, rating: t.course_rating, par: t.par_total }))
     onCourseSelected({
       golfcourse_id: course.id,
       club_name: course.club_name,
@@ -162,6 +167,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
       par_total: selectedTee.par_total,
       number_of_holes: selectedTee.number_of_holes || 18,
       holes: selectedTee.holes,
+      tees: allTees,
     })
     setOpen(false)
   }

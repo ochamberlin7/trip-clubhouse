@@ -83,6 +83,53 @@ export function computePlayingHandicaps(players, slopeRating, allowance = 100) {
   return map
 }
 
+// Course handicap for a SPECIFIC tee, using the World Handicap System formula:
+//   round(handicap_index * (slope / 113) + (course_rating - par))
+// slope defaults to neutral 113; the rating adjustment is dropped when rating or
+// par is missing so a tee with only a slope still yields a sensible number.
+export function courseHandicapForTee(handicapIndex, slope, rating, par) {
+  const hi = Number(handicapIndex)
+  if (!Number.isFinite(hi)) return null
+  const sl = Number(slope) || 113
+  const r = Number(rating)
+  const p = Number(par)
+  const ratingAdj = (Number.isFinite(r) && Number.isFinite(p)) ? (r - p) : 0
+  return Math.round(hi * (sl / 113) + ratingAdj)
+}
+
+// Resolve the tee (slope / rating / par) a player is playing for a round.
+// Priority: their player_rounds row → the round's default tee
+// (slope_rating / course_rating / par_total, i.e. the commissioner-selected
+// tee) → the first cached tee in round.tees → neutral defaults. So with no
+// per-player tee set, the result matches the round's single round-level tee.
+export function resolvePlayerTee(round, playerRoundRow) {
+  if (playerRoundRow && playerRoundRow.slope != null) {
+    return { slope: playerRoundRow.slope, rating: playerRoundRow.rating, par: playerRoundRow.par }
+  }
+  const firstTee = Array.isArray(round?.tees) && round.tees.length ? round.tees[0] : null
+  const holesPar = Array.isArray(round?.holes) && round.holes.length
+    ? round.holes.reduce((sum, h) => sum + (h?.par || 0), 0)
+    : null
+  return {
+    slope: round?.slope_rating ?? firstTee?.slope ?? 113,
+    rating: round?.course_rating ?? firstTee?.rating ?? null,
+    par: round?.par_total ?? firstTee?.par ?? holesPar,
+  }
+}
+
+// Low-ball playing handicaps from per-player course handicaps:
+//   playing = round((courseHandicap - minCourseHandicap) * allowance/100)
+// `entries` is an array of { id, ch } (ch may be null → playing 0).
+export function playingFromCourseHandicaps(entries, allowance = 100) {
+  const valid = entries.filter(e => e.ch != null).map(e => e.ch)
+  const min = valid.length ? Math.min(...valid) : 0
+  const map = new Map()
+  for (const e of entries) {
+    map.set(e.id, e.ch != null ? Math.round((e.ch - min) * (allowance / 100)) : 0)
+  }
+  return map
+}
+
 // Display name for a trip player (guest name, else profile display name).
 export function playerName(tp, profileMap) {
   if (!tp) return 'Unknown'
@@ -111,13 +158,16 @@ export function firstName(name) {
 //   pointsByPlayer   : Map trip_player_id -> points
 //   vsParByPlayer    : Map trip_player_id -> cumulative (net - par)
 export function analyzeScoring(
-  { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers },
+  { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds = [] },
   includeRoundIds = null,
   allowance = 100
 ) {
   const hcpByPlayer = new Map(tripPlayers.map(p => [p.id, p.handicap_index]))
   const teamByPlayer = new Map(tripPlayers.map(p => [p.id, p.team_id]))
-  const slopeByRound = new Map(rounds.map(r => [r.id, r.slope_rating]))
+  const roundById = new Map(rounds.map(r => [r.id, r]))
+  // Per-player tee per round: `${roundId}:${tpId}` -> player_rounds row.
+  const teeRowByRoundPlayer = new Map()
+  for (const pr of playerRounds) teeRowByRoundPlayer.set(`${pr.round_id}:${pr.trip_player_id}`, pr)
 
   // course holes: `${roundId}:${hole}` -> { par, stroke_index }
   const holeInfo = new Map()
@@ -181,13 +231,18 @@ export function analyzeScoring(
       : [[...(roundPlayers.get(r.id) || [])]]
   }
 
-  // Low-ball playing handicaps per round (per pairing group + allowance).
+  // Low-ball playing handicaps per round (per pairing group + allowance), using
+  // each player's individual tee (slope/rating/par) for their course handicap.
   const playingByRound = new Map() // roundId -> Map(tp -> playingHandicap)
   for (const r of rounds) {
+    const round = roundById.get(r.id)
     const playing = new Map()
     for (const group of groupsForRound(r)) {
-      const objs = group.map(tp => ({ id: tp, handicap_index: hcpByPlayer.get(tp) }))
-      const phMap = computePlayingHandicaps(objs, slopeByRound.get(r.id), allowance)
+      const entries = group.map(tp => {
+        const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${tp}`))
+        return { id: tp, ch: courseHandicapForTee(hcpByPlayer.get(tp), tee.slope, tee.rating, tee.par) }
+      })
+      const phMap = playingFromCourseHandicaps(entries, allowance)
       for (const [tp, ph] of phMap) playing.set(tp, ph)
     }
     playingByRound.set(r.id, playing)
@@ -280,14 +335,17 @@ export function formatVsPar(value) {
 //   scoresMap      : `${roundId}:${tpId}:${hole}` -> gross_score
 //   hcpByPlayer    : Map or object trip_player_id -> handicap_index
 //   allowance      : handicap allowance % (default 100)
+//   teeRowMap      : `${roundId}:${tpId}` -> player_rounds row (per-player tee);
+//                    missing entries fall back to the round's default tee
 //
 // Returns an array sorted by pairing_number, each:
 //   { pairingNumber, t1pts, t2pts, holesScored, totalHoles, complete }
-export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance = 100) {
+export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance = 100, teeRowMap = {}) {
   if (!round) return []
   const holes = Array.isArray(round.holes) ? round.holes : null
   const totalHoles = holes?.length || 18
   const getHcp = (tp) => (hcpByPlayer instanceof Map ? hcpByPlayer.get(tp) : hcpByPlayer?.[tp])
+  const getTeeRow = (tp) => (teeRowMap instanceof Map ? teeRowMap.get(`${round.id}:${tp}`) : teeRowMap?.[`${round.id}:${tp}`])
 
   const roundPairings = pairings
     .filter(p => p.round_id === round.id)
@@ -305,9 +363,12 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
 
     let t1pts = 0, t2pts = 0, holesScored = 0
     if (allFilled) {
-      // Low-ball playing handicaps for the four players in this pairing.
-      const objs = filled.map(id => ({ id, handicap_index: getHcp(id) }))
-      const playing = computePlayingHandicaps(objs, round.slope_rating, allowance)
+      // Low-ball playing handicaps from each player's individual tee.
+      const entries = filled.map(id => {
+        const tee = resolvePlayerTee(round, getTeeRow(id))
+        return { id, ch: courseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
+      })
+      const playing = playingFromCourseHandicaps(entries, allowance)
 
       const net = (tp, hole) => {
         const gross = scoresMap[`${round.id}:${tp}:${hole}`]

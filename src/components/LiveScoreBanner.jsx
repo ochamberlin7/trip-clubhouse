@@ -46,6 +46,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   const [pairingPlayers, setPairingPlayers] = useState([])
   const [scoresMap, setScoresMap] = useState({})
   const [hcpByPlayer, setHcpByPlayer] = useState({})
+  const [teeRowMap, setTeeRowMap] = useState({}) // `${roundId}:${tpId}` -> player_rounds row
   // Bumped every 60s so the 9pm cutoff is re-evaluated.
   const [, setClockTick] = useState(0)
   const channelRef = useRef(null)
@@ -83,6 +84,17 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       setScoresMap(map)
     }
 
+    // Per-player tee selections (drive each player's course handicap).
+    async function loadPlayerRounds() {
+      const { data } = await supabase
+        .from('player_rounds').select('trip_player_id, round_id, tee_name, slope, rating, par')
+        .in('round_id', allRoundIds)
+      if (cancelled) return
+      const map = {}
+      ;(data || []).forEach(pr => { map[`${pr.round_id}:${pr.trip_player_id}`] = pr })
+      setTeeRowMap(map)
+    }
+
     async function loadAll() {
       const [pairRes, tpRes] = await Promise.all([
         supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', allRoundIds),
@@ -103,15 +115,20 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       setPairingPlayers(pp)
       setHcpByPlayer(hcp)
       await loadScores()
+      await loadPlayerRounds()
     }
 
     loadAll()
 
-    // Live updates: any score change on a trip round refreshes the tally.
+    // Live updates: a score change OR a commissioner tee change refreshes the tally.
     const ch = supabase.channel(`live-banner:${allRoundKey}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, payload => {
         const rid = payload.new?.round_id ?? payload.old?.round_id
         if (rid && allRoundIds.includes(rid)) loadScores()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_rounds' }, payload => {
+        const rid = payload.new?.round_id ?? payload.old?.round_id
+        if (rid && allRoundIds.includes(rid)) loadPlayerRounds()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => loadAll())
       .subscribe()
@@ -137,7 +154,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   const { round, tallies } = useMemo(() => {
     // Per-round summary, keeping only rounds that have at least one scored hole.
     const summaries = rounds.map(r => {
-      const t = liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance)
+      const t = liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
       const scored = t.reduce((a, p) => a + p.holesScored, 0)
       return { round: r, tallies: t, scored, complete: t.length > 0 && t.every(p => p.complete) }
     }).filter(sum => sum.scored > 0)
@@ -158,7 +175,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     if (inProgress.length) { const best = pickBest(inProgress); return { round: best.round, tallies: best.tallies } }
 
     return { round: null, tallies: [] }
-  }, [rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, todayISO])
+  }, [rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance, todayISO])
 
   const anyHolesScored = tallies.some(t => t.holesScored > 0)
 
