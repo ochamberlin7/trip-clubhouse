@@ -691,7 +691,8 @@ export default function TripDashboard() {
       setTrip(tripData)
 
       const [roundsRes, playersRes, teamsRes, memberRes] = await Promise.all([
-        supabase.from('rounds').select('*').eq('trip_id', tripData.id).order('round_number'),
+        // Calendar order (date asc); round_number only breaks ties within a day.
+        supabase.from('rounds').select('*').eq('trip_id', tripData.id).order('date').order('round_number'),
         supabase.from('trip_players').select('id, user_id, guest_name, handicap_index').eq('trip_id', tripData.id),
         supabase.from('teams').select('*').eq('trip_id', tripData.id).order('team_index'),
         user?.id
@@ -777,7 +778,8 @@ export default function TripDashboard() {
   // scoring, courses) updates instantly after a course change.
   async function refreshRounds() {
     if (!trip?.id) return
-    const { data } = await supabase.from('rounds').select('*').eq('trip_id', trip.id).order('round_number')
+    // Calendar order (date asc); round_number only breaks ties within a day.
+    const { data } = await supabase.from('rounds').select('*').eq('trip_id', trip.id).order('date').order('round_number')
     if (data) setRounds(data)
   }
 
