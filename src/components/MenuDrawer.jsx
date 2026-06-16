@@ -379,21 +379,30 @@ function PlayersPage({ data, isCommissioner, onReload }) {
   )
 }
 
-function HandicapCalculator({ round, players, allowance, playerRoundsMap }) {
+// "Handicaps" card: per-player tee dropdown + WHS course/playing handicaps.
+// The TEE column is the first after the player name; selecting a tee auto-fills
+// slope/rating/par, recomputes Course + Playing, and saves to player_rounds (any
+// trip member may change any tee). Works on completed rounds too.
+function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChangeTee }) {
   const [open, setOpen] = useState(false)
   const alw = allowance ?? 100
-  const hasCourse = round.slope_rating != null || (Array.isArray(round.tees) && round.tees.length > 0)
+  const tees = Array.isArray(round.tees) ? round.tees.filter(t => t && t.name) : []
+  const hasCourse = round.slope_rating != null || tees.length > 0
+  // Round's primary tee — the default when a player has no saved tee.
+  const defaultTeeName = tees.find(t => t.name === round.tee_name)?.name ?? tees[0]?.name ?? null
 
-  const grid = { display: 'grid', gridTemplateColumns: '1fr 70px 70px 70px' }
-  const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6' }
+  const grid = { display: 'grid', gridTemplateColumns: '1fr 84px 44px 52px 56px', alignItems: 'center', gap: 4 }
+  const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
   const muted = { color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
+  const teeSelect = { width: '100%', fontSize: 12, fontWeight: 600, color: '#0D1B2A', fontFamily: 'inherit', border: '1px solid #DDE3EA', borderRadius: 6, padding: '4px 4px', background: '#fff', boxSizing: 'border-box' }
 
   // Course HCP uses each player's individual tee (WHS); playing is low-ball
   // (round((ch - minCh) * allowance/100)) within this round.
   const rows = players.map(p => {
-    const tee = resolvePlayerTee(round, playerRoundsMap?.[`${round.id}:${p.id}`])
+    const saved = playerRoundsMap?.[`${round.id}:${p.id}`]
+    const tee = resolvePlayerTee(round, saved)
     const courseHCP = courseHandicapForTee(p.handicap_index, tee.slope, tee.rating, tee.par)
-    return { id: p.id, name: p.name, idx: p.handicap_index, courseHCP }
+    return { id: p.id, name: p.name, idx: p.handicap_index, courseHCP, teeName: saved?.tee_name ?? defaultTeeName, player: p }
   })
   const playingMap = playingFromCourseHandicaps(rows.map(r => ({ id: r.id, ch: r.courseHCP })), alw)
   rows.forEach(r => { r.playing = r.courseHCP != null ? playingMap.get(r.id) : null })
@@ -412,7 +421,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap }) {
   return (
     <div style={{ marginTop: 4 }}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 4px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#1B3F6E' }}>Handicap Calculator</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#1B3F6E' }}>Handicaps</span>
         <Chevron open={open} />
       </div>
       {open && (
@@ -423,76 +432,37 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap }) {
             <div style={muted}>Add player handicaps in the Players tab</div>
           ) : (
             <>
-              <div style={{ ...grid, padding: '8px 14px', background: '#F5F8FA', borderBottom: '1px solid #DDE3EA' }}>
+              <div style={{ ...grid, padding: '8px 10px', background: '#F5F8FA', borderBottom: '1px solid #DDE3EA' }}>
                 <span style={headCell}>Player</span>
+                <span style={headCell}>Tee</span>
                 <span style={headCell}>Index</span>
                 <span style={headCell}>Course</span>
                 <span style={headCell}>Playing</span>
               </div>
               {rows.map((r, i) => (
-                <div key={r.id} style={{ ...grid, padding: '10px 14px', borderBottom: i === rows.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>{r.name}</span>
+                <div key={r.id} style={{ ...grid, padding: '8px 10px', borderBottom: i === rows.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                  {tees.length > 0 ? (
+                    <select
+                      style={teeSelect}
+                      value={r.teeName ?? ''}
+                      onChange={e => onChangeTee(round, r.player, tees.find(t => t.name === e.target.value))}
+                    >
+                      {tees.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                    </select>
+                  ) : (
+                    <span style={{ fontSize: 12, color: '#7A8FA6' }}>{r.teeName ?? round.tee_name ?? '—'}</span>
+                  )}
                   <span style={{ fontSize: 13, color: r.idx == null ? '#7A8FA6' : '#2C3E50' }}>{r.idx ?? 'TBD'}</span>
                   <span style={{ fontSize: 13, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: playingColor(r.playing) }}>{r.playing ?? '—'}</span>
                 </div>
               ))}
-              <div style={{ background: '#F5F8FA', padding: '8px 14px', fontSize: 11, color: '#7A8FA6', fontStyle: 'italic' }}>
-                {allowance == null ? 'Allowance: 100% (default)' : `Allowance: ${alw}%`} · Per-player tee · Low ball: lowest playing HCP = 0
+              <div style={{ background: '#F5F8FA', padding: '8px 10px', fontSize: 11, color: '#7A8FA6', fontStyle: 'italic' }}>
+                {allowance == null ? 'Allowance: 100% (default)' : `Allowance: ${alw}%`} · WHS per-player tee · Low ball: lowest playing HCP = 0
               </div>
             </>
           )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Per-player tee picker for a round (commissioner only). Each player gets a
-// dropdown of the round's cached tees; slope/rating/par auto-fill from the
-// selected tee and save to player_rounds. Works on completed rounds too.
-function PlayerTeesSection({ round, players, playerRoundsMap, onChangeTee }) {
-  const [open, setOpen] = useState(false)
-  const tees = Array.isArray(round.tees) ? round.tees.filter(t => t && t.name) : []
-  if (tees.length === 0) return null // no cached tee data for this course
-
-  // Default display tee when a player has no saved row: the round's selected tee
-  // (by name) if present, else the first tee in the list.
-  const defaultName = tees.find(t => t.name === round.tee_name)?.name ?? tees[0].name
-  const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '8px 4px', borderBottom: '1px solid #E8EDF3' }
-  const select = { fontSize: 12, fontWeight: 600, color: '#0D1B2A', fontFamily: 'inherit', border: '1px solid #DDE3EA', borderRadius: 6, padding: '5px 8px', background: '#fff', maxWidth: 170 }
-
-  return (
-    <div style={{ marginTop: 4 }}>
-      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 4px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#1B3F6E' }}>Player Tees</span>
-        <Chevron open={open} />
-      </div>
-      {open && (
-        <div style={{ marginBottom: 12 }}>
-          {players.map(p => {
-            const saved = playerRoundsMap?.[`${round.id}:${p.id}`]
-            const value = saved?.tee_name ?? defaultName
-            return (
-              <div key={p.id} style={rowStyle}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>{p.name}</span>
-                <select
-                  style={select}
-                  value={value}
-                  onChange={e => onChangeTee(round, p, tees.find(t => t.name === e.target.value))}
-                >
-                  {tees.map(t => (
-                    <option key={t.name} value={t.name}>
-                      {t.name} ({t.rating ?? '—'}/{t.slope ?? '—'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )
-          })}
-          <div style={{ fontSize: 11, color: '#7A8FA6', fontStyle: 'italic', padding: '8px 4px 0' }}>
-            Changing a tee recalculates course handicaps and scores instantly — even for completed rounds.
-          </div>
         </div>
       )}
     </div>
@@ -637,10 +607,8 @@ function CoursesPage({ data, isCommissioner, onEditCourse, allowance, scoredRoun
             {isCommissioner && (
               <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />
             )}
-            <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} />
-            {isCommissioner && (
-              <PlayerTeesSection round={r} players={calcPlayers} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} />
-            )}
+            {/* Tee picker + handicaps — any trip member can change any player's tee. */}
+            <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} />
           </div>
         )
       })}
@@ -1288,8 +1256,9 @@ export default function MenuDrawer({
   }
 
   // Persist a per-player tee selection for a round, then update local courses
-  // state so the Handicap Calculator recomputes immediately. player_rounds is in
-  // the realtime publication, so the live scorecard / banner recalc on their own.
+  // state so the Handicaps table recomputes immediately. Any trip member may do
+  // this. player_rounds is in the realtime publication, so the live scorecard /
+  // banner recalc on their own — including on completed rounds.
   async function changePlayerTee(round, player, tee) {
     const row = {
       trip_player_id: player.id,
