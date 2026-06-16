@@ -659,6 +659,7 @@ const ROUND_TYPE_META = {
 
 function RoundTypeBadge({ round, isCommissioner, onChange }) {
   const [open, setOpen] = useState(false)
+  const [dropUp, setDropUp] = useState(false) // open upward when there's no room below
   const ref = useRef(null)
   const type = round.round_type || 'tournament'
   const { label, style } = ROUND_TYPE_META[type] || ROUND_TYPE_META.tournament
@@ -670,13 +671,24 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
 
+  // Decide direction before opening: flip up if the menu (~230px tall) would run
+  // off the bottom and there's more room above (e.g. the last card on screen).
+  function toggle() {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      setDropUp(spaceBelow < 230 && rect.top > spaceBelow)
+    }
+    setOpen(o => !o)
+  }
+
   if (!isCommissioner) return <span style={style}>{label}</span>
 
   return (
     <span ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
-      <button style={{ ...style, cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>{label} ▾</button>
+      <button style={{ ...style, cursor: 'pointer' }} onClick={toggle}>{label} ▾</button>
       {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', minWidth: 150 }}>
+        <div style={{ position: 'absolute', top: dropUp ? 'auto' : 'calc(100% + 4px)', bottom: dropUp ? 'calc(100% + 4px)' : 'auto', right: 0, zIndex: 50, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', minWidth: 150 }}>
           {[['tournament', 'Tournament'], ['practice', 'Practice'], ['none', 'Not Set']].map(([val, txt]) => {
             const active = val === type
             return (
