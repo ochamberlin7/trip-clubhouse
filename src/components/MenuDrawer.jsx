@@ -676,11 +676,11 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
     <span ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
       <button style={{ ...style, cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>{label} ▾</button>
       {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', minWidth: 130 }}>
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', minWidth: 150 }}>
           {[['tournament', 'Tournament'], ['practice', 'Practice'], ['none', 'Not Set']].map(([val, txt]) => {
             const active = val === type
             return (
-              <div key={val} onClick={() => { setOpen(false); if (!active) onChange(round.id, val) }}
+              <div key={val} onClick={() => { setOpen(false); if (!active) onChange(round, val) }}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#0D1B2A' }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
                 onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
@@ -689,6 +689,16 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
               </div>
             )
           })}
+          {/* Convert the day back to a non-golf day (removes this round). */}
+          <div style={{ borderTop: '1px solid #E8EDF3' }} />
+          {[['travel', 'Travel Day'], ['non_golf', 'Non-Golf Day']].map(([val, txt]) => (
+            <div key={val} onClick={() => { setOpen(false); onChange(round, val) }}
+              style={{ display: 'flex', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#7A8FA6' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
+              <span>{txt}</span>
+            </div>
+          ))}
         </div>
       )}
     </span>
@@ -1501,6 +1511,46 @@ export default function MenuDrawer({
     if (onRoundsChanged) onRoundsChanged()
   }
 
+  // Persist a day-type change on the trip's schedule (trips.schedule JSONB).
+  async function setDayType(date, dayType) {
+    const { data: tripRow } = await supabase.from('trips').select('schedule').eq('id', tripId).maybeSingle()
+    const sched = Array.isArray(tripRow?.schedule) ? [...tripRow.schedule] : []
+    const i = sched.findIndex(d => d && d.date === date)
+    if (i >= 0) sched[i] = { ...sched[i], type: dayType }
+    else sched.push({ date, type: dayType })
+    await supabase.from('trips').update({ schedule: sched }).eq('id', tripId)
+  }
+
+  // Revert a golf round back to a non-golf day: delete the round (and its
+  // dependent rows) and mark the day Travel/Non-Golf, so the Courses page shows
+  // the slim placeholder again. Used to undo an accidentally added round.
+  async function revertRoundToDay(round, dayType) {
+    const label = dayType === 'travel' ? 'Travel Day' : 'Non-Golf Day'
+    if (!window.confirm(`Remove this round and set ${fmtShort(round.date)} to ${label}? This deletes the round and any scores entered for it.`)) return
+
+    // Remove dependent rows first (FKs may not cascade), then the round.
+    await supabase.from('scores').delete().eq('round_id', round.id)
+    const { data: prs } = await supabase.from('pairings').select('id').eq('round_id', round.id)
+    const pairIds = (prs || []).map(p => p.id)
+    if (pairIds.length) await supabase.from('pairing_players').delete().in('pairing_id', pairIds)
+    await supabase.from('pairings').delete().eq('round_id', round.id)
+    await supabase.from('player_rounds').delete().eq('round_id', round.id)
+    await supabase.from('course_holes').delete().eq('round_id', round.id)
+    const { error } = await supabase.from('rounds').delete().eq('id', round.id)
+    if (error) { console.error('[MenuDrawer] revertRoundToDay failed:', error); return }
+
+    await setDayType(round.date, dayType)
+    setCoursesData(null)       // reload — the day now shows the placeholder
+    if (onRoundsChanged) onRoundsChanged()
+  }
+
+  // Route a round-card dropdown selection: round types update the round; the
+  // Travel/Non-Golf options revert the day to a placeholder.
+  function handleRoundTypeSelect(round, val) {
+    if (val === 'travel' || val === 'non_golf') revertRoundToDay(round, val)
+    else changeRoundType(round.id, val)
+  }
+
   return (
     <>
       {/* Overlay */}
@@ -1570,7 +1620,7 @@ export default function MenuDrawer({
       )}
       {page === 'courses' && (
         <SecondaryPage context={tripName} title="Schedule & Courses" onBack={backToDrawer}>
-          <CoursesPage data={coursesData} isCommissioner={isCommissioner} onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds} onRoundTypeChange={changeRoundType} onChangePlayerTee={changePlayerTee} onAddRound={addRound} />
+          <CoursesPage data={coursesData} isCommissioner={isCommissioner} onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds} onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound} />
         </SecondaryPage>
       )}
       {page === 'flights' && (
