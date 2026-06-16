@@ -283,6 +283,7 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
   }
 
   const cardStyle = { position: 'relative', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }
+  const playerLabelStyle = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', margin: '0 0 6px 2px' }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -291,11 +292,13 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {players.map(p => {
+        {players.map((p, idx) => {
           const fErr = showErrors && !p.first_name.trim()
           const lErr = showErrors && !p.last_name.trim()
           return (
-            <div key={p.id} style={cardStyle}>
+            <div key={p.id}>
+              <p style={playerLabelStyle}>Player {idx + 1}</p>
+              <div style={cardStyle}>
               {/* Top-right corner: YOU badge (commissioner) or remove button */}
               {p.isCommissioner
                 ? <span className="you-badge" style={{ position: 'absolute', top: 10, right: 10 }}>YOU</span>
@@ -333,6 +336,7 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
                 disabled={p.isCommissioner}
                 onChange={e => update(p.id, 'email', e.target.value)}
               />
+              </div>
             </div>
           )
         })}
