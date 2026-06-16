@@ -16,6 +16,16 @@ const WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 function parseDate(iso) { if (!iso) return null; const d = new Date(iso + 'T00:00:00'); return isNaN(d) ? null : d }
 function fmtShort(iso) { const d = parseDate(iso); return d ? `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}` : '' }
+// Every ISO date from start..end inclusive (local), for the full trip schedule.
+function daysInRange(start, end) {
+  const a = parseDate(start), b = parseDate(end)
+  if (!a || !b || a > b) return []
+  const out = []
+  for (const cur = new Date(a); cur <= b; cur.setDate(cur.getDate() + 1)) {
+    out.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`)
+  }
+  return out
+}
 function fmtLong(iso) { const d = parseDate(iso); return d ? `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : '—' }
 function fmtRange(s, e) {
   const a = parseDate(s), b = parseDate(e)
@@ -79,7 +89,7 @@ const svgProps = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', st
 
 const MENU_ITEMS = [
   { id: 'players', label: 'Players', sub: 'Roster & teams', icon: <g><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g> },
-  { id: 'courses', label: 'Courses', sub: 'Schedule & course info', icon: <g><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></g> },
+  { id: 'courses', label: 'Schedule & Courses', sub: 'Schedule & course info', icon: <g><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></g> },
   { id: 'flights', label: 'Flights', sub: 'Arrival & departure info', icon: <g><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></g> },
   { id: 'rules', label: 'Rules', sub: 'Local rules & format', icon: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></g> },
   { id: 'archives', label: 'Archives', sub: 'Past trips & records', icon: <g><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5" rx="1"/><line x1="10" y1="12" x2="14" y2="12"/></g> },
@@ -703,58 +713,87 @@ function parText(r) {
   return par != null ? `Par ${par} · ${holes || 18} holes` : '—'
 }
 
-function CoursesPage({ data, isCommissioner, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee }) {
+// Labels for empty (non-golf) days, by stored schedule type.
+const DAY_PLACEHOLDER_LABELS = { travel: 'Travel Day', non_golf: 'Non-Golf Day', unknown: 'Not Scheduled Yet' }
+const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', marginBottom: 6 }
+
+// Slim, muted card for a day with no golf round. Commissioners can add a round.
+function PlaceholderDayCard({ date, type, isCommissioner, onAddRound }) {
+  const label = DAY_PLACEHOLDER_LABELS[type] || 'Not Scheduled Yet'
+  return (
+    <div style={{ background: '#F7F9FB', border: '1px solid #E8EDF3', borderRadius: 10, padding: '12px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{fmtShort(date)}</div>
+        <div style={{ fontSize: 13, color: '#9AA8B8', fontStyle: 'italic', marginTop: 2 }}>{label}</div>
+      </div>
+      {isCommissioner && (
+        <button style={{ ...s.editCourseBtn, marginTop: 0, flexShrink: 0 }} onClick={() => onAddRound(date)}>+ Add Round</button>
+      )}
+    </div>
+  )
+}
+
+function CoursesPage({ data, isCommissioner, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound }) {
   if (!data) return <div style={s.muted}>Loading…</div>
-  const { groups, players, playersByRound, playerRounds } = data
-  if (!groups || groups.length === 0) {
-    return <Card title="Schedule"><div style={s.muted}>Course schedule will appear once rounds are set up.</div></Card>
+  const { days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds } = data
+  if (!days || days.length === 0) {
+    return <Card title="Schedule"><div style={s.muted}>Course schedule will appear once the trip dates are set.</div></Card>
   }
   const todayIso = new Date().toISOString().slice(0, 10)
-  return groups.map(([date, rounds]) => (
-    <Card key={date} title={fmtShort(date)}>
-      {rounds.map((r, i, arr) => {
-        const assigned = playersByRound[r.id]
-        const calcPlayers = (assigned && assigned.size) ? players.filter(p => assigned.has(p.id)) : players
-        const locked = scoredRounds?.has(r.id) || (r.date != null && r.date < todayIso)
-        return (
-          <div key={r.id} style={{ padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B2A' }}>{r.club_name || r.course_name}</div>
-                {r.club_name && r.course_name && r.course_name !== r.club_name && (
-                  <div style={{ fontSize: '12px', color: '#7A8FA6', marginTop: '1px' }}>{r.course_name}</div>
-                )}
-                {(r.course_rating != null || r.slope_rating != null) && (
-                  <div style={{ fontSize: '11px', color: '#7A8FA6', marginTop: '3px' }}>
-                    Rating: {r.course_rating ?? '—'} · Slope: {r.slope_rating ?? '—'}
-                  </div>
-                )}
+  return days.map(date => {
+    const dayRounds = roundsByDate[date] || []
+    // Empty day → slim placeholder by stored day type.
+    if (dayRounds.length === 0) {
+      return <PlaceholderDayCard key={date} date={date} type={scheduleByDate[date]} isCommissioner={isCommissioner} onAddRound={onAddRound} />
+    }
+    return (
+      <Card key={date} title={fmtShort(date)}>
+        {dayRounds.map((r, i, arr) => {
+          const assigned = playersByRound[r.id]
+          const calcPlayers = (assigned && assigned.size) ? players.filter(p => assigned.has(p.id)) : players
+          const locked = scoredRounds?.has(r.id) || (r.date != null && r.date < todayIso)
+          return (
+            <div key={r.id} style={{ padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
+              {/* Distinguish multiple rounds on the same day. */}
+              {arr.length > 1 && <div style={roundNumLabel}>Round {i + 1}</div>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B2A' }}>{r.club_name || r.course_name}</div>
+                  {r.club_name && r.course_name && r.course_name !== r.club_name && (
+                    <div style={{ fontSize: '12px', color: '#7A8FA6', marginTop: '1px' }}>{r.course_name}</div>
+                  )}
+                  {(r.course_rating != null || r.slope_rating != null) && (
+                    <div style={{ fontSize: '11px', color: '#7A8FA6', marginTop: '3px' }}>
+                      Rating: {r.course_rating ?? '—'} · Slope: {r.slope_rating ?? '—'}
+                    </div>
+                  )}
+                </div>
+                <RoundTypeBadge round={r} isCommissioner={isCommissioner} onChange={onRoundTypeChange} />
               </div>
-              <RoundTypeBadge round={r} isCommissioner={isCommissioner} onChange={onRoundTypeChange} />
-            </div>
 
-            {/* Detail rows */}
-            <div style={{ paddingTop: 8 }}>
-              <div style={cdRow(false)}>
-                <span style={cdLabel}>Location</span>
-                <span style={cdValue}>{locationText(r)}</span>
+              {/* Detail rows */}
+              <div style={{ paddingTop: 8 }}>
+                <div style={cdRow(false)}>
+                  <span style={cdLabel}>Location</span>
+                  <span style={cdValue}>{locationText(r)}</span>
+                </div>
+                <div style={cdRow(true)}>
+                  <span style={cdLabel}>Par</span>
+                  <span style={cdValue}>{parText(r)}</span>
+                </div>
               </div>
-              <div style={cdRow(true)}>
-                <span style={cdLabel}>Par</span>
-                <span style={cdValue}>{parText(r)}</span>
-              </div>
-            </div>
 
-            {isCommissioner && (
-              <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />
-            )}
-            {/* Tee picker + handicaps — any trip member can change any player's tee. */}
-            <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} />
-          </div>
-        )
-      })}
-    </Card>
-  ))
+              {isCommissioner && (
+                <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />
+              )}
+              {/* Tee picker + handicaps — any trip member can change any player's tee. */}
+              <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} />
+            </div>
+          )
+        })}
+      </Card>
+    )
+  })
 }
 
 const ARRIVE_FIELDS = [
@@ -1307,9 +1346,10 @@ export default function MenuDrawer({
         const { data: roundData } = await supabase.from('rounds').select('*').eq('trip_id', tripId).order('date').order('round_number')
         const roundList = roundData || []
         const roundIds = roundList.map(r => r.id)
-        const [tpRes, pairRes] = await Promise.all([
+        const [tpRes, pairRes, tripRes] = await Promise.all([
           supabase.from('trip_players').select('id, first_name, last_name, guest_name, handicap_index').eq('trip_id', tripId),
           roundIds.length ? supabase.from('pairings').select('id, round_id').in('round_id', roundIds) : Promise.resolve({ data: [] }),
+          supabase.from('trips').select('schedule').eq('id', tripId).maybeSingle(),
         ])
         const pairings = pairRes.data || []
         const pairIds = pairings.map(p => p.id)
@@ -1329,9 +1369,18 @@ export default function MenuDrawer({
           ;(prRows || []).forEach(pr => { playerRounds[`${pr.round_id}:${pr.trip_player_id}`] = pr })
         }
         const players = (tpRes.data || []).map(tp => ({ ...tp, name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || 'Player' }))
-        const groups = {}
-        roundList.forEach(r => { (groups[r.date] ??= []).push(r) })
-        const sorted = Object.entries(groups).sort(([a], [b]) => String(a).localeCompare(String(b)))
+
+        // Rounds grouped by date, and the day-type for every empty day.
+        const roundsByDate = {}
+        roundList.forEach(r => { (roundsByDate[r.date] ??= []).push(r) })
+        const scheduleByDate = {}
+        ;(tripRes.data?.schedule || []).forEach(d => { if (d && d.date) scheduleByDate[d.date] = d.type })
+
+        // Every day in the trip range, plus any round date outside it (edge case).
+        let days = daysInRange(tripStartDate, tripEndDate)
+        const dateSet = new Set(days)
+        Object.keys(roundsByDate).forEach(d => { if (d) dateSet.add(d) })
+        days = [...dateSet].sort()
 
         // A round is locked if it has any score (else it locks once its date passes).
         let scored = new Set()
@@ -1341,7 +1390,7 @@ export default function MenuDrawer({
         }
         if (!cancelled) {
           setScoredRounds(scored)
-          setCoursesData({ groups: sorted, players, playersByRound, playerRounds, roundIds })
+          setCoursesData({ days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, roundIds })
         }
       })()
     }
@@ -1364,7 +1413,7 @@ export default function MenuDrawer({
       })()
     }
     return () => { cancelled = true }
-  }, [page, tripId, groupId, playersData, commissionerData, coursesData, archivesData, flightsData])
+  }, [page, tripId, groupId, tripStartDate, tripEndDate, playersData, commissionerData, coursesData, archivesData, flightsData])
 
   const drawerVisible = open && !page
   const backToDrawer = () => setPage(null)
@@ -1396,6 +1445,23 @@ export default function MenuDrawer({
     }
   }
 
+  // Add a golf round on a previously non-golf day (replaces the placeholder). The
+  // round starts as a TBD, type 'none' (hidden until the commissioner sets a
+  // course/type via Edit Course). Then the courses page reloads.
+  async function addRound(date) {
+    const { data: existing } = await supabase.from('rounds').select('round_number').eq('trip_id', tripId)
+    const nextNum = (existing || []).reduce((m, r) => Math.max(m, r.round_number || 0), 0) + 1
+    const { error } = await supabase.from('rounds').insert({
+      trip_id: tripId, round_number: nextNum, date, course_name: 'TBD', round_type: 'none', status: 'upcoming',
+    })
+    if (error) {
+      console.error('[MenuDrawer] addRound failed:', error)
+      return
+    }
+    setCoursesData(null)       // reload the courses page (the day now has a round)
+    if (onRoundsChanged) onRoundsChanged()
+  }
+
   // Persist a per-player tee selection for a round, then update local courses
   // state so the Handicaps table recomputes immediately. Any trip member may do
   // this. player_rounds is in the realtime publication, so the live scorecard /
@@ -1423,11 +1489,15 @@ export default function MenuDrawer({
   async function changeRoundType(roundId, type) {
     const { error } = await supabase.from('rounds').update({ round_type: type }).eq('id', roundId)
     if (error) return
-    // Update the badge locally and refresh the home tee-times widget.
-    setCoursesData(prev => prev ? {
-      ...prev,
-      groups: prev.groups.map(([d, rs]) => [d, rs.map(r => r.id === roundId ? { ...r, round_type: type } : r)]),
-    } : prev)
+    // Update the badge locally (in roundsByDate) and refresh the home widgets.
+    setCoursesData(prev => {
+      if (!prev) return prev
+      const roundsByDate = {}
+      for (const [d, rs] of Object.entries(prev.roundsByDate)) {
+        roundsByDate[d] = rs.map(r => r.id === roundId ? { ...r, round_type: type } : r)
+      }
+      return { ...prev, roundsByDate }
+    })
     if (onRoundsChanged) onRoundsChanged()
   }
 
@@ -1499,8 +1569,8 @@ export default function MenuDrawer({
         </SecondaryPage>
       )}
       {page === 'courses' && (
-        <SecondaryPage context={tripName} title="Courses" onBack={backToDrawer}>
-          <CoursesPage data={coursesData} isCommissioner={isCommissioner} onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds} onRoundTypeChange={changeRoundType} onChangePlayerTee={changePlayerTee} />
+        <SecondaryPage context={tripName} title="Schedule & Courses" onBack={backToDrawer}>
+          <CoursesPage data={coursesData} isCommissioner={isCommissioner} onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds} onRoundTypeChange={changeRoundType} onChangePlayerTee={changePlayerTee} onAddRound={addRound} />
         </SecondaryPage>
       )}
       {page === 'flights' && (

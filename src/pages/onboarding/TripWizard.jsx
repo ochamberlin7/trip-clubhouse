@@ -580,6 +580,15 @@ export default function TripWizard() {
         .single()
       if (tripErr) throw tripErr
 
+      // Persist each day's type so the Courses page can show every day in the
+      // range (golf days come from the rounds table; the rest from here). Done as
+      // a separate, non-fatal update so trip creation still works if the
+      // trips.schedule column hasn't been added yet.
+      await supabase.from('trips')
+        .update({ schedule: schedule.map(d => ({ date: d.date, type: d.type })) })
+        .eq('id', trip.id)
+        .then(({ error }) => { if (error) console.warn('[TripWizard] schedule not saved:', error.message) })
+
       // 4. Create rounds from golf days
       const roundRows = []
       let roundNum = 1
