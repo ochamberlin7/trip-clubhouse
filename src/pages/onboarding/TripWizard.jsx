@@ -283,7 +283,8 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
   }
 
   const cardStyle = { position: 'relative', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }
-  const playerLabelStyle = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', margin: '0 0 6px 2px' }
+  const playerLabelStyle = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
+  const labelRowStyle = { display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 6px 2px' }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -297,33 +298,33 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
           const lErr = showErrors && !p.last_name.trim()
           return (
             <div key={p.id}>
-              <p style={playerLabelStyle}>Player {idx + 1}</p>
+              {/* Label row: "PLAYER N" with the YOU pill beside it for the commissioner */}
+              <div style={labelRowStyle}>
+                <span style={playerLabelStyle}>Player {idx + 1}</span>
+                {p.isCommissioner && <span className="you-badge">YOU</span>}
+              </div>
               <div style={cardStyle}>
-              {/* Top-right corner: YOU badge (commissioner) or remove button */}
-              {p.isCommissioner
-                ? <span className="you-badge" style={{ position: 'absolute', top: 10, right: 10 }}>YOU</span>
-                : (
-                  <button
-                    onClick={() => removeRow(p.id)}
-                    aria-label="Remove player"
-                    style={{ position: 'absolute', top: 6, right: 6, width: 30, height: 30, background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 20, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit' }}
-                  >×</button>
-                )}
+              {/* Remove button (non-commissioner only), top-right corner */}
+              {!p.isCommissioner && (
+                <button
+                  onClick={() => removeRow(p.id)}
+                  aria-label="Remove player"
+                  style={{ position: 'absolute', top: 6, right: 6, width: 30, height: 30, background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 20, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit' }}
+                >×</button>
+              )}
 
-              {/* First + Last on one row (clear of the corner control) */}
-              <div style={{ display: 'flex', gap: 8, paddingRight: 30 }}>
+              {/* First + Last on one row (clear of the remove control when present) */}
+              <div style={{ display: 'flex', gap: 8, paddingRight: p.isCommissioner ? 0 : 30 }}>
                 <input
                   style={{ ...(fErr ? playerInputErr : playerInputStyle), flex: 1, minWidth: 0 }}
                   placeholder="First name"
                   value={p.first_name}
-                  disabled={p.isCommissioner}
                   onChange={e => update(p.id, 'first_name', e.target.value)}
                 />
                 <input
                   style={{ ...(lErr ? playerInputErr : playerInputStyle), flex: 1, minWidth: 0 }}
                   placeholder="Last name"
                   value={p.last_name}
-                  disabled={p.isCommissioner}
                   onChange={e => update(p.id, 'last_name', e.target.value)}
                 />
               </div>
@@ -333,7 +334,6 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
                 style={playerInputStyle}
                 placeholder="Email (optional)"
                 value={p.email}
-                disabled={p.isCommissioner}
                 onChange={e => update(p.id, 'email', e.target.value)}
               />
               </div>
@@ -641,7 +641,8 @@ export default function TripWizard() {
             is_claimed: true,
             first_name: first,
             last_name: last,
-            email: user.email,
+            // Save the edited email; fall back to the account email if cleared.
+            email: p.email.trim() || user.email,
             handicap_index: null,
           }
         }
