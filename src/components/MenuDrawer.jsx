@@ -617,13 +617,21 @@ function EditCourseButton({ round, locked, onEditCourse }) {
 const typeBadgeBase = { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit', whiteSpace: 'nowrap' }
 const typeBadgeTour = { ...typeBadgeBase, background: 'rgba(27,63,110,0.1)', color: '#1B3F6E', border: '1px solid #1B3F6E' }
 const typeBadgePrac = { ...typeBadgeBase, background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }
+const typeBadgeNone = { ...typeBadgeBase, background: '#F5F8FA', color: '#9AA8B8', border: '1px dashed #C4CEDA' }
+
+// round_type meta. 'none' = "not decided yet" (hidden elsewhere in the app); the
+// commissioner picks Tournament or Practice here.
+const ROUND_TYPE_META = {
+  tournament: { label: 'Tournament', style: typeBadgeTour },
+  practice: { label: 'Practice', style: typeBadgePrac },
+  none: { label: 'Not Set', style: typeBadgeNone },
+}
 
 function RoundTypeBadge({ round, isCommissioner, onChange }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
-  const isTournament = round.round_type !== 'practice'
-  const style = isTournament ? typeBadgeTour : typeBadgePrac
-  const label = isTournament ? 'Tournament' : 'Practice'
+  const type = round.round_type || 'tournament'
+  const { label, style } = ROUND_TYPE_META[type] || ROUND_TYPE_META.tournament
 
   useEffect(() => {
     if (!open) return
@@ -639,8 +647,8 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
       <button style={{ ...style, cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>{label} ▾</button>
       {open && (
         <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', minWidth: 130 }}>
-          {[['tournament', 'Tournament'], ['practice', 'Practice']].map(([val, txt]) => {
-            const active = (val === 'tournament') === isTournament
+          {[['tournament', 'Tournament'], ['practice', 'Practice'], ['none', 'Not Set']].map(([val, txt]) => {
+            const active = val === type
             return (
               <div key={val} onClick={() => { setOpen(false); if (!active) onChange(round.id, val) }}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#0D1B2A' }}

@@ -165,7 +165,7 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
     setSchedule(schedule.map((d, i) => {
       if (i !== dayIdx) return d
       const rounds = d.rounds.filter(r => r.id !== roundId)
-      return { ...d, rounds, type: rounds.length === 0 ? 'non_golf' : d.type }
+      return { ...d, rounds, type: rounds.length === 0 ? 'unknown' : d.type }
     }))
   }
 
@@ -180,6 +180,9 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <p className="wizard-step-subtitle" style={{ marginTop: 0 }}>
+        Do you know your schedule yet? If so, enter it here. If not, you can leave days as Unknown and fill them in later.
+      </p>
       {schedule.map((day, idx) => (
         <div key={day.date} className="schedule-day">
           <div className="schedule-day-header">
@@ -188,6 +191,7 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
               value={day.type === 'golf' ? 'golf' : day.type}
               onChange={e => setDayType(idx, e.target.value)}
             >
+              <option value="unknown">Unknown</option>
               <option value="non_golf">Non-Golf Day</option>
               <option value="travel">Travel Day</option>
               <option value="golf">Add Golf Round</option>
@@ -198,13 +202,31 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
             <div className="round-inputs">
               {day.rounds.map((round, rIdx) => (
                 <div key={round.id} className="round-input-row" style={{ alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1 }}>
-                    <CourseSearchInput
-                      placeholder={`Search course${day.rounds.length > 1 ? ` (Round ${rIdx + 1})` : ''}...`}
-                      initialValue={round.courseName}
-                      onQueryChange={text => updateCourseName(idx, rIdx, text)}
-                      onCourseSelected={data => setRoundCourse(idx, rIdx, data)}
-                    />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {round.course ? (
+                      // Course chosen → show it and collapse the picker. "Change" reopens it.
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: '#F5F8FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {round.course.club_name || round.course.course_name}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#7A8FA6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {[round.course.tee_name && `${round.course.tee_name} tees`, round.course.location].filter(Boolean).join(' · ') || 'Course selected'}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setRoundCourse(idx, rIdx, null)}
+                          style={{ flexShrink: 0, background: 'none', border: 'none', color: '#1B3F6E', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                        >Change</button>
+                      </div>
+                    ) : (
+                      <CourseSearchInput
+                        placeholder={`Search course${day.rounds.length > 1 ? ` (Round ${rIdx + 1})` : ''}...`}
+                        initialValue={round.courseName}
+                        onQueryChange={text => updateCourseName(idx, rIdx, text)}
+                        onCourseSelected={data => setRoundCourse(idx, rIdx, data)}
+                      />
+                    )}
                   </div>
                   <button
                     className="btn-remove-round"
@@ -260,48 +282,57 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
     onNext()
   }
 
+  const cardStyle = { position: 'relative', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <p className="wizard-step-subtitle" style={{ marginTop: 0 }}>Add everyone who's coming on the trip</p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {players.map(p => {
           const fErr = showErrors && !p.first_name.trim()
           const lErr = showErrors && !p.last_name.trim()
           return (
-            <div key={p.id} style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <div key={p.id} style={cardStyle}>
+              {/* Top-right corner: YOU badge (commissioner) or remove button */}
+              {p.isCommissioner
+                ? <span className="you-badge" style={{ position: 'absolute', top: 10, right: 10 }}>YOU</span>
+                : (
+                  <button
+                    onClick={() => removeRow(p.id)}
+                    aria-label="Remove player"
+                    style={{ position: 'absolute', top: 6, right: 6, width: 30, height: 30, background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 20, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >×</button>
+                )}
+
+              {/* First + Last on one row (clear of the corner control) */}
+              <div style={{ display: 'flex', gap: 8, paddingRight: 30 }}>
+                <input
+                  style={{ ...(fErr ? playerInputErr : playerInputStyle), flex: 1, minWidth: 0 }}
+                  placeholder="First name"
+                  value={p.first_name}
+                  disabled={p.isCommissioner}
+                  onChange={e => update(p.id, 'first_name', e.target.value)}
+                />
+                <input
+                  style={{ ...(lErr ? playerInputErr : playerInputStyle), flex: 1, minWidth: 0 }}
+                  placeholder="Last name"
+                  value={p.last_name}
+                  disabled={p.isCommissioner}
+                  onChange={e => update(p.id, 'last_name', e.target.value)}
+                />
+              </div>
+
+              {/* Email full width */}
               <input
-                style={{ ...(fErr ? playerInputErr : playerInputStyle), flex: '1 1 100px' }}
-                placeholder="First name"
-                value={p.first_name}
-                disabled={p.isCommissioner}
-                onChange={e => update(p.id, 'first_name', e.target.value)}
-              />
-              <input
-                style={{ ...(lErr ? playerInputErr : playerInputStyle), flex: '1 1 100px' }}
-                placeholder="Last name"
-                value={p.last_name}
-                disabled={p.isCommissioner}
-                onChange={e => update(p.id, 'last_name', e.target.value)}
-              />
-              <input
-                style={{ ...playerInputStyle, flex: '1 1 140px' }}
+                style={playerInputStyle}
                 placeholder="Email (optional)"
                 value={p.email}
                 disabled={p.isCommissioner}
                 onChange={e => update(p.id, 'email', e.target.value)}
               />
-              {p.isCommissioner
-                ? <span className="you-badge" style={{ flexShrink: 0 }}>You</span>
-                : (
-                  <button
-                    onClick={() => removeRow(p.id)}
-                    aria-label="Remove player"
-                    style={{ width: 28, height: 28, background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 18, cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}
-                  >×</button>
-                )}
             </div>
           )
         })}
@@ -310,7 +341,7 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
       {players.length < MAX_PLAYERS && (
         <button
           onClick={addRow}
-          style={{ background: 'transparent', border: '1px dashed #DDE3EA', borderRadius: 8, padding: 10, width: '100%', color: '#7A8FA6', fontSize: 13, textAlign: 'center', cursor: 'pointer', fontFamily: 'inherit' }}
+          style={{ background: 'transparent', border: '1px dashed #DDE3EA', borderRadius: 8, padding: 12, width: '100%', color: '#7A8FA6', fontSize: 14, fontWeight: 600, textAlign: 'center', cursor: 'pointer', fontFamily: 'inherit' }}
         >+ Add Player</button>
       )}
 
@@ -502,7 +533,8 @@ export default function TripWizard() {
 
   function goToStep1() {
     const days = getDaysInRange(startDate, endDate)
-    setSchedule(days.map(date => ({ date, type: 'non_golf', rounds: [] })))
+    // Default each day to "Unknown" — the schedule can be filled in later.
+    setSchedule(days.map(date => ({ date, type: 'unknown', rounds: [] })))
     setStep(1)
   }
 
@@ -566,6 +598,9 @@ export default function TripWizard() {
               par_total: c?.par_total ?? null,
               number_of_holes: c?.number_of_holes ?? null,
               tees: c?.tees ?? null,
+              // Tournament set up → rounds default to 'tournament'; otherwise
+              // 'none' ("not decided yet"). Commissioner refines per-round later.
+              round_type: hasTournament ? 'tournament' : 'none',
               date: day.date,
               status: 'upcoming',
             })

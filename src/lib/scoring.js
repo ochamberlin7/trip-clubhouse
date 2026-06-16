@@ -14,6 +14,12 @@ export function isTournamentRound(round) {
   return !round.round_type || round.round_type === 'tournament'
 }
 
+// 'none' rounds are placeholders ("not decided yet") — hidden from scoring, the
+// leaderboard, the live banner, the scoring round picker and tee times.
+export function isNoneRound(round) {
+  return round?.round_type === 'none'
+}
+
 // Parse a display tee time ("7:45 AM") into minutes from midnight; null → 0.
 export function parseTeeTimeToMinutes(str) {
   if (!str) return 0

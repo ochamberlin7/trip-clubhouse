@@ -128,8 +128,11 @@ export default function TeeTimesWidget({ rounds = [], tripStartDate, tripEndDate
   if (tripEndDate && todayIso > tripEndDate) return null
   if (!loaded) return null
 
+  // 'none' rounds are placeholders ("not decided yet") — never shown here.
+  const teeRounds = rounds.filter(r => r.round_type !== 'none')
+
   // 1. Today's rounds, if at least one isn't complete yet.
-  const todaysRounds = rounds.filter(r => r.date === todayIso)
+  const todaysRounds = teeRounds.filter(r => r.date === todayIso)
   const todayHasIncomplete = todaysRounds.some(r => !completeMap[r.id])
 
   let label, dateIso, displayRounds
@@ -139,12 +142,12 @@ export default function TeeTimesWidget({ rounds = [], tripStartDate, tripEndDate
     displayRounds = todaysRounds
   } else {
     // 2. Next future date that has rounds.
-    const futureRounds = rounds.filter(r => r.date && r.date > todayIso)
+    const futureRounds = teeRounds.filter(r => r.date && r.date > todayIso)
     if (futureRounds.length === 0) return null
     const nextDate = futureRounds[0].date
     label = 'Next Tee Time'
     dateIso = nextDate
-    displayRounds = rounds.filter(r => r.date === nextDate)
+    displayRounds = teeRounds.filter(r => r.date === nextDate)
   }
 
   if (displayRounds.length === 0) return null

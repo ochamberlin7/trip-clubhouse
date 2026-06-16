@@ -226,9 +226,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   }, [saveError])
 
   if (loading) return <div className="empty-state">Loading scorecard…</div>
-  if (rounds.length === 0) return <div className="empty-state"><span className="empty-state-icon">📊</span>No rounds to score yet.</div>
+  // 'none' rounds are placeholders — never shown in the scoring round picker.
+  const visibleRounds = rounds.filter(r => r.round_type !== 'none')
+  if (visibleRounds.length === 0) return <div className="empty-state"><span className="empty-state-icon">📊</span>No rounds to score yet.</div>
 
-  const round = rounds.find(r => r.id === activeRoundId) || rounds[0]
+  const round = visibleRounds.find(r => r.id === activeRoundId) || visibleRounds[0]
   const holes = Array.isArray(round.holes) ? round.holes : null
 
   // Pairing tabs: commissioners always get 1 & 2; others see what exists.
@@ -483,7 +485,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     <div>
       {/* Round pills */}
       <div className="pill-row">
-        {rounds.map(r => (
+        {visibleRounds.map(r => (
           <button key={r.id} className={`pill-btn ${round.id === r.id ? 'active' : ''}`} onClick={() => { setActiveRoundId(r.id); setActivePairingNum(1); setOpenSlot(null) }}>
             <span className="round-pill-name">{formatRoundPillName(r.club_name || r.course_name)}</span>
             {r.round_type === 'practice' && <span className="round-practice-badge">P</span>}

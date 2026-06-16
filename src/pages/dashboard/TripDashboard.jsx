@@ -306,6 +306,9 @@ function TabLeaderboard({ trip, teams, rounds }) {
     )
   }
 
+  // 'none' rounds are placeholders ("not decided yet") — excluded from standings.
+  const lbRounds = rounds.filter(r => r.round_type !== 'none')
+
   return (
     <div>
       {/* One card per team — teams exist from trip creation, so always show them. */}
@@ -317,13 +320,13 @@ function TabLeaderboard({ trip, teams, rounds }) {
             <span className="lb-team-pts">—</span>
           </div>
           <div className="lb-rounds">
-            {rounds.map(r => (
+            {lbRounds.map(r => (
               <div key={r.id} className="lb-round-row">
                 <span className="lb-round-name">{r.course_name}</span>
                 <span className="lb-round-score">—</span>
               </div>
             ))}
-            {rounds.length === 0 && (
+            {lbRounds.length === 0 && (
               <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
                 No rounds yet
               </div>
@@ -445,7 +448,9 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
 }
 
 function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound }) {
-  if (rounds.length === 0) {
+  // 'none' rounds are placeholders ("not decided yet") — not shown in tee times.
+  const teeRounds = rounds.filter(r => r.round_type !== 'none')
+  if (teeRounds.length === 0) {
     return (
       <div className="empty-state">
         <span className="empty-state-icon">⏰</span>
@@ -454,7 +459,7 @@ function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound }) {
     )
   }
 
-  const groups = groupByDate(rounds)
+  const groups = groupByDate(teeRounds)
 
   async function saveTeeTime(roundId, col, display) {
     await supabase.from('rounds').update({ [col]: display }).eq('id', roundId)

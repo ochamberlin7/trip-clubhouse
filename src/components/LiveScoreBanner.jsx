@@ -153,7 +153,8 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   //      — this also covers "outside trip dates, an in-progress round surfaces"
   const { round, tallies } = useMemo(() => {
     // Per-round summary, keeping only rounds that have at least one scored hole.
-    const summaries = rounds.map(r => {
+    // 'none' rounds are placeholders and never surface the banner.
+    const summaries = rounds.filter(r => r.round_type !== 'none').map(r => {
       const t = liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
       const scored = t.reduce((a, p) => a + p.holesScored, 0)
       return { round: r, tallies: t, scored, complete: t.length > 0 && t.every(p => p.complete) }
