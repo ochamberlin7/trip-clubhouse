@@ -199,7 +199,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_rounds', filter }, () => { loadPlayerRounds() })
       // A handicap-index (HI) edit reloads the roster so net scores + course
       // handicaps recalculate live (HI is never stored as a derived value).
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${trip.id}` }, () => { loadPlayers() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${trip.id}` }, payload => {
+        console.log('[ScoringTab] trip_players realtime update', payload.new?.id, '→ HI', payload.new?.handicap_index)
+        loadPlayers()
+      })
       .on('broadcast', { event: 'score_deleted' }, ({ payload }) => {
         const key = `${payload.round_id}:${payload.trip_player_id}:${payload.hole_number}`
         setScores(prev => { const n = { ...prev }; delete n[key]; return n })
@@ -282,6 +285,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   })
   const playingByTp = playingFromCourseHandicaps(chEntries, allowance)
   const phOf = tpId => playingByTp.get(tpId) ?? 0
+  // Stroke dots reflect each player's COURSE handicap (WHS), computed live from
+  // the current HI — not the low-ball playing handicap used for net scoring.
+  const courseHcpByTp = new Map(chEntries.map(e => [e.id, e.ch]))
+  const courseHcpOf = tpId => courseHcpByTp.get(tpId) ?? 0
 
   const getScore = (tpId, hole) => scores[`${round.id}:${tpId}:${hole}`] ?? null
   const getDrinks = (tpId, hole) => drinks[`${round.id}:${tpId}:${hole}`] ?? 0
@@ -300,10 +307,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   }
 
   // Stroke dots only when all 4 slots filled; suppress when all 4 stroke.
+  // Uses the COURSE handicap (live, from current HI), not the playing handicap.
   function strokesShown(hole) {
     if (!allFilled) return new Set()
     const si = holes?.[hole - 1]?.handicap
-    const strokers = [1, 2, 3, 4].map(s => slotMap[s]).filter(tp => strokesOnHole(phOf(tp), si) >= 1)
+    const strokers = [1, 2, 3, 4].map(s => slotMap[s]).filter(tp => strokesOnHole(courseHcpOf(tp), si) >= 1)
     if (strokers.length === 4) return new Set()
     return new Set(strokers)
   }
@@ -455,7 +463,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const gross = getScore(tpId, hole)
     const par = holes?.[hole - 1]?.par
     const cls = scoreClass(gross, par)
-    const st = strokesOnHole(phOf(tpId), holes?.[hole - 1]?.handicap)
+    // Dot count uses the course handicap (live from current HI), not playing.
+    const st = strokesOnHole(courseHcpOf(tpId), holes?.[hole - 1]?.handicap)
     const showDot = shownSet.has(tpId) && st >= 1
     const dc = getDrinks(tpId, hole)
     return (
