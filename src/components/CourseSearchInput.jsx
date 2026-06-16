@@ -128,9 +128,13 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
       // Fall back to the search row (it often already includes tees/holes).
     }
     setCourse(full)
-    setMaleTees(full?.tees?.male || [])
-    setFemaleTees(full?.tees?.female || [])
-    setSelectedTee(null)
+    const male = full?.tees?.male || []
+    const female = full?.tees?.female || []
+    setMaleTees(male)
+    setFemaleTees(female)
+    // Auto-select the first available tee so "Add This Course" is never blocked
+    // (the button is disabled until a tee is selected).
+    setSelectedTee(male[0] || female[0] || null)
     setLoadingCourse(false)
   }
 
@@ -145,6 +149,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   // Hand the full selection to the parent and let it decide what happens next
   // (e.g. the edit flow saves and closes the modal). No internal confirmation UI.
   function confirm() {
+    console.log('[CourseSearchInput] Add This Course clicked; selectedTee =', selectedTee)
     if (!selectedTee) return
     const loc = course.location || {}
     // Cache every available tee (men's + women's) so per-player tee selection
