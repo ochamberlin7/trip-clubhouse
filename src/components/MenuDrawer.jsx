@@ -204,6 +204,8 @@ const pc = {
   detailLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', minWidth: 72 },
   muted: { color: '#7A8FA6' },
   editInput: { background: '#F5F8FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: '100%', fontFamily: 'inherit', color: '#0D1B2A' },
+  editLabel: { display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', marginBottom: 4 },
+  editField: { display: 'block', flex: 1, minWidth: 0 },
   saveBtn: { background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 }
 
@@ -304,18 +306,36 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
       {editing && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input style={pc.editInput} placeholder="First name" value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} />
-            <input style={pc.editInput} placeholder="Last name" value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
+            <label style={pc.editField}>
+              <span style={pc.editLabel}>First Name</span>
+              <input style={pc.editInput} placeholder="First name" value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} />
+            </label>
+            <label style={pc.editField}>
+              <span style={pc.editLabel}>Last Name</span>
+              <input style={pc.editInput} placeholder="Last name" value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
+            </label>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input style={pc.editInput} type="number" step="0.1" min="0" max="54" placeholder="e.g. 14.2" value={form.handicap_index} onChange={e => setForm({ ...form, handicap_index: e.target.value })} />
-            <select style={pc.editInput} value={form.team_id} onChange={e => setForm({ ...form, team_id: e.target.value })}>
-              <option value="">Unassigned</option>
-              {teams.map(t => <option key={t.id} value={t.id}>{getTeamDisplayName(t)}</option>)}
-            </select>
+            <label style={pc.editField}>
+              <span style={pc.editLabel}>Handicap Index</span>
+              <input style={pc.editInput} type="number" step="0.1" min="0" max="54" placeholder="e.g. 14.2" value={form.handicap_index} onChange={e => setForm({ ...form, handicap_index: e.target.value })} />
+            </label>
+            <label style={pc.editField}>
+              <span style={pc.editLabel}>Team</span>
+              <select style={pc.editInput} value={form.team_id} onChange={e => setForm({ ...form, team_id: e.target.value })}>
+                <option value="">Unassigned</option>
+                {teams.map(t => <option key={t.id} value={t.id}>{getTeamDisplayName(t)}</option>)}
+              </select>
+            </label>
           </div>
-          <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
-          <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Phone</span>
+            <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Email</span>
+            <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+          </label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
             <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
