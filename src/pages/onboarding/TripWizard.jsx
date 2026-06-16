@@ -363,7 +363,9 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 
 function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams, setNumTeams, onBack, onFinish, loading, submitError }) {
   const validCounts = getValidTeamCounts(playerCount)
-  const canFinish = hasTournament === false || (hasTournament === true && validCounts.includes(numTeams))
+  // Create Trip is always available once a tournament choice is made — when there
+  // aren't enough players for teams yet, they can be assigned later.
+  const canFinish = hasTournament !== null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -392,18 +394,14 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
             <span className="format-tag">⛳ Match Play</span>
           </div>
 
-          <div>
-            <p className="field-label" style={{ marginBottom: 10 }}>
-              Number of Teams
-              <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: 6 }}>
-                ({playerCount} player{playerCount !== 1 ? 's' : ''})
-              </span>
-            </p>
-            {validCounts.length === 0 ? (
-              <p style={{ fontSize: 14, color: '#9ca3af' }}>
-                Need at least 4 players for team options (2 teams of 2).
+          {validCounts.length > 0 ? (
+            <div>
+              <p className="field-label" style={{ marginBottom: 10 }}>
+                Number of Teams
+                <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: 6 }}>
+                  ({playerCount} player{playerCount !== 1 ? 's' : ''})
+                </span>
               </p>
-            ) : (
               <div className="team-count-options">
                 {validCounts.map(n => (
                   <button
@@ -415,8 +413,12 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: '#7A8FA6', margin: 0 }}>
+              You can assign teams later in Commissioner Tools once more players join.
+            </p>
+          )}
         </>
       )}
 
