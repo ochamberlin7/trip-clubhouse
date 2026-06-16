@@ -447,7 +447,10 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
   )
 }
 
-function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound }) {
+function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound, playerCount = 0 }) {
+  // Number of pairings scales with players (1 per pairing per team): 2 players → 1
+  // pairing, 4 → 2. Capped at 2 (the schema has tee_time_1 / tee_time_2).
+  const numPairings = Math.min(2, Math.max(1, Math.ceil(playerCount / 2)))
   // 'none' rounds are placeholders ("not decided yet") — not shown in tee times.
   const teeRounds = rounds.filter(r => r.round_type !== 'none')
   if (teeRounds.length === 0) {
@@ -484,8 +487,8 @@ function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound }) {
                   </span>
                 </div>
 
-                {/* Pairing tee-time rows */}
-                {[1, 2].map(slot => (
+                {/* Pairing tee-time rows — scaled to the number of pairings */}
+                {Array.from({ length: numPairings }, (_, i) => i + 1).map(slot => (
                   <div key={slot} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0' }}>
                     <span style={{ fontSize: 12, color: '#7A8FA6', fontWeight: 500 }}>Pairing {slot}</span>
                     <TimeCell round={r} slot={slot} isCommissioner={isCommissioner} onSave={saveTeeTime} />
@@ -865,7 +868,7 @@ export default function TripDashboard() {
         {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={isCommissioner} />}
         {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
-        {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={isCommissioner} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
+        {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={isCommissioner} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
       </div>
 
       {/* Floating live-score banner — mounted once here so it persists across tabs */}

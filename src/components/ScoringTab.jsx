@@ -260,6 +260,16 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const slotPlayers = [1, 2, 3, 4].map(s => slotMap[s] ? playersById[slotMap[s]] : null)
   const allFilled = [1, 2, 3, 4].every(s => slotMap[s])
 
+  // How many player columns to show per team — the team's roster size (1 or 2),
+  // so a team with only one player doesn't render a ghost second slot. Display
+  // only; scoring/handicap math below still uses the full slot set.
+  const teamSize = teamId => Object.values(playersById).filter(p => teamId && p.team_id === teamId).length
+  const t1Slots = teamSize(teams[0]?.id) >= 2 ? [1, 2] : [1]
+  const t2Slots = teamSize(teams[1]?.id) >= 2 ? [3, 4] : [3]
+  const scGridCols = `30px 24px 24px ${t1Slots.map(() => '1fr').join(' ')} 32px ${t2Slots.map(() => '1fr').join(' ')}`
+  // Whether the visible slots are all filled (for the "assign players" hint only).
+  const visibleFilled = [...t1Slots, ...t2Slots].every(s => slotMap[s])
+
   // Low-ball playing handicaps for the players in this pairing, each from their
   // individual tee (player_rounds → round default). Course HCP is WHS per tee.
   const allowance = trip.handicap_allowance ?? 100
@@ -350,7 +360,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   function HeaderCell({ slot, teamClass }) {
     const tp = slotMap[slot] ? playersById[slotMap[slot]] : null
     if (!isCommissioner) return <div className={`sc-th-name ${teamClass}`}>{tp ? firstName(tp.name) : 'TBD'}</div>
-    const label = tp ? firstName(tp.name) : '+'
+    // Empty slot → only offer the + when there are players available to assign.
+    const label = tp ? firstName(tp.name) : (availableForSlot(slot).length > 0 ? '+' : 'TBD')
     return (
       <div style={{ position: 'relative' }}>
         <button className={`sc-th-name ${teamClass} sc-th-btn`} onClick={() => openAssign(slot)}>{label}</button>
@@ -470,14 +481,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const st = subtotal(start, end)
     const cell = tpId => !tpId ? '—' : (st.playerTotal(tpId) == null ? '—' : st.playerTotal(tpId))
     return (
-      <div className="sc-row sc-sub-row">
+      <div className="sc-row sc-sub-row" style={{ gridTemplateColumns: scGridCols }}>
         <div className="sc-sub-label">{label}</div>
         <div className="sc-sub-par">{st.parSum ?? '—'}</div><div />
-        <div className="sc-sub-score t1">{cell(slotMap[1])}</div>
-        <div className="sc-sub-score t1">{cell(slotMap[2])}</div>
+        {t1Slots.map(s => <div key={s} className="sc-sub-score t1">{cell(slotMap[s])}</div>)}
         <div className="sc-sub-pts">{allFilled ? st.pts : '—'}</div>
-        <div className="sc-sub-score t2">{cell(slotMap[3])}</div>
-        <div className="sc-sub-score t2">{cell(slotMap[4])}</div>
+        {t2Slots.map(s => <div key={s} className="sc-sub-score t2">{cell(slotMap[s])}</div>)}
       </div>
     )
   }
@@ -490,14 +499,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       return s > 0 ? s : '—'
     }
     return (
-      <div className="sc-row sc-sub-row">
+      <div className="sc-row sc-sub-row" style={{ gridTemplateColumns: scGridCols }}>
         <div className="sc-sub-label">Drinks</div>
         <div className="sc-sub-par" /><div />
-        <div className="sc-sub-score t1">{total(slotMap[1])}</div>
-        <div className="sc-sub-score t1">{total(slotMap[2])}</div>
+        {t1Slots.map(s => <div key={s} className="sc-sub-score t1">{total(slotMap[s])}</div>)}
         <div className="sc-sub-pts" />
-        <div className="sc-sub-score t2">{total(slotMap[3])}</div>
-        <div className="sc-sub-score t2">{total(slotMap[4])}</div>
+        {t2Slots.map(s => <div key={s} className="sc-sub-score t2">{total(slotMap[s])}</div>)}
       </div>
     )
   }
@@ -529,7 +536,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         </div>
       )}
 
-      {!allFilled && (
+      {!visibleFilled && (
         <div style={{ textAlign: 'center', fontSize: 12, color: '#7A8FA6', fontStyle: 'italic', padding: '8px 0' }}>
           {isCommissioner ? 'Tap a + header to assign players to this pairing' : 'Pairings not set yet — ask your commissioner'}
         </div>
@@ -539,30 +546,26 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       )}
 
       <div className="sc-card">
-        <div className="sc-row sc-head" ref={headerRef}>
+        <div className="sc-row sc-head" ref={headerRef} style={{ gridTemplateColumns: scGridCols }}>
           <div className="sc-h">Hole</div>
           <div className="sc-h">Par</div>
           <div className="sc-h">S.I.</div>
-          <HeaderCell slot={1} teamClass="sc-th-t1" />
-          <HeaderCell slot={2} teamClass="sc-th-t1" />
+          {t1Slots.map(s => <HeaderCell key={s} slot={s} teamClass="sc-th-t1" />)}
           <div className="sc-h">Pts</div>
-          <HeaderCell slot={3} teamClass="sc-th-t2" />
-          <HeaderCell slot={4} teamClass="sc-th-t2" />
+          {t2Slots.map(s => <HeaderCell key={s} slot={s} teamClass="sc-th-t2" />)}
         </div>
 
         {Array.from({ length: 18 }, (_, i) => i + 1).map(hole => {
           const shownSet = strokesShown(hole)
           return (
             <div key={hole}>
-              <div className={`sc-row sc-hole-row ${hole === 10 ? 'nine-divider' : ''}`} style={{ paddingTop: 3, paddingBottom: 3 }}>
+              <div className={`sc-row sc-hole-row ${hole === 10 ? 'nine-divider' : ''}`} style={{ gridTemplateColumns: scGridCols, paddingTop: 3, paddingBottom: 3 }}>
                 <div className="sc-cell-hole">{hole}</div>
                 <div className="sc-cell-par">{holes?.[hole - 1]?.par ?? '—'}</div>
                 <div className="sc-cell-si">{holes?.[hole - 1]?.handicap ?? '—'}</div>
-                <ScoreCell slot={1} hole={hole} shownSet={shownSet} />
-                <ScoreCell slot={2} hole={hole} shownSet={shownSet} />
+                {t1Slots.map(s => <ScoreCell key={s} slot={s} hole={hole} shownSet={shownSet} />)}
                 <PointsChip result={holeResult(hole)} />
-                <ScoreCell slot={3} hole={hole} shownSet={shownSet} />
-                <ScoreCell slot={4} hole={hole} shownSet={shownSet} />
+                {t2Slots.map(s => <ScoreCell key={s} slot={s} hole={hole} shownSet={shownSet} />)}
               </div>
               {hole === 9 && <SubRow label="Out" start={1} end={9} />}
               {hole === 18 && <SubRow label="In" start={10} end={18} />}
