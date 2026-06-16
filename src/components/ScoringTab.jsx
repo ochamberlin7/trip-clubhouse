@@ -67,6 +67,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const [modal, setModal] = useState(null)
   const [openSlot, setOpenSlot] = useState(null) // commissioner header dropdown
   const [assignError, setAssignError] = useState(null)
+  const [teamWarning, setTeamWarning] = useState(false) // blocks assignment until every player has a team
   const [saveError, setSaveError] = useState(null) // transient toast when an optimistic score save fails
   const [playerRoundsMap, setPlayerRoundsMap] = useState({}) // `${roundId}:${tpId}` -> player_rounds row (per-player tee)
   const [connStatus, setConnStatus] = useState('connecting') // connecting | connected | disconnected
@@ -120,6 +121,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       pById[tp.id] = { ...tp, name }
     })
     setPlayersById(pById)
+    return list
   }
 
   useEffect(() => {
@@ -325,6 +327,15 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     }
   }
 
+  // Open the assignment dropdown for a slot. Refetches the roster first; if any
+  // trip player still lacks a team, block the flow and show the warning instead.
+  async function openAssign(slot) {
+    if (openSlot === slot) { setOpenSlot(null); return }
+    const list = await loadPlayers()
+    if (list.some(p => p.team_id == null)) { setTeamWarning(true); return }
+    setOpenSlot(slot)
+  }
+
   function availableForSlot(slot) {
     const teamIdx = SLOT_TEAM[slot]
     const teamId = teams[teamIdx]?.id
@@ -342,7 +353,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const label = tp ? firstName(tp.name) : '+'
     return (
       <div style={{ position: 'relative' }}>
-        <button className={`sc-th-name ${teamClass} sc-th-btn`} onClick={() => { const next = openSlot === slot ? null : slot; setOpenSlot(next); if (next != null) loadPlayers() }}>{label}</button>
+        <button className={`sc-th-name ${teamClass} sc-th-btn`} onClick={() => openAssign(slot)}>{label}</button>
         {openSlot === slot && (
           <div className="sc-th-dropdown">
             <button className="sc-th-opt" onClick={() => assignSlot(slot, null)} style={{ color: 'var(--muted)', fontWeight: 700 }}>Clear</button>
@@ -593,6 +604,25 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', cursor: 'pointer',
         }}>
           {saveError}
+        </div>
+      )}
+
+      {/* Block pairing assignment until every trip player has a team. */}
+      {teamWarning && (
+        <div role="dialog" aria-modal="true"
+          onClick={() => setTeamWarning(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 14, padding: '22px 20px', maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#0D1B2A', marginBottom: 8 }}>Assign teams first</div>
+            <p style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.5, margin: '0 0 18px' }}>
+              You must assign teams to all players under the Players tab before adding players to the scorecard.
+            </p>
+            <button onClick={() => setTeamWarning(false)}
+              style={{ width: '100%', background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 8, padding: '11px 20px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Got it
+            </button>
+          </div>
         </div>
       )}
     </div>
