@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
+import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 import { courseHandicapForTee, resolvePlayerTee, playingFromCourseHandicaps } from '../lib/scoring'
 import { FEATURES } from '../lib/features'
@@ -379,17 +380,49 @@ function PlayersPage({ data, isCommissioner, onReload }) {
   )
 }
 
+// Normalise GolfCourseAPI course detail → [{name,slope,rating,par}] (men's + women's).
+function teesFromCourseDetail(detail) {
+  const all = [...(detail?.tees?.male || []), ...(detail?.tees?.female || [])]
+  return all
+    .filter(t => t && t.tee_name)
+    .map(t => ({ name: t.tee_name, slope: t.slope_rating, rating: t.course_rating, par: t.par_total }))
+}
+
 // "Handicaps" card: per-player tee dropdown + WHS course/playing handicaps.
 // The TEE column is the first after the player name; selecting a tee auto-fills
 // slope/rating/par, recomputes Course + Playing, and saves to player_rounds (any
 // trip member may change any tee). Works on completed rounds too.
 function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChangeTee }) {
   const [open, setOpen] = useState(false)
+  const [apiTees, setApiTees] = useState(null) // tees fetched from the API when rounds.tees is empty
   const alw = allowance ?? 100
-  const tees = Array.isArray(round.tees) ? round.tees.filter(t => t && t.name) : []
+  const cachedTees = Array.isArray(round.tees) ? round.tees.filter(t => t && t.name) : []
+  const tees = cachedTees.length ? cachedTees : (apiTees || [])
   const hasCourse = round.slope_rating != null || tees.length > 0
   // Round's primary tee — the default when a player has no saved tee.
   const defaultTeeName = tees.find(t => t.name === round.tee_name)?.name ?? tees[0]?.name ?? null
+
+  // If the round has no cached tees, pull them from the golf course API the first
+  // time the section is expanded, so the TEE column is always a real dropdown.
+  // Best-effort caches them back onto the round (RLS permitting).
+  useEffect(() => {
+    if (!open) return
+    const cached = Array.isArray(round.tees) ? round.tees.filter(t => t && t.name) : []
+    if (cached.length || apiTees != null || !round.golfcourse_id) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const detail = await getCourseDetails(round.golfcourse_id)
+        const t = teesFromCourseDetail(detail)
+        if (cancelled) return
+        setApiTees(t)
+        if (t.length) supabase.from('rounds').update({ tees: t }).eq('id', round.id)
+      } catch {
+        if (!cancelled) setApiTees([])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [open, round.id, round.golfcourse_id, round.tees, apiTees])
 
   const grid = { display: 'grid', gridTemplateColumns: '1fr 84px 44px 52px 56px', alignItems: 'center', gap: 4 }
   const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
@@ -420,7 +453,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
 
   return (
     <div style={{ marginTop: 4 }}>
-      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 4px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3' }}>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 4, padding: '10px 4px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3' }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: '#1B3F6E' }}>Handicaps</span>
         <Chevron open={open} />
       </div>
