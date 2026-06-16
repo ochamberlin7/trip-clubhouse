@@ -572,7 +572,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                 </div>
               ))}
               <div style={{ background: '#F5F8FA', padding: '8px 10px', fontSize: 11, color: '#7A8FA6', fontStyle: 'italic' }}>
-                {allowance == null ? 'Allowance: 100% (default)' : `Allowance: ${alw}%`} · WHS per-player tee · Low ball: lowest playing HCP = 0
+                {allowance == null ? 'Allowance: 100% (default)' : `Allowance: ${alw}%`}
               </div>
             </>
           )}
