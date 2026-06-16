@@ -388,6 +388,17 @@ function teesFromCourseDetail(detail) {
     .map(t => ({ name: t.tee_name, slope: t.slope_rating, rating: t.course_rating, par: t.par_total }))
 }
 
+// The round's own tee, synthesised from its round-level course fields. Used as a
+// guaranteed dropdown option so the TEE column is always a real <select>, even
+// when rounds.tees isn't cached and the course API is unreachable (e.g. local
+// `npm run dev` with no VITE_GOLF_API_KEY).
+function roundPrimaryTee(round) {
+  const par = round.par_total
+    ?? (Array.isArray(round.holes) ? (round.holes.reduce((a, h) => a + (h?.par || 0), 0) || null) : null)
+  if (round.slope_rating == null && round.course_rating == null && par == null) return null
+  return { name: round.tee_name || 'Course', slope: round.slope_rating ?? null, rating: round.course_rating ?? null, par }
+}
+
 // "Handicaps" card: per-player tee dropdown + WHS course/playing handicaps.
 // The TEE column is the first after the player name; selecting a tee auto-fills
 // slope/rating/par, recomputes Course + Playing, and saves to player_rounds (any
@@ -397,27 +408,42 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   const [apiTees, setApiTees] = useState(null) // tees fetched from the API when rounds.tees is empty
   const alw = allowance ?? 100
   const cachedTees = Array.isArray(round.tees) ? round.tees.filter(t => t && t.name) : []
-  const tees = cachedTees.length ? cachedTees : (apiTees || [])
+  // Tee options, best source first: cached rounds.tees → API-fetched tees → none.
+  // Always include the round's own (synthesised) tee so the column is a real
+  // <select> even with no multi-tee data available.
+  const sourceTees = cachedTees.length ? cachedTees : (apiTees || [])
+  const primaryTee = roundPrimaryTee(round)
+  const tees = (primaryTee && !sourceTees.some(t => t.name === primaryTee.name))
+    ? [primaryTee, ...sourceTees]
+    : sourceTees
   const hasCourse = round.slope_rating != null || tees.length > 0
-  // Round's primary tee — the default when a player has no saved tee.
+  // Round's primary tee name — the default when a player has no saved tee.
   const defaultTeeName = tees.find(t => t.name === round.tee_name)?.name ?? tees[0]?.name ?? null
 
-  // If the round has no cached tees, pull them from the golf course API the first
-  // time the section is expanded, so the TEE column is always a real dropdown.
-  // Best-effort caches them back onto the round (RLS permitting).
+  // If the round has no cached tees, pull the full tee list from the golf course
+  // API the first time the section is expanded (the synthesised primary tee
+  // already keeps the dropdown working meanwhile). Best-effort caches back to
+  // rounds.tees (RLS permitting).
   useEffect(() => {
     if (!open) return
     const cached = Array.isArray(round.tees) ? round.tees.filter(t => t && t.name) : []
+    if (import.meta.env.DEV) {
+      console.debug('[Handicaps] expand round', round.id, { 'round.tees': round.tees, golfcourse_id: round.golfcourse_id })
+    }
     if (cached.length || apiTees != null || !round.golfcourse_id) return
     let cancelled = false
     ;(async () => {
       try {
         const detail = await getCourseDetails(round.golfcourse_id)
         const t = teesFromCourseDetail(detail)
+        if (import.meta.env.DEV) {
+          console.debug('[Handicaps] API tees for round', round.id, t)
+        }
         if (cancelled) return
         setApiTees(t)
         if (t.length) supabase.from('rounds').update({ tees: t }).eq('id', round.id)
-      } catch {
+      } catch (e) {
+        if (import.meta.env.DEV) console.debug('[Handicaps] API tee fetch failed:', e?.message)
         if (!cancelled) setApiTees([])
       }
     })()
