@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
 import { getCourseDetails } from '../lib/courseApi'
@@ -478,6 +478,8 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   // the order freezes for 1.5s after a tee change so the user can read the new
   // number before the row jumps. The timer resets on each further change.
   const [displayOrder, setDisplayOrder] = useState(() => targetOrder)
+  const rowElemsRef = useRef(new Map()) // id -> row DOM node (for FLIP)
+  const prevTopsRef = useRef(new Map()) // id -> offsetTop captured at the last commit
   useEffect(() => {
     const t = setTimeout(() => {
       setDisplayOrder(prev => (prev.join(',') === targetKey ? prev : targetOrder))
@@ -485,6 +487,30 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetKey])
+
+  // FLIP: after the rows reorder, glide each moved row from its old slot to its
+  // new one instead of snapping. offsetTop is independent of scroll and of any
+  // in-flight transform, so interrupted animations re-target cleanly.
+  useLayoutEffect(() => {
+    const nodes = rowElemsRef.current
+    const prev = prevTopsRef.current
+    const next = new Map()
+    nodes.forEach((node, id) => { if (node) next.set(id, node.offsetTop) })
+    nodes.forEach((node, id) => {
+      if (!node) return
+      const oldTop = prev.get(id)
+      const newTop = next.get(id)
+      if (oldTop != null && oldTop !== newTop) {
+        node.style.transition = 'none'
+        node.style.transform = `translateY(${oldTop - newTop}px)` // invert
+        requestAnimationFrame(() => {                              // play
+          node.style.transition = 'transform 0.35s ease'
+          node.style.transform = ''
+        })
+      }
+    })
+    prevTopsRef.current = next
+  })
 
   // Render in the frozen order; append any players not yet placed (e.g. newly
   // added) so nothing is dropped before the next re-sort.
@@ -525,7 +551,9 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                 <span style={headCell}>Playing</span>
               </div>
               {orderedRows.map((r, i) => (
-                <div key={r.id} style={{ ...grid, padding: '8px 10px', borderBottom: i === orderedRows.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
+                <div key={r.id}
+                  ref={node => { const m = rowElemsRef.current; if (node) m.set(r.id, node); else m.delete(r.id) }}
+                  style={{ ...grid, padding: '8px 10px', borderBottom: i === orderedRows.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
                   {tees.length > 0 ? (
                     <select
