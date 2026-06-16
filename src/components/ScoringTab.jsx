@@ -306,13 +306,15 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     return b1 < b2 ? 'T1' : b2 < b1 ? 'T2' : 'halve'
   }
 
-  // Stroke dots only when all 4 slots filled; suppress when all 4 stroke.
-  // Uses the COURSE handicap (live, from current HI), not the playing handicap.
+  // Stroke dots once the visible slots are filled (a 1-player-per-team pairing
+  // fills only slots 1 & 3); suppress when every filled player strokes. Uses the
+  // COURSE handicap (live, from current HI), not the playing handicap.
   function strokesShown(hole) {
-    if (!allFilled) return new Set()
+    if (!visibleFilled) return new Set()
     const si = holes?.[hole - 1]?.handicap
-    const strokers = [1, 2, 3, 4].map(s => slotMap[s]).filter(tp => strokesOnHole(courseHcpOf(tp), si) >= 1)
-    if (strokers.length === 4) return new Set()
+    const filledTps = [...t1Slots, ...t2Slots].map(s => slotMap[s]).filter(Boolean)
+    const strokers = filledTps.filter(tp => strokesOnHole(courseHcpOf(tp), si) >= 1)
+    if (strokers.length === filledTps.length) return new Set()
     return new Set(strokers)
   }
 
