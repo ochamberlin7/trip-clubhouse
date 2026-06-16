@@ -101,37 +101,45 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     setPlayerRoundsMap(m)
   }
 
+  // (Re)load the trip roster + handicaps. Called on mount and whenever the
+  // pairing-assignment dropdown opens, so it always reflects the latest roster
+  // and handicap_index (e.g. after a handicap edit on a player card).
+  async function loadPlayers() {
+    const { data: tps } = await supabase.from('trip_players')
+      .select('id, user_id, first_name, last_name, guest_name, handicap_index, team_id').eq('trip_id', trip.id)
+    const list = tps || []
+    const userIds = list.map(t => t.user_id).filter(Boolean)
+    const profMap = {}
+    if (userIds.length) {
+      const { data: profs } = await supabase.from('profiles').select('id, display_name').in('id', userIds)
+      if (profs) profs.forEach(p => { profMap[p.id] = p.display_name })
+    }
+    const pById = {}
+    list.forEach(tp => {
+      const name = [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || profMap[tp.user_id] || 'Player'
+      pById[tp.id] = { ...tp, name }
+    })
+    setPlayersById(pById)
+  }
+
   useEffect(() => {
     let cancelled = false
     async function load() {
       setLoading(true)
       if (roundIds.length === 0) { setLoading(false); return }
-      const [tpRes, teamRes, scoreRes, drinkRes] = await Promise.all([
-        supabase.from('trip_players').select('id, user_id, first_name, last_name, guest_name, handicap_index, team_id').eq('trip_id', trip.id),
+      const [teamRes, scoreRes, drinkRes] = await Promise.all([
         // Order by team_index so teams[0]/teams[1] map to the T1/T2 slots (SLOT_TEAM).
         supabase.from('teams').select('id, name, team_index').eq('trip_id', trip.id).order('team_index'),
         supabase.from('scores').select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds),
         supabase.from('drinks').select('round_id, trip_player_id, hole_number, count').in('round_id', roundIds),
       ])
-      const tps = tpRes.data || []
-      const userIds = tps.map(t => t.user_id).filter(Boolean)
-      const profMap = {}
-      if (userIds.length) {
-        const { data: profs } = await supabase.from('profiles').select('id, display_name').in('id', userIds)
-        if (profs) profs.forEach(p => { profMap[p.id] = p.display_name })
-      }
-      const pById = {}
-      tps.forEach(tp => {
-        const name = [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || profMap[tp.user_id] || 'Player'
-        pById[tp.id] = { ...tp, name }
-      })
       const sMap = {}; (scoreRes.data || []).forEach(s => { if (s.gross_score != null) sMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score })
       const dMap = {}; (drinkRes.data || []).forEach(d => { if (d.count > 0) dMap[`${d.round_id}:${d.trip_player_id}:${d.hole_number}`] = d.count })
       if (cancelled) return
-      setPlayersById(pById)
       setTeams(teamRes.data || [])
       setScores(sMap)
       setDrinks(dMap)
+      await loadPlayers()
       await loadPairings()
       await loadPlayerRounds()
       setLoading(false)
@@ -322,7 +330,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const teamId = teams[teamIdx]?.id
     const current = slotMap[slot]
     return Object.values(playersById)
-      .filter(p => (teamId ? p.team_id === teamId : true))
+      // Show this slot's team plus any not-yet-assigned-to-a-team players, so a
+      // player without a team isn't hidden from every slot.
+      .filter(p => (teamId ? (p.team_id === teamId || p.team_id == null) : true))
       .filter(p => p.id === current || !assignedInRound.has(p.id))
   }
 
@@ -332,7 +342,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const label = tp ? firstName(tp.name) : '+'
     return (
       <div style={{ position: 'relative' }}>
-        <button className={`sc-th-name ${teamClass} sc-th-btn`} onClick={() => setOpenSlot(openSlot === slot ? null : slot)}>{label}</button>
+        <button className={`sc-th-name ${teamClass} sc-th-btn`} onClick={() => { const next = openSlot === slot ? null : slot; setOpenSlot(next); if (next != null) loadPlayers() }}>{label}</button>
         {openSlot === slot && (
           <div className="sc-th-dropdown">
             <button className="sc-th-opt" onClick={() => assignSlot(slot, null)} style={{ color: 'var(--muted)', fontWeight: 700 }}>Clear</button>
