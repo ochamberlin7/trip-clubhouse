@@ -771,10 +771,10 @@ const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase
 function PlaceholderDayCard({ date, type, isCommissioner, onAddRound }) {
   const label = DAY_PLACEHOLDER_LABELS[type] || 'Not Scheduled Yet'
   return (
-    <div style={{ background: '#F7F9FB', border: '1px solid #E8EDF3', borderRadius: 10, padding: '12px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+    <div style={{ background: '#EAEFF4', border: '1px solid #CFD9E4', borderRadius: 10, padding: '13px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{fmtShort(date)}</div>
-        <div style={{ fontSize: 13, color: '#9AA8B8', fontStyle: 'italic', marginTop: 2 }}>{label}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#445A70', marginTop: 3 }}>{label}</div>
       </div>
       {isCommissioner && (
         <button style={{ ...s.editCourseBtn, marginTop: 0, flexShrink: 0 }} onClick={() => onAddRound(date)}>+ Add Round</button>
