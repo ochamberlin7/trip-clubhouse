@@ -764,17 +764,25 @@ function parText(r) {
 }
 
 // Labels for empty (non-golf) days, by stored schedule type.
-const DAY_PLACEHOLDER_LABELS = { travel: 'Travel Day', non_golf: 'Non-Golf Day', unknown: 'Not Scheduled Yet' }
+const DAY_PLACEHOLDER_META = {
+  travel:   { label: 'Travel Day',        accent: '#3E6CA8', icon: '✈️' },
+  non_golf: { label: 'Non-Golf Day',      accent: '#C28A3A', icon: '🛌' },
+  unknown:  { label: 'Not Scheduled Yet', accent: '#9AA8B8', icon: '🗓️' },
+}
 const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', marginBottom: 6 }
 
-// Slim, muted card for a day with no golf round. Commissioners can add a round.
+// Card for a day with no golf round — coloured left accent + icon per day type,
+// lighter than the navy golf cards. Commissioners can add a round.
 function PlaceholderDayCard({ date, type, isCommissioner, onAddRound }) {
-  const label = DAY_PLACEHOLDER_LABELS[type] || 'Not Scheduled Yet'
+  const meta = DAY_PLACEHOLDER_META[type] || DAY_PLACEHOLDER_META.unknown
   return (
-    <div style={{ background: '#EAEFF4', border: '1px solid #CFD9E4', borderRadius: 10, padding: '13px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{fmtShort(date)}</div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#445A70', marginTop: 3 }}>{label}</div>
+    <div style={{ background: '#EAEFF4', border: '1px solid #CFD9E4', borderLeft: `5px solid ${meta.accent}`, borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+        <span style={{ fontSize: 22, flexShrink: 0 }}>{meta.icon}</span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{fmtShort(date)}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#2C3E50', marginTop: 2 }}>{meta.label}</div>
+        </div>
       </div>
       {isCommissioner && (
         <button style={{ ...s.editCourseBtn, marginTop: 0, flexShrink: 0 }} onClick={() => onAddRound(date)}>+ Add Round</button>
