@@ -197,6 +197,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => { loadPairings() })
       // A commissioner changing a player's tee recalculates net scores live.
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_rounds', filter }, () => { loadPlayerRounds() })
+      // A handicap-index (HI) edit reloads the roster so net scores + course
+      // handicaps recalculate live (HI is never stored as a derived value).
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${trip.id}` }, () => { loadPlayers() })
       .on('broadcast', { event: 'score_deleted' }, ({ payload }) => {
         const key = `${payload.round_id}:${payload.trip_player_id}:${payload.hole_number}`
         setScores(prev => { const n = { ...prev }; delete n[key]; return n })

@@ -22,6 +22,16 @@ const styles = {
 
 export default function DailyMVPCard({ tripId, today }) {
   const [state, setState] = useState({ status: 'loading' })
+  const [hiTick, setHiTick] = useState(0) // bumped on HI change to recompute standings
+
+  // Live HI propagation: a handicap-index edit re-runs the standings calc, so the
+  // MVP/leaderboard numbers (analyzeScoring) reflect the current HI immediately.
+  useEffect(() => {
+    const ch = supabase.channel(`mvp-hi-${tripId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${tripId}` }, () => setHiTick(t => t + 1))
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [tripId])
 
   useEffect(() => {
     let cancelled = false
@@ -112,7 +122,7 @@ export default function DailyMVPCard({ tripId, today }) {
     }
     load()
     return () => { cancelled = true }
-  }, [tripId, today])
+  }, [tripId, today, hiTick])
 
   // Always render. Show the placeholder until a round today is complete.
   if (state.status !== 'ready') {

@@ -788,6 +788,30 @@ function PlaceholderDayCard({ date, type, isCommissioner, onAddRound }) {
   )
 }
 
+// Always-visible per-player course handicap on a course card. Computed on the
+// fly from the player's current HI and the round's tee data — WHS:
+// round(HI × slope/113 + (rating − par)). Dash when the player has no HI (or the
+// round has no tee data at all). Recalculates whenever HI changes.
+function CourseHandicaps({ round, players, playerRoundsMap }) {
+  const hasCourse = round.slope_rating != null || (Array.isArray(round.tees) && round.tees.length > 0)
+  if (!hasCourse || players.length === 0) return null
+  return (
+    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #E8EDF3' }}>
+      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', marginBottom: 4 }}>Course Handicaps</div>
+      {players.map(p => {
+        const tee = resolvePlayerTee(round, playerRoundsMap?.[`${round.id}:${p.id}`])
+        const ch = courseHandicapForTee(p.handicap_index, tee.slope, tee.rating, tee.par)
+        return (
+          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '3px 0' }}>
+            <span style={{ color: '#0D1B2A' }}>{p.name}</span>
+            <span style={{ fontWeight: 700, color: ch == null ? '#9AA8B8' : '#1B3F6E' }}>{ch == null ? '—' : ch}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function CoursesPage({ data, isCommissioner, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const { days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds } = data
@@ -837,6 +861,9 @@ function CoursesPage({ data, isCommissioner, onEditCourse, allowance, scoredRoun
                   <span style={cdValue}>{parText(r)}</span>
                 </div>
               </div>
+
+              {/* Per-player course handicaps (live from current HI). */}
+              <CourseHandicaps round={r} players={calcPlayers} playerRoundsMap={playerRounds} />
 
               {isCommissioner && (
                 <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />
@@ -1365,6 +1392,22 @@ export default function MenuDrawer({
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [page, coursesData, tripId])
+
+  // Live HI propagation: when a player's handicap_index changes, update it in
+  // place so every course card's course handicaps recalculate (never stored).
+  useEffect(() => {
+    if (page !== 'courses') return
+    const ch = supabase
+      .channel(`courses-hi-${tripId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${tripId}` }, payload => {
+        setCoursesData(prev => prev ? {
+          ...prev,
+          players: prev.players.map(p => p.id === payload.new.id ? { ...p, handicap_index: payload.new.handicap_index } : p),
+        } : prev)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [page, tripId])
 
   // Lazy-load data per page.
   useEffect(() => {

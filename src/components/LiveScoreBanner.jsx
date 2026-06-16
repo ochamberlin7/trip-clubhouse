@@ -131,6 +131,8 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
         if (rid && allRoundIds.includes(rid)) loadPlayerRounds()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => loadAll())
+      // A handicap-index (HI) edit recalculates the live tally (HI is never stored).
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${trip.id}` }, () => loadAll())
       .subscribe()
     channelRef.current = ch
 
