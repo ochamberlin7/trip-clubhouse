@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
 import { getCourseDetails } from '../lib/courseApi'
@@ -659,60 +660,87 @@ const ROUND_TYPE_META = {
 
 function RoundTypeBadge({ round, isCommissioner, onChange }) {
   const [open, setOpen] = useState(false)
-  const [dropUp, setDropUp] = useState(false) // open upward when there's no room below
-  const ref = useRef(null)
+  const [rect, setRect] = useState(null) // trigger position, for the portaled menu
+  const ref = useRef(null)     // trigger
+  const menuRef = useRef(null) // portaled menu
   const type = round.round_type || 'tournament'
   const { label, style } = ROUND_TYPE_META[type] || ROUND_TYPE_META.tournament
 
+  // Close on outside click / reposition on scroll/resize while open. The menu is
+  // portaled to document.body, so "outside" must also exclude the menu itself.
   useEffect(() => {
     if (!open) return
-    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    function onDoc(e) {
+      const inTrigger = ref.current && ref.current.contains(e.target)
+      const inMenu = menuRef.current && menuRef.current.contains(e.target)
+      if (!inTrigger && !inMenu) setOpen(false)
+    }
+    function reposition() { if (ref.current) setRect(ref.current.getBoundingClientRect()) }
     document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
+    }
   }, [open])
 
-  // Decide direction before opening: flip up if the menu (~230px tall) would run
-  // off the bottom and there's more room above (e.g. the last card on screen).
   function toggle() {
-    if (!open && ref.current) {
-      const rect = ref.current.getBoundingClientRect()
-      const spaceBelow = window.innerHeight - rect.bottom
-      setDropUp(spaceBelow < 230 && rect.top > spaceBelow)
-    }
+    if (!open && ref.current) setRect(ref.current.getBoundingClientRect())
     setOpen(o => !o)
   }
 
+  function pick(val) { setOpen(false); onChange(round, val) }
+
   if (!isCommissioner) return <span style={style}>{label}</span>
+
+  // Portaled menu — escapes any overflow:hidden/auto ancestor. Positioned fixed
+  // from the trigger rect; flips upward when there's no room below.
+  let menu = null
+  if (open && rect) {
+    const spaceBelow = window.innerHeight - rect.bottom
+    const dropUp = spaceBelow < 230 && rect.top > spaceBelow
+    const menuStyle = {
+      position: 'fixed',
+      right: Math.max(8, window.innerWidth - rect.right),
+      ...(dropUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+      zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8,
+      boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: 150,
+    }
+    menu = createPortal(
+      <div ref={menuRef} style={menuStyle}>
+        {[['tournament', 'Tournament'], ['practice', 'Practice'], ['none', 'Not Set']].map(([val, txt]) => {
+          const active = val === type
+          return (
+            <div key={val} onClick={() => { if (!active) pick(val); else setOpen(false) }}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#0D1B2A' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
+              <span>{txt}</span>
+              {active && <span style={{ color: '#1B3F6E' }}>✓</span>}
+            </div>
+          )
+        })}
+        {/* Convert the day back to a non-golf day (removes this round). */}
+        <div style={{ borderTop: '1px solid #E8EDF3' }} />
+        {[['travel', 'Travel Day'], ['non_golf', 'Non-Golf Day']].map(([val, txt]) => (
+          <div key={val} onClick={() => pick(val)}
+            style={{ display: 'flex', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#7A8FA6' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
+            <span>{txt}</span>
+          </div>
+        ))}
+      </div>,
+      document.body,
+    )
+  }
 
   return (
     <span ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
       <button style={{ ...style, cursor: 'pointer' }} onClick={toggle}>{label} ▾</button>
-      {open && (
-        <div style={{ position: 'absolute', top: dropUp ? 'auto' : 'calc(100% + 4px)', bottom: dropUp ? 'calc(100% + 4px)' : 'auto', right: 0, zIndex: 50, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', minWidth: 150 }}>
-          {[['tournament', 'Tournament'], ['practice', 'Practice'], ['none', 'Not Set']].map(([val, txt]) => {
-            const active = val === type
-            return (
-              <div key={val} onClick={() => { setOpen(false); if (!active) onChange(round, val) }}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#0D1B2A' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
-                <span>{txt}</span>
-                {active && <span style={{ color: '#1B3F6E' }}>✓</span>}
-              </div>
-            )
-          })}
-          {/* Convert the day back to a non-golf day (removes this round). */}
-          <div style={{ borderTop: '1px solid #E8EDF3' }} />
-          {[['travel', 'Travel Day'], ['non_golf', 'Non-Golf Day']].map(([val, txt]) => (
-            <div key={val} onClick={() => { setOpen(false); onChange(round, val) }}
-              style={{ display: 'flex', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#7A8FA6' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
-              <span>{txt}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {menu}
     </span>
   )
 }
