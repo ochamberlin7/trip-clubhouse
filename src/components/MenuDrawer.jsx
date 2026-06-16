@@ -465,7 +465,33 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   })
   const playingMap = playingFromCourseHandicaps(rows.map(r => ({ id: r.id, ch: r.courseHCP })), alw)
   rows.forEach(r => { r.playing = r.courseHCP != null ? playingMap.get(r.id) : null })
-  rows.sort((a, b) => (a.playing ?? 999) - (b.playing ?? 999))
+
+  // Target sort order (by playing HCP, then name for stable ties) and a lookup
+  // for fresh per-row values regardless of displayed order.
+  const targetOrder = rows.slice()
+    .sort((a, b) => (a.playing ?? 999) - (b.playing ?? 999) || a.name.localeCompare(b.name))
+    .map(r => r.id)
+  const targetKey = targetOrder.join(',')
+  const rowById = new Map(rows.map(r => [r.id, r]))
+
+  // The row ORDER actually rendered. Values update instantly (from rowById), but
+  // the order freezes for 1.5s after a tee change so the user can read the new
+  // number before the row jumps. The timer resets on each further change.
+  const [displayOrder, setDisplayOrder] = useState(() => targetOrder)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDisplayOrder(prev => (prev.join(',') === targetKey ? prev : targetOrder))
+    }, 1500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetKey])
+
+  // Render in the frozen order; append any players not yet placed (e.g. newly
+  // added) so nothing is dropped before the next re-sort.
+  const orderedRows = []
+  const placed = new Set()
+  for (const id of displayOrder) { const r = rowById.get(id); if (r) { orderedRows.push(r); placed.add(id) } }
+  for (const id of targetOrder) if (!placed.has(id)) orderedRows.push(rowById.get(id))
 
   function playingColor(v) {
     if (v == null) return '#7A8FA6'
@@ -498,8 +524,8 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                 <span style={headCell}>Course</span>
                 <span style={headCell}>Playing</span>
               </div>
-              {rows.map((r, i) => (
-                <div key={r.id} style={{ ...grid, padding: '8px 10px', borderBottom: i === rows.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
+              {orderedRows.map((r, i) => (
+                <div key={r.id} style={{ ...grid, padding: '8px 10px', borderBottom: i === orderedRows.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
                   {tees.length > 0 ? (
                     <select
