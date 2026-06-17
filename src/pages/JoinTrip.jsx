@@ -11,6 +11,10 @@ import { useGroup } from '../context/GroupContext'
 // it never routes a new user into the onboarding wizard.
 
 export default function JoinTrip() {
+  // VERY TOP — before any hook/guard. Confirms the /join route actually mounts
+  // JoinTrip (vs being intercepted upstream by a redirect).
+  console.log('[JoinTrip] MOUNTED at', typeof window !== 'undefined' ? window.location.pathname : '(ssr)')
+
   const { inviteToken } = useParams()
   const { user, loading: authLoading } = useAuth()
   const { fetchUserGroups, selectGroup } = useGroup()
@@ -105,11 +109,18 @@ export default function JoinTrip() {
       .from('group_members').select('group_id, role')
       .eq('group_id', tripRow.group_id).eq('user_id', user.id).maybeSingle()
     if (!existing) {
-      await supabase.from('group_members').insert({ group_id: tripRow.group_id, user_id: user.id, role: 'member' })
+      const { error: memberErr } = await supabase
+        .from('group_members').insert({ group_id: tripRow.group_id, user_id: user.id, role: 'member' })
+      if (memberErr) console.log('[JoinTrip] group_members insert error:', memberErr.message)
     }
     const { data: group } = await supabase.from('groups').select('id, name').eq('id', tripRow.group_id).maybeSingle()
     await fetchUserGroups()
-    if (group) selectGroup({ ...group, role: existing?.role || 'member' })
+    // ALWAYS activate the group (we know its id from the trip). If this were
+    // conditional on the `group` read returning a row, a null read would leave
+    // activeGroup null → TripDashboard bounces to /groups → onboarding wizard.
+    const role = existing?.role || 'member'
+    selectGroup({ id: tripRow.group_id, name: group?.name || 'Trip', role })
+    console.log('[JoinTrip] entering dashboard — group:', tripRow.group_id, 'role:', role, 'groupRead:', !!group)
     navigate('/dashboard', { replace: true })
   }
 
