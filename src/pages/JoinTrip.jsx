@@ -7,14 +7,10 @@ import { useGroup } from '../context/GroupContext'
 // Invite link handler: /join/:inviteToken
 // Flow: require auth → look up the trip by invite_token → if the signed-in user's
 // email is on the guest list (an unclaimed trip_players row), claim that slot and
-// enter the trip as a MEMBER. No email match → "not on the guest list" message —
+// enter the trip as a player. No email match → "not on the guest list" message —
 // it never routes a new user into the onboarding wizard.
 
 export default function JoinTrip() {
-  // VERY TOP — before any hook/guard. Confirms the /join route actually mounts
-  // JoinTrip (vs being intercepted upstream by a redirect).
-  console.log('[JoinTrip] MOUNTED at', typeof window !== 'undefined' ? window.location.pathname : '(ssr)')
-
   const { inviteToken } = useParams()
   const { user, loading: authLoading } = useAuth()
   const { fetchUserGroups, selectGroup } = useGroup()
@@ -23,9 +19,6 @@ export default function JoinTrip() {
   const [status, setStatus] = useState('loading') // loading | claiming | error
   const [trip, setTrip] = useState(null)
   const [error, setError] = useState(null)
-
-  // Confirms JoinTrip actually mounts after the signup/login redirect.
-  console.log('[JoinTrip] render — token:', inviteToken, '| authLoading:', authLoading, '| user:', user?.id || null)
 
   useEffect(() => {
     if (authLoading) return
@@ -44,26 +37,18 @@ export default function JoinTrip() {
       setTrip(tripRow)
 
       // trip_players.user_id (and group_members.user_id) FK to public.profiles.
-      // A brand-new signup may not have a profiles row yet (the signup trigger
-      // may not have fired / may not exist), so claiming would violate
-      // trip_players_user_id_fkey. Ensure the profile exists first (idempotent).
+      // A brand-new signup may not have a profiles row yet, so claiming would
+      // violate trip_players_user_id_fkey. Ensure the profile exists first.
       await ensureProfile()
       if (cancelled) return
 
       // Load the trip's players (guest list) — scoped to THIS trip only.
-      const { data: playersData, error: playersErr } = await supabase
+      const { data: playersData } = await supabase
         .from('trip_players')
         .select('id, email, is_claimed, claimed_user_id')
         .eq('trip_id', tripRow.id)
       if (cancelled) return
       const players = playersData || []
-
-      // Diagnostics: surface the auth email vs. every guest-list email so any
-      // mismatch (case / whitespace) or an empty result (RLS) is visible.
-      console.log('[JoinTrip] auth user.id =', user.id, 'user.email =', JSON.stringify(user.email))
-      console.log('[JoinTrip] trip', tripRow.id, '— trip_players rows:', players.length,
-        players.map(p => ({ id: p.id, email: p.email, is_claimed: p.is_claimed })))
-      if (playersErr) console.log('[JoinTrip] trip_players query error:', playersErr.message)
 
       // STEP 2 — already a member of this trip → straight to the dashboard.
       if (players.some(p => p.claimed_user_id === user.id)) {
@@ -91,53 +76,40 @@ export default function JoinTrip() {
 
   // Make sure this user's public.profiles row exists before any write that FKs to
   // it (trip_players.user_id, group_members.user_id). ignoreDuplicates so an
-  // existing user's profile is never overwritten; the profiles_insert RLS policy
-  // (auth.uid() = id) allows a user to create their own row.
+  // existing user's profile is never overwritten.
   async function ensureProfile() {
     const displayName =
       user.user_metadata?.display_name?.trim() || (user.email || '').split('@')[0] || 'Player'
-    const { error: profErr } = await supabase
+    await supabase
       .from('profiles')
       .upsert({ id: user.id, display_name: displayName }, { onConflict: 'id', ignoreDuplicates: true })
-    if (profErr) console.log('[JoinTrip] ensureProfile error:', profErr.message)
   }
 
-  // Ensure a group_members row exists (as a MEMBER — never admin/commissioner),
+  // Ensure a group_members row exists (as a player — never admin/commissioner),
   // activate the group, then go to the dashboard.
   async function enterDashboard(tripRow) {
     const { data: existing } = await supabase
       .from('group_members').select('group_id, role')
       .eq('group_id', tripRow.group_id).eq('user_id', user.id).maybeSingle()
     if (!existing) {
-      // group_id MUST come from the looked-up trip (not stale/hardcoded). role
-      // 'player' — the group_members check constraint only allows 'admin'/'player'
-      // ('member' violated it and the insert failed silently).
-      const payload = { group_id: tripRow.group_id, user_id: user.id, role: 'player' }
-      console.log('[JoinTrip] group_members INSERT payload:', payload)
-      const { error: memberErr } = await supabase.from('group_members').insert(payload)
-      if (memberErr) console.log('[JoinTrip] group_members INSERT ERROR:', memberErr.message)
+      // role 'player' — the group_members check constraint only allows 'admin'/'player'.
+      await supabase.from('group_members').insert({ group_id: tripRow.group_id, user_id: user.id, role: 'player' })
     }
-    // Read membership back. 0 rows + no insert error ⇒ RLS write block.
-    const { data: myMemberships, error: readErr } = await supabase
-      .from('group_members').select('group_id, role').eq('user_id', user.id)
-    console.log('[JoinTrip] group_members readback for', user.id, '→', myMemberships, readErr ? `(err: ${readErr.message})` : '')
-
     const { data: group } = await supabase.from('groups').select('id, name').eq('id', tripRow.group_id).maybeSingle()
     await fetchUserGroups()
     // ALWAYS activate the invited group by its known id (so TripDashboard loads
     // THIS trip, not a different one, and never bounces to /groups → wizard).
-    const role = existing?.role || myMemberships?.find(m => m.group_id === tripRow.group_id)?.role || 'member'
+    const role = existing?.role || 'player'
     selectGroup({ id: tripRow.group_id, name: group?.name || 'Trip', role })
-    console.log('[JoinTrip] entering dashboard — group:', tripRow.group_id, 'role:', role, 'groupRead:', !!group)
     navigate('/dashboard', { replace: true })
   }
 
   async function claimSlot(slotId, tripRow) {
     setStatus('claiming')
-    const payload = { is_claimed: true, claimed_user_id: user.id, user_id: user.id }
-    console.log('[JoinTrip] claiming slot', slotId, 'payload:', payload)
-    const { error: claimErr } = await supabase.from('trip_players').update(payload).eq('id', slotId)
-    if (claimErr) { console.log('[JoinTrip] claim error:', claimErr.message); setError(claimErr.message); setStatus('error'); return }
+    const { error: claimErr } = await supabase.from('trip_players').update({
+      is_claimed: true, claimed_user_id: user.id, user_id: user.id,
+    }).eq('id', slotId)
+    if (claimErr) { setError(claimErr.message); setStatus('error'); return }
     await enterDashboard(tripRow)
   }
 
