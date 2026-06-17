@@ -109,8 +109,10 @@ export default function JoinTrip() {
       .from('group_members').select('group_id, role')
       .eq('group_id', tripRow.group_id).eq('user_id', user.id).maybeSingle()
     if (!existing) {
-      // group_id MUST come from the looked-up trip (not stale/hardcoded).
-      const payload = { group_id: tripRow.group_id, user_id: user.id, role: 'member' }
+      // group_id MUST come from the looked-up trip (not stale/hardcoded). role
+      // 'player' — the group_members check constraint only allows 'admin'/'player'
+      // ('member' violated it and the insert failed silently).
+      const payload = { group_id: tripRow.group_id, user_id: user.id, role: 'player' }
       console.log('[JoinTrip] group_members INSERT payload:', payload)
       const { error: memberErr } = await supabase.from('group_members').insert(payload)
       if (memberErr) console.log('[JoinTrip] group_members INSERT ERROR:', memberErr.message)
