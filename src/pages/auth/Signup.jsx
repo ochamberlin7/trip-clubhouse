@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../context/AuthContext'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function Signup() {
@@ -10,18 +11,27 @@ export default function Signup() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { user, loading: authLoading } = useAuth()
 
-  // Preserve an invite redirect (e.g. /join/:token) both for the post-signup
-  // landing and for the "Sign In" link, so the invite context survives.
+  // Preserve an invite redirect (e.g. /join/:token) for the post-signup landing
+  // and the "Sign In" link, so the invite context survives.
   const redirect = searchParams.get('redirect')
   const safeRedirect = redirect && redirect.startsWith('/') ? redirect : null
+  const target = safeRedirect || '/groups'
   const loginTo = safeRedirect ? `/login?redirect=${encodeURIComponent(safeRedirect)}` : '/login'
+
+  // Navigate only once auth is confirmed in context — so we land back on
+  // /join/:token with `user` already set (JoinTrip won't bounce to login). Also
+  // redirects an already-signed-in visitor away from signup.
+  useEffect(() => {
+    if (!authLoading && user) navigate(target, { replace: true })
+  }, [user, authLoading, target, navigate])
 
   async function handleSignup(e) {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { display_name: displayName } }
@@ -29,10 +39,14 @@ export default function Signup() {
     if (error) {
       setError(error.message)
       setLoading(false)
-    } else {
-      // After signup, return to the invite (/join/:token) if present; the join
-      // page handles claiming the slot. Otherwise go to onboarding as before.
-      navigate(safeRedirect || '/groups', { replace: true })
+      return
+    }
+    // Auto-confirm → a session exists now; the effect above navigates to `target`
+    // once `user` updates. If email confirmation is required, no session is
+    // returned, so surface that instead of silently hanging.
+    if (!data.session) {
+      setError('Account created — check your email to confirm, then sign in.')
+      setLoading(false)
     }
   }
 

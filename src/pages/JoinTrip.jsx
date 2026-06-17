@@ -20,6 +20,9 @@ export default function JoinTrip() {
   const [trip, setTrip] = useState(null)
   const [error, setError] = useState(null)
 
+  // Confirms JoinTrip actually mounts after the signup/login redirect.
+  console.log('[JoinTrip] render — token:', inviteToken, '| authLoading:', authLoading, '| user:', user?.id || null)
+
   useEffect(() => {
     if (authLoading) return
     if (!user) {

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../context/AuthContext'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function Login() {
@@ -9,13 +10,23 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { user, loading: authLoading } = useAuth()
 
-  // Carry an invite redirect (e.g. /join/:token) through to signup so a new user
-  // who needs an account doesn't lose the invite context.
+  // Honor ?redirect= (e.g. /join/:token from an invite), internal paths only.
   const redirect = searchParams.get('redirect')
+  const target = redirect && redirect.startsWith('/') ? redirect : '/groups'
+  // Carry the redirect through to signup so a new user doesn't lose the invite.
   const signupTo = redirect && redirect.startsWith('/')
     ? `/signup?redirect=${encodeURIComponent(redirect)}`
     : '/signup'
+
+  // Navigate only once auth is confirmed in context. This avoids a race where we
+  // navigate to /join before `user` is set, which would bounce JoinTrip back to
+  // login. It also redirects an already-authenticated visitor (e.g. the bounce
+  // from a just-completed signup) straight to the target.
+  useEffect(() => {
+    if (!authLoading && user) navigate(target, { replace: true })
+  }, [user, authLoading, target, navigate])
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -25,10 +36,8 @@ export default function Login() {
     if (error) {
       setError(error.message)
       setLoading(false)
-    } else {
-      // Honor ?redirect= (e.g. from an invite link), but only allow internal paths.
-      navigate(redirect && redirect.startsWith('/') ? redirect : '/groups', { replace: true })
     }
+    // On success, the effect above navigates to `target` once `user` updates.
   }
 
   return (
