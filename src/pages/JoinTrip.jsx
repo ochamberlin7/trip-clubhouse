@@ -36,6 +36,13 @@ export default function JoinTrip() {
       if (!tripRow) { setError('This invite link is invalid.'); setStatus('error'); return }
       setTrip(tripRow)
 
+      // trip_players.user_id (and group_members.user_id) FK to public.profiles.
+      // A brand-new signup may not have a profiles row yet (the signup trigger
+      // may not have fired / may not exist), so claiming would violate
+      // trip_players_user_id_fkey. Ensure the profile exists first (idempotent).
+      await ensureProfile()
+      if (cancelled) return
+
       // Load the trip's players (guest list) — scoped to THIS trip only.
       const { data: playersData, error: playersErr } = await supabase
         .from('trip_players')
@@ -46,7 +53,7 @@ export default function JoinTrip() {
 
       // Diagnostics: surface the auth email vs. every guest-list email so any
       // mismatch (case / whitespace) or an empty result (RLS) is visible.
-      console.log('[JoinTrip] auth user.email =', JSON.stringify(user.email))
+      console.log('[JoinTrip] auth user.id =', user.id, 'user.email =', JSON.stringify(user.email))
       console.log('[JoinTrip] trip', tripRow.id, '— trip_players rows:', players.length,
         players.map(p => ({ id: p.id, email: p.email, is_claimed: p.is_claimed })))
       if (playersErr) console.log('[JoinTrip] trip_players query error:', playersErr.message)
@@ -75,6 +82,19 @@ export default function JoinTrip() {
     return () => { cancelled = true }
   }, [user, authLoading, inviteToken])
 
+  // Make sure this user's public.profiles row exists before any write that FKs to
+  // it (trip_players.user_id, group_members.user_id). ignoreDuplicates so an
+  // existing user's profile is never overwritten; the profiles_insert RLS policy
+  // (auth.uid() = id) allows a user to create their own row.
+  async function ensureProfile() {
+    const displayName =
+      user.user_metadata?.display_name?.trim() || (user.email || '').split('@')[0] || 'Player'
+    const { error: profErr } = await supabase
+      .from('profiles')
+      .upsert({ id: user.id, display_name: displayName }, { onConflict: 'id', ignoreDuplicates: true })
+    if (profErr) console.log('[JoinTrip] ensureProfile error:', profErr.message)
+  }
+
   // Ensure a group_members row exists (as a MEMBER — never admin/commissioner),
   // activate the group, then go to the dashboard.
   async function enterDashboard(tripRow) {
@@ -92,10 +112,10 @@ export default function JoinTrip() {
 
   async function claimSlot(slotId, tripRow) {
     setStatus('claiming')
-    const { error: claimErr } = await supabase.from('trip_players').update({
-      is_claimed: true, claimed_user_id: user.id, user_id: user.id,
-    }).eq('id', slotId)
-    if (claimErr) { setError(claimErr.message); setStatus('error'); return }
+    const payload = { is_claimed: true, claimed_user_id: user.id, user_id: user.id }
+    console.log('[JoinTrip] claiming slot', slotId, 'payload:', payload)
+    const { error: claimErr } = await supabase.from('trip_players').update(payload).eq('id', slotId)
+    if (claimErr) { console.log('[JoinTrip] claim error:', claimErr.message); setError(claimErr.message); setStatus('error'); return }
     await enterDashboard(tripRow)
   }
 
