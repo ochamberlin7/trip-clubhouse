@@ -41,10 +41,30 @@ function fmtTime(ts) {
 
 export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   const [messages, setMessages] = useState([])
+  const [nameMap, setNameMap] = useState({}) // user_id -> profiles.display_name
   const [text, setText] = useState('')
   const [pressed, setPressed] = useState(false)
   const [sendError, setSendError] = useState(null)
   const areaRef = useRef(null)
+  const nameMapRef = useRef({})
+  const mountedRef = useRef(true)
+
+  useEffect(() => () => { mountedRef.current = false }, [])
+
+  // Resolve sender display names from profiles by user_id — the authoritative
+  // source — rather than each message's stored sender_name (which can be stale
+  // or a role like "Member"/"Player" captured on another device). Fetches only
+  // the ids we don't already have.
+  async function fetchNames(ids) {
+    const missing = [...new Set(ids)].filter(id => id && !nameMapRef.current[id])
+    if (!missing.length) return
+    const { data } = await supabase.from('profiles').select('id, display_name').in('id', missing)
+    if (!data || !data.length || !mountedRef.current) return
+    const merged = { ...nameMapRef.current }
+    data.forEach(p => { if (p.display_name) merged[p.id] = p.display_name })
+    nameMapRef.current = merged
+    setNameMap(merged)
+  }
 
   // Load history + subscribe to realtime inserts.
   useEffect(() => {
@@ -59,7 +79,10 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
         .order('created_at', { ascending: true })
         .limit(100)
 
-      if (!cancelled && data) setMessages(data)
+      if (!cancelled && data) {
+        setMessages(data)
+        fetchNames(data.map(m => m.user_id))
+      }
 
       channel = supabase
         .channel(`messages:${tripId}`)
@@ -70,6 +93,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
           filter: `trip_id=eq.${tripId}`,
         }, payload => {
           const incoming = payload.new
+          fetchNames([incoming.user_id])
           setMessages(prev => {
             // Skip if we already have it (e.g. from the insert response).
             if (prev.some(m => m.id === incoming.id)) return prev
@@ -163,13 +187,17 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
         ) : (
           messages.map(m => {
             const mine = m.user_id === currentUserId
+            // Always resolve the name from profiles by user_id; fall back to the
+            // stored sender_name only until the profile lookup lands.
+            const resolved = nameMap[m.user_id] || m.sender_name || 'Player'
+            const firstName = resolved.split(' ')[0] || resolved
             return (
               <div
                 key={m.id}
                 style={{ ...styles.msgRow, alignItems: mine ? 'flex-end' : 'flex-start' }}
               >
                 <div style={{ ...styles.meta, textAlign: mine ? 'right' : 'left' }}>
-                  {!mine && <span style={styles.senderName}>{m.sender_name} </span>}
+                  {!mine && <span style={styles.senderName}>{firstName} </span>}
                   {fmtTime(m.created_at)}
                 </div>
                 {/* React escapes text children, so message content is rendered safely. */}

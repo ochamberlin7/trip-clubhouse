@@ -1514,6 +1514,28 @@ export default function MenuDrawer({
       number_of_holes: courseData.number_of_holes ?? null,
       tees: courseData.tees ?? null,
     }).eq('id', editRound.id)
+    if (!error) {
+      // Seed a player_rounds row for every current trip player with the round's
+      // default tee, so all players start on the same tee chosen during course
+      // setup. ignoreDuplicates → never overwrite a player who already has a
+      // customised tee (forward-only; existing selections are preserved). New
+      // players added later have no row and fall back to this round-level default
+      // via resolvePlayerTee.
+      const defaultTee = {
+        tee_name: courseData.tee_name ?? null,
+        slope: courseData.slope_rating ?? null,
+        rating: courseData.course_rating ?? null,
+        par: courseData.par_total ?? null,
+      }
+      if (defaultTee.tee_name || defaultTee.slope != null) {
+        const { data: tps } = await supabase.from('trip_players').select('id').eq('trip_id', tripId)
+        const rows = (tps || []).map(tp => ({ trip_player_id: tp.id, round_id: editRound.id, ...defaultTee }))
+        if (rows.length) {
+          await supabase.from('player_rounds')
+            .upsert(rows, { onConflict: 'trip_player_id,round_id', ignoreDuplicates: true })
+        }
+      }
+    }
     setSavingCourse(false)
     if (!error) {
       setEditRound(null)
