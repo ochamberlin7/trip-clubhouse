@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function Signup() {
   const [email, setEmail] = useState('')
@@ -9,6 +9,13 @@ export default function Signup() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  // Preserve an invite redirect (e.g. /join/:token) both for the post-signup
+  // landing and for the "Sign In" link, so the invite context survives.
+  const redirect = searchParams.get('redirect')
+  const safeRedirect = redirect && redirect.startsWith('/') ? redirect : null
+  const loginTo = safeRedirect ? `/login?redirect=${encodeURIComponent(safeRedirect)}` : '/login'
 
   async function handleSignup(e) {
     e.preventDefault()
@@ -23,7 +30,9 @@ export default function Signup() {
       setError(error.message)
       setLoading(false)
     } else {
-      navigate('/groups')
+      // After signup, return to the invite (/join/:token) if present; the join
+      // page handles claiming the slot. Otherwise go to onboarding as before.
+      navigate(safeRedirect || '/groups', { replace: true })
     }
   }
 
@@ -57,7 +66,7 @@ export default function Signup() {
         </form>
         <p style={{ textAlign: 'center', fontSize: 14, color: '#6b7280' }}>
           Already have an account?{' '}
-          <Link to="/login" style={{ color: '#3b82f6', fontWeight: 600 }}>Sign In</Link>
+          <Link to={loginTo} style={{ color: '#3b82f6', fontWeight: 600 }}>Sign In</Link>
         </p>
       </div>
     </div>

@@ -10,6 +10,13 @@ export default function Login() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
+  // Carry an invite redirect (e.g. /join/:token) through to signup so a new user
+  // who needs an account doesn't lose the invite context.
+  const redirect = searchParams.get('redirect')
+  const signupTo = redirect && redirect.startsWith('/')
+    ? `/signup?redirect=${encodeURIComponent(redirect)}`
+    : '/signup'
+
   async function handleLogin(e) {
     e.preventDefault()
     setLoading(true)
@@ -20,7 +27,6 @@ export default function Login() {
       setLoading(false)
     } else {
       // Honor ?redirect= (e.g. from an invite link), but only allow internal paths.
-      const redirect = searchParams.get('redirect')
       navigate(redirect && redirect.startsWith('/') ? redirect : '/groups', { replace: true })
     }
   }
@@ -50,7 +56,7 @@ export default function Login() {
         </form>
         <p style={{ textAlign: 'center', fontSize: 14, color: '#6b7280' }}>
           No account?{' '}
-          <Link to="/signup" style={{ color: '#3b82f6', fontWeight: 600 }}>Create one</Link>
+          <Link to={signupTo} style={{ color: '#3b82f6', fontWeight: 600 }}>Create one</Link>
         </p>
       </div>
     </div>
