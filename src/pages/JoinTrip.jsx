@@ -36,13 +36,20 @@ export default function JoinTrip() {
       if (!tripRow) { setError('This invite link is invalid.'); setStatus('error'); return }
       setTrip(tripRow)
 
-      // Load the trip's players (guest list).
-      const { data: playersData } = await supabase
+      // Load the trip's players (guest list) — scoped to THIS trip only.
+      const { data: playersData, error: playersErr } = await supabase
         .from('trip_players')
         .select('id, email, is_claimed, claimed_user_id')
         .eq('trip_id', tripRow.id)
       if (cancelled) return
       const players = playersData || []
+
+      // Diagnostics: surface the auth email vs. every guest-list email so any
+      // mismatch (case / whitespace) or an empty result (RLS) is visible.
+      console.log('[JoinTrip] auth user.email =', JSON.stringify(user.email))
+      console.log('[JoinTrip] trip', tripRow.id, '— trip_players rows:', players.length,
+        players.map(p => ({ id: p.id, email: p.email, is_claimed: p.is_claimed })))
+      if (playersErr) console.log('[JoinTrip] trip_players query error:', playersErr.message)
 
       // STEP 2 — already a member of this trip → straight to the dashboard.
       if (players.some(p => p.claimed_user_id === user.id)) {
@@ -50,10 +57,11 @@ export default function JoinTrip() {
         return
       }
 
-      // STEP 3 — email auto-match: an unclaimed slot whose email is this user's
-      // (case-insensitive). Claim it and enter as a member.
-      const myEmail = (user.email || '').toLowerCase()
-      const match = players.find(p => !p.is_claimed && p.email && p.email.toLowerCase() === myEmail)
+      // STEP 3 — email auto-match: an unclaimed slot whose email is this user's.
+      // Normalize BOTH sides (lowercase + trim) — Supabase Auth emails are
+      // lowercased; stored emails may have mixed case or whitespace.
+      const myEmail = (user.email || '').toLowerCase().trim()
+      const match = players.find(p => !p.is_claimed && p.email && p.email.toLowerCase().trim() === myEmail)
       if (match) {
         await claimSlot(match.id, tripRow)
         return
