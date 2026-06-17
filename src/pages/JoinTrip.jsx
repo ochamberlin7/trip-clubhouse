@@ -109,16 +109,22 @@ export default function JoinTrip() {
       .from('group_members').select('group_id, role')
       .eq('group_id', tripRow.group_id).eq('user_id', user.id).maybeSingle()
     if (!existing) {
-      const { error: memberErr } = await supabase
-        .from('group_members').insert({ group_id: tripRow.group_id, user_id: user.id, role: 'member' })
-      if (memberErr) console.log('[JoinTrip] group_members insert error:', memberErr.message)
+      // group_id MUST come from the looked-up trip (not stale/hardcoded).
+      const payload = { group_id: tripRow.group_id, user_id: user.id, role: 'member' }
+      console.log('[JoinTrip] group_members INSERT payload:', payload)
+      const { error: memberErr } = await supabase.from('group_members').insert(payload)
+      if (memberErr) console.log('[JoinTrip] group_members INSERT ERROR:', memberErr.message)
     }
+    // Read membership back. 0 rows + no insert error ⇒ RLS write block.
+    const { data: myMemberships, error: readErr } = await supabase
+      .from('group_members').select('group_id, role').eq('user_id', user.id)
+    console.log('[JoinTrip] group_members readback for', user.id, '→', myMemberships, readErr ? `(err: ${readErr.message})` : '')
+
     const { data: group } = await supabase.from('groups').select('id, name').eq('id', tripRow.group_id).maybeSingle()
     await fetchUserGroups()
-    // ALWAYS activate the group (we know its id from the trip). If this were
-    // conditional on the `group` read returning a row, a null read would leave
-    // activeGroup null → TripDashboard bounces to /groups → onboarding wizard.
-    const role = existing?.role || 'member'
+    // ALWAYS activate the invited group by its known id (so TripDashboard loads
+    // THIS trip, not a different one, and never bounces to /groups → wizard).
+    const role = existing?.role || myMemberships?.find(m => m.group_id === tripRow.group_id)?.role || 'member'
     selectGroup({ id: tripRow.group_id, name: group?.name || 'Trip', role })
     console.log('[JoinTrip] entering dashboard — group:', tripRow.group_id, 'role:', role, 'groupRead:', !!group)
     navigate('/dashboard', { replace: true })
