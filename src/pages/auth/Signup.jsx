@@ -7,6 +7,7 @@ export default function Signup() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [phone, setPhone] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -34,7 +35,9 @@ export default function Signup() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { display_name: displayName } }
+      // phone is carried in user_metadata so JoinTrip can store it on the profile
+      // and use it to match the invitee against the trip's guest list.
+      options: { data: { display_name: displayName, phone: phone.trim() } }
     })
     if (error) {
       setError(error.message)
@@ -62,6 +65,11 @@ export default function Signup() {
             <label className="field-label">Your Name</label>
             <input type="text" placeholder="First Last" value={displayName}
               onChange={e => setDisplayName(e.target.value)} required />
+          </div>
+          <div>
+            <label className="field-label">Phone Number</label>
+            <input type="tel" placeholder="(555) 000-0000" value={phone}
+              onChange={e => setPhone(e.target.value)} />
           </div>
           <div>
             <label className="field-label">Email</label>

@@ -63,10 +63,19 @@ export default function Login() {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
-        <p style={{ textAlign: 'center', fontSize: 14, color: '#6b7280' }}>
-          No account?{' '}
-          <Link to={signupTo} style={{ color: '#3b82f6', fontWeight: 600 }}>Create one</Link>
-        </p>
+        <div style={{ textAlign: 'center', marginTop: 4 }}>
+          <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 10px' }}>New to Trip Clubhouse?</p>
+          <Link
+            to={signupTo}
+            style={{
+              display: 'block', textAlign: 'center', padding: '13px',
+              borderRadius: 8, border: '2px solid #3b82f6', color: '#3b82f6',
+              fontWeight: 700, fontSize: 16, textDecoration: 'none',
+            }}
+          >
+            Create an account
+          </Link>
+        </div>
       </div>
     </div>
   )
