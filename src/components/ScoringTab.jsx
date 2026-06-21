@@ -285,10 +285,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   })
   const playingByTp = playingFromCourseHandicaps(chEntries, allowance)
   const phOf = tpId => playingByTp.get(tpId) ?? 0
-  // Stroke dots reflect each player's COURSE handicap (WHS), computed live from
-  // the current HI — not the low-ball playing handicap used for net scoring.
-  const courseHcpByTp = new Map(chEntries.map(e => [e.id, e.ch]))
-  const courseHcpOf = tpId => courseHcpByTp.get(tpId) ?? 0
+  // Stroke dots use each player's PLAYING handicap = round(course HCP × allowance),
+  // computed independently per player from their own HI. No low-ball subtraction,
+  // so one player's handicap never affects another player's dots (a scratch player
+  // off course HCP 0 gets zero dots regardless of who else is in the pairing).
+  const dotPhByTp = new Map(chEntries.map(e => [e.id, e.ch == null ? 0 : Math.round(e.ch * (allowance / 100))]))
+  const dotPhOf = tpId => dotPhByTp.get(tpId) ?? 0
 
   const getScore = (tpId, hole) => scores[`${round.id}:${tpId}:${hole}`] ?? null
   const getDrinks = (tpId, hole) => drinks[`${round.id}:${tpId}:${hole}`] ?? 0
@@ -307,14 +309,15 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   }
 
   // Stroke dots once the visible slots are filled (a 1-player-per-team pairing
-  // fills only slots 1 & 3); suppress when every filled player strokes. Uses the
-  // COURSE handicap (live, from current HI), not the playing handicap.
+  // fills only slots 1 & 3). Each player's dots are assigned independently from
+  // their own playing handicap and the hole SI — a player shows a dot wherever
+  // their own handicap strokes, regardless of whether anyone else also strokes
+  // there. One player's handicap has zero effect on another player's dots.
   function strokesShown(hole) {
     if (!visibleFilled) return new Set()
     const si = holes?.[hole - 1]?.handicap
     const filledTps = [...t1Slots, ...t2Slots].map(s => slotMap[s]).filter(Boolean)
-    const strokers = filledTps.filter(tp => strokesOnHole(courseHcpOf(tp), si) >= 1)
-    if (strokers.length === filledTps.length) return new Set()
+    const strokers = filledTps.filter(tp => strokesOnHole(dotPhOf(tp), si) >= 1)
     return new Set(strokers)
   }
 
@@ -465,8 +468,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const gross = getScore(tpId, hole)
     const par = holes?.[hole - 1]?.par
     const cls = scoreClass(gross, par)
-    // Dot count uses the course handicap (live from current HI), not playing.
-    const st = strokesOnHole(courseHcpOf(tpId), holes?.[hole - 1]?.handicap)
+    // Dot count uses the player's playing handicap (course HCP × allowance).
+    const st = strokesOnHole(dotPhOf(tpId), holes?.[hole - 1]?.handicap)
     const showDot = shownSet.has(tpId) && st >= 1
     const dc = getDrinks(tpId, hole)
     return (
