@@ -222,7 +222,8 @@ select {
 .team-count-options { display: flex; gap: 8px; flex-wrap: wrap; }
 .team-count-btn { padding: 14px 28px; border-radius: var(--radius); border: 1px solid var(--bg3); background: var(--bg2); font-size: 22px; font-weight: 900; cursor: pointer; color: var(--muted); transition: all 0.15s; font-family: inherit; }
 .team-count-btn.selected { border-color: var(--navy); background: var(--navy); color: #fff; }
-.format-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--bg2); color: var(--navy); border: 1px solid var(--bg3); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.format-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--bg2); color: var(--navy); border: 1px solid var(--bg3); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.format-tag.selected { background: #1B3F6E; color: #fff; border-color: #1B3F6E; }
 
 /* ── Section header ── */
 .section-header { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; margin-top: 6px; }

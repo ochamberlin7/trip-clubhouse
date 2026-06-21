@@ -411,6 +411,31 @@ function PlayersPage({ data, isCommissioner, onReload }) {
   )
 }
 
+// Strip any gender prefix/suffix from a tee name — gender is irrelevant here, the
+// app only cares which tee box you play from. "Men's Gold" / "Women's Gold" → "Gold".
+function stripTeeGender(name) {
+  return String(name || '')
+    .replace(/\b(men['’]?s?|women['’]?s?|ladies|mens|womens|male|female)\b/gi, '')
+    .replace(/\((?:m|w|men|women|male|female)\)/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+// Deduplicate tee options by gender-stripped name, keeping the first occurrence
+// (and showing the cleaned name once).
+function dedupeTeesByName(tees) {
+  const seen = new Set()
+  const out = []
+  for (const t of tees) {
+    const name = stripTeeGender(t.name) || t.name
+    const key = name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ ...t, name })
+  }
+  return out
+}
+
 // Normalise GolfCourseAPI course detail → [{name,slope,rating,par}] (men's + women's).
 function teesFromCourseDetail(detail) {
   const all = [...(detail?.tees?.male || []), ...(detail?.tees?.female || [])]
@@ -444,9 +469,11 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   // <select> even with no multi-tee data available.
   const sourceTees = cachedTees.length ? cachedTees : (apiTees || [])
   const primaryTee = roundPrimaryTee(round)
-  const tees = (primaryTee && !sourceTees.some(t => t.name === primaryTee.name))
+  const combinedTees = (primaryTee && !sourceTees.some(t => t.name === primaryTee.name))
     ? [primaryTee, ...sourceTees]
     : sourceTees
+  // Drop gender-duplicate tee names (e.g. "Men's Gold" + "Women's Gold" → one "Gold").
+  const tees = dedupeTeesByName(combinedTees)
   const hasCourse = round.slope_rating != null || tees.length > 0
   // Round's primary tee name — the default when a player has no saved tee.
   const defaultTeeName = tees.find(t => t.name === round.tee_name)?.name ?? tees[0]?.name ?? null

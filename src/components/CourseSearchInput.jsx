@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { searchCourses, getCourseDetails } from '../lib/courseApi'
 
 // Self-contained course typeahead → tee picker.
-// Phase 1: debounced search with a results dropdown (portaled to <body> so it
-//          is never clipped by an overflow:hidden ancestor).
+// Phase 1: debounced search with a results dropdown anchored directly below the
+//          input (absolute, full width) so it always reads clearly.
 // Phase 2: selected-course card + men's/women's tee sections, then "Add".
 
 // Tee color coding by name.
@@ -21,7 +20,7 @@ function teeStyle(name) {
 const s = {
   wrap: { position: 'relative' },
   input: { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #DDE3EA', background: '#fff', fontSize: '14px', color: '#0D1B2A', fontFamily: 'inherit', outline: 'none' },
-  dropdown: { position: 'fixed', zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: '240px', overflowY: 'auto' },
+  dropdown: { position: 'absolute', top: '100%', left: 0, width: '100%', marginTop: '4px', zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: '240px', overflowY: 'auto' },
   resultRow: { padding: '12px 14px', borderBottom: '1px solid #E8EDF3', cursor: 'pointer', background: '#fff' },
   resultName: { fontSize: '14px', fontWeight: 600, color: '#0D1B2A' },
   resultSub: { fontSize: '12px', color: '#7A8FA6', marginTop: '1px' },
@@ -59,7 +58,6 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   const [femaleTees, setFemaleTees] = useState([])
   const [selectedTee, setSelectedTee] = useState(null)
   const [loadingCourse, setLoadingCourse] = useState(false)
-  const [rect, setRect] = useState(null)
   const wrapRef = useRef(null)
   const dropRef = useRef(null)
   const typedRef = useRef(false) // only search after the user actively types
@@ -86,23 +84,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
     return () => clearTimeout(t)
   }, [query, course])
 
-  // Track the input position so the portaled dropdown sits right under it.
-  useEffect(() => {
-    if (!open) return
-    const update = () => {
-      const el = wrapRef.current
-      if (el) {
-        const r = el.getBoundingClientRect()
-        setRect({ left: r.left, top: r.bottom + 4, width: r.width })
-      }
-    }
-    update()
-    window.addEventListener('scroll', update, true)
-    window.addEventListener('resize', update)
-    return () => { window.removeEventListener('scroll', update, true); window.removeEventListener('resize', update) }
-  }, [open, results, loading, error])
-
-  // Close dropdown on outside click / ESC (ignore clicks inside the portal).
+  // Close dropdown on outside click / ESC (ignore clicks inside the dropdown).
   useEffect(() => {
     function onDocClick(e) {
       const inWrap = wrapRef.current && wrapRef.current.contains(e.target)
@@ -240,8 +222,8 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   }
 
   // ── Phase 1: search ──
-  const dropdown = open && rect ? createPortal(
-    <div ref={dropRef} style={{ ...s.dropdown, left: rect.left, top: rect.top, width: rect.width }}>
+  const dropdown = open ? (
+    <div ref={dropRef} style={s.dropdown}>
       {loading && <div style={s.msg}>Searching…</div>}
       {!loading && error === 'rate' && <div style={s.msg}>Search rate-limited — wait a moment and try again</div>}
       {!loading && error === 'error' && <div style={s.msg}>Search unavailable</div>}
@@ -262,8 +244,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
           </div>
         )
       })}
-    </div>,
-    document.body
+    </div>
   ) : null
 
   return (

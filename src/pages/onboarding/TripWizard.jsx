@@ -391,7 +391,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
         <>
           <div>
             <p className="field-label" style={{ marginBottom: 10 }}>Tournament Format</p>
-            <span className="format-tag">⛳ Match Play</span>
+            <button type="button" className="format-tag selected">Match Play</button>
           </div>
 
           {validCounts.length > 0 ? (
