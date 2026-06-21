@@ -264,7 +264,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const assignedInRound = new Set(pairingPlayers.filter(pp => roundPairingIds.includes(pp.pairing_id)).map(pp => pp.trip_player_id))
 
   const slotPlayers = [1, 2, 3, 4].map(s => slotMap[s] ? playersById[slotMap[s]] : null)
-  const allFilled = [1, 2, 3, 4].every(s => slotMap[s])
+  // Better-ball match needs at least one player on each side (slots 1&2 = Team 1,
+  // 3&4 = Team 2). Works for any split: 1v1, 1v2, 2v1, 2v2.
+  const t1MatchTps = [slotMap[1], slotMap[2]].filter(Boolean)
+  const t2MatchTps = [slotMap[3], slotMap[4]].filter(Boolean)
+  const matchActive = t1MatchTps.length > 0 && t2MatchTps.length > 0
 
   // How many player columns to show per team — the team's roster size (1 or 2),
   // so a team with only one player doesn't render a ghost second slot. Display
@@ -300,9 +304,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   }
 
   function holeResult(hole) {
-    if (!allFilled) return null
-    const t1 = [slotMap[1], slotMap[2]].map(tp => netOf(tp, hole))
-    const t2 = [slotMap[3], slotMap[4]].map(tp => netOf(tp, hole))
+    // Best (lowest) net per side wins the hole; equal nets halve. Each side's
+    // best ball is taken over only its present players, so 2v1 works.
+    if (!matchActive) return null
+    const t1 = t1MatchTps.map(tp => netOf(tp, hole))
+    const t2 = t2MatchTps.map(tp => netOf(tp, hole))
     if (t1.some(n => n == null) || t2.some(n => n == null)) return null
     const b1 = Math.min(...t1), b2 = Math.min(...t2)
     return b1 < b2 ? 'T1' : b2 < b1 ? 'T2' : 'halve'
@@ -502,7 +508,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         <div className="sc-sub-label">{label}</div>
         <div className="sc-sub-par">{st.parSum ?? '—'}</div><div />
         {t1Slots.map(s => <div key={s} className="sc-sub-score t1">{cell(slotMap[s])}</div>)}
-        <div className="sc-sub-pts">{allFilled ? st.pts : '—'}</div>
+        <div className="sc-sub-pts">{matchActive ? st.pts : '—'}</div>
         {t2Slots.map(s => <div key={s} className="sc-sub-score t2">{cell(slotMap[s])}</div>)}
       </div>
     )

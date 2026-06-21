@@ -331,8 +331,9 @@ export function formatVsPar(value) {
 // Slots 1 & 2 are Team 1, slots 3 & 4 are Team 2 (mirrors ScoringTab's SLOT_TEAM).
 // Mirrors ScoringTab's holeResult math: low-ball playing handicaps within each
 // pairing, best net per side, the hole goes to the lower net (equal nets halve).
-// Only holes where all four slots are filled AND every player has a gross score
-// count — this matches what the on-screen scorecard shows.
+// Works for any roster split per side (1v1, 1v2, 2v1, 2v2) — a side just needs at
+// least one player. A hole counts once every present player on both sides has a
+// gross score, matching what the on-screen scorecard shows.
 //
 // Inputs:
 //   round          : the round row (uses round.holes[].par/.handicap and slope_rating)
@@ -364,13 +365,16 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
       .filter(pp => pp.pairing_id === pairing.id)
       .forEach(pp => { slotMap[pp.team_slot] = pp.trip_player_id })
 
-    const filled = [1, 2, 3, 4].map(s => slotMap[s])
-    const allFilled = filled.every(Boolean)
+    // Slots 1 & 2 are Team 1, slots 3 & 4 are Team 2. Support any roster size per
+    // side (1v1, 1v2, 2v1, 2v2) — a side just needs at least one player.
+    const t1Players = [slotMap[1], slotMap[2]].filter(Boolean)
+    const t2Players = [slotMap[3], slotMap[4]].filter(Boolean)
+    const hasMatch = t1Players.length > 0 && t2Players.length > 0
 
     let t1pts = 0, t2pts = 0, holesScored = 0
-    if (allFilled) {
+    if (hasMatch) {
       // Low-ball playing handicaps from each player's individual tee.
-      const entries = filled.map(id => {
+      const entries = [...t1Players, ...t2Players].map(id => {
         const tee = resolvePlayerTee(round, getTeeRow(id))
         return { id, ch: courseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
       })
@@ -383,8 +387,10 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
       }
 
       for (let hole = 1; hole <= totalHoles; hole++) {
-        const t1 = [slotMap[1], slotMap[2]].map(tp => net(tp, hole))
-        const t2 = [slotMap[3], slotMap[4]].map(tp => net(tp, hole))
+        // Best (lowest) net per side; a hole counts once every present player on
+        // both sides has a gross. Lower net wins the hole, equal nets halve it.
+        const t1 = t1Players.map(tp => net(tp, hole))
+        const t2 = t2Players.map(tp => net(tp, hole))
         if (t1.some(n => n == null) || t2.some(n => n == null)) continue
         holesScored++
         const b1 = Math.min(...t1), b2 = Math.min(...t2)
