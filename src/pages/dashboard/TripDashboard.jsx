@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getActiveRound } from '../../lib/scoring'
+import { getActiveRound, liveStandardMatchTally } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
@@ -306,6 +306,12 @@ function TabLeaderboard({ trip, teams, rounds }) {
     )
   }
 
+  // Standard Match Play: each round is a match worth 1 / 0.5 / 0 points per team.
+  if (trip.format === 'standard_match_play') {
+    return <StandardLeaderboard trip={trip} teams={teams} rounds={rounds} />
+  }
+
+  // Points Match Play (and any other format) — existing behaviour, unchanged.
   // 'none' rounds are placeholders ("not decided yet") — excluded from standings.
   const lbRounds = rounds.filter(r => r.round_type !== 'none')
 
@@ -334,6 +340,112 @@ function TabLeaderboard({ trip, teams, rounds }) {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+// Standard Match Play standings: each completed round is a match worth 1 (win),
+// 0.5 (halve) or 0 (loss) to each team; totals accumulate across rounds. Fetches
+// its own scores/pairings on mount (the leaderboard tab remounts each time it's
+// opened, so this is fresh without a realtime subscription).
+function StandardLeaderboard({ trip, teams, rounds }) {
+  const [pairings, setPairings] = useState([])
+  const [pairingPlayers, setPairingPlayers] = useState([])
+  const [scoresMap, setScoresMap] = useState({})
+  const [hcpByPlayer, setHcpByPlayer] = useState({})
+  const [teeRowMap, setTeeRowMap] = useState({})
+
+  const allowance = trip?.handicap_allowance ?? 100
+  const lbRounds = rounds.filter(r => r.round_type !== 'none')
+  const roundIds = lbRounds.map(r => r.id)
+  const roundKey = roundIds.join(',')
+
+  useEffect(() => {
+    if (!trip?.id || roundIds.length === 0) return
+    let cancelled = false
+    ;(async () => {
+      const [pairRes, tpRes, scoreRes, prRes] = await Promise.all([
+        supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', roundIds),
+        supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
+        supabase.from('scores').select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds),
+        supabase.from('player_rounds').select('trip_player_id, round_id, slope, rating, par').in('round_id', roundIds),
+      ])
+      const pairs = pairRes.data || []
+      const pairIds = pairs.map(p => p.id)
+      let pp = []
+      if (pairIds.length) {
+        const { data } = await supabase.from('pairing_players').select('pairing_id, trip_player_id, team_slot').in('pairing_id', pairIds)
+        pp = data || []
+      }
+      if (cancelled) return
+      const hcp = {}; (tpRes.data || []).forEach(tp => { hcp[tp.id] = tp.handicap_index })
+      const sMap = {}; (scoreRes.data || []).forEach(s => { if (s.gross_score != null) sMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score })
+      const tMap = {}; (prRes.data || []).forEach(pr => { tMap[`${pr.round_id}:${pr.trip_player_id}`] = pr })
+      setPairings(pairs); setPairingPlayers(pp); setHcpByPlayer(hcp); setScoresMap(sMap); setTeeRowMap(tMap)
+    })()
+    return () => { cancelled = true }
+  }, [trip?.id, roundKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // roundId -> per-pairing Standard Match Play results.
+  const byRound = useMemo(() => {
+    const m = new Map()
+    for (const r of lbRounds) {
+      m.set(r.id, liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap))
+    }
+    return m
+  }, [roundKey, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // teams[0] plays slots 1&2 (T1); teams[1] plays 3&4 (T2).
+  const sideOfTeam = team => (teams[0] && team.id === teams[0].id) ? 'T1' : (teams[1] && team.id === teams[1].id) ? 'T2' : null
+  const fmtPts = x => (Number.isInteger(x) ? String(x) : x.toFixed(1))
+
+  // Points a team earned in one round (summed over that round's completed matches).
+  const roundPointsFor = (side, roundId) => {
+    let pts = 0, matches = 0, completed = 0
+    for (const row of (byRound.get(roundId) || [])) {
+      if (!row.hasMatch) continue
+      matches++
+      if (!row.complete) continue
+      completed++
+      if (row.result === side) pts += 1
+      else if (row.result === 'halve') pts += 0.5
+    }
+    return { pts, matches, completed }
+  }
+  const totalFor = side => lbRounds.reduce((a, r) => a + roundPointsFor(side, r.id).pts, 0)
+  const roundBadge = (side, roundId) => {
+    const { pts, matches, completed } = roundPointsFor(side, roundId)
+    if (matches === 0 || completed === 0) return '—'
+    if (matches === 1) return pts === 1 ? 'W' : pts === 0.5 ? 'H' : 'L'
+    return fmtPts(pts) // multiple matches in one round → show the earned points
+  }
+
+  return (
+    <div>
+      {teams.map(team => {
+        const side = sideOfTeam(team)
+        return (
+          <div key={team.id} className="lb-team-card">
+            <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
+              <span className="lb-team-name">{getTeamDisplayName(team)}</span>
+              <span className="lb-team-pts">{fmtPts(totalFor(side))}</span>
+            </div>
+            <div className="lb-rounds">
+              {lbRounds.map(r => (
+                <div key={r.id} className="lb-round-row">
+                  <span className="lb-round-name">{r.course_name}</span>
+                  <span className="lb-round-score">{roundBadge(side, r.id)}</span>
+                </div>
+              ))}
+              {lbRounds.length === 0 && (
+                <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
+                  No rounds yet
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

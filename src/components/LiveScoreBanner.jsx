@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { liveMatchTally } from '../lib/scoring'
+import { liveMatchTally, liveStandardMatchTally } from '../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 
 // Floating live-score banner, fixed to the bottom of the screen. Mounted once at
@@ -40,6 +40,19 @@ function matchStatus(t1pts, t2pts, complete, n1, n2) {
   return { text: 'All Square', side: null }
 }
 
+// Standard Match Play banner text + leading side (0/1/null) + "thru" text.
+// Closed → final result only, no thru. No scores → "Match not started".
+function standardStatus(row, n1, n2) {
+  if (row.closed) {
+    const name = row.winner === 'T1' ? n1 : n2
+    return { text: `${name} win ${row.finalMargin}`, side: row.winner === 'T1' ? 0 : 1, thru: '' }
+  }
+  if (row.thru === 0) return { text: 'Match not started', side: null, thru: '' }
+  if (row.leader == null) return { text: 'All Square', side: null, thru: `Thru ${row.thru}` }
+  const name = row.leader === 'T1' ? n1 : n2
+  return { text: `${name} ${row.statusShort}`, side: row.leader === 'T1' ? 0 : 1, thru: `Thru ${row.thru}` }
+}
+
 export default function LiveScoreBanner({ trip, rounds, teams }) {
   const [dismissed, setDismissed] = useState(false)
   const [pairings, setPairings] = useState([])
@@ -52,6 +65,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   const channelRef = useRef(null)
 
   const allowance = trip?.handicap_allowance ?? 100
+  const isStandard = trip?.format === 'standard_match_play'
 
   // Today's local date, for the round-selection priority (any round type).
   const todayISO = todayIsoLocal()
@@ -157,6 +171,11 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     // Per-round summary, keeping only rounds that have at least one scored hole.
     // 'none' rounds are placeholders and never surface the banner.
     const summaries = rounds.filter(r => r.round_type !== 'none').map(r => {
+      if (isStandard) {
+        const t = liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
+        const scored = t.reduce((a, p) => a + p.thru, 0)
+        return { round: r, tallies: t, scored, complete: t.length > 0 && t.every(p => p.complete) }
+      }
       const t = liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
       const scored = t.reduce((a, p) => a + p.holesScored, 0)
       return { round: r, tallies: t, scored, complete: t.length > 0 && t.every(p => p.complete) }
@@ -178,9 +197,9 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     if (inProgress.length) { const best = pickBest(inProgress); return { round: best.round, tallies: best.tallies } }
 
     return { round: null, tallies: [] }
-  }, [rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance, todayISO])
+  }, [rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance, todayISO, isStandard])
 
-  const anyHolesScored = tallies.some(t => t.holesScored > 0)
+  const anyHolesScored = tallies.some(t => (isStandard ? t.thru : t.holesScored) > 0)
 
   // Completed-round results only show during the trip dates; an in-progress
   // round can surface the banner any day.
@@ -197,7 +216,9 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   const teal = teamColor(colorIndexOf(teams?.[1])).solid // Team 2 — teal
   const sideColor = side => (side === 0 ? navy : side === 1 ? teal : '#7A8FA6')
 
-  const visibleRows = tallies.filter(t => t.holesScored > 0)
+  const visibleRows = isStandard
+    ? tallies.filter(t => t.hasMatch)
+    : tallies.filter(t => t.holesScored > 0)
 
   return (
     <div style={s.float} role="status" aria-label="Live score">
@@ -205,12 +226,13 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       <div style={s.roundLabel}>{round.club_name || round.course_name} · Live Match</div>
       <div style={s.rows}>
         {visibleRows.map(t => {
-          const st = matchStatus(t.t1pts, t.t2pts, t.complete, n1, n2)
+          const st = isStandard ? standardStatus(t, n1, n2) : matchStatus(t.t1pts, t.t2pts, t.complete, n1, n2)
+          const thruText = isStandard ? st.thru : (t.complete ? 'Final' : `Thru ${t.holesScored}`)
           return (
             <div key={t.pairingNumber} style={s.row}>
               <span style={s.pairLabel}>Pairing {t.pairingNumber}</span>
               <span style={{ ...s.status, color: sideColor(st.side) }}>{st.text}</span>
-              <span style={s.thru}>{t.complete ? 'Final' : `Thru ${t.holesScored}`}</span>
+              <span style={s.thru}>{thruText}</span>
             </div>
           )
         })}

@@ -332,6 +332,10 @@ select {
 .sc-match-chip.t2 { color: #1E8A6E; }
 .sc-match-chip.as { color: var(--muted); }
 .sc-match-halve { color: var(--bg3); font-size: 8px; }
+/* Standard Match Play: locked (unenterable) hole after the match is decided */
+.sc-score.locked { opacity: 0.3; cursor: not-allowed; color: var(--muted); }
+/* Standard Match Play: prominent final-result banner above the scorecard */
+.sc-match-result { text-align: center; font-size: 15px; font-weight: 800; color: #fff; background: var(--navy); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 10px; }
 
 .sc-sub-row { background: var(--bg2); border-radius: 4px; margin-top: 4px; padding: 4px 0; }
 .sc-sub-label { font-size: 11px; font-weight: 700; color: var(--navy); text-align: center; }

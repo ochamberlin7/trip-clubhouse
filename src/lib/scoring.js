@@ -573,3 +573,85 @@ export function standardMatchTally(holes, players = [], teams = {}) {
     finalMargin,
   }
 }
+
+// Per-pairing Standard Match Play status for a round — mirrors liveMatchTally's
+// signature and low-ball playing-handicap setup, but returns traditional
+// match-play status (via standardMatchTally) instead of hole-point counts. Used
+// by the live banner and the leaderboard so both share identical net/stroke math.
+//
+// Each returned row:
+//   { pairingNumber, thru, totalHoles, hasMatch, complete, closed,
+//     result: 'T1'|'T2'|'halve'|null,  // final match result; null until complete
+//     leader: 'T1'|'T2'|null, statusShort, finalMargin, winner, lead }
+//   thru     = holes with at least one gross entered by the pairing.
+//   complete = match closed (decided) OR every hole fully scored.
+export function liveStandardMatchTally(round, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance = 100, teeRowMap = {}) {
+  if (!round) return []
+  const holes = Array.isArray(round.holes) ? round.holes : null
+  const totalHoles = holes?.length || 18
+  const getHcp = (tp) => (hcpByPlayer instanceof Map ? hcpByPlayer.get(tp) : hcpByPlayer?.[tp])
+  const getTeeRow = (tp) => (teeRowMap instanceof Map ? teeRowMap.get(`${round.id}:${tp}`) : teeRowMap?.[`${round.id}:${tp}`])
+
+  const roundPairings = pairings
+    .filter(p => p.round_id === round.id)
+    .sort((a, b) => a.pairing_number - b.pairing_number)
+
+  return roundPairings.map(pairing => {
+    const slotMap = {}
+    pairingPlayers.filter(pp => pp.pairing_id === pairing.id).forEach(pp => { slotMap[pp.team_slot] = pp.trip_player_id })
+    const t1Players = [slotMap[1], slotMap[2]].filter(Boolean)
+    const t2Players = [slotMap[3], slotMap[4]].filter(Boolean)
+    const all = [...t1Players, ...t2Players]
+    const hasMatch = t1Players.length > 0 && t2Players.length > 0
+
+    // Low-ball playing handicaps from each player's individual tee (same as
+    // liveMatchTally and ScoringTab's on-screen nets).
+    const entries = all.map(id => {
+      const tee = resolvePlayerTee(round, getTeeRow(id))
+      return { id, ch: courseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
+    })
+    const playing = playingFromCourseHandicaps(entries, allowance)
+
+    const grossFor = id => {
+      const o = {}
+      for (let h = 1; h <= totalHoles; h++) { const g = scoresMap[`${round.id}:${id}:${h}`]; if (g != null) o[h] = g }
+      return o
+    }
+    const players = [
+      ...t1Players.map(id => ({ id, team: 1, playingHandicap: playing.get(id) ?? 0, grossByHole: grossFor(id) })),
+      ...t2Players.map(id => ({ id, team: 2, playingHandicap: playing.get(id) ?? 0, grossByHole: grossFor(id) })),
+    ]
+
+    const tally = standardMatchTally(holes || [], players, {})
+
+    // thru = holes where at least one of the pairing's players has a gross.
+    let thru = 0
+    for (let h = 1; h <= totalHoles; h++) {
+      if (all.some(id => scoresMap[`${round.id}:${id}:${h}`] != null)) thru++
+    }
+
+    const lastLead = tally.results[totalHoles - 1]?.lead ?? 0
+    const fullyScored = tally.results.every(r => r.statusShort != null)
+    const complete = hasMatch && (tally.closed || fullyScored)
+    let result = null
+    if (complete) {
+      if (tally.closed) result = tally.winner
+      else result = lastLead > 0 ? 'T1' : lastLead < 0 ? 'T2' : 'halve'
+    }
+
+    return {
+      pairingNumber: pairing.pairing_number,
+      thru,
+      totalHoles,
+      hasMatch,
+      complete,
+      closed: tally.closed,
+      result,
+      leader: tally.leader,
+      statusShort: tally.statusShort,
+      finalMargin: tally.finalMargin,
+      winner: tally.winner,
+      lead: lastLead,
+    }
+  })
+}

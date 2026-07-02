@@ -1121,7 +1121,7 @@ function LocalRulesCard({ tripId, isCommissioner }) {
 function RulesPage({ tripId, isCommissioner, tournamentFormat }) {
   const isStandard = tournamentFormat === 'standard_match_play'
   // Legacy 'match_play' and stroke_play trips default to the Point Match Play card.
-  const label = isStandard ? 'Standard Match Play' : 'Point Match Play'
+  const label = tournamentFormatLabel(isStandard ? 'standard_match_play' : 'points_match_play')
   const rules = isStandard
     ? [
         '2 teams — partners rotate each round',

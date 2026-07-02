@@ -338,6 +338,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         { team1Name: getTeamDisplayName(teams[0]), team2Name: getTeamDisplayName(teams[1]) },
       )
     : null
+  // Once a Standard Match Play match is decided, holes after the closeout are
+  // locked (unenterable). Already-scored holes stay editable for corrections.
+  const matchClosed = isStandard && !!stdTally?.closed
+  const closedAtHole = stdTally?.closedAtHole ?? null
 
   function holeResult(hole) {
     // Best (lowest) net per side wins the hole; equal nets halve. Each side's
@@ -508,6 +512,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       return <span className="sc-score-wrap"><button className="sc-score empty" style={{ opacity: 0.5, cursor: 'default' }} tabIndex={-1}>+</button></span>
     }
     const gross = getScore(tpId, hole)
+    // Lock empty cells on holes played after the match was decided; already-scored
+    // cells stay editable so a commissioner can still correct them.
+    if (matchClosed && closedAtHole != null && hole > closedAtHole && gross == null) {
+      return <span className="sc-score-wrap"><button className="sc-score locked" disabled tabIndex={-1} aria-label="Hole locked — match decided">·</button></span>
+    }
     const par = holes?.[hole - 1]?.par
     const cls = scoreClass(gross, par)
     // Dot count uses the player's playing handicap (course HCP × allowance).
@@ -606,6 +615,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       )}
       {assignError && (
         <div style={{ textAlign: 'center', fontSize: 12, color: '#C0392B', padding: '0 0 8px' }}>Couldn’t assign: {assignError}</div>
+      )}
+
+      {isStandard && matchActive && stdTally?.closed && (
+        <div className="sc-match-result">{stdTally.status}</div>
       )}
 
       <div className="sc-card">
