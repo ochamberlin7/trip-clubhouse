@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useGroup } from '../../context/GroupContext'
+import { tournamentFormatLabel } from '../../lib/scoring'
 
 export default function PastTrips() {
   const { activeGroup } = useGroup()
@@ -29,7 +30,7 @@ export default function PastTrips() {
         trips.map(t => (
           <div key={t.id} className="round-card">
             <span>{t.name}</span>
-            <span className="meta">{t.format ? t.format.replace(/_/g, ' ') : '—'}</span>
+            <span className="meta">{tournamentFormatLabel(t.format)}</span>
           </div>
         ))
       )}

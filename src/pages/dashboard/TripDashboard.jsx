@@ -890,6 +890,7 @@ export default function TripDashboard() {
         isCommissioner={isCommissioner}
         currentUserId={user?.id}
         handicapAllowance={trip.handicap_allowance ?? 100}
+        tournamentFormat={trip.format}
         onTripUpdate={refetchTrip}
         onRoundsChanged={refreshRounds}
         onSignOut={handleSignOut}

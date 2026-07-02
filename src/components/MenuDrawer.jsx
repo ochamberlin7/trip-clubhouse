@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
-import { courseHandicapForTee, resolvePlayerTee, playingFromCourseHandicaps } from '../lib/scoring'
+import { courseHandicapForTee, resolvePlayerTee, playingFromCourseHandicaps, tournamentFormatLabel } from '../lib/scoring'
 import { FEATURES } from '../lib/features'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -1118,18 +1118,30 @@ function LocalRulesCard({ tripId, isCommissioner }) {
   )
 }
 
-function RulesPage({ tripId, isCommissioner }) {
+function RulesPage({ tripId, isCommissioner, tournamentFormat }) {
+  const isStandard = tournamentFormat === 'standard_match_play'
+  // Legacy 'match_play' and stroke_play trips default to the Point Match Play card.
+  const label = isStandard ? 'Standard Match Play' : 'Point Match Play'
+  const rules = isStandard
+    ? [
+        '2 teams — partners rotate each round',
+        'Better ball match play: best net score per pair per hole',
+        'Win a hole to go 1 up; a tied hole leaves the match score unchanged',
+        'Handicap strokes applied to hole by stroke index',
+        'A match is won once a team leads by more holes than remain — each round scores as W, L, or H',
+      ]
+    : [
+        '2 teams — partners rotate each round',
+        'Better ball match play: best net score per pair per hole',
+        'Each hole worth 1 point — tied holes = 0 pts to both',
+        'Handicap strokes applied to hole by stroke index',
+        'Most total points after all rounds wins',
+      ]
   return (
     <>
       <LocalRulesCard tripId={tripId} isCommissioner={isCommissioner} />
-      <Card title="Match Play Format">
-        <RuleList rules={[
-          '2 teams — partners rotate each round',
-          'Better ball match play: best net score per pair per hole',
-          'Each hole worth 1 point — tied holes = 0 pts to both',
-          'Handicap strokes applied to hole by stroke index',
-          'Most total points after all rounds wins',
-        ]} />
+      <Card title={`${label} Format`}>
+        <RuleList rules={rules} />
       </Card>
     </>
   )
@@ -1326,7 +1338,7 @@ function AppInfoPage() {
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, currentUserId, handicapAllowance, onTripUpdate, onRoundsChanged, onSignOut,
+  inviteToken, isCommissioner, currentUserId, handicapAllowance, tournamentFormat, onTripUpdate, onRoundsChanged, onSignOut,
 }) {
   const [page, setPage] = useState(null)
   const [playersData, setPlayersData] = useState(null)
@@ -1753,7 +1765,7 @@ export default function MenuDrawer({
       )}
       {page === 'rules' && (
         <SecondaryPage context={tripName} title="Rules" onBack={backToDrawer}>
-          <RulesPage tripId={tripId} isCommissioner={isCommissioner} />
+          <RulesPage tripId={tripId} isCommissioner={isCommissioner} tournamentFormat={tournamentFormat} />
         </SecondaryPage>
       )}
       {page === 'archives' && (

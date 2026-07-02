@@ -361,7 +361,7 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 
 // ── Step 3: Tournament Setup ──────────────────────────────────────
 
-function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams, setNumTeams, onBack, onFinish, loading, submitError }) {
+function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams, setNumTeams, tournamentFormat, setTournamentFormat, onBack, onFinish, loading, submitError }) {
   const validCounts = getValidTeamCounts(playerCount)
   // Create Trip is always available once a tournament choice is made — when there
   // aren't enough players for teams yet, they can be assigned later.
@@ -391,7 +391,24 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
         <>
           <div>
             <p className="field-label" style={{ marginBottom: 10 }}>Tournament Format</p>
-            <button type="button" className="format-tag selected">Match Play</button>
+            <div className="format-options">
+              <button
+                type="button"
+                className={`format-option ${tournamentFormat === 'points_match_play' ? 'selected' : ''}`}
+                onClick={() => setTournamentFormat('points_match_play')}
+              >
+                <span className="format-option-name">Point Match Play</span>
+                <span className="format-option-desc">Earn 1 point per hole won. Points accumulate across all rounds.</span>
+              </button>
+              <button
+                type="button"
+                className={`format-option ${tournamentFormat === 'standard_match_play' ? 'selected' : ''}`}
+                onClick={() => setTournamentFormat('standard_match_play')}
+              >
+                <span className="format-option-name">Standard Match Play</span>
+                <span className="format-option-desc">Win the match by leading more holes than remain. Results in W, L, or H per round.</span>
+              </button>
+            </div>
           </div>
 
           {validCounts.length > 0 ? (
@@ -469,6 +486,7 @@ export default function TripWizard() {
   // Step 3
   const [hasTournament, setHasTournament] = useState(null)
   const [numTeams, setNumTeams] = useState(2) // 2 teams is the default
+  const [tournamentFormat, setTournamentFormat] = useState('points_match_play') // default
 
   // Change 5: block wizard if user already has an active trip
   useEffect(() => {
@@ -569,7 +587,7 @@ export default function TripWizard() {
         .insert({
           group_id: group.id,
           name: tripName.trim(),
-          format: hasTournament ? 'match_play' : 'stroke_play',
+          format: hasTournament ? tournamentFormat : 'stroke_play',
           team_mode: !!hasTournament,
           created_by: user.id,
           status: 'active',
@@ -739,6 +757,7 @@ export default function TripWizard() {
             playerCount={playerCount}
             hasTournament={hasTournament} setHasTournament={setHasTournament}
             numTeams={numTeams} setNumTeams={setNumTeams}
+            tournamentFormat={tournamentFormat} setTournamentFormat={setTournamentFormat}
             onBack={() => setStep(2)}
             onFinish={handleFinish}
             loading={loading}

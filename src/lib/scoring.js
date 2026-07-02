@@ -20,6 +20,22 @@ export function isNoneRound(round) {
   return round?.round_type === 'none'
 }
 
+// Display label for a trip's tournament format value. The legacy 'match_play'
+// value (stored before the points/standard split) reads as Point Match Play.
+export function tournamentFormatLabel(format) {
+  switch (format) {
+    case 'points_match_play':
+    case 'match_play':
+      return 'Point Match Play'
+    case 'standard_match_play':
+      return 'Standard Match Play'
+    case 'stroke_play':
+      return 'Stroke Play'
+    default:
+      return format ? format.replace(/_/g, ' ') : '—'
+  }
+}
+
 // Parse a display tee time ("7:45 AM") into minutes from midnight; null → 0.
 export function parseTeeTimeToMinutes(str) {
   if (!str) return 0
