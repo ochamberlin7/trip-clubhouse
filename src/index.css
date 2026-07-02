@@ -326,6 +326,12 @@ select {
 .sc-pts-chip.t2 { background: #1E8A6E; color: #fff; }
 .sc-pts-chip.halve { background: var(--bg3); color: var(--cream2); }
 .sc-pts-chip.null { background: transparent; color: var(--bg3); }
+/* Standard Match Play running-status cell */
+.sc-match-chip { display: inline-flex; align-items: center; justify-content: center; justify-self: center; gap: 1px; font-size: 10px; font-weight: 800; line-height: 1; white-space: nowrap; }
+.sc-match-chip.t1 { color: var(--navy); }
+.sc-match-chip.t2 { color: #1E8A6E; }
+.sc-match-chip.as { color: var(--muted); }
+.sc-match-halve { color: var(--bg3); font-size: 8px; }
 
 .sc-sub-row { background: var(--bg2); border-radius: 4px; margin-top: 4px; padding: 4px 0; }
 .sc-sub-label { font-size: 11px; font-weight: 700; color: var(--navy); text-align: center; }

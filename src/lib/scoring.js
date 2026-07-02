@@ -94,6 +94,16 @@ export function strokesOnHole(playingHandicap, strokeIndex) {
   return strokes
 }
 
+// Net score for one hole: gross minus strokes given (stroke given when the hole's
+// stroke index <= the player's playing handicap). The single source of truth for
+// net used by every scorecard/match calculation — ScoringTab's on-screen nets,
+// liveMatchTally (Points Match Play) and standardMatchTally (Standard Match Play)
+// all go through here so they stay identical. Returns null when gross is missing.
+export function netScore(gross, playingHandicap, strokeIndex) {
+  if (gross == null) return null
+  return gross - strokesOnHole(playingHandicap, strokeIndex)
+}
+
 // Low-ball handicap allowance for a group of players:
 //   playing = round((courseHandicap - minCourseHandicap) * allowance/100)
 // `players` is an array of { id, handicap_index }. Returns Map id -> playing.
@@ -396,11 +406,8 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
       })
       const playing = playingFromCourseHandicaps(entries, allowance)
 
-      const net = (tp, hole) => {
-        const gross = scoresMap[`${round.id}:${tp}:${hole}`]
-        if (gross == null) return null
-        return gross - strokesOnHole(playing.get(tp) ?? 0, holes?.[hole - 1]?.handicap)
-      }
+      const net = (tp, hole) =>
+        netScore(scoresMap[`${round.id}:${tp}:${hole}`], playing.get(tp) ?? 0, holes?.[hole - 1]?.handicap)
 
       for (let hole = 1; hole <= totalHoles; hole++) {
         // Best (lowest) net per side; a hole counts once every present player on
@@ -424,4 +431,145 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
       complete: holesScored === totalHoles,
     }
   })
+}
+
+// Stroke index for a hole object, tolerant of the field name (round.holes uses
+// `.handicap`; course_holes uses `.stroke_index`).
+function strokeIndexOfHole(h) {
+  if (h == null) return null
+  return h.handicap ?? h.strokeIndex ?? h.stroke_index ?? null
+}
+
+// "wins" vs "win" — plural team names ("Buckeyes") read "Buckeyes win 3&2",
+// singular ("Team 1") reads "Team 1 wins 3&2".
+function winsWord(name) {
+  return /s$/i.test((name || '').trim()) ? 'win' : 'wins'
+}
+
+// Traditional (Standard) match-play tally for one better-ball match.
+//
+// Rules: per hole take each team's best (lowest) net; the lower team net wins the
+// hole (+1 to the running lead), equal nets halve (no change). Running lead is a
+// signed integer from Team 1's perspective (+ = Team 1 up, − = Team 2 up). The
+// match closes once a team's lead exceeds the holes remaining; a team that leads
+// by exactly the holes remaining is "dormie". Net uses the shared netScore()
+// helper (same playing HCP + stroke-index logic as ScoringTab's on-screen nets).
+//
+// Inputs:
+//   holes   : array ordered by hole number (index 0 = hole 1); stroke index read
+//             from .handicap / .strokeIndex / .stroke_index. Length = total holes.
+//   players : [{ id, team, playingHandicap, grossByHole }]
+//             team is 1|2 (or 'T1'|'T2'); grossByHole is an object/Map hole→gross
+//             (missing hole = not yet scored).
+//   teams   : { team1Name, team2Name } — actual display names (getTeamDisplayName).
+//
+// Returns:
+//   { totalHoles, hasMatch,
+//     results: [{ hole, winner:'T1'|'T2'|'halve'|null, lead, statusShort, leader:'T1'|'T2'|null, closed }],
+//     status,        // overall string, e.g. "AS", "Buckeyes 2UP", "Team 1 Dormie 2", "Buckeyes win 3&2"
+//     statusShort,   // overall short, e.g. "AS", "2UP", "Dormie 2", "3&2", "1UP"
+//     leader, closed, closedAtHole, winner, finalMargin }
+export function standardMatchTally(holes, players = [], teams = {}) {
+  const list = Array.isArray(holes) ? holes : []
+  const totalHoles = list.length || 18
+  const team1Name = teams.team1Name || 'Team 1'
+  const team2Name = teams.team2Name || 'Team 2'
+  const nameOf = side => (side === 'T1' ? team1Name : team2Name)
+
+  const onTeam = (p, n) => p.team === n || p.team === `T${n}`
+  const t1 = players.filter(p => onTeam(p, 1))
+  const t2 = players.filter(p => onTeam(p, 2))
+  const hasMatch = t1.length > 0 && t2.length > 0
+
+  const grossOf = (p, hole) => {
+    const g = p.grossByHole instanceof Map ? p.grossByHole.get(hole) : p.grossByHole?.[hole]
+    return g == null ? null : g
+  }
+  const bestNet = (side, hole) => {
+    const si = strokeIndexOfHole(list[hole - 1])
+    const nets = side.map(p => netScore(grossOf(p, hole), p.playingHandicap ?? 0, si))
+    if (!nets.length || nets.some(n => n == null)) return null // hole not fully scored
+    return Math.min(...nets)
+  }
+
+  const results = []
+  let lead = 0            // + = Team 1 up
+  let closed = false
+  let closedAtHole = null
+  let winner = null       // 'T1' | 'T2'
+  let finalMargin = ''    // "3&2" | "1UP"
+
+  for (let hole = 1; hole <= totalHoles; hole++) {
+    const holesRemaining = totalHoles - hole // holes left AFTER this one
+
+    if (closed) {
+      // Match already decided — remaining holes carry the final result.
+      results.push({ hole, winner: null, lead, statusShort: finalMargin, leader: winner, closed: true })
+      continue
+    }
+    if (!hasMatch) {
+      results.push({ hole, winner: null, lead, statusShort: null, leader: null, closed: false })
+      continue
+    }
+
+    const b1 = bestNet(t1, hole)
+    const b2 = bestNet(t2, hole)
+    if (b1 == null || b2 == null) {
+      results.push({ hole, winner: null, lead, statusShort: null, leader: null, closed: false })
+      continue
+    }
+
+    let holeWinner = 'halve'
+    if (b1 < b2) { lead += 1; holeWinner = 'T1' }
+    else if (b2 < b1) { lead -= 1; holeWinner = 'T2' }
+
+    const absLead = Math.abs(lead)
+    const leader = lead > 0 ? 'T1' : lead < 0 ? 'T2' : null
+
+    if (absLead > holesRemaining) {
+      // Closed out: lead cannot be caught.
+      closed = true
+      closedAtHole = hole
+      winner = leader
+      finalMargin = holesRemaining === 0 ? `${absLead}UP` : `${absLead}&${holesRemaining}`
+      results.push({ hole, winner: holeWinner, lead, statusShort: finalMargin, leader, closed: true })
+      continue
+    }
+
+    let statusShort
+    if (absLead === 0) statusShort = 'AS'
+    else if (holesRemaining > 0 && absLead === holesRemaining) statusShort = `Dormie ${absLead}`
+    else statusShort = `${absLead}UP`
+    results.push({ hole, winner: holeWinner, lead, statusShort, leader, closed: false })
+  }
+
+  // Overall = the last hole that produced a real status (scored or closeout).
+  const lastWithStatus = [...results].reverse().find(r => r.statusShort != null)
+  let status = null
+  let statusShort = null
+  let overallLeader = null
+  if (hasMatch && lastWithStatus) {
+    statusShort = lastWithStatus.statusShort
+    overallLeader = closed ? winner : lastWithStatus.leader
+    if (closed) {
+      status = `${nameOf(winner)} ${winsWord(nameOf(winner))} ${finalMargin}`
+    } else if (statusShort === 'AS') {
+      status = 'AS'
+    } else {
+      status = `${nameOf(overallLeader)} ${statusShort}` // "Buckeyes 2UP" / "Team 1 Dormie 2"
+    }
+  }
+
+  return {
+    totalHoles,
+    hasMatch,
+    results,
+    status,
+    statusShort,
+    leader: overallLeader,
+    closed,
+    closedAtHole,
+    winner,
+    finalMargin,
+  }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { strokesOnHole, courseHandicapForTee, resolvePlayerTee, playingFromCourseHandicaps } from '../lib/scoring'
+import { strokesOnHole, netScore, courseHandicapForTee, resolvePlayerTee, playingFromCourseHandicaps, standardMatchTally } from '../lib/scoring'
 import { teamPillStyle, getTeamDisplayName } from '../lib/teamColors'
 
 // Live interactive scorecard — better-ball match play with drink tracking.
@@ -50,6 +50,21 @@ function Chevron({ dir }) {
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
       {dir === 'left' ? <polyline points="15 18 9 12 15 6" /> : <polyline points="9 18 15 12 9 6" />}
     </svg>
+  )
+}
+// Standard Match Play: running match status per hole. A small chevron (or ◆ for a
+// halve) marks who won the hole; the text is the running status (AS / 2UP /
+// Dormie 2 / 3&2), coloured by the leading team.
+function MatchCell({ entry }) {
+  if (!entry || entry.statusShort == null) return <span className="sc-pts-chip null">·</span>
+  const leaderClass = entry.leader === 'T1' ? 't1' : entry.leader === 'T2' ? 't2' : 'as'
+  return (
+    <span className={`sc-match-chip ${leaderClass}`}>
+      {entry.winner === 'T1' && <Chevron dir="left" />}
+      {entry.winner === 'T2' && <Chevron dir="right" />}
+      {entry.winner === 'halve' && <span className="sc-match-halve">◆</span>}
+      <span className="sc-match-txt">{entry.statusShort}</span>
+    </span>
   )
 }
 
@@ -276,7 +291,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const teamSize = teamId => Object.values(playersById).filter(p => teamId && p.team_id === teamId).length
   const t1Slots = teamSize(teams[0]?.id) >= 2 ? [1, 2] : [1]
   const t2Slots = teamSize(teams[1]?.id) >= 2 ? [3, 4] : [3]
-  const scGridCols = `30px 24px 24px ${t1Slots.map(() => '1fr').join(' ')} 32px ${t2Slots.map(() => '1fr').join(' ')}`
+  // Standard Match Play swaps the Pts column for a wider running-match-status column.
+  const isStandard = trip?.format === 'standard_match_play'
+  const midColW = isStandard ? '58px' : '32px'
+  const scGridCols = `30px 24px 24px ${t1Slots.map(() => '1fr').join(' ')} ${midColW} ${t2Slots.map(() => '1fr').join(' ')}`
   // Whether the visible slots are all filled (for the "assign players" hint only).
   const visibleFilled = [...t1Slots, ...t2Slots].every(s => slotMap[s])
 
@@ -298,10 +316,28 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
   const getScore = (tpId, hole) => scores[`${round.id}:${tpId}:${hole}`] ?? null
   const getDrinks = (tpId, hole) => drinks[`${round.id}:${tpId}:${hole}`] ?? 0
-  const netOf = (tpId, hole) => {
-    const g = getScore(tpId, hole); if (g == null) return null
-    return g - strokesOnHole(phOf(tpId), holes?.[hole - 1]?.handicap)
+  // Net uses the low-ball playing handicap (phOf) via the shared netScore helper —
+  // identical math to liveMatchTally and standardMatchTally.
+  const netOf = (tpId, hole) => netScore(getScore(tpId, hole), phOf(tpId), holes?.[hole - 1]?.handicap)
+
+  // Standard Match Play running tally for the active pairing. Feeds the same
+  // playing handicaps (phOf) and gross scores that drive the on-screen nets, so
+  // the match status is consistent with the displayed net scores.
+  const buildGrossByHole = tpId => {
+    const o = {}
+    for (let h = 1; h <= 18; h++) { const g = getScore(tpId, h); if (g != null) o[h] = g }
+    return o
   }
+  const stdTally = (isStandard && matchActive)
+    ? standardMatchTally(
+        holes || [],
+        [
+          ...t1MatchTps.map(id => ({ id, team: 1, playingHandicap: phOf(id), grossByHole: buildGrossByHole(id) })),
+          ...t2MatchTps.map(id => ({ id, team: 2, playingHandicap: phOf(id), grossByHole: buildGrossByHole(id) })),
+        ],
+        { team1Name: getTeamDisplayName(teams[0]), team2Name: getTeamDisplayName(teams[1]) },
+      )
+    : null
 
   function holeResult(hole) {
     // Best (lowest) net per side wins the hole; equal nets halve. Each side's
@@ -508,7 +544,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         <div className="sc-sub-label">{label}</div>
         <div className="sc-sub-par">{st.parSum ?? '—'}</div><div />
         {t1Slots.map(s => <div key={s} className="sc-sub-score t1">{cell(slotMap[s])}</div>)}
-        <div className="sc-sub-pts">{matchActive ? st.pts : '—'}</div>
+        <div className="sc-sub-pts">
+          {isStandard
+            ? (stdTally?.results?.[end - 1]?.statusShort ?? '—')
+            : (matchActive ? st.pts : '—')}
+        </div>
         {t2Slots.map(s => <div key={s} className="sc-sub-score t2">{cell(slotMap[s])}</div>)}
       </div>
     )
@@ -574,7 +614,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           <div className="sc-h">Par</div>
           <div className="sc-h">S.I.</div>
           {t1Slots.map(s => <HeaderCell key={s} slot={s} teamClass="sc-th-t1" />)}
-          <div className="sc-h">Pts</div>
+          <div className="sc-h">{isStandard ? 'Match' : 'Pts'}</div>
           {t2Slots.map(s => <HeaderCell key={s} slot={s} teamClass="sc-th-t2" />)}
         </div>
 
@@ -587,7 +627,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
                 <div className="sc-cell-par">{holes?.[hole - 1]?.par ?? '—'}</div>
                 <div className="sc-cell-si">{holes?.[hole - 1]?.handicap ?? '—'}</div>
                 {t1Slots.map(s => <ScoreCell key={s} slot={s} hole={hole} shownSet={shownSet} />)}
-                <PointsChip result={holeResult(hole)} />
+                {isStandard
+                  ? <MatchCell entry={stdTally?.results?.[hole - 1]} />
+                  : <PointsChip result={holeResult(hole)} />}
                 {t2Slots.map(s => <ScoreCell key={s} slot={s} hole={hole} shownSet={shownSet} />)}
               </div>
               {hole === 9 && <SubRow label="Out" start={1} end={9} />}
