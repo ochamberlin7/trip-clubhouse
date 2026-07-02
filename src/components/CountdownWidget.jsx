@@ -86,7 +86,7 @@ export default function CountdownWidget({ tripName, startDate, endDate, rounds =
     return (
       <div style={styles.container}>
         <div style={styles.number}>{days}</div>
-        <div style={styles.label}>days until tee off</div>
+        <div style={styles.label}>{days === 1 ? 'day until tee off' : 'days until tee off'}</div>
         <div style={styles.dateLine}>{formatRange(start, end)}</div>
       </div>
     )
@@ -96,7 +96,7 @@ export default function CountdownWidget({ tripName, startDate, endDate, rounds =
   if (today > end) {
     return (
       <div style={styles.container}>
-        <div style={styles.message}>Thanks for an amazing trip! See you next year</div>
+        <div style={styles.message}>Thanks for an amazing trip! See you next time</div>
       </div>
     )
   }
@@ -104,7 +104,7 @@ export default function CountdownWidget({ tripName, startDate, endDate, rounds =
   // STATE 2: DURING TRIP
   let message
   if (sameDay(today, start)) {
-    message = `Welcome to ${tripName}!`
+    message = `Welcome to ${tripName || 'the trip'}!`
   } else if (sameDay(today, end)) {
     message = 'Final Day — Make It Count!'
   } else {
