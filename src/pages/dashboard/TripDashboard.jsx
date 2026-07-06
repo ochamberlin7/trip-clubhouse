@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getActiveRound, liveStandardMatchTally } from '../../lib/scoring'
+import { getActiveRound, liveMatchTally, liveStandardMatchTally } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
@@ -311,35 +311,137 @@ function TabLeaderboard({ trip, teams, rounds }) {
     return <StandardLeaderboard trip={trip} teams={teams} rounds={rounds} />
   }
 
-  // Points Match Play (and any other format) — existing behaviour, unchanged.
+  // Points Match Play (and legacy 'match_play') — running hole-point standings.
+  return <PointsLeaderboard trip={trip} teams={teams} rounds={rounds} />
+}
+
+// Points Match Play standings: every hole won is worth 1 point (halved holes
+// score nothing — no half points), accumulated across all rounds. Live: it
+// subscribes to score / pairing / handicap / tee changes so standings update as
+// scores are entered (same realtime pattern as LiveScoreBanner).
+function PointsLeaderboard({ trip, teams, rounds }) {
+  const [pairings, setPairings] = useState([])
+  const [pairingPlayers, setPairingPlayers] = useState([])
+  const [scoresMap, setScoresMap] = useState({})
+  const [hcpByPlayer, setHcpByPlayer] = useState({})
+  const [teeRowMap, setTeeRowMap] = useState({})
+
+  const allowance = trip?.handicap_allowance ?? 100
   // 'none' rounds are placeholders ("not decided yet") — excluded from standings.
   const lbRounds = rounds.filter(r => r.round_type !== 'none')
+  const roundIds = lbRounds.map(r => r.id)
+  const roundKey = roundIds.join(',')
+
+  useEffect(() => {
+    if (!trip?.id || roundIds.length === 0) return
+    let cancelled = false
+
+    async function loadScores() {
+      const { data } = await supabase.from('scores')
+        .select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds)
+      if (cancelled) return
+      const m = {}; (data || []).forEach(s => { if (s.gross_score != null) m[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score })
+      setScoresMap(m)
+    }
+    async function loadTees() {
+      const { data } = await supabase.from('player_rounds')
+        .select('trip_player_id, round_id, slope, rating, par').in('round_id', roundIds)
+      if (cancelled) return
+      const m = {}; (data || []).forEach(pr => { m[`${pr.round_id}:${pr.trip_player_id}`] = pr })
+      setTeeRowMap(m)
+    }
+    async function loadAll() {
+      const [pairRes, tpRes] = await Promise.all([
+        supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', roundIds),
+        supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
+      ])
+      const pairs = pairRes.data || []
+      const pairIds = pairs.map(p => p.id)
+      let pp = []
+      if (pairIds.length) {
+        const { data } = await supabase.from('pairing_players').select('pairing_id, trip_player_id, team_slot').in('pairing_id', pairIds)
+        pp = data || []
+      }
+      if (cancelled) return
+      const hcp = {}; (tpRes.data || []).forEach(tp => { hcp[tp.id] = tp.handicap_index })
+      setPairings(pairs); setPairingPlayers(pp); setHcpByPlayer(hcp)
+      await loadScores(); await loadTees()
+    }
+
+    loadAll()
+
+    // Live updates: score change / commissioner tee change / pairing change / HI edit.
+    const ch = supabase.channel(`points-lb:${roundKey}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, payload => {
+        const rid = payload.new?.round_id ?? payload.old?.round_id
+        if (rid && roundIds.includes(rid)) loadScores()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_rounds' }, payload => {
+        const rid = payload.new?.round_id ?? payload.old?.round_id
+        if (rid && roundIds.includes(rid)) loadTees()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => loadAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${trip.id}` }, () => loadAll())
+      .subscribe()
+
+    return () => { cancelled = true; supabase.removeChannel(ch) }
+  }, [trip?.id, roundKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // roundId -> per-pairing Points Match Play tally (hole-win counts per side).
+  const byRound = useMemo(() => {
+    const m = new Map()
+    for (const r of lbRounds) {
+      m.set(r.id, liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap))
+    }
+    return m
+  }, [roundKey, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // teams[0] plays slots 1&2 (side 1); teams[1] plays 3&4 (side 2).
+  const sideOfTeam = team => (teams[0] && team.id === teams[0].id) ? 1 : (teams[1] && team.id === teams[1].id) ? 2 : null
+
+  // A team's points in one round = sum of hole wins across the round's pairings;
+  // `scored` tracks whether any hole is complete yet (to show '—' before play).
+  const roundPointsFor = (side, roundId) => {
+    let pts = 0, scored = 0
+    for (const row of (byRound.get(roundId) || [])) {
+      scored += row.holesScored
+      pts += side === 1 ? row.t1pts : row.t2pts
+    }
+    return { pts, scored }
+  }
+  const totalFor = side => lbRounds.reduce((a, r) => a + roundPointsFor(side, r.id).pts, 0)
+  const roundCell = (side, roundId) => {
+    const { pts, scored } = roundPointsFor(side, roundId)
+    return scored === 0 ? '—' : pts
+  }
 
   return (
     <div>
-      {/* One card per team — teams exist from trip creation, so always show them. */}
-      {teams.map(team => (
-        <div key={team.id} className="lb-team-card">
-          {/* Colour by stable index (1 navy, 2 teal, 3 brown, 4 purple), never by name. */}
-          <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
-            <span className="lb-team-name">{getTeamDisplayName(team)}</span>
-            <span className="lb-team-pts">—</span>
+      {teams.map(team => {
+        const side = sideOfTeam(team)
+        return (
+          <div key={team.id} className="lb-team-card">
+            {/* Colour by stable index (1 navy, 2 teal, 3 brown, 4 purple), never by name. */}
+            <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
+              <span className="lb-team-name">{getTeamDisplayName(team)}</span>
+              <span className="lb-team-pts">{side ? totalFor(side) : '—'}</span>
+            </div>
+            <div className="lb-rounds">
+              {lbRounds.map(r => (
+                <div key={r.id} className="lb-round-row">
+                  <span className="lb-round-name">{r.course_name}</span>
+                  <span className="lb-round-score">{side ? roundCell(side, r.id) : '—'}</span>
+                </div>
+              ))}
+              {lbRounds.length === 0 && (
+                <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
+                  No rounds yet
+                </div>
+              )}
+            </div>
           </div>
-          <div className="lb-rounds">
-            {lbRounds.map(r => (
-              <div key={r.id} className="lb-round-row">
-                <span className="lb-round-name">{r.course_name}</span>
-                <span className="lb-round-score">—</span>
-              </div>
-            ))}
-            {lbRounds.length === 0 && (
-              <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
-                No rounds yet
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
