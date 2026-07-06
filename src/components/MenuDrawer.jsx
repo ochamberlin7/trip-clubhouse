@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useGroup } from '../context/GroupContext'
+import { uniqueChannelName } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
@@ -1466,7 +1467,7 @@ export default function MenuDrawer({
     }
 
     const ch = supabase
-      .channel(`courses-lock-${tripId}`)
+      .channel(uniqueChannelName(`courses-lock-${tripId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'scores', filter: `round_id=in.(${roundIds.join(',')})` }, () => { refreshScoredRounds() })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -1480,7 +1481,7 @@ export default function MenuDrawer({
   useEffect(() => {
     if (!tripId) return
     const ch = supabase
-      .channel(`trip-players-hi-${tripId}`)
+      .channel(uniqueChannelName(`trip-players-hi-${tripId}`))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${tripId}` }, payload => {
         const id = payload.new?.id
         const hi = payload.new?.handicap_index

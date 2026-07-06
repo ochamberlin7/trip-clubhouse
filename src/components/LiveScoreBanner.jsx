@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, uniqueChannelName } from '../lib/supabase'
 import { liveMatchTally, liveStandardMatchTally } from '../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 
@@ -132,7 +132,9 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     loadAll()
 
     // Live updates: a score change OR a commissioner tee change refreshes the tally.
-    const ch = supabase.channel(`live-banner:${allRoundKey}`)
+    // Unique topic per subscription so channel() never returns an already-subscribed
+    // channel (which would make the chained .on() calls throw).
+    const ch = supabase.channel(uniqueChannelName(`live-banner:${allRoundKey}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, payload => {
         const rid = payload.new?.round_id ?? payload.old?.round_id
         if (rid && allRoundIds.includes(rid)) loadScores()

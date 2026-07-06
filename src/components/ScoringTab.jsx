@@ -204,7 +204,14 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       }
     }
 
-    const ch = supabase.channel(`scoring:${activeRoundId}`)
+    // This channel keeps a STABLE topic (all clients scoring the round must share
+    // it for the `score_deleted` broadcast to reach each other), so it can't use a
+    // unique name. Defensively drop any stale channel with this topic first, so a
+    // re-subscribe never gets back an already-subscribed channel (which would make
+    // the chained .on() calls throw "cannot add ... after subscribe()").
+    const scoringTopic = `scoring:${activeRoundId}`
+    supabase.getChannels().forEach(c => { if (c.topic === `realtime:${scoringTopic}`) supabase.removeChannel(c) })
+    const ch = supabase.channel(scoringTopic)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'scores', filter }, applyScore)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scores', filter }, applyScore)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'drinks', filter }, applyDrink)

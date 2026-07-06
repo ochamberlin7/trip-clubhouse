@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, uniqueChannelName } from '../lib/supabase'
 
 // Trash Talk Thread — trip chat for the dashboard home tab.
 //
@@ -85,7 +85,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
       }
 
       channel = supabase
-        .channel(`messages:${tripId}`)
+        .channel(uniqueChannelName(`messages:${tripId}`))
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',

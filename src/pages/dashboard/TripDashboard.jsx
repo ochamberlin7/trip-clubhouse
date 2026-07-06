@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import { getActiveRound, liveMatchTally, liveStandardMatchTally } from '../../lib/scoring'
@@ -371,7 +371,7 @@ function PointsLeaderboard({ trip, teams, rounds }) {
     loadAll()
 
     // Live updates: score change / commissioner tee change / pairing change / HI edit.
-    const ch = supabase.channel(`points-lb:${roundKey}`)
+    const ch = supabase.channel(uniqueChannelName(`points-lb:${roundKey}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, payload => {
         const rid = payload.new?.round_id ?? payload.old?.round_id
         if (rid && roundIds.includes(rid)) loadScores()

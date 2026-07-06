@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, uniqueChannelName } from '../lib/supabase'
 import { analyzeScoring, playerName, initialsOf, formatVsPar, isTournamentRound } from '../lib/scoring'
 
 // Daily MVPs — shows "Most Points" and "Best Net" once a round today is complete.
@@ -27,7 +27,7 @@ export default function DailyMVPCard({ tripId, today }) {
   // Live HI propagation: a handicap-index edit re-runs the standings calc, so the
   // MVP/leaderboard numbers (analyzeScoring) reflect the current HI immediately.
   useEffect(() => {
-    const ch = supabase.channel(`mvp-hi-${tripId}`)
+    const ch = supabase.channel(uniqueChannelName(`mvp-hi-${tripId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${tripId}` }, () => setHiTick(t => t + 1))
       .subscribe()
     return () => { supabase.removeChannel(ch) }

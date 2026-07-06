@@ -34,3 +34,19 @@ export const supabase = createClient(
     },
   }
 )
+
+// supabase-js reuses an existing channel when `channel(topic)` is called with a
+// topic that's still registered (RealtimeClient.channel does getChannels().find).
+// Since `removeChannel()` is async, a re-subscribe (StrictMode, a remount on trip
+// switch, a reconnect) can get back the already-subscribed channel — and chaining
+// `.on()` onto it throws "cannot add postgres_changes callbacks ... after
+// subscribe()". For postgres_changes-only subscriptions the topic name is purely
+// local, so give each subscription a unique suffix: `channel()` then always
+// returns a fresh, unsubscribed channel and the chained `.on()` calls are valid.
+// (Do NOT use this for channels that rely on cross-client `broadcast`/`presence`,
+// which require every client to share the same topic.)
+let __channelSeq = 0
+export function uniqueChannelName(base) {
+  __channelSeq += 1
+  return `${base}#${__channelSeq}`
+}
