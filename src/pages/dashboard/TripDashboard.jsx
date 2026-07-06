@@ -850,7 +850,7 @@ const TABS = [
 
 export default function TripDashboard() {
   const { user } = useAuth()
-  const { activeGroup } = useGroup()
+  const { activeTrip, activeGroup, tripsLoaded } = useGroup()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -869,9 +869,14 @@ export default function TripDashboard() {
   const [fetchError, setFetchError] = useState(null)
 
   useEffect(() => {
-    if (!activeGroup) { navigate('/groups', { replace: true }); return }
+    // Wait until the trip list has loaded; if there is genuinely no trip to show,
+    // route to /groups (which forwards to the wizard when the user has none).
+    if (!activeTrip) {
+      if (tripsLoaded) navigate('/groups', { replace: true })
+      return
+    }
     fetchAll()
-  }, [activeGroup])
+  }, [activeTrip?.id, tripsLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function devReset(trip, activeGroup) {
     const { data: roundRows } = await supabase.from('rounds').select('id').eq('trip_id', trip.id)
@@ -898,8 +903,9 @@ export default function TripDashboard() {
     setLoading(true)
     setFetchError(null)
     try {
+      // Load the selected trip by id (fresh copy — allowance/format may have changed).
       const { data: tripData, error: tripErr } = await supabase
-        .from('trips').select('*').eq('group_id', activeGroup.id).eq('status', 'active').maybeSingle()
+        .from('trips').select('*').eq('id', activeTrip.id).maybeSingle()
       if (tripErr) throw tripErr
       if (!tripData) { setLoading(false); return }
       setTrip(tripData)
@@ -910,7 +916,7 @@ export default function TripDashboard() {
         supabase.from('trip_players').select('id, user_id, guest_name, handicap_index').eq('trip_id', tripData.id),
         supabase.from('teams').select('*').eq('trip_id', tripData.id).order('team_index'),
         user?.id
-          ? supabase.from('group_members').select('role').eq('group_id', activeGroup.id).eq('user_id', user.id).maybeSingle()
+          ? supabase.from('group_members').select('role').eq('group_id', tripData.group_id).eq('user_id', user.id).maybeSingle()
           : Promise.resolve({ data: null }),
       ])
       if (roundsRes.error) throw roundsRes.error
@@ -1032,6 +1038,13 @@ export default function TripDashboard() {
   }
   const hdr = headers[activeTab]
 
+  // Read-only mode: a trip whose end date is in the past. Editing is disabled
+  // everywhere and commissioner tools are hidden (users are viewing history).
+  const now = new Date()
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const readOnly = !!(trip.end_date && trip.end_date < todayIso)
+  const canManage = isCommissioner && !readOnly
+
   return (
     <div className="dashboard-page">
       {/* ── Tab bar — sticky top ── */}
@@ -1079,29 +1092,36 @@ export default function TripDashboard() {
         </div>
       )}
 
-      {/* ── Tab content ── */}
-      <div className="dashboard-content">
-        {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={isCommissioner} />}
-        {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} />}
+      {/* ── Past-trip read-only indicator ── */}
+      {readOnly && (
+        <div className="readonly-banner">Past Trip — Read Only</div>
+      )}
+
+      {/* ── Tab content ── (keyed by trip so switching trips remounts everything) */}
+      <div className="dashboard-content" key={trip.id}>
+        {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} />}
+        {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
-        {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={isCommissioner} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
+        {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
       </div>
 
       {/* Floating live-score banner — mounted once here so it persists across tabs */}
-      <LiveScoreBanner trip={trip} rounds={rounds} teams={teams} />
+      <LiveScoreBanner key={trip.id} trip={trip} rounds={rounds} teams={teams} />
 
       {/* Slide-out menu drawer (opened by the MENU tab) */}
       <MenuDrawer
+        key={trip.id}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         tripId={trip.id}
-        groupId={activeGroup.id}
-        groupName={activeGroup.name}
+        groupId={trip.group_id}
+        groupName={activeGroup?.name ?? ''}
         tripName={trip.name}
         tripStartDate={trip.start_date}
         tripEndDate={trip.end_date}
         inviteToken={trip.invite_token}
-        isCommissioner={isCommissioner}
+        isCommissioner={canManage}
+        readOnly={readOnly}
         currentUserId={user?.id}
         handicapAllowance={trip.handicap_allowance ?? 100}
         tournamentFormat={trip.format}

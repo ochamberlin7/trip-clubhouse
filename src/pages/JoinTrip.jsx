@@ -18,7 +18,7 @@ const nameOf = p => [p.first_name, p.last_name].filter(Boolean).join(' ') || p.g
 export default function JoinTrip() {
   const { inviteToken } = useParams()
   const { user, loading: authLoading } = useAuth()
-  const { fetchUserGroups, selectGroup } = useGroup()
+  const { fetchUserGroups, switchTrip } = useGroup()
   const navigate = useNavigate()
 
   const [status, setStatus] = useState('loading') // loading | claiming | confirm | nomatch | error
@@ -145,12 +145,10 @@ export default function JoinTrip() {
       // role 'player' — the group_members check constraint only allows 'admin'/'player'.
       await supabase.from('group_members').insert({ group_id: tripRow.group_id, user_id: user.id, role: 'player' })
     }
-    const { data: group } = await supabase.from('groups').select('id, name').eq('id', tripRow.group_id).maybeSingle()
     await fetchUserGroups()
-    // ALWAYS activate the invited group by its known id (so TripDashboard loads
+    // ALWAYS activate the invited trip by its known id (so TripDashboard loads
     // THIS trip, not a different one, and never bounces to /groups → wizard).
-    const role = existing?.role || 'player'
-    selectGroup({ id: tripRow.group_id, name: group?.name || 'Trip', role })
+    switchTrip(tripRow.id)
     navigate('/dashboard', { replace: true })
   }
 

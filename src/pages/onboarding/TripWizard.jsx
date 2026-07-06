@@ -461,14 +461,14 @@ const STEP_TITLES = ['Create a Trip', 'Day Schedule', 'Add Players', 'Tournament
 
 export default function TripWizard() {
   const { user } = useAuth()
-  const { fetchUserGroups, selectGroup } = useGroup()
+  const { fetchUserGroups, switchTrip } = useGroup()
   const navigate = useNavigate()
 
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [submitError, setSubmitError] = useState(null)
-  // Change 5: checking for existing trip on mount
-  const [checking, setChecking] = useState(true)
+  // Multi-trip: users may create additional trips, so the wizard is never blocked.
+  const [checking] = useState(false)
 
   // Step 0
   const [groupName, setGroupName] = useState('')   // Change 1
@@ -487,39 +487,6 @@ export default function TripWizard() {
   const [hasTournament, setHasTournament] = useState(null)
   const [numTeams, setNumTeams] = useState(2) // 2 teams is the default
   const [tournamentFormat, setTournamentFormat] = useState('points_match_play') // default
-
-  // Change 5: block wizard if user already has an active trip
-  useEffect(() => {
-    if (!user) return
-    async function checkExistingTrip() {
-      try {
-        const { data: memberships } = await supabase
-          .from('group_members')
-          .select('group_id')
-          .eq('user_id', user.id)
-          .eq('role', 'admin')
-
-        if (memberships && memberships.length > 0) {
-          const groupIds = memberships.map(m => m.group_id)
-          const { data: trips } = await supabase
-            .from('trips')
-            .select('id')
-            .in('group_id', groupIds)
-            .eq('status', 'active')
-            .limit(1)
-
-          if (trips && trips.length > 0) {
-            navigate('/dashboard', { replace: true, state: { singleTripWarning: true } })
-            return
-          }
-        }
-      } catch (_) {
-        // If check fails, let wizard proceed
-      }
-      setChecking(false)
-    }
-    checkExistingTrip()
-  }, [user])
 
   // Seed the player list: commissioner (locked, from profile) + one blank row.
   useEffect(() => {
@@ -692,9 +659,9 @@ export default function TripWizard() {
         if (teamsErr) throw teamsErr
       }
 
-      // 7. Set active group and navigate
+      // 7. Reload trips and switch to the newly-created one (user is its commissioner).
       await fetchUserGroups()
-      selectGroup({ ...group, role: 'admin' })
+      switchTrip(trip.id)
       navigate('/dashboard', { replace: true })
 
     } catch (err) {

@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useGroup } from '../context/GroupContext'
 import CourseSearchInput from './CourseSearchInput'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
@@ -459,7 +461,7 @@ function roundPrimaryTee(round) {
 // The TEE column is the first after the player name; selecting a tee auto-fills
 // slope/rating/par, recomputes Course + Playing, and saves to player_rounds (any
 // trip member may change any tee). Works on completed rounds too.
-function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChangeTee }) {
+function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChangeTee, readOnly = false }) {
   const [open, setOpen] = useState(false)
   const [apiTees, setApiTees] = useState(null) // tees fetched from the API when rounds.tees is empty
   const alw = allowance ?? 100
@@ -617,6 +619,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                     <select
                       style={teeSelect}
                       value={r.teeName ?? ''}
+                      disabled={readOnly}
                       onChange={e => onChangeTee(round, r.player, tees.find(t => t.name === e.target.value))}
                     >
                       {tees.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
@@ -815,7 +818,7 @@ function PlaceholderDayCard({ date, type, isCommissioner, onAddRound }) {
   )
 }
 
-function CoursesPage({ data, isCommissioner, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound }) {
+function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const { days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds } = data
   if (!days || days.length === 0) {
@@ -869,7 +872,7 @@ function CoursesPage({ data, isCommissioner, onEditCourse, allowance, scoredRoun
                 <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />
               )}
               {/* Tee picker + handicaps — any trip member can change any player's tee. */}
-              <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} />
+              <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} readOnly={readOnly} />
             </div>
           )
         })}
@@ -1334,12 +1337,76 @@ function AppInfoPage() {
   )
 }
 
+// ── Trip switcher ─────────────────────────────────────────────────
+const MD_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function mdTodayIso() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function mdParseIso(iso) {
+  if (!iso) return null
+  const d = new Date(iso + 'T00:00:00')
+  return isNaN(d) ? null : d
+}
+// "Sep 29 – Oct 4, 2026"
+function fmtTripRange(startIso, endIso) {
+  const s = mdParseIso(startIso), e = mdParseIso(endIso)
+  if (s && e) return `${MD_MONTHS[s.getMonth()]} ${s.getDate()} – ${MD_MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`
+  if (s) return `${MD_MONTHS[s.getMonth()]} ${s.getDate()}, ${s.getFullYear()}`
+  if (e) return `${MD_MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`
+  return 'Dates TBD'
+}
+
+const sw = {
+  sectionHeader: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#7A8FA6', padding: '16px 16px 6px' },
+  row: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none', border: 'none', borderBottom: '1px solid #E8EDF3', cursor: 'pointer', fontFamily: 'inherit' },
+  rowActive: { background: '#EEF3F9' },
+  name: { display: 'block', fontSize: 15, fontWeight: 700, color: '#0D1B2A' },
+  dates: { display: 'block', fontSize: 12, color: '#7A8FA6', marginTop: 1 },
+  pastTag: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#7A8FA6' },
+  check: { marginLeft: 'auto', color: '#1B3F6E', fontWeight: 900, fontSize: 16 },
+  empty: { padding: '8px 16px 12px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
+  createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '20px 16px', padding: '13px', borderRadius: 8, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+}
+
+function TripSwitcherPage({ trips, currentTripId, onPick, onCreate }) {
+  const today = mdTodayIso()
+  const upcoming = trips
+    .filter(t => !t.end_date || t.end_date >= today)
+    .sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''))
+  const past = trips
+    .filter(t => t.end_date && t.end_date < today)
+    .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
+
+  const Row = t => (
+    <button key={t.id} style={{ ...sw.row, ...(t.id === currentTripId ? sw.rowActive : null) }} onClick={() => onPick(t.id)}>
+      <span style={{ minWidth: 0 }}>
+        <span style={sw.name}>{t.name || 'Untitled Trip'}</span>
+        <span style={sw.dates}>{fmtTripRange(t.start_date, t.end_date)}</span>
+      </span>
+      {t.id === currentTripId && <span style={sw.check}>✓</span>}
+    </button>
+  )
+
+  return (
+    <div style={{ paddingBottom: 8 }}>
+      <div style={sw.sectionHeader}>Active &amp; Upcoming</div>
+      {upcoming.length ? upcoming.map(Row) : <div style={sw.empty}>No active or upcoming trips</div>}
+      <div style={sw.sectionHeader}>Past Trips</div>
+      {past.length ? past.map(Row) : <div style={sw.empty}>No past trips</div>}
+      <button style={sw.createBtn} onClick={onCreate}>+ Create New Trip</button>
+    </div>
+  )
+}
+
 // ── main component ────────────────────────────────────────────────
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, currentUserId, handicapAllowance, tournamentFormat, onTripUpdate, onRoundsChanged, onSignOut,
+  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, onTripUpdate, onRoundsChanged, onSignOut,
 }) {
+  const navigate = useNavigate()
+  const { allTrips, activeTripId, switchTrip } = useGroup()
   const [page, setPage] = useState(null)
   const [playersData, setPlayersData] = useState(null)
   const [commissionerData, setCommissionerData] = useState(null)
@@ -1695,6 +1762,17 @@ export default function MenuDrawer({
           <button style={s.closeBtn} onClick={onClose} aria-label="Close menu">✕</button>
         </div>
         <div style={s.nav}>
+          {/* Trip switcher — always the very first item */}
+          <button style={{ ...s.item, borderBottom: '1px solid #E8EDF3' }} onClick={() => setPage('switch-trip')}>
+            <span style={s.iconBox}>
+              <svg {...svgProps}><path d="M8 3 4 7l4 4" /><path d="M4 7h16" /><path d="m16 21 4-4-4-4" /><path d="M20 17H4" /></svg>
+            </span>
+            <span style={{ minWidth: 0 }}>
+              <span style={{ ...s.itemLabel, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tripName}</span>
+              <span style={{ ...s.itemSub, display: 'block' }}>{fmtTripRange(tripStartDate, tripEndDate)}</span>
+            </span>
+            <span style={{ marginLeft: 'auto', color: '#7A8FA6', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>Switch ›</span>
+          </button>
           {[...(isCommissioner ? [COMMISSIONER_ITEM] : []), ...MENU_ITEMS]
             .filter(item => item.id !== 'archives' || FEATURES.archives)
             .map(item => (
@@ -1726,6 +1804,16 @@ export default function MenuDrawer({
       </div>
 
       {/* Secondary pages */}
+      {page === 'switch-trip' && (
+        <SecondaryPage context={groupName} title="Switch Trip" onBack={backToDrawer}>
+          <TripSwitcherPage
+            trips={allTrips}
+            currentTripId={activeTripId}
+            onPick={id => { onClose(); switchTrip(id) }}
+            onCreate={() => { onClose(); navigate('/onboarding/trip') }}
+          />
+        </SecondaryPage>
+      )}
       {page === 'commissioner' && isCommissioner && (
         <SecondaryPage context={tripName} title="Commissioner Tools" onBack={backToDrawer}>
           <CommissionerPage
@@ -1748,7 +1836,7 @@ export default function MenuDrawer({
       )}
       {page === 'courses' && (
         <SecondaryPage context={tripName} title="Schedule & Courses" onBack={backToDrawer}>
-          <CoursesPage data={coursesData} isCommissioner={isCommissioner} onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds} onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound} />
+          <CoursesPage data={coursesData} isCommissioner={isCommissioner} readOnly={readOnly} onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds} onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound} />
         </SecondaryPage>
       )}
       {page === 'flights' && (

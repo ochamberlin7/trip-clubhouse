@@ -68,7 +68,7 @@ function MatchCell({ entry }) {
   )
 }
 
-export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, initialRoundId, initialPairingNum, onConnStatus }) {
+export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, readOnly = false, initialRoundId, initialPairingNum, onConnStatus }) {
   const [pairings, setPairings] = useState([])
   const [pairingPlayers, setPairingPlayers] = useState([]) // {id, pairing_id, trip_player_id, team_slot}
   const [playersById, setPlayersById] = useState({})
@@ -367,7 +367,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     return new Set(strokers)
   }
 
-  const isInPairing = isCommissioner || [1, 2, 3, 4].some(s => slotMap[s] && playersById[slotMap[s]]?.user_id === currentUserId)
+  // Read-only past trips: nobody can enter scores or assign players.
+  const canAssign = isCommissioner && !readOnly
+  const isInPairing = !readOnly && (isCommissioner || [1, 2, 3, 4].some(s => slotMap[s] && playersById[slotMap[s]]?.user_id === currentUserId))
 
   // ── commissioner: assign a player to a slot ──
   async function assignSlot(slot, tripPlayerId) {
@@ -421,7 +423,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
   function HeaderCell({ slot, teamClass }) {
     const tp = slotMap[slot] ? playersById[slotMap[slot]] : null
-    if (!isCommissioner) return <div className={`sc-th-name ${teamClass}`}>{tp ? firstName(tp.name) : 'TBD'}</div>
+    if (!canAssign) return <div className={`sc-th-name ${teamClass}`}>{tp ? firstName(tp.name) : 'TBD'}</div>
     // Empty slot → only offer the + when there are players available to assign.
     const label = tp ? firstName(tp.name) : (availableForSlot(slot).length > 0 ? '+' : 'TBD')
     return (
@@ -447,6 +449,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   }
 
   function openModal(slot, hole) {
+    if (readOnly) return // past trip — scorecard is view-only
     const tpId = slotMap[slot]; if (!tpId) return
     setModal({ tpId, hole, teamSide: slot <= 2 ? 'T1' : 'T2' })
   }
@@ -509,7 +512,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   function ScoreCell({ slot, hole, shownSet }) {
     const tpId = slotMap[slot]
     if (!tpId) {
-      return <span className="sc-score-wrap"><button className="sc-score empty" style={{ opacity: 0.5, cursor: 'default' }} tabIndex={-1}>+</button></span>
+      return <span className="sc-score-wrap"><button className="sc-score empty" style={{ opacity: 0.5, cursor: 'default' }} tabIndex={-1}>{readOnly ? '' : '+'}</button></span>
     }
     const gross = getScore(tpId, hole)
     // Lock empty cells on holes played after the match was decided; already-scored
@@ -523,6 +526,22 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const st = strokesOnHole(dotPhOf(tpId), holes?.[hole - 1]?.handicap)
     const showDot = shownSet.has(tpId) && st >= 1
     const dc = getDrinks(tpId, hole)
+    // Read-only past trips: cells display scores but are not clickable (no entry).
+    if (readOnly) {
+      return (
+        <span className="sc-score-wrap">
+          <button className={`sc-score ${cls}`} style={{ cursor: 'default' }} tabIndex={-1}>
+            {gross == null ? '' : gross}
+            {showDot && (
+              <span className="stroke-dots">
+                {Array.from({ length: st }).map((_, i) => <span key={i} className="stroke-dot" />)}
+              </span>
+            )}
+            {dc > 0 && <span className="drink-badge">{dc}</span>}
+          </button>
+        </span>
+      )
+    }
     return (
       <span className="sc-score-wrap">
         <button className={`sc-score ${cls}`} onClick={() => openModal(slot, hole)}>
