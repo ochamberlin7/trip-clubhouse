@@ -28,16 +28,13 @@ function todayIsoLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Match-play status text + which team side (0/1) is ahead (null = tied).
-function matchStatus(t1pts, t2pts, complete, n1, n2) {
-  if (complete) {
-    if (t1pts > t2pts) return { text: `${n1} win ${t1pts}–${t2pts}`, side: 0 }
-    if (t2pts > t1pts) return { text: `${n2} win ${t2pts}–${t1pts}`, side: 1 }
-    return { text: `Tied ${t1pts}–${t2pts}`, side: null }
-  }
-  if (t1pts > t2pts) return { text: `${n1} lead ${t1pts}–${t2pts}`, side: 0 }
-  if (t2pts > t1pts) return { text: `${n2} lead ${t2pts}–${t1pts}`, side: 1 }
-  return { text: 'All Square', side: null }
+// Points Match Play banner text + leading side (0/1/null) + "thru" text.
+// Running points per team, e.g. "Buckeyes 6 - Warthogs 4" · "thru 12".
+// No holes scored → "Match not started".
+function pointsSummary(row, n1, n2) {
+  if (row.thru === 0) return { text: 'Match not started', side: null, thru: '' }
+  const side = row.t1pts > row.t2pts ? 0 : row.t2pts > row.t1pts ? 1 : null
+  return { text: `${n1} ${row.t1pts} - ${n2} ${row.t2pts}`, side, thru: `thru ${row.thru}` }
 }
 
 // Standard Match Play banner text + leading side (0/1/null) + "thru" text.
@@ -171,13 +168,11 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     // Per-round summary, keeping only rounds that have at least one scored hole.
     // 'none' rounds are placeholders and never surface the banner.
     const summaries = rounds.filter(r => r.round_type !== 'none').map(r => {
-      if (isStandard) {
-        const t = liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
-        const scored = t.reduce((a, p) => a + p.thru, 0)
-        return { round: r, tallies: t, scored, complete: t.length > 0 && t.every(p => p.complete) }
-      }
-      const t = liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
-      const scored = t.reduce((a, p) => a + p.holesScored, 0)
+      const t = isStandard
+        ? liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
+        : liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
+      // "scored" surfaces a round once any hole has a score (both tallies expose thru).
+      const scored = t.reduce((a, p) => a + (p.thru || 0), 0)
       return { round: r, tallies: t, scored, complete: t.length > 0 && t.every(p => p.complete) }
     }).filter(sum => sum.scored > 0)
 
@@ -199,7 +194,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     return { round: null, tallies: [] }
   }, [rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance, todayISO, isStandard])
 
-  const anyHolesScored = tallies.some(t => (isStandard ? t.thru : t.holesScored) > 0)
+  const anyHolesScored = tallies.some(t => t.thru > 0)
 
   // Completed-round results only show during the trip dates; an in-progress
   // round can surface the banner any day.
@@ -216,9 +211,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   const teal = teamColor(colorIndexOf(teams?.[1])).solid // Team 2 — teal
   const sideColor = side => (side === 0 ? navy : side === 1 ? teal : '#7A8FA6')
 
-  const visibleRows = isStandard
-    ? tallies.filter(t => t.hasMatch)
-    : tallies.filter(t => t.holesScored > 0)
+  const visibleRows = tallies.filter(t => t.hasMatch)
 
   return (
     <div style={s.float} role="status" aria-label="Live score">
@@ -226,8 +219,8 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       <div style={s.roundLabel}>{round.club_name || round.course_name} · Live Match</div>
       <div style={s.rows}>
         {visibleRows.map(t => {
-          const st = isStandard ? standardStatus(t, n1, n2) : matchStatus(t.t1pts, t.t2pts, t.complete, n1, n2)
-          const thruText = isStandard ? st.thru : (t.complete ? 'Final' : `Thru ${t.holesScored}`)
+          const st = isStandard ? standardStatus(t, n1, n2) : pointsSummary(t, n1, n2)
+          const thruText = st.thru
           return (
             <div key={t.pairingNumber} style={s.row}>
               <span style={s.pairLabel}>Pairing {t.pairingNumber}</span>

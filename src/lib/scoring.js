@@ -422,10 +422,20 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
       }
     }
 
+    // thru = holes where at least one of the pairing's players has a gross
+    // (distinct from holesScored, which needs every present player scored).
+    const all = [...t1Players, ...t2Players]
+    let thru = 0
+    for (let hole = 1; hole <= totalHoles; hole++) {
+      if (all.some(id => scoresMap[`${round.id}:${id}:${hole}`] != null)) thru++
+    }
+
     return {
       pairingNumber: pairing.pairing_number,
       t1pts,
       t2pts,
+      thru,
+      hasMatch,
       holesScored,
       totalHoles,
       complete: holesScored === totalHoles,
