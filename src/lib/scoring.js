@@ -162,6 +162,23 @@ export function playingFromCourseHandicaps(entries, allowance = 100) {
   return map
 }
 
+// WHS better-ball "shots given" for a group (pairing). Each player's PLAYING
+// handicap is round(courseHandicap × allowance/100) — the absolute figure shown
+// in the Schedule & Courses PLAYING column. Shots given (the strokes a player
+// receives, and hence their stroke dots) are that minus the LOWEST playing
+// handicap in the group, so the lowest player plays off scratch (0). Rounding is
+// done on each player's playing handicap FIRST, then the minimum is subtracted —
+// this is what makes dots, net scores and the SHOTS OFF column all agree.
+// `entries` is an array of { id, ch } (ch may be null → 0). Returns Map id -> shots.
+export function shotsGivenFromCourseHandicaps(entries, allowance = 100) {
+  const playing = entries.map(e => ({ id: e.id, ph: e.ch == null ? null : Math.round(e.ch * (allowance / 100)) }))
+  const valid = playing.filter(p => p.ph != null).map(p => p.ph)
+  const min = valid.length ? Math.min(...valid) : 0
+  const map = new Map()
+  for (const p of playing) map.set(p.id, p.ph == null ? 0 : Math.max(0, p.ph - min))
+  return map
+}
+
 // Display name for a trip player (guest name, else profile display name).
 export function playerName(tp, profileMap) {
   if (!tp) return 'Unknown'
@@ -274,7 +291,7 @@ export function analyzeScoring(
         const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${tp}`))
         return { id: tp, ch: courseHandicapForTee(hcpByPlayer.get(tp), tee.slope, tee.rating, tee.par) }
       })
-      const phMap = playingFromCourseHandicaps(entries, allowance)
+      const phMap = shotsGivenFromCourseHandicaps(entries, allowance)
       for (const [tp, ph] of phMap) playing.set(tp, ph)
     }
     playingByRound.set(r.id, playing)
@@ -399,12 +416,13 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
 
     let t1pts = 0, t2pts = 0, holesScored = 0
     if (hasMatch) {
-      // Low-ball playing handicaps from each player's individual tee.
+      // Shots given per player (WHS better ball): playing HCP minus the pairing's
+      // lowest — the same value the scorecard stroke dots use, so net matches dots.
       const entries = [...t1Players, ...t2Players].map(id => {
         const tee = resolvePlayerTee(round, getTeeRow(id))
         return { id, ch: courseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
       })
-      const playing = playingFromCourseHandicaps(entries, allowance)
+      const playing = shotsGivenFromCourseHandicaps(entries, allowance)
 
       const net = (tp, hole) =>
         netScore(scoresMap[`${round.id}:${tp}:${hole}`], playing.get(tp) ?? 0, holes?.[hole - 1]?.handicap)
@@ -614,13 +632,13 @@ export function liveStandardMatchTally(round, pairings, pairingPlayers, scoresMa
     const all = [...t1Players, ...t2Players]
     const hasMatch = t1Players.length > 0 && t2Players.length > 0
 
-    // Low-ball playing handicaps from each player's individual tee (same as
-    // liveMatchTally and ScoringTab's on-screen nets).
+    // Shots given per player (WHS better ball): playing HCP minus the pairing's
+    // lowest — the same value the scorecard stroke dots use, so net matches dots.
     const entries = all.map(id => {
       const tee = resolvePlayerTee(round, getTeeRow(id))
       return { id, ch: courseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
     })
-    const playing = playingFromCourseHandicaps(entries, allowance)
+    const playing = shotsGivenFromCourseHandicaps(entries, allowance)
 
     const grossFor = id => {
       const o = {}

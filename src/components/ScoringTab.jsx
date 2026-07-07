@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { strokesOnHole, netScore, courseHandicapForTee, resolvePlayerTee, playingFromCourseHandicaps, standardMatchTally } from '../lib/scoring'
+import { strokesOnHole, netScore, courseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally } from '../lib/scoring'
 import { teamPillStyle, getTeamDisplayName } from '../lib/teamColors'
 
 // Live interactive scorecard — better-ball match play with drink tracking.
@@ -314,31 +314,28 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // Whether the visible slots are all filled (for the "assign players" hint only).
   const visibleFilled = [...t1Slots, ...t2Slots].every(s => slotMap[s])
 
-  // Low-ball playing handicaps for the players in this pairing, each from their
-  // individual tee (player_rounds → round default). Course HCP is WHS per tee.
+  // Shots given (WHS better ball) for the players in this pairing, each from their
+  // individual tee (player_rounds → round default). Each player's PLAYING handicap
+  // is round(courseHCP × allowance/100); shots given = that minus the pairing's
+  // LOWEST playing handicap, so the lowest player plays off scratch (0). The stroke
+  // dots AND the net scores both use this, so dots and results always agree.
   const allowance = trip.handicap_allowance ?? 100
   const chEntries = [1, 2, 3, 4].map(s => slotMap[s]).filter(Boolean).map(id => {
     const tee = resolvePlayerTee(round, playerRoundsMap[`${round.id}:${id}`])
     return { id, ch: courseHandicapForTee(playersById[id]?.handicap_index, tee.slope, tee.rating, tee.par) }
   })
-  const playingByTp = playingFromCourseHandicaps(chEntries, allowance)
-  const phOf = tpId => playingByTp.get(tpId) ?? 0
-  // Stroke dots use each player's PLAYING handicap = round(course HCP × allowance),
-  // computed independently per player from their own HI. No low-ball subtraction,
-  // so one player's handicap never affects another player's dots (a scratch player
-  // off course HCP 0 gets zero dots regardless of who else is in the pairing).
-  const dotPhByTp = new Map(chEntries.map(e => [e.id, e.ch == null ? 0 : Math.round(e.ch * (allowance / 100))]))
-  const dotPhOf = tpId => dotPhByTp.get(tpId) ?? 0
+  const shotsByTp = shotsGivenFromCourseHandicaps(chEntries, allowance)
+  const sgOf = tpId => shotsByTp.get(tpId) ?? 0
 
   const getScore = (tpId, hole) => scores[`${round.id}:${tpId}:${hole}`] ?? null
   const getDrinks = (tpId, hole) => drinks[`${round.id}:${tpId}:${hole}`] ?? 0
-  // Net uses the low-ball playing handicap (phOf) via the shared netScore helper —
+  // Net = gross - shots given on the hole (by SI), via the shared netScore helper —
   // identical math to liveMatchTally and standardMatchTally.
-  const netOf = (tpId, hole) => netScore(getScore(tpId, hole), phOf(tpId), holes?.[hole - 1]?.handicap)
+  const netOf = (tpId, hole) => netScore(getScore(tpId, hole), sgOf(tpId), holes?.[hole - 1]?.handicap)
 
   // Standard Match Play running tally for the active pairing. Feeds the same
-  // playing handicaps (phOf) and gross scores that drive the on-screen nets, so
-  // the match status is consistent with the displayed net scores.
+  // shots given (sgOf) and gross scores that drive the on-screen nets/dots, so
+  // the match status is consistent with the displayed dots and net scores.
   const buildGrossByHole = tpId => {
     const o = {}
     for (let h = 1; h <= 18; h++) { const g = getScore(tpId, h); if (g != null) o[h] = g }
@@ -348,8 +345,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     ? standardMatchTally(
         holes || [],
         [
-          ...t1MatchTps.map(id => ({ id, team: 1, playingHandicap: phOf(id), grossByHole: buildGrossByHole(id) })),
-          ...t2MatchTps.map(id => ({ id, team: 2, playingHandicap: phOf(id), grossByHole: buildGrossByHole(id) })),
+          ...t1MatchTps.map(id => ({ id, team: 1, playingHandicap: sgOf(id), grossByHole: buildGrossByHole(id) })),
+          ...t2MatchTps.map(id => ({ id, team: 2, playingHandicap: sgOf(id), grossByHole: buildGrossByHole(id) })),
         ],
         { team1Name: getTeamDisplayName(teams[0]), team2Name: getTeamDisplayName(teams[1]) },
       )
@@ -371,15 +368,14 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   }
 
   // Stroke dots once the visible slots are filled (a 1-player-per-team pairing
-  // fills only slots 1 & 3). Each player's dots are assigned independently from
-  // their own playing handicap and the hole SI — a player shows a dot wherever
-  // their own handicap strokes, regardless of whether anyone else also strokes
-  // there. One player's handicap has zero effect on another player's dots.
+  // fills only slots 1 & 3). A player shows a dot on a hole when their SHOTS GIVEN
+  // (playing handicap relative to the pairing's lowest) covers that hole's SI — so
+  // the lowest player in the pairing gets no dots (WHS better ball).
   function strokesShown(hole) {
     if (!visibleFilled) return new Set()
     const si = holes?.[hole - 1]?.handicap
     const filledTps = [...t1Slots, ...t2Slots].map(s => slotMap[s]).filter(Boolean)
-    const strokers = filledTps.filter(tp => strokesOnHole(dotPhOf(tp), si) >= 1)
+    const strokers = filledTps.filter(tp => strokesOnHole(sgOf(tp), si) >= 1)
     return new Set(strokers)
   }
 
@@ -538,8 +534,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     }
     const par = holes?.[hole - 1]?.par
     const cls = scoreClass(gross, par)
-    // Dot count uses the player's playing handicap (course HCP × allowance).
-    const st = strokesOnHole(dotPhOf(tpId), holes?.[hole - 1]?.handicap)
+    // Dot count = shots given (playing HCP relative to the pairing's lowest).
+    const st = strokesOnHole(sgOf(tpId), holes?.[hole - 1]?.handicap)
     const showDot = shownSet.has(tpId) && st >= 1
     const dc = getDrinks(tpId, hole)
     // Read-only past trips: cells display scores but are not clickable (no entry).
@@ -694,7 +690,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           modal={modal} round={round} player={playersById[modal.tpId]}
           teamName={getTeamDisplayName(modal.teamSide === 'T1' ? teams[0] : teams[1])}
           par={holes?.[modal.hole - 1]?.par} si={holes?.[modal.hole - 1]?.handicap}
-          courseHcp={phOf(modal.tpId)} canSave={isInPairing}
+          courseHcp={sgOf(modal.tpId)} canSave={isInPairing}
           existingScore={getScore(modal.tpId, modal.hole)} existingDrinks={getDrinks(modal.tpId, modal.hole)}
           onClose={() => setModal(null)}
           onCommit={commitScore}

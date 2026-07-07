@@ -511,16 +511,13 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
     return () => { cancelled = true }
   }, [open, round.id, round.golfcourse_id, round.tees, apiTees])
 
-  const grid = { display: 'grid', gridTemplateColumns: '1fr 84px 44px 52px 56px', alignItems: 'center', gap: 4 }
+  const grid = { display: 'grid', gridTemplateColumns: '1fr 70px 38px 46px 50px 52px', alignItems: 'center', gap: 4 }
   const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
   const muted = { color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
   const teeSelect = { width: '100%', fontSize: 12, fontWeight: 600, color: '#0D1B2A', fontFamily: 'inherit', border: '1px solid #DDE3EA', borderRadius: 6, padding: '4px 4px', background: '#fff', boxSizing: 'border-box' }
 
-  // Course HCP uses each player's individual tee (WHS). Playing handicap is
-  // round(courseHCP * allowance/100) per player — the SAME value the scorecard's
-  // stroke dots use (ScoringTab dotPhOf), so the PLAYING column and the dots
-  // always match. No low-ball / min subtraction (that only applies to net-scoring
-  // match play, which is computed separately).
+  // Course HCP uses each player's individual tee (WHS). Playing handicap is the
+  // absolute round(courseHCP * allowance/100) per player (the PLAYING column).
   const rows = players.map(p => {
     const saved = playerRoundsMap?.[`${round.id}:${p.id}`]
     const tee = resolvePlayerTee(round, saved)
@@ -528,6 +525,12 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
     const playing = courseHCP == null ? null : Math.round(courseHCP * (alw / 100))
     return { id: p.id, name: p.name, idx: p.handicap_index, courseHCP, playing, teeName: saved?.tee_name ?? defaultTeeName, player: p }
   })
+  // SHOTS OFF = shots given = playing HCP minus the LOWEST playing HCP among this
+  // round's players (the scratch player shows 0). This is the stroke-dot count the
+  // scorecard assigns per player, made transparent here.
+  const validPlaying = rows.filter(r => r.playing != null).map(r => r.playing)
+  const minPlaying = validPlaying.length ? Math.min(...validPlaying) : 0
+  rows.forEach(r => { r.shotsOff = r.playing == null ? null : Math.max(0, r.playing - minPlaying) })
 
   // Target sort order (by playing HCP, then name for stable ties) and a lookup
   // for fresh per-row values regardless of displayed order.
@@ -612,6 +615,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                 <span style={headCell}>Index</span>
                 <span style={headCell}>Course</span>
                 <span style={headCell}>Playing</span>
+                <span style={headCell}>Shots Off</span>
               </div>
               {orderedRows.map((r, i) => (
                 <div key={r.id}
@@ -633,6 +637,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                   <span style={{ fontSize: 13, color: r.idx == null ? '#7A8FA6' : '#2C3E50' }}>{r.idx ?? 'TBD'}</span>
                   <span style={{ fontSize: 13, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: playingColor(r.playing) }}>{r.playing ?? '—'}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1B3F6E' }}>{r.shotsOff ?? '—'}</span>
                 </div>
               ))}
               <div style={{ background: '#F5F8FA', padding: '8px 10px', fontSize: 11, color: '#7A8FA6', fontStyle: 'italic' }}>
