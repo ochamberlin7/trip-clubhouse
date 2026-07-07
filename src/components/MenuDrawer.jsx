@@ -7,7 +7,7 @@ import { uniqueChannelName } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
-import { courseHandicapForTee, resolvePlayerTee, playingFromCourseHandicaps, tournamentFormatLabel } from '../lib/scoring'
+import { courseHandicapForTee, resolvePlayerTee, tournamentFormatLabel } from '../lib/scoring'
 import { FEATURES } from '../lib/features'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -516,16 +516,18 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   const muted = { color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
   const teeSelect = { width: '100%', fontSize: 12, fontWeight: 600, color: '#0D1B2A', fontFamily: 'inherit', border: '1px solid #DDE3EA', borderRadius: 6, padding: '4px 4px', background: '#fff', boxSizing: 'border-box' }
 
-  // Course HCP uses each player's individual tee (WHS); playing is low-ball
-  // (round((ch - minCh) * allowance/100)) within this round.
+  // Course HCP uses each player's individual tee (WHS). Playing handicap is
+  // round(courseHCP * allowance/100) per player — the SAME value the scorecard's
+  // stroke dots use (ScoringTab dotPhOf), so the PLAYING column and the dots
+  // always match. No low-ball / min subtraction (that only applies to net-scoring
+  // match play, which is computed separately).
   const rows = players.map(p => {
     const saved = playerRoundsMap?.[`${round.id}:${p.id}`]
     const tee = resolvePlayerTee(round, saved)
     const courseHCP = courseHandicapForTee(p.handicap_index, tee.slope, tee.rating, tee.par)
-    return { id: p.id, name: p.name, idx: p.handicap_index, courseHCP, teeName: saved?.tee_name ?? defaultTeeName, player: p }
+    const playing = courseHCP == null ? null : Math.round(courseHCP * (alw / 100))
+    return { id: p.id, name: p.name, idx: p.handicap_index, courseHCP, playing, teeName: saved?.tee_name ?? defaultTeeName, player: p }
   })
-  const playingMap = playingFromCourseHandicaps(rows.map(r => ({ id: r.id, ch: r.courseHCP })), alw)
-  rows.forEach(r => { r.playing = r.courseHCP != null ? playingMap.get(r.id) : null })
 
   // Target sort order (by playing HCP, then name for stable ties) and a lookup
   // for fresh per-row values regardless of displayed order.
