@@ -1097,8 +1097,9 @@ export default function TripDashboard() {
         <div className="readonly-banner">Past Trip — Read Only</div>
       )}
 
-      {/* ── Tab content ── (keyed by trip so switching trips remounts everything) */}
-      <div className="dashboard-content" key={trip.id}>
+      {/* ── Tab content ── (keyed by trip so switching trips remounts everything;
+          keys must be UNIQUE among siblings — see the banner/drawer below) */}
+      <div className="dashboard-content" key={`content-${trip.id}`}>
         {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} />}
         {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
@@ -1106,11 +1107,11 @@ export default function TripDashboard() {
       </div>
 
       {/* Floating live-score banner — mounted once here so it persists across tabs */}
-      <LiveScoreBanner key={trip.id} trip={trip} rounds={rounds} teams={teams} />
+      <LiveScoreBanner key={`banner-${trip.id}`} trip={trip} rounds={rounds} teams={teams} />
 
       {/* Slide-out menu drawer (opened by the MENU tab) */}
       <MenuDrawer
-        key={trip.id}
+        key={`drawer-${trip.id}`}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         tripId={trip.id}
