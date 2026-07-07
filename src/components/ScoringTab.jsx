@@ -292,12 +292,21 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const t2MatchTps = [slotMap[3], slotMap[4]].filter(Boolean)
   const matchActive = t1MatchTps.length > 0 && t2MatchTps.length > 0
 
-  // How many player columns to show per team — the team's roster size (1 or 2),
-  // so a team with only one player doesn't render a ghost second slot. Display
-  // only; scoring/handicap math below still uses the full slot set.
+  // How many player columns to show per team. Display only; scoring/handicap math
+  // below still uses the full slot set [1,2,3,4].
+  //   • Teams assigned → the team's roster size (1 or 2), so a single-player team
+  //     doesn't render a ghost second slot.
+  //   • Teams missing/incomplete → fall back to the full trip roster split evenly
+  //     across the two sides (capped at 2 slots each), so a placeholder column
+  //     shows per player even before anyone is assigned (4 players → 2 per side).
   const teamSize = teamId => Object.values(playersById).filter(p => teamId && p.team_id === teamId).length
-  const t1Slots = teamSize(teams[0]?.id) >= 2 ? [1, 2] : [1]
-  const t2Slots = teamSize(teams[1]?.id) >= 2 ? [3, 4] : [3]
+  const totalPlayers = Object.values(playersById).length
+  const fallbackT1 = Math.min(2, Math.max(1, Math.ceil(totalPlayers / 2)))
+  const fallbackT2 = Math.min(2, Math.max(1, Math.floor(totalPlayers / 2)))
+  const t1Count = Math.min(2, Math.max(teamSize(teams[0]?.id), fallbackT1))
+  const t2Count = Math.min(2, Math.max(teamSize(teams[1]?.id), fallbackT2))
+  const t1Slots = t1Count >= 2 ? [1, 2] : [1]
+  const t2Slots = t2Count >= 2 ? [3, 4] : [3]
   // Standard Match Play swaps the Pts column for a wider running-match-status column.
   const isStandard = trip?.format === 'standard_match_play'
   const midColW = isStandard ? '58px' : '32px'
