@@ -42,7 +42,7 @@ function TabIcon({ id }) {
   if (id === 'scores')
     return <svg {...svg}><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
   if (id === 'leaderboard')
-    return <svg {...svg}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+    return <svg {...svg}><g strokeWidth="2.6"><line x1="4.5" y1="5.5" x2="19.5" y2="5.5"/><line x1="4.5" y1="10.5" x2="15.5" y2="10.5"/><line x1="4.5" y1="15.5" x2="12" y2="15.5"/><line x1="4.5" y1="20.5" x2="9" y2="20.5"/></g></svg>
   if (id === 'tee-times')
     return <svg {...svg}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
   if (id === 'menu')
