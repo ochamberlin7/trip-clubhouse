@@ -73,7 +73,7 @@ const styles = {
 const BADGE = {
   tournament: {
     label: 'Tournament',
-    style: { background: 'rgba(27,63,110,0.1)', color: '#1B3F6E', border: '1px solid #1B3F6E' },
+    style: { background: 'rgba(27,63,110,0.06)', color: '#5A7699', border: '1px solid rgba(27,63,110,0.2)' },
   },
   practice: {
     label: 'Practice',
@@ -83,9 +83,9 @@ const BADGE = {
 
 const badgeBase = {
   fontSize: '10px',
-  padding: '2px 7px',
+  padding: '1px 6px',
   borderRadius: '10px',
-  fontWeight: 700,
+  fontWeight: 500,
   marginTop: '3px',
   display: 'inline-block',
 }
