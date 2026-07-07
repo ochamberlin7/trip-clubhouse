@@ -615,7 +615,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                 <span style={headCell}>Index</span>
                 <span style={headCell}>Course</span>
                 <span style={headCell}>Playing</span>
-                <span style={headCell}>Shots Off</span>
+                <span style={headCell}>Shots</span>
               </div>
               {orderedRows.map((r, i) => (
                 <div key={r.id}
@@ -636,7 +636,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                   )}
                   <span style={{ fontSize: 13, color: r.idx == null ? '#7A8FA6' : '#2C3E50' }}>{r.idx ?? 'TBD'}</span>
                   <span style={{ fontSize: 13, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: playingColor(r.playing) }}>{r.playing ?? '—'}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1B3F6E' }}>{r.playing ?? '—'}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#1B3F6E' }}>{r.shotsOff ?? '—'}</span>
                 </div>
               ))}
