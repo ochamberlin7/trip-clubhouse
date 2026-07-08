@@ -241,7 +241,6 @@ export default function JoinTrip() {
       <div style={sh.page}>
         <div style={sh.card}>
           <div style={sh.eyebrow}>Trip Clubhouse</div>
-          {trip?.name && <div style={sh.tripName}>{trip.name}</div>}
           <div style={sh.body}>
             We couldn&rsquo;t find you on the guest list for this trip.
           </div>

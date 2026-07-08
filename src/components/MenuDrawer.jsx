@@ -298,7 +298,7 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
           <div style={pc.detailRow}>
             <span style={pc.detailLabel}>Phone</span>
             {player.phone
-              ? <a href={`tel:${player.phone}`} style={{ color: '#2C3E50', textDecoration: 'none' }}>{player.phone}</a>
+              ? <a href={`tel:${player.phone}`} style={{ color: '#2C3E50', textDecoration: 'none' }}>{formatPhone(player.phone)}</a>
               : <span style={pc.muted}>—</span>}
           </div>
           <div style={{ ...pc.detailRow, ...(isCommissioner ? null : { borderBottom: 'none' }) }}>
