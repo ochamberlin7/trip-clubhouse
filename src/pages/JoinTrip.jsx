@@ -139,17 +139,33 @@ export default function JoinTrip() {
     // Expose the invite token to Postgres so the trip_players SELECT policy's
     // invite-token clause lets us read EVERY slot for this trip — including
     // name-only players (no email, no phone) that no other clause can match.
-    await supabase.rpc('set_config', { parameter: 'app.invite_token', value: inviteToken, is_local: false })
+    // The RPC arg names must match public.set_config(parameter, value, is_local).
+    console.log('[JoinTrip] inviteToken (before set_config):', JSON.stringify(inviteToken))
+    const setRes = await supabase.rpc('set_config', {
+      parameter: 'app.invite_token', value: inviteToken, is_local: false,
+    })
+    console.log('[JoinTrip] set_config → data:', JSON.stringify(setRes.data), '| error:', setRes.error)
+
+    // Verify the setting actually persisted into a *separate* request/transaction.
+    // If this comes back null/empty, set_config did not persist (PostgREST runs
+    // each request in its own transaction, often on a different pooled connection).
+    const checkRes = await supabase.rpc('get_invite_token_setting')
+    console.log('[JoinTrip] get_invite_token_setting → data:', JSON.stringify(checkRes.data), '| error:', checkRes.error)
+    if (!checkRes.data) {
+      console.warn('[JoinTrip] app.invite_token is EMPTY when read back — the session setting is NOT persisting across requests, so the RLS invite-token clause cannot match.')
+    }
 
     const { data, error: rpcErr } = await supabase.rpc('invite_guest_list', { p_invite_token: inviteToken })
+    console.log('[JoinTrip] invite_guest_list → rows:', Array.isArray(data) ? data.length : `(not array: ${JSON.stringify(data)})`, '| error:', rpcErr)
     if (!rpcErr && Array.isArray(data)) return data
-    // RPC not available — fall back to a direct read. With the invite-token
-    // session setting above, RLS exposes all of this trip's slots, so fuzzy name
-    // matching can still run for name-only players.
-    const { data: fb } = await supabase
+
+    // RPC not available — fall back to a direct read (RLS-governed). This is the
+    // query that needs the invite-token setting to see name-only slots.
+    const { data: fb, error: fbErr } = await supabase
       .from('trip_players')
       .select('id, email, phone, first_name, last_name, guest_name, is_claimed, claimed_user_id')
       .eq('trip_id', tripRow.id)
+    console.log('[JoinTrip] fallback trip_players direct read → rows:', Array.isArray(fb) ? fb.length : '(not array)', '| error:', fbErr)
     return fb || []
   }
 
