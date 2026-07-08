@@ -3,6 +3,15 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
+// Display-only formatter: a 10-digit number becomes (xxx) xxx-xxxx; anything else
+// (e.g. an international number) is left untouched. The submitted value is always
+// raw digits regardless of this.
+function formatPhone(raw) {
+  const d = (raw || '').replace(/\D/g, '')
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
+  return raw
+}
+
 export default function Signup() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -36,8 +45,9 @@ export default function Signup() {
       email,
       password,
       // phone is carried in user_metadata so JoinTrip can store it on the profile
-      // and use it to match the invitee against the trip's guest list.
-      options: { data: { display_name: displayName, phone: phone.trim() } }
+      // and use it to match the invitee against the trip's guest list. Stored as
+      // raw digits (any display formatting is stripped) for consistent matching.
+      options: { data: { display_name: displayName, phone: phone.replace(/\D/g, '') } }
     })
     if (error) {
       setError(error.message)
@@ -69,7 +79,8 @@ export default function Signup() {
           <div>
             <label className="field-label">Phone Number</label>
             <input type="tel" placeholder="(555) 000-0000" value={phone}
-              onChange={e => setPhone(e.target.value)} />
+              onChange={e => setPhone(e.target.value)}
+              onBlur={() => setPhone(formatPhone(phone))} />
           </div>
           <div>
             <label className="field-label">Email</label>
