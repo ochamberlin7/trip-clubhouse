@@ -1370,26 +1370,74 @@ const sw = {
   row: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none', border: 'none', borderBottom: '1px solid #E8EDF3', cursor: 'pointer', fontFamily: 'inherit' },
   rowActive: { background: '#EEF3F9' },
   name: { display: 'block', fontSize: 15, fontWeight: 700, color: '#0D1B2A' },
+  meta: { display: 'block', fontSize: 12, color: '#7A8FA6', marginTop: 1 },
   dates: { display: 'block', fontSize: 12, color: '#7A8FA6', marginTop: 1 },
-  pastTag: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#7A8FA6' },
-  check: { marginLeft: 'auto', color: '#1B3F6E', fontWeight: 900, fontSize: 16 },
+  check: { marginLeft: 'auto', color: '#1B3F6E', fontWeight: 900, fontSize: 16, flexShrink: 0 },
   empty: { padding: '8px 16px 12px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
+  loading: { padding: '16px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
   createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '20px 16px', padding: '13px', borderRadius: 8, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 }
 
-function TripSwitcherPage({ trips, currentTripId, onPick, onCreate }) {
+// Flat list of EVERY trip the user belongs to (via trip_players) across ALL of
+// their groups, each tagged with its group name + the user's role in that group.
+function TripSwitcherPage({ userId, currentTripId, onPick, onCreate }) {
+  const [rows, setRows] = useState(null) // null = loading
+
+  useEffect(() => {
+    if (!userId) { setRows([]); return }
+    let cancelled = false
+    ;(async () => {
+      // 1. Every group the user belongs to, with their role in it.
+      const { data: gm } = await supabase
+        .from('group_members')
+        .select('role, group_id, groups(id, name)')
+        .eq('user_id', userId)
+      const groupInfo = new Map() // group_id -> { name, role }
+      ;(gm || []).forEach(m => {
+        const gid = m.group_id ?? m.groups?.id
+        if (gid) groupInfo.set(gid, { name: m.groups?.name ?? 'Group', role: m.role })
+      })
+      const groupIds = [...groupInfo.keys()]
+      if (!groupIds.length) { if (!cancelled) setRows([]); return }
+
+      // 2. Trips in those groups + the trips the user actually belongs to (trip_players).
+      const [tripsRes, tpRes] = await Promise.all([
+        supabase.from('trips').select('id, group_id, name, start_date, end_date').in('group_id', groupIds),
+        supabase.from('trip_players').select('trip_id').or(`user_id.eq.${userId},claimed_user_id.eq.${userId}`),
+      ])
+      const myTripIds = new Set((tpRes.data || []).map(r => r.trip_id))
+      if (cancelled) return
+
+      const list = (tripsRes.data || [])
+        // Trips the user belongs to (always keep the currently-active one too).
+        .filter(t => myTripIds.has(t.id) || t.id === currentTripId)
+        .map(t => {
+          const g = groupInfo.get(t.group_id) || {}
+          return {
+            id: t.id, name: t.name, start_date: t.start_date, end_date: t.end_date,
+            groupName: g.name || 'Group',
+            role: g.role === 'admin' ? 'Commissioner' : 'Member',
+          }
+        })
+      setRows(list)
+    })()
+    return () => { cancelled = true }
+  }, [userId, currentTripId])
+
   const today = mdTodayIso()
-  const upcoming = trips
+  const all = rows || []
+  const upcoming = all
     .filter(t => !t.end_date || t.end_date >= today)
     .sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''))
-  const past = trips
+  const past = all
     .filter(t => t.end_date && t.end_date < today)
     .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
 
   const Row = t => (
     <button key={t.id} style={{ ...sw.row, ...(t.id === currentTripId ? sw.rowActive : null) }} onClick={() => onPick(t.id)}>
-      <span style={{ minWidth: 0 }}>
+      <span style={{ minWidth: 0, flex: 1 }}>
         <span style={sw.name}>{t.name || 'Untitled Trip'}</span>
+        <span style={sw.meta}>{t.groupName} · {t.role}</span>
         <span style={sw.dates}>{fmtTripRange(t.start_date, t.end_date)}</span>
       </span>
       {t.id === currentTripId && <span style={sw.check}>✓</span>}
@@ -1398,10 +1446,16 @@ function TripSwitcherPage({ trips, currentTripId, onPick, onCreate }) {
 
   return (
     <div style={{ paddingBottom: 8 }}>
-      <div style={sw.sectionHeader}>Active &amp; Upcoming</div>
-      {upcoming.length ? upcoming.map(Row) : <div style={sw.empty}>No active or upcoming trips</div>}
-      <div style={sw.sectionHeader}>Past Trips</div>
-      {past.length ? past.map(Row) : <div style={sw.empty}>No past trips</div>}
+      {rows == null ? (
+        <div style={sw.loading}>Loading trips…</div>
+      ) : (
+        <>
+          <div style={sw.sectionHeader}>Active &amp; Upcoming</div>
+          {upcoming.length ? upcoming.map(Row) : <div style={sw.empty}>No active or upcoming trips</div>}
+          <div style={sw.sectionHeader}>Past Trips</div>
+          {past.length ? past.map(Row) : <div style={sw.empty}>No past trips</div>}
+        </>
+      )}
       <button style={sw.createBtn} onClick={onCreate}>+ Create New Trip</button>
     </div>
   )
@@ -1414,7 +1468,7 @@ export default function MenuDrawer({
   inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, onTripUpdate, onRoundsChanged, onSignOut,
 }) {
   const navigate = useNavigate()
-  const { allTrips, activeTripId, switchTrip } = useGroup()
+  const { activeTripId, switchTrip } = useGroup()
   const [page, setPage] = useState(null)
   const [playersData, setPlayersData] = useState(null)
   const [commissionerData, setCommissionerData] = useState(null)
@@ -1815,7 +1869,7 @@ export default function MenuDrawer({
       {page === 'switch-trip' && (
         <SecondaryPage context={groupName} title="Switch Trip" onBack={backToDrawer}>
           <TripSwitcherPage
-            trips={allTrips}
+            userId={currentUserId}
             currentTripId={activeTripId}
             onPick={id => { onClose(); switchTrip(id) }}
             onCreate={() => { onClose(); navigate('/onboarding/trip') }}
