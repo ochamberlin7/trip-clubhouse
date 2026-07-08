@@ -139,7 +139,7 @@ export default function JoinTrip() {
     // Expose the invite token to Postgres so the trip_players SELECT policy's
     // invite-token clause lets us read EVERY slot for this trip — including
     // name-only players (no email, no phone) that no other clause can match.
-    await supabase.rpc('set_config', { parameter: 'app.invite_token', value: inviteToken, is_local: true })
+    await supabase.rpc('set_config', { parameter: 'app.invite_token', value: inviteToken, is_local: false })
 
     const { data, error: rpcErr } = await supabase.rpc('invite_guest_list', { p_invite_token: inviteToken })
     if (!rpcErr && Array.isArray(data)) return data
@@ -210,6 +210,7 @@ export default function JoinTrip() {
     page: { minHeight: '100vh', background: '#F0F4F8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
     card: { background: '#fff', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', textAlign: 'center' },
     eyebrow: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '2px', color: '#1B3F6E', fontWeight: 600, marginBottom: 6 },
+    eyebrowLg: { fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 700, marginBottom: 8 },
     tripName: { fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 10 },
     prompt: { fontSize: 16, color: '#0D1B2A', lineHeight: 1.5, marginBottom: 4 },
     matchName: { fontWeight: 800, color: '#1B3F6E' },
@@ -246,7 +247,7 @@ export default function JoinTrip() {
     return (
       <div style={sh.page}>
         <div style={sh.card}>
-          <div style={sh.eyebrow}>Trip Clubhouse</div>
+          <div style={sh.eyebrowLg}>Trip Clubhouse</div>
           <div style={sh.body}>
             We couldn&rsquo;t find you on the guest list for this trip.
           </div>
