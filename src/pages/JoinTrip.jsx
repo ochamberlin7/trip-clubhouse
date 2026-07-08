@@ -51,11 +51,10 @@ export default function JoinTrip() {
       await ensureProfile()
       if (cancelled) return
 
-      // Load the FULL guest list via a SECURITY DEFINER RPC (gated on the invite
-      // token) so phone / fuzzy-name matching can see every slot — RLS otherwise
-      // limits a not-yet-member to their own email-matching row. Falls back to a
-      // direct read (email-match still works) if the RPC isn't deployed yet.
-      const players = await loadGuestList(tripRow)
+      // Load the FULL guest list via the token-gated SECURITY DEFINER RPC so
+      // email / phone / fuzzy-name matching can see every slot — including
+      // name-only players that RLS would otherwise hide.
+      const players = await loadGuestList()
       if (cancelled) return
 
       // Already a member of this trip → straight to the dashboard.
@@ -135,38 +134,15 @@ export default function JoinTrip() {
       .upsert({ id: user.id, display_name: displayName, phone }, { onConflict: 'id', ignoreDuplicates: true })
   }
 
-  async function loadGuestList(tripRow) {
-    // Expose the invite token to Postgres so the trip_players SELECT policy's
-    // invite-token clause lets us read EVERY slot for this trip — including
-    // name-only players (no email, no phone) that no other clause can match.
-    // The RPC arg names must match public.set_config(parameter, value, is_local).
-    console.log('[JoinTrip] inviteToken (before set_config):', JSON.stringify(inviteToken))
-    const setRes = await supabase.rpc('set_config', {
-      parameter: 'app.invite_token', value: inviteToken, is_local: false,
-    })
-    console.log('[JoinTrip] set_config → data:', JSON.stringify(setRes.data), '| error:', setRes.error)
-
-    // Verify the setting actually persisted into a *separate* request/transaction.
-    // If this comes back null/empty, set_config did not persist (PostgREST runs
-    // each request in its own transaction, often on a different pooled connection).
-    const checkRes = await supabase.rpc('get_invite_token_setting')
-    console.log('[JoinTrip] get_invite_token_setting → data:', JSON.stringify(checkRes.data), '| error:', checkRes.error)
-    if (!checkRes.data) {
-      console.warn('[JoinTrip] app.invite_token is EMPTY when read back — the session setting is NOT persisting across requests, so the RLS invite-token clause cannot match.')
-    }
-
+  async function loadGuestList() {
+    // Guest list is fetched EXCLUSIVELY via the token-gated SECURITY DEFINER RPC.
+    // It bypasses RLS, so it returns every slot for this trip — including
+    // name-only players (no email, no phone) like Chase McDonald. No session
+    // variable, no fallback direct read (RLS can't see name-only slots).
+    console.log('[JoinTrip] loadGuestList inviteToken:', JSON.stringify(inviteToken))
     const { data, error: rpcErr } = await supabase.rpc('invite_guest_list', { p_invite_token: inviteToken })
     console.log('[JoinTrip] invite_guest_list → rows:', Array.isArray(data) ? data.length : `(not array: ${JSON.stringify(data)})`, '| error:', rpcErr)
-    if (!rpcErr && Array.isArray(data)) return data
-
-    // RPC not available — fall back to a direct read (RLS-governed). This is the
-    // query that needs the invite-token setting to see name-only slots.
-    const { data: fb, error: fbErr } = await supabase
-      .from('trip_players')
-      .select('id, email, phone, first_name, last_name, guest_name, is_claimed, claimed_user_id')
-      .eq('trip_id', tripRow.id)
-    console.log('[JoinTrip] fallback trip_players direct read → rows:', Array.isArray(fb) ? fb.length : '(not array)', '| error:', fbErr)
-    return fb || []
+    return Array.isArray(data) ? data : []
   }
 
   async function showNoMatch(tripRow) {
