@@ -1770,14 +1770,14 @@ export default function MenuDrawer({
           <button style={s.closeBtn} onClick={onClose} aria-label="Close menu">✕</button>
         </div>
         <div style={s.nav}>
-          {/* Trip switcher — always the very first item */}
-          <button style={{ ...s.item, borderBottom: '1px solid #E8EDF3' }} onClick={() => setPage('switch-trip')}>
+          {/* Trip switcher — styled like the other menu rows; opens the switcher page */}
+          <button style={s.item} onClick={() => setPage('switch-trip')}>
             <span style={s.iconBox}>
               <svg {...svgProps}><path d="M8 3 4 7l4 4" /><path d="M4 7h16" /><path d="m16 21 4-4-4-4" /><path d="M20 17H4" /></svg>
             </span>
-            <span style={{ minWidth: 0 }}>
-              <span style={{ ...s.itemLabel, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tripName}</span>
-              <span style={{ ...s.itemSub, display: 'block' }}>{fmtTripRange(tripStartDate, tripEndDate)}</span>
+            <span>
+              <span style={{ ...s.itemLabel, display: 'block' }}>Trips</span>
+              <span style={{ ...s.itemSub, display: 'block' }}>Switch or manage your trips</span>
             </span>
             <span style={{ marginLeft: 'auto', color: '#7A8FA6', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>Switch ›</span>
           </button>
