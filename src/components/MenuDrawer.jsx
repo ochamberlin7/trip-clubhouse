@@ -1777,7 +1777,7 @@ export default function MenuDrawer({
             </span>
             <span>
               <span style={{ ...s.itemLabel, display: 'block' }}>Trips</span>
-              <span style={{ ...s.itemSub, display: 'block' }}>Switch or manage your trips</span>
+              <span style={{ ...s.itemSub, display: 'block' }}>Switch or manage trips</span>
             </span>
             <span style={{ marginLeft: 'auto', color: '#7A8FA6', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>Switch ›</span>
           </button>
