@@ -136,10 +136,16 @@ export default function JoinTrip() {
   }
 
   async function loadGuestList(tripRow) {
+    // Expose the invite token to Postgres so the trip_players SELECT policy's
+    // invite-token clause lets us read EVERY slot for this trip — including
+    // name-only players (no email, no phone) that no other clause can match.
+    await supabase.rpc('set_config', { parameter: 'app.invite_token', value: inviteToken, is_local: true })
+
     const { data, error: rpcErr } = await supabase.rpc('invite_guest_list', { p_invite_token: inviteToken })
     if (!rpcErr && Array.isArray(data)) return data
-    // RPC not available — fall back to a direct read (RLS exposes the user's own
-    // email-matching / claimed rows, so the email-match path still works).
+    // RPC not available — fall back to a direct read. With the invite-token
+    // session setting above, RLS exposes all of this trip's slots, so fuzzy name
+    // matching can still run for name-only players.
     const { data: fb } = await supabase
       .from('trip_players')
       .select('id, email, phone, first_name, last_name, guest_name, is_claimed, claimed_user_id')
