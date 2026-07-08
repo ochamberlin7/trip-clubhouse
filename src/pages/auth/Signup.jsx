@@ -15,7 +15,8 @@ function formatPhone(raw) {
 export default function Signup() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -41,6 +42,8 @@ export default function Signup() {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    // Store the combined name so downstream (invite matching, profiles) is unchanged.
+    const displayName = `${firstName.trim()} ${lastName.trim()}`.trim()
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -71,10 +74,17 @@ export default function Signup() {
           <h2>Create Account</h2>
         </div>
         <form className="auth-form" onSubmit={handleSignup}>
-          <div>
-            <label className="field-label">Your Name</label>
-            <input type="text" placeholder="First Last" value={displayName}
-              onChange={e => setDisplayName(e.target.value)} required />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <label className="field-label">First Name</label>
+              <input type="text" placeholder="First" value={firstName}
+                onChange={e => setFirstName(e.target.value)} required />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="field-label">Last Name</label>
+              <input type="text" placeholder="Last" value={lastName}
+                onChange={e => setLastName(e.target.value)} required />
+            </div>
           </div>
           <div>
             <label className="field-label">Phone Number</label>
@@ -93,7 +103,8 @@ export default function Signup() {
               onChange={e => setPassword(e.target.value)} required minLength={6} />
           </div>
           {error && <p className="error-msg">{error}</p>}
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button type="submit" className="btn btn-primary"
+            disabled={loading || !firstName.trim() || !lastName.trim()}>
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>

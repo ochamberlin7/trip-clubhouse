@@ -89,21 +89,30 @@ export default function JoinTrip() {
       const anyPhoneOnFile = slotPhones.some(d => d.length > 0)
       const pResult = anyPhoneOnFile ? '1' : '0'
 
-      // TIER 3 — fuzzy name match against the unclaimed slots. A hit needs the user
-      // to confirm it's them (names aren't unique enough to auto-claim).
+      // TIER 3 — name match. An EXACT name (case-insensitive, trimmed) auto-claims
+      // with no confirmation; otherwise a fuzzy hit (fuse.js, threshold 0.3) shows
+      // a confirmation screen (names aren't unique enough to auto-claim a fuzzy hit).
       const myName = (user.user_metadata?.display_name || '').trim()
+      const myNameNorm = norm(myName)
       const named = unclaimedSlots
         .map(p => ({ id: p.id, name: nameOf(p) }))
         .filter(x => x.name)
+
+      // Exact (normalized) name match → auto-claim, no confirmation screen.
+      const byExactName = myNameNorm ? named.find(x => norm(x.name) === myNameNorm) : null
+      if (byExactName) { await claimSlot(byExactName.id, tripRow); return }
+
+      // No exact match — try fuzzy; a hit needs the user to confirm it's them.
       let hit = null
       if (myName && named.length) {
         const fuse = new Fuse(named, { keys: ['name'], threshold: 0.3, includeScore: true })
         hit = fuse.search(myName)[0] || null
       }
-      const nResult = hit ? '✓' : (named.length ? '1' : '0')
+      // N: '✓' exact (auto-claimed above, so unreachable on no-match), '~' fuzzy
+      // shown for confirmation, '1' name(s) on file but below threshold, '0' none.
+      const nResult = byExactName ? '✓' : (hit ? '~' : (named.length ? '1' : '0'))
 
-      // Record per-tier results for the diagnostic support code on the no-match
-      // screen. Reachable ✓ only for name (email/phone auto-claim and return).
+      // Record per-tier results for the diagnostic support code on the no-match screen.
       matchDiagRef.current = { e: eResult, p: pResult, n: nResult }
 
       if (hit) {
@@ -190,7 +199,25 @@ export default function JoinTrip() {
       }).eq('id', slotId)).error
     }
     if (claimErr) { setError(claimErr.message); setStatus('error'); return }
+    await backfillContact(slotId)
     await enterDashboard(tripRow)
+  }
+
+  // After a successful claim, fill in the slot's email/phone from the signed-in
+  // user — but only where the card is blank (never overwrite existing values, and
+  // never touch first/last name). The player owns the row now (claimed_user_id),
+  // so RLS allows the read + update.
+  async function backfillContact(slotId) {
+    const { data: row } = await supabase
+      .from('trip_players').select('email, phone').eq('id', slotId).maybeSingle()
+    const patch = {}
+    const myEmail = (user.email || '').trim()
+    const myPhone = (user.user_metadata?.phone || '').trim()
+    if (!row?.email && myEmail) patch.email = myEmail
+    if (!row?.phone && myPhone) patch.phone = myPhone
+    if (Object.keys(patch).length) {
+      await supabase.from('trip_players').update(patch).eq('id', slotId)
+    }
   }
 
   // ── styles ──

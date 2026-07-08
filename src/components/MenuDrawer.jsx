@@ -231,7 +231,13 @@ function PencilIcon() {
   )
 }
 
-function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onStartEdit, onCloseEdit, onSaved }) {
+function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner, editing, onStartEdit, onCloseEdit, onSaved }) {
+  // Who can edit what:
+  //   • Commissioner → first name, last name, email, phone, handicap, team.
+  //   • The player, on their OWN card only → email + phone.
+  //   • Everyone else → view only.
+  const isOwnCard = !!currentUserId && (player.user_id === currentUserId || player.claimed_user_id === currentUserId)
+  const canEdit = isCommissioner || isOwnCard
   const [form, setForm] = useState({
     first_name: player.first_name || '', last_name: player.last_name || '',
     email: player.email || '',
@@ -256,14 +262,22 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
 
   async function save() {
     setSaving(true)
-    const { error } = await supabase.from('trip_players').update({
-      first_name: form.first_name.trim() || null,
-      last_name: form.last_name.trim() || null,
-      email: form.email.trim() || null,
-      handicap_index: form.handicap_index === '' ? null : Number(form.handicap_index),
-      team_id: form.team_id || null,
-      phone: form.phone.trim() ? formatPhone(form.phone) : null,
-    }).eq('id', player.id)
+    // Commissioners may write all fields; a player editing their own card may only
+    // change email + phone (name / handicap / team stay commissioner-controlled).
+    const payload = isCommissioner
+      ? {
+          first_name: form.first_name.trim() || null,
+          last_name: form.last_name.trim() || null,
+          email: form.email.trim() || null,
+          handicap_index: form.handicap_index === '' ? null : Number(form.handicap_index),
+          team_id: form.team_id || null,
+          phone: form.phone.trim() ? formatPhone(form.phone) : null,
+        }
+      : {
+          email: form.email.trim() || null,
+          phone: form.phone.trim() ? formatPhone(form.phone) : null,
+        }
+    const { error } = await supabase.from('trip_players').update(payload).eq('id', player.id)
     setSaving(false)
     if (!error) onSaved()
   }
@@ -281,7 +295,7 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
         </div>
         {commissioner && <span style={pc.badge}>Commissioner</span>}
         {team && <span style={{ ...pc.teamPill, ...teamPillColor }}>{getTeamDisplayName(team)}</span>}
-        {isCommissioner && !editing && (
+        {canEdit && !editing && (
           <button style={pc.pencil} onClick={onStartEdit} aria-label="Edit player"><PencilIcon /></button>
         )}
       </div>
@@ -319,29 +333,34 @@ function PlayerCard({ player, teams, isCommissioner, commissioner, editing, onSt
       {/* Edit panel */}
       {editing && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <label style={pc.editField}>
-              <span style={pc.editLabel}>First Name</span>
-              <input style={pc.editInput} placeholder="First name" value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} />
-            </label>
-            <label style={pc.editField}>
-              <span style={pc.editLabel}>Last Name</span>
-              <input style={pc.editInput} placeholder="Last name" value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
-            </label>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <label style={pc.editField}>
-              <span style={pc.editLabel}>Handicap Index</span>
-              <input style={pc.editInput} type="number" step="0.1" min="0" max="54" placeholder="e.g. 14.2" value={form.handicap_index} onChange={e => setForm({ ...form, handicap_index: e.target.value })} />
-            </label>
-            <label style={pc.editField}>
-              <span style={pc.editLabel}>Team</span>
-              <select style={pc.editInput} value={form.team_id} onChange={e => setForm({ ...form, team_id: e.target.value })}>
-                <option value="">Unassigned</option>
-                {teams.map(t => <option key={t.id} value={t.id}>{getTeamDisplayName(t)}</option>)}
-              </select>
-            </label>
-          </div>
+          {/* Name / handicap / team are commissioner-only. */}
+          {isCommissioner && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <label style={pc.editField}>
+                <span style={pc.editLabel}>First Name</span>
+                <input style={pc.editInput} placeholder="First name" value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} />
+              </label>
+              <label style={pc.editField}>
+                <span style={pc.editLabel}>Last Name</span>
+                <input style={pc.editInput} placeholder="Last name" value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
+              </label>
+            </div>
+          )}
+          {isCommissioner && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <label style={pc.editField}>
+                <span style={pc.editLabel}>Handicap Index</span>
+                <input style={pc.editInput} type="number" step="0.1" min="0" max="54" placeholder="e.g. 14.2" value={form.handicap_index} onChange={e => setForm({ ...form, handicap_index: e.target.value })} />
+              </label>
+              <label style={pc.editField}>
+                <span style={pc.editLabel}>Team</span>
+                <select style={pc.editInput} value={form.team_id} onChange={e => setForm({ ...form, team_id: e.target.value })}>
+                  <option value="">Unassigned</option>
+                  {teams.map(t => <option key={t.id} value={t.id}>{getTeamDisplayName(t)}</option>)}
+                </select>
+              </label>
+            </div>
+          )}
           <label style={{ display: 'block' }}>
             <span style={pc.editLabel}>Phone</span>
             <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
@@ -382,7 +401,7 @@ function InviteSection({ inviteToken }) {
   )
 }
 
-function PlayersPage({ data, isCommissioner, onReload }) {
+function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
   const [editingId, setEditingId] = useState(null)
   if (!data) return <div style={s.muted}>Loading…</div>
   const { players, teams } = data
@@ -398,6 +417,7 @@ function PlayersPage({ data, isCommissioner, onReload }) {
       player={p}
       teams={teams}
       isCommissioner={isCommissioner}
+      currentUserId={currentUserId}
       commissioner={p.is_commissioner}
       editing={editingId === p.id}
       onStartEdit={() => setEditingId(p.id)}        // only one open at a time
@@ -1893,7 +1913,7 @@ export default function MenuDrawer({
       )}
       {page === 'players' && (
         <SecondaryPage context={groupName} title="Players" onBack={backToDrawer}>
-          <PlayersPage data={playersData} isCommissioner={isCommissioner} onReload={() => setPlayersData(null)} />
+          <PlayersPage data={playersData} isCommissioner={isCommissioner} currentUserId={currentUserId} onReload={() => setPlayersData(null)} />
         </SecondaryPage>
       )}
       {page === 'courses' && (
