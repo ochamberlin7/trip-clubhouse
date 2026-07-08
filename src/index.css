@@ -47,6 +47,10 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--navy); }
 input::placeholder { color: var(--muted); }
 input[type="date"] { color: var(--cream); }
+/* Wizard step 1: force text + date fields to an identical height/box model so
+   the date inputs don't render shorter than the text input (native date-control
+   intrinsic height varies by browser). Keeps the base padding/border/radius. */
+.wizard-field { box-sizing: border-box; height: 40px; }
 select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A8FA6' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px;

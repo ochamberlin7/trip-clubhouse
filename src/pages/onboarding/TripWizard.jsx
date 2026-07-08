@@ -77,6 +77,7 @@ function StepTripDetails({
       <div>
         <label className="field-label">Trip Name</label>
         <input
+          className="wizard-field"
           type="text"
           placeholder="e.g. Northern Michigan 2026"
           value={tripName}
@@ -86,6 +87,7 @@ function StepTripDetails({
       <div>
         <label className="field-label">Start Date</label>
         <input
+          className="wizard-field"
           type="date"
           value={startDate}
           onChange={e => onStartDateChange(e.target.value)}
@@ -94,6 +96,7 @@ function StepTripDetails({
       <div>
         <label className="field-label">End Date</label>
         <input
+          className="wizard-field"
           type="date"
           value={endDate}
           onChange={e => onEndDateChange(e.target.value)}
