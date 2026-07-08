@@ -42,7 +42,7 @@ function TabIcon({ id }) {
   if (id === 'scores')
     return <svg {...svg}><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
   if (id === 'leaderboard')
-    return <svg {...svg}><g strokeWidth="2.6"><line x1="4.5" y1="5.5" x2="19.5" y2="5.5"/><line x1="4.5" y1="10.5" x2="15.5" y2="10.5"/><line x1="4.5" y1="15.5" x2="12" y2="15.5"/><line x1="4.5" y1="20.5" x2="9" y2="20.5"/></g></svg>
+    return <svg {...svg}><rect x="2" y="3" width="20" height="13" rx="1"/><line x1="9" y1="3" x2="9" y2="16"/><line x1="16" y1="3" x2="16" y2="16"/><line x1="2" y1="7" x2="22" y2="7"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="2" y1="13" x2="22" y2="13"/><line x1="8" y1="16" x2="8" y2="21"/><line x1="16" y1="16" x2="16" y2="21"/><line x1="5" y1="21" x2="11" y2="21"/><line x1="13" y1="21" x2="19" y2="21"/></svg>
   if (id === 'tee-times')
     return <svg {...svg}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
   if (id === 'menu')
