@@ -274,7 +274,7 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
   }
   function addRow() {
     if (players.length >= MAX_PLAYERS) return
-    setPlayers([...players, { id: uid(), first_name: '', last_name: '', email: '' }])
+    setPlayers([...players, { id: uid(), first_name: '', last_name: '', email: '', phone: '' }])
   }
   function removeRow(id) {
     setPlayers(players.filter(p => p.id !== id))
@@ -338,6 +338,15 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
                 placeholder="Email (optional)"
                 value={p.email}
                 onChange={e => update(p.id, 'email', e.target.value)}
+              />
+
+              {/* Phone full width — optional; enables phone matching on invite. */}
+              <input
+                style={playerInputStyle}
+                type="tel"
+                placeholder="Phone (optional)"
+                value={p.phone ?? ''}
+                onChange={e => update(p.id, 'phone', e.target.value)}
               />
               </div>
             </div>
@@ -501,8 +510,8 @@ export default function TripWizard() {
       const dn = (data?.display_name || user.email.split('@')[0]).trim()
       const parts = dn.split(/\s+/)
       setPlayers([
-        { id: 'me', isCommissioner: true, first_name: parts[0] || dn, last_name: parts.slice(1).join(' '), email: user.email },
-        { id: uid(), first_name: '', last_name: '', email: '' },
+        { id: 'me', isCommissioner: true, first_name: parts[0] || dn, last_name: parts.slice(1).join(' '), email: user.email, phone: '' },
+        { id: uid(), first_name: '', last_name: '', email: '', phone: '' },
       ])
     })()
     return () => { cancelled = true }
@@ -631,6 +640,7 @@ export default function TripWizard() {
             last_name: last,
             // Save the edited email; fall back to the account email if cleared.
             email: p.email.trim() || user.email,
+            phone: p.phone?.trim() || null,
             handicap_index: null,
           }
         }
@@ -641,6 +651,7 @@ export default function TripWizard() {
           first_name: first,
           last_name: last,
           email: p.email.trim() || null,
+          phone: p.phone?.trim() || null, // enables invite phone-matching for this guest
           guest_name: fullName || null, // compatibility for legacy name displays
           handicap_index: null,
         }
