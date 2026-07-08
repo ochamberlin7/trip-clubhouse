@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Fuse from 'fuse.js'
 import { supabase } from '../lib/supabase'
@@ -26,6 +26,8 @@ export default function JoinTrip() {
   const [error, setError] = useState(null)
   const [candidate, setCandidate] = useState(null)     // { slotId, name } for the fuzzy-match confirm screen
   const [commissioner, setCommissioner] = useState(null) // { name, email } for the no-match screen
+  const [supportCode, setSupportCode] = useState('')     // structured diagnostic for the no-match screen
+  const matchDiagRef = useRef({ e: '0', p: '0', n: '0' }) // per-tier match result codes
 
   useEffect(() => {
     if (authLoading) return
@@ -62,41 +64,59 @@ export default function JoinTrip() {
         return
       }
 
-      // STEP 1 — email match (normalize both sides: lowercase + trim).
+      // Matching chain runs against the UNCLAIMED slots only.
+      const unclaimedSlots = players.filter(p => !p.is_claimed)
+
+      // TIER 1 — email match (normalize both sides: lowercase + trim). A slot with
+      // a null/empty email is skipped gracefully (the `p.email &&` guard short-
+      // circuits before norm), so it never throws and the chain continues to phone.
       const myEmail = norm(user.email)
-      const byEmail = players.find(p => !p.is_claimed && p.email && norm(p.email) === myEmail)
+      const byEmail = unclaimedSlots.find(p => p.email && norm(p.email) === myEmail)
       if (byEmail) { await claimSlot(byEmail.id, tripRow); return }
+      const anyEmailOnFile = unclaimedSlots.some(p => p.email && p.email.trim())
+      const eResult = anyEmailOnFile ? '1' : '0' // '✓' unreachable here (would have claimed)
 
-      // STEP 2 — phone match (strip non-digits; compare last 10 to ignore country
-      // codes). Phone is specific enough to auto-claim without confirmation.
+      // TIER 2 — phone match. Strip ALL non-digits on BOTH sides, then compare the
+      // last 10 digits (ignores country codes). Auto-claims — phone is specific.
       const myPhone = digitsOf(user.user_metadata?.phone)
-      if (myPhone.length >= 10) {
-        const byPhone = players.find(p => {
-          const d = digitsOf(p.phone)
-          return !p.is_claimed && d.length >= 10 && d.slice(-10) === myPhone.slice(-10)
-        })
-        if (byPhone) { await claimSlot(byPhone.id, tripRow); return }
-      }
+      const slotPhones = unclaimedSlots.map(p => digitsOf(p.phone))
+      console.log('[JoinTrip] phone match — normalized user phone:', myPhone,
+        '| normalized slot phones:', slotPhones)
+      const byPhone = myPhone.length >= 10
+        ? unclaimedSlots.find(p => {
+            const d = digitsOf(p.phone)
+            return d.length >= 10 && d.slice(-10) === myPhone.slice(-10)
+          })
+        : null
+      if (byPhone) { await claimSlot(byPhone.id, tripRow); return }
+      const anyPhoneOnFile = slotPhones.some(d => d.length > 0)
+      const pResult = anyPhoneOnFile ? '1' : '0'
 
-      // STEP 3 — fuzzy name match against the unclaimed slots. A hit needs the
-      // user to confirm it's them (names aren't unique enough to auto-claim).
+      // TIER 3 — fuzzy name match against the unclaimed slots. A hit needs the user
+      // to confirm it's them (names aren't unique enough to auto-claim).
       const myName = (user.user_metadata?.display_name || '').trim()
-      const unclaimed = players
-        .filter(p => !p.is_claimed)
+      const named = unclaimedSlots
         .map(p => ({ id: p.id, name: nameOf(p) }))
         .filter(x => x.name)
-      if (myName && unclaimed.length) {
-        const fuse = new Fuse(unclaimed, { keys: ['name'], threshold: 0.3, includeScore: true })
-        const hit = fuse.search(myName)[0]
-        if (hit) {
-          if (cancelled) return
-          setCandidate({ slotId: hit.item.id, name: hit.item.name })
-          setStatus('confirm')
-          return
-        }
+      let hit = null
+      if (myName && named.length) {
+        const fuse = new Fuse(named, { keys: ['name'], threshold: 0.3, includeScore: true })
+        hit = fuse.search(myName)[0] || null
+      }
+      const nResult = hit ? '✓' : (named.length ? '1' : '0')
+
+      // Record per-tier results for the diagnostic support code on the no-match
+      // screen. Reachable ✓ only for name (email/phone auto-claim and return).
+      matchDiagRef.current = { e: eResult, p: pResult, n: nResult }
+
+      if (hit) {
+        if (cancelled) return
+        setCandidate({ slotId: hit.item.id, name: hit.item.name })
+        setStatus('confirm')
+        return
       }
 
-      // STEP 4 — no match. Show the commissioner-contact screen.
+      // No match anywhere — show the commissioner-contact screen.
       if (cancelled) return
       await showNoMatch(tripRow)
     })()
@@ -128,11 +148,21 @@ export default function JoinTrip() {
   }
 
   async function showNoMatch(tripRow) {
+    // Structured diagnostic: E[email]-P[phone]-N[name]-[first 8 of trip UUID].
+    const { e = '0', p = '0', n = '0' } = matchDiagRef.current || {}
+    setSupportCode(`E${e}-P${p}-N${n}-${(tripRow.id || '').slice(0, 8)}`)
     const { data } = await supabase.rpc('invite_commissioner', { p_invite_token: inviteToken })
     const c = Array.isArray(data) ? data[0] : data
     setCommissioner(c && (c.display_name || c.email) ? { name: c.display_name, email: c.email } : null)
     setTrip(tripRow)
     setStatus('nomatch')
+  }
+
+  // "Back to sign in" must fully sign the user out first — otherwise navigating to
+  // /login while still authenticated bounces them onward (to /groups → wizard).
+  async function backToSignIn() {
+    await supabase.auth.signOut()
+    navigate('/login', { replace: true })
   }
 
   // Ensure a group_members row exists (as a player — never admin/commissioner),
@@ -181,6 +211,7 @@ export default function JoinTrip() {
     body: { fontSize: 15, color: '#2C3E50', lineHeight: 1.5 },
     contact: { fontSize: 15, color: '#1B3F6E', fontWeight: 700, marginTop: 8 },
     loading: { fontSize: 14, color: '#7A8FA6', padding: '20px 0' },
+    code: { fontSize: 12, color: '#7A8FA6', marginTop: 14, fontFamily: 'ui-monospace, Menlo, monospace', letterSpacing: '0.5px' },
     btn: { width: '100%', padding: 15, borderRadius: 10, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 16, fontWeight: 800, marginTop: 16, cursor: 'pointer', fontFamily: 'inherit' },
     btnGhost: { width: '100%', padding: 15, borderRadius: 10, border: '2px solid #DDE3EA', background: '#fff', color: '#1B3F6E', fontSize: 16, fontWeight: 700, marginTop: 10, cursor: 'pointer', fontFamily: 'inherit' },
   }
@@ -212,15 +243,16 @@ export default function JoinTrip() {
           <div style={sh.eyebrow}>Trip Clubhouse</div>
           {trip?.name && <div style={sh.tripName}>{trip.name}</div>}
           <div style={sh.body}>
-            We couldn&rsquo;t find you on the guest list for {trip?.name || 'this trip'}.
+            We couldn&rsquo;t find you on the guest list for this trip.
           </div>
           <div style={sh.body}>
             {commissioner
               ? <>Contact your trip commissioner{commissioner.name ? <>, <span style={sh.matchName}>{commissioner.name}</span></> : ''}
-                {commissioner.email ? <> (<a href={`mailto:${commissioner.email}`} style={{ color: '#1B3F6E' }}>{commissioner.email}</a>)</> : ''}, to get added.</>
-              : <>Contact your trip commissioner to get added with this email.</>}
+                {commissioner.email ? <> (<a href={`mailto:${commissioner.email}`} style={{ color: '#1B3F6E' }}>{commissioner.email}</a>)</> : ''}, to confirm your information.</>
+              : <>Contact your trip commissioner to confirm your information.</>}
           </div>
-          <button style={sh.btn} onClick={() => navigate('/login', { replace: true })}>Back to sign in</button>
+          {supportCode && <div style={sh.code}>Support code: {supportCode}</div>}
+          <button style={sh.btn} onClick={backToSignIn}>Back to sign in</button>
         </div>
       </div>
     )
@@ -233,7 +265,7 @@ export default function JoinTrip() {
           <div style={sh.eyebrow}>Trip Clubhouse</div>
           {trip?.name && <div style={sh.tripName}>{trip.name}</div>}
           <div style={sh.error}>{error}</div>
-          <button style={sh.btn} onClick={() => navigate('/login', { replace: true })}>Back to sign in</button>
+          <button style={sh.btn} onClick={backToSignIn}>Back to sign in</button>
         </div>
       </div>
     )
