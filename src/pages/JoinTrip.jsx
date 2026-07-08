@@ -79,8 +79,6 @@ export default function JoinTrip() {
       // last 10 digits (ignores country codes). Auto-claims — phone is specific.
       const myPhone = digitsOf(user.user_metadata?.phone)
       const slotPhones = unclaimedSlots.map(p => digitsOf(p.phone))
-      console.log('[JoinTrip] phone match — normalized user phone:', myPhone,
-        '| normalized slot phones:', slotPhones)
       const byPhone = myPhone.length >= 10
         ? unclaimedSlots.find(p => {
             const d = digitsOf(p.phone)
@@ -139,9 +137,7 @@ export default function JoinTrip() {
     // It bypasses RLS, so it returns every slot for this trip — including
     // name-only players (no email, no phone) like Chase McDonald. No session
     // variable, no fallback direct read (RLS can't see name-only slots).
-    console.log('[JoinTrip] loadGuestList inviteToken:', JSON.stringify(inviteToken))
-    const { data, error: rpcErr } = await supabase.rpc('invite_guest_list', { p_invite_token: inviteToken })
-    console.log('[JoinTrip] invite_guest_list → rows:', Array.isArray(data) ? data.length : `(not array: ${JSON.stringify(data)})`, '| error:', rpcErr)
+    const { data } = await supabase.rpc('invite_guest_list', { p_invite_token: inviteToken })
     return Array.isArray(data) ? data : []
   }
 
