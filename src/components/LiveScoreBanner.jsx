@@ -48,19 +48,33 @@ function pointsSummary(row, n1, n2) {
 }
 
 // Standard Match Play status text + leading side (0/1/null) + "thru" text.
-// Tied → "All Square"; otherwise "{leading team name} lead {margin}".
-// Closed → final result only, no thru. No scores → "Match not started".
+//   • closed out early (not played to 18) → "{winner} wins {margin} & {holesLeft}"
+//   • closed on the 18th (ran the full round) → "{winner} win {margin}"
+//   • in progress, tied → "All Square"
+//   • in progress, otherwise → "{leading team name} {N} Up"
+//   • no scores → "Match not started"
+// finalMargin from standardMatchTally already encodes both numbers for an early
+// close ("3&2" = 3 up with 2 holes remaining) and is "NUP" when it ran to 18 —
+// so the "&" form is exactly the early-closeout case, and holesRemaining is the
+// value it already tracked (no need to re-derive margin−1, which the dormie-then-
+// win case would get wrong anyway).
 function standardStatus(row, n1, n2) {
   if (row.closed) {
     const side = row.winner === 'T1' ? 0 : 1
     const name = side === 0 ? n1 : n2
+    const parts = String(row.finalMargin).split('&')
+    if (parts.length === 2) {
+      // Early closeout, e.g. finalMargin "3&2" → "Grandmas wins 3 & 2".
+      return { text: `${name} wins ${parts[0]} & ${parts[1]}`, side, thru: '' }
+    }
+    // Ran the full 18 (finalMargin "NUP") — keep the existing result wording.
     return { text: `${name} win ${row.finalMargin}`, side, thru: '' }
   }
   if (row.thru === 0) return { text: 'Match not started', side: null, thru: '' }
   if (row.leader == null) return { text: 'All Square', side: null, thru: `Thru ${row.thru}` }
   const side = row.leader === 'T1' ? 0 : 1
   const name = side === 0 ? n1 : n2
-  return { text: `${name} lead ${row.statusShort}`, side, thru: `Thru ${row.thru}` }
+  return { text: `${name} ${Math.abs(row.lead)} Up`, side, thru: `Thru ${row.thru}` }
 }
 
 export default function LiveScoreBanner({ trip, rounds, teams }) {
@@ -182,9 +196,18 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     // Per-round summary, keeping only rounds that have at least one scored hole.
     // 'none' rounds are placeholders and never surface the banner.
     const summaries = rounds.filter(r => r.round_type !== 'none').map(r => {
-      const t = isStandard
-        ? liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
-        : liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
+      // Guard the format branch: a throw here would otherwise bubble out of render
+      // and silently blank the banner. Log it so a format-specific data problem is
+      // visible instead of invisible. (Item 3 bug investigation.)
+      let t = []
+      try {
+        t = isStandard
+          ? liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
+          : liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
+      } catch (err) {
+        console.error('[LiveScoreBanner] tally threw', { roundId: r.id, format: trip?.format, err })
+        t = []
+      }
       // "scored" surfaces a round once any hole has a score (both tallies expose thru).
       const scored = t.reduce((a, p) => a + (p.thru || 0), 0)
       return { round: r, tallies: t, scored, complete: t.length > 0 && t.every(p => p.complete) }
@@ -215,6 +238,25 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   const inTripWindow = trip?.start_date && trip?.end_date
     && todayISO >= trip.start_date && todayISO <= trip.end_date
   const selectedComplete = tallies.length > 0 && tallies.every(t => t.complete)
+
+  // ── Item 3 diagnostic: report exactly which gate hides the banner, without
+  // changing any of the gate logic below. Remove once the bug is understood.
+  const hiddenBy = !beforeNine ? '9pm cutoff (local hour >= 21)'
+    : !round ? 'no round selected (no round has scores yet, or pairings/pairing_players not loaded)'
+    : !anyHolesScored ? 'zero holes scored across the selected round'
+    : (selectedComplete && !inTripWindow) ? 'selected round is COMPLETE and today is outside the trip date window'
+    : null
+  console.log('[LiveScoreBanner] gate check', {
+    format: trip?.format,
+    hiddenBy: hiddenBy || '(visible)',
+    localHour: now.getHours(), beforeNine,
+    todayISO, tripStart: trip?.start_date, tripEnd: trip?.end_date, inTripWindow,
+    round: round ? { id: round.id, date: round.date, type: round.round_type } : null,
+    anyHolesScored, selectedComplete,
+    pairings: tallies.map(t => ({
+      pairing: t.pairingNumber, thru: t.thru, complete: t.complete, closed: t.closed,
+    })),
+  })
 
   if (!beforeNine || !round || !anyHolesScored) return null
   if (selectedComplete && !inTripWindow) return null
