@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { liveMatchTally, liveStandardMatchTally } from '../lib/scoring'
-import { teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
+import { getTeamDisplayName } from '../lib/teamColors'
 
 // Floating live-score banner, fixed to the bottom of the screen. Mounted once at
 // the dashboard level so it persists across every tab. Shows a per-pairing
@@ -28,26 +28,30 @@ function todayIsoLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Points Match Play banner text + leading side (0/1/null) + "thru" text.
-// Running points per team, e.g. "Buckeyes 6 - Warthogs 4" · "thru 12".
+// Points Match Play status text + "thru" text.
+// Tied → "All Square"; otherwise "{leading team name} lead {hi}-{lo}".
 // No holes scored → "Match not started".
 function pointsSummary(row, n1, n2) {
-  if (row.thru === 0) return { text: 'Match not started', side: null, thru: '' }
-  const side = row.t1pts > row.t2pts ? 0 : row.t2pts > row.t1pts ? 1 : null
-  return { text: `${n1} ${row.t1pts} - ${n2} ${row.t2pts}`, side, thru: `thru ${row.thru}` }
+  if (row.thru === 0) return { text: 'Match not started', thru: '' }
+  if (row.t1pts === row.t2pts) return { text: 'All Square', thru: `Thru ${row.thru}` }
+  const leadName = row.t1pts > row.t2pts ? n1 : n2
+  const hi = Math.max(row.t1pts, row.t2pts)
+  const lo = Math.min(row.t1pts, row.t2pts)
+  return { text: `${leadName} lead ${hi}-${lo}`, thru: `Thru ${row.thru}` }
 }
 
-// Standard Match Play banner text + leading side (0/1/null) + "thru" text.
+// Standard Match Play status text + "thru" text.
+// Tied → "All Square"; otherwise "{leading team name} lead {margin}".
 // Closed → final result only, no thru. No scores → "Match not started".
 function standardStatus(row, n1, n2) {
   if (row.closed) {
     const name = row.winner === 'T1' ? n1 : n2
-    return { text: `${name} win ${row.finalMargin}`, side: row.winner === 'T1' ? 0 : 1, thru: '' }
+    return { text: `${name} win ${row.finalMargin}`, thru: '' }
   }
-  if (row.thru === 0) return { text: 'Match not started', side: null, thru: '' }
-  if (row.leader == null) return { text: 'All Square', side: null, thru: `Thru ${row.thru}` }
+  if (row.thru === 0) return { text: 'Match not started', thru: '' }
+  if (row.leader == null) return { text: 'All Square', thru: `Thru ${row.thru}` }
   const name = row.leader === 'T1' ? n1 : n2
-  return { text: `${name} ${row.statusShort}`, side: row.leader === 'T1' ? 0 : 1, thru: `Thru ${row.thru}` }
+  return { text: `${name} lead ${row.statusShort}`, thru: `Thru ${row.thru}` }
 }
 
 export default function LiveScoreBanner({ trip, rounds, teams }) {
@@ -209,25 +213,25 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
 
   const n1 = getTeamDisplayName(teams?.[0]) || 'Team 1'
   const n2 = getTeamDisplayName(teams?.[1]) || 'Team 2'
-  const navy = teamColor(colorIndexOf(teams?.[0])).solid // Team 1 — navy
-  const teal = teamColor(colorIndexOf(teams?.[1])).solid // Team 2 — teal
-  const sideColor = side => (side === 0 ? navy : side === 1 ? teal : '#7A8FA6')
 
   const visibleRows = tallies.filter(t => t.hasMatch)
 
   return (
     <div style={s.float} role="status" aria-label="Live score">
       <button style={s.close} onClick={() => setDismissed(true)} aria-label="Dismiss live score">×</button>
-      <div style={s.roundLabel}>{round.club_name || round.course_name} · Live Match</div>
+      <div style={s.header}>
+        <span style={s.courseName}>{round.club_name || round.course_name}</span>
+        <span style={s.headerSep}>·</span>
+        <span style={s.liveLabel}>Live Match</span>
+      </div>
       <div style={s.rows}>
         {visibleRows.map(t => {
           const st = isStandard ? standardStatus(t, n1, n2) : pointsSummary(t, n1, n2)
-          const thruText = st.thru
           return (
             <div key={t.pairingNumber} style={s.row}>
               <span style={s.pairLabel}>Pairing {t.pairingNumber}</span>
-              <span style={{ ...s.status, color: sideColor(st.side) }}>{st.text}</span>
-              <span style={s.thru}>{thruText}</span>
+              <span style={s.status}>{st.text}</span>
+              <span style={s.thru}>{st.thru}</span>
             </div>
           )
         })}
@@ -245,24 +249,29 @@ const s = {
     maxWidth: 398,
     margin: '0 auto',
     background: '#FFFFFF',
-    border: '1px solid #DDE3EA',
-    borderRadius: 12,
-    padding: '10px 14px',
+    borderRadius: 14,
+    padding: 16,
     zIndex: 150,
     boxShadow: '0 4px 20px rgba(13,27,42,0.18)',
   },
   close: {
-    position: 'absolute', top: 6, right: 8, width: 22, height: 22,
-    background: 'none', border: 'none', color: '#7A8FA6', fontSize: 18,
+    position: 'absolute', top: 8, right: 10, width: 22, height: 22,
+    background: 'none', border: 'none', color: '#BBBBBB', fontSize: 18,
     lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit', padding: 0,
   },
-  roundLabel: {
-    fontSize: 10, textTransform: 'uppercase', letterSpacing: 1,
-    color: '#1B3F6E', fontWeight: 700, marginBottom: 6, paddingRight: 18,
+  header: {
+    display: 'flex', alignItems: 'baseline', gap: 6,
+    marginBottom: 12, paddingRight: 18,
   },
-  rows: { display: 'flex', flexDirection: 'column', gap: 4 },
-  row: { display: 'flex', alignItems: 'center', gap: 6 },
-  pairLabel: { fontSize: 10, color: '#7A8FA6', minWidth: 56, fontWeight: 600 },
-  status: { fontSize: 13, fontWeight: 800, flex: 1 },
-  thru: { fontSize: 11, color: '#7A8FA6', textAlign: 'right', minWidth: 44 },
+  courseName: { fontSize: 14, fontWeight: 500, color: '#1A1A1A' },
+  headerSep: { fontSize: 13, color: '#999999' },
+  liveLabel: {
+    fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5,
+    color: '#B8860B', fontWeight: 700,
+  },
+  rows: { display: 'flex', flexDirection: 'column', gap: 9 },
+  row: { display: 'flex', alignItems: 'center', gap: 8 },
+  pairLabel: { fontSize: 12, color: '#888888', minWidth: 62, fontWeight: 400 },
+  status: { fontSize: 14, fontWeight: 700, color: '#1A1A1A', flex: 1, textAlign: 'center' },
+  thru: { fontSize: 12, color: '#888888', fontWeight: 400, textAlign: 'right', minWidth: 52 },
 }
