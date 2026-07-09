@@ -28,34 +28,42 @@ function todayIsoLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Points Match Play status text + "thru" text.
-// Tied → "All Square"; otherwise "{leading team name} lead {hi}-{lo}".
-// No holes scored → "Match not started".
-function pointsSummary(row, n1, n2) {
-  if (row.thru === 0) return { text: 'Match not started', thru: '' }
-  if (row.t1pts === row.t2pts) return { text: 'All Square', thru: `Thru ${row.thru}` }
-  const leadName = row.t1pts > row.t2pts ? n1 : n2
-  const hi = Math.max(row.t1pts, row.t2pts)
-  const lo = Math.min(row.t1pts, row.t2pts)
-  return { text: `${leadName} lead ${hi}-${lo}`, thru: `Thru ${row.thru}` }
+// Maps a leading side (0 = Team 1, 1 = Team 2, null = tied) to the status
+// colour class used by the banner (t1lead → navy, t2lead → teal, tied → cream2).
+function sideClass(side) {
+  return side === 0 ? 't1lead' : side === 1 ? 't2lead' : 'tied'
 }
 
-// Standard Match Play status text + "thru" text.
+// Points Match Play status text + leading side (0/1/null) + "thru" text.
+// Tied → "All Square"; otherwise "{leading team name} lead {hi}–{lo}".
+// No holes scored → "Match not started".
+function pointsSummary(row, n1, n2) {
+  if (row.thru === 0) return { text: 'Match not started', side: null, thru: '' }
+  if (row.t1pts === row.t2pts) return { text: 'All Square', side: null, thru: `Thru ${row.thru}` }
+  const side = row.t1pts > row.t2pts ? 0 : 1
+  const leadName = side === 0 ? n1 : n2
+  const hi = Math.max(row.t1pts, row.t2pts)
+  const lo = Math.min(row.t1pts, row.t2pts)
+  return { text: `${leadName} lead ${hi}–${lo}`, side, thru: `Thru ${row.thru}` }
+}
+
+// Standard Match Play status text + leading side (0/1/null) + "thru" text.
 // Tied → "All Square"; otherwise "{leading team name} lead {margin}".
 // Closed → final result only, no thru. No scores → "Match not started".
 function standardStatus(row, n1, n2) {
   if (row.closed) {
-    const name = row.winner === 'T1' ? n1 : n2
-    return { text: `${name} win ${row.finalMargin}`, thru: '' }
+    const side = row.winner === 'T1' ? 0 : 1
+    const name = side === 0 ? n1 : n2
+    return { text: `${name} win ${row.finalMargin}`, side, thru: '' }
   }
-  if (row.thru === 0) return { text: 'Match not started', thru: '' }
-  if (row.leader == null) return { text: 'All Square', thru: `Thru ${row.thru}` }
-  const name = row.leader === 'T1' ? n1 : n2
-  return { text: `${name} lead ${row.statusShort}`, thru: `Thru ${row.thru}` }
+  if (row.thru === 0) return { text: 'Match not started', side: null, thru: '' }
+  if (row.leader == null) return { text: 'All Square', side: null, thru: `Thru ${row.thru}` }
+  const side = row.leader === 'T1' ? 0 : 1
+  const name = side === 0 ? n1 : n2
+  return { text: `${name} lead ${row.statusShort}`, side, thru: `Thru ${row.thru}` }
 }
 
 export default function LiveScoreBanner({ trip, rounds, teams }) {
-  const [dismissed, setDismissed] = useState(false)
   const [pairings, setPairings] = useState([])
   const [pairingPlayers, setPairingPlayers] = useState([])
   const [scoresMap, setScoresMap] = useState({})
@@ -208,7 +216,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     && todayISO >= trip.start_date && todayISO <= trip.end_date
   const selectedComplete = tallies.length > 0 && tallies.every(t => t.complete)
 
-  if (dismissed || !beforeNine || !round || !anyHolesScored) return null
+  if (!beforeNine || !round || !anyHolesScored) return null
   if (selectedComplete && !inTripWindow) return null
 
   const n1 = getTeamDisplayName(teams?.[0]) || 'Team 1'
@@ -217,61 +225,20 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   const visibleRows = tallies.filter(t => t.hasMatch)
 
   return (
-    <div style={s.float} role="status" aria-label="Live score">
-      <button style={s.close} onClick={() => setDismissed(true)} aria-label="Dismiss live score">×</button>
-      <div style={s.header}>
-        <span style={s.courseName}>{round.club_name || round.course_name}</span>
-        <span style={s.headerSep}>·</span>
-        <span style={s.liveLabel}>Live Match</span>
-      </div>
-      <div style={s.rows}>
+    <div className="match-banner-float visible" id="match-banner-float" role="status" aria-label="Live score">
+      <div className="match-banner-round">{round.club_name || round.course_name} · Live Match</div>
+      <div className="match-banner-rows">
         {visibleRows.map(t => {
           const st = isStandard ? standardStatus(t, n1, n2) : pointsSummary(t, n1, n2)
           return (
-            <div key={t.pairingNumber} style={s.row}>
-              <span style={s.pairLabel}>Pairing {t.pairingNumber}</span>
-              <span style={s.status}>{st.text}</span>
-              <span style={s.thru}>{st.thru}</span>
+            <div className="match-banner-row" key={t.pairingNumber}>
+              <span className="match-banner-pair-label">Pairing {t.pairingNumber}</span>
+              <span className={`match-banner-status ${sideClass(st.side)}`}>{st.text}</span>
+              <span className="match-banner-thru">{st.thru}</span>
             </div>
           )
         })}
       </div>
     </div>
   )
-}
-
-const s = {
-  float: {
-    position: 'fixed',
-    left: 16,
-    right: 16,
-    bottom: 'calc(16px + env(safe-area-inset-bottom))',
-    maxWidth: 398,
-    margin: '0 auto',
-    background: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    zIndex: 150,
-    boxShadow: '0 4px 20px rgba(13,27,42,0.18)',
-  },
-  close: {
-    position: 'absolute', top: 8, right: 10, width: 22, height: 22,
-    background: 'none', border: 'none', color: '#BBBBBB', fontSize: 18,
-    lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit', padding: 0,
-  },
-  header: {
-    display: 'flex', alignItems: 'baseline', gap: 6,
-    marginBottom: 12, paddingRight: 18,
-  },
-  courseName: { fontSize: 14, fontWeight: 500, color: '#1A1A1A' },
-  headerSep: { fontSize: 13, color: '#999999' },
-  liveLabel: {
-    fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5,
-    color: '#B8860B', fontWeight: 700,
-  },
-  rows: { display: 'flex', flexDirection: 'column', gap: 9 },
-  row: { display: 'flex', alignItems: 'center', gap: 8 },
-  pairLabel: { fontSize: 12, color: '#888888', minWidth: 62, fontWeight: 400 },
-  status: { fontSize: 14, fontWeight: 700, color: '#1A1A1A', flex: 1, textAlign: 'center' },
-  thru: { fontSize: 12, color: '#888888', fontWeight: 400, textAlign: 'right', minWidth: 52 },
 }
