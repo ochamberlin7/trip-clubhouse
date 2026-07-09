@@ -56,7 +56,8 @@ function StepTripDetails({
     if (!tripName.trim()) { setError('Trip name is required.'); return }
     if (!startDate) { setError('Start date is required.'); return }
     if (!endDate) { setError('End date is required.'); return }
-    if (endDate <= startDate) { setError('End date must be after start date.'); return }
+    // Allow a one-day trip (end === start); only reject an end strictly before start.
+    if (endDate < startDate) { setError('End date cannot be before start date.'); return }
     setError('')
     onNext()
   }
