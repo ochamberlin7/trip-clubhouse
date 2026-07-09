@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { searchCourses, getCourseDetails } from '../lib/courseApi'
 
 // Self-contained course typeahead → tee picker.
@@ -20,7 +21,10 @@ function teeStyle(name) {
 const s = {
   wrap: { position: 'relative' },
   input: { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #DDE3EA', background: '#fff', fontSize: '14px', color: '#0D1B2A', fontFamily: 'inherit', outline: 'none' },
-  dropdown: { position: 'absolute', top: '100%', left: 0, width: '100%', marginTop: '4px', zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: '240px', overflowY: 'auto' },
+  // Portaled to document.body with position:fixed (coords computed from the input
+  // rect) so an overflow:hidden/auto ancestor — the course-edit modal sheet, the
+  // wizard cards — can never clip it. zIndex sits above the modal overlay (400).
+  dropdown: { position: 'fixed', zIndex: 4000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: '8px', boxShadow: '0 6px 20px rgba(0,0,0,0.18)', maxHeight: '240px', overflowY: 'auto' },
   resultRow: { padding: '12px 14px', borderBottom: '1px solid #E8EDF3', cursor: 'pointer', background: '#fff' },
   resultName: { fontSize: '14px', fontWeight: 600, color: '#0D1B2A' },
   resultSub: { fontSize: '12px', color: '#7A8FA6', marginTop: '1px' },
@@ -58,9 +62,13 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   const [femaleTees, setFemaleTees] = useState([])
   const [selectedTee, setSelectedTee] = useState(null)
   const [loadingCourse, setLoadingCourse] = useState(false)
+  const [rect, setRect] = useState(null) // input position, for the portaled dropdown
   const wrapRef = useRef(null)
   const dropRef = useRef(null)
   const typedRef = useRef(false) // only search after the user actively types
+
+  // Snapshot the input's viewport rect so the fixed-position portal anchors to it.
+  const captureRect = () => { if (wrapRef.current) setRect(wrapRef.current.getBoundingClientRect()) }
 
   // Debounced search.
   useEffect(() => {
@@ -73,10 +81,10 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
       try {
         const found = await searchCourses(q)
         setResults(found.slice(0, 10))
-        setOpen(true)
+        captureRect(); setOpen(true)
       } catch (err) {
         setError(err?.status === 429 ? 'rate' : 'error')
-        setResults([]); setOpen(true)
+        setResults([]); captureRect(); setOpen(true)
       } finally {
         setLoading(false)
       }
@@ -96,6 +104,20 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onDocClick); document.removeEventListener('keydown', onKey) }
   }, [])
+
+  // While the dropdown is open, keep it pinned to the input as the page/modal
+  // scrolls or the viewport resizes (capture:true catches scrolls on the modal
+  // sheet's own overflow container, not just window).
+  useEffect(() => {
+    if (!open) return
+    const reposition = () => captureRect()
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
+    return () => {
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
+    }
+  }, [open])
 
   async function selectCourse(result) {
     setOpen(false)
@@ -222,8 +244,22 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   }
 
   // ── Phase 1: search ──
-  const dropdown = open ? (
-    <div ref={dropRef} style={s.dropdown}>
+  // Anchor the fixed portal to the input rect; flip upward when there's little
+  // room below so the list is never pushed off-screen.
+  let dropPos = null
+  if (rect) {
+    const spaceBelow = window.innerHeight - rect.bottom
+    const dropUp = spaceBelow < 260 && rect.top > spaceBelow
+    const room = (dropUp ? rect.top : spaceBelow) - 12
+    dropPos = {
+      left: rect.left,
+      width: rect.width,
+      maxHeight: Math.max(120, Math.min(240, room)),
+      ...(dropUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+    }
+  }
+  const dropdown = open && dropPos ? createPortal(
+    <div ref={dropRef} style={{ ...s.dropdown, ...dropPos }}>
       {loading && <div style={s.msg}>Searching…</div>}
       {!loading && error === 'rate' && <div style={s.msg}>Search rate-limited — wait a moment and try again</div>}
       {!loading && error === 'error' && <div style={s.msg}>Search unavailable</div>}
@@ -244,7 +280,8 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
           </div>
         )
       })}
-    </div>
+    </div>,
+    document.body,
   ) : null
 
   return (
@@ -255,7 +292,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
         placeholder={placeholder || 'Search for a course...'}
         value={query}
         onChange={e => { typedRef.current = true; setQuery(e.target.value); onQueryChange?.(e.target.value) }}
-        onFocus={() => { if (results.length) setOpen(true) }}
+        onFocus={() => { if (results.length) { captureRect(); setOpen(true) } }}
       />
       {loadingCourse && <div style={s.loadingCard}>Loading course…</div>}
       {dropdown}
