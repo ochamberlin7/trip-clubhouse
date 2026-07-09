@@ -8,6 +8,7 @@ import CourseSearchInput from './CourseSearchInput'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 import { courseHandicapForTee, resolvePlayerTee, tournamentFormatLabel } from '../lib/scoring'
+import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -434,37 +435,15 @@ function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
   )
 }
 
-// Strip any gender prefix/suffix from a tee name — gender is irrelevant here, the
-// app only cares which tee box you play from. "Men's Gold" / "Women's Gold" → "Gold".
-function stripTeeGender(name) {
-  return String(name || '')
-    .replace(/\b(men['’]?s?|women['’]?s?|ladies|mens|womens|male|female)\b/gi, '')
-    .replace(/\((?:m|w|men|women|male|female)\)/gi, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-}
-
-// Deduplicate tee options by gender-stripped name, keeping the first occurrence
-// (and showing the cleaned name once).
-function dedupeTeesByName(tees) {
-  const seen = new Set()
-  const out = []
-  for (const t of tees) {
-    const name = stripTeeGender(t.name) || t.name
-    const key = name.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push({ ...t, name })
-  }
-  return out
-}
-
-// Normalise GolfCourseAPI course detail → [{name,slope,rating,par}] (men's + women's).
+// Normalise GolfCourseAPI course detail → [{name,slope,rating,par,gender}]
+// (men's + women's). Gender is retained so labelTees can add a minimal (M)/(W)
+// qualifier only when a colour collides across genders; see src/lib/tees.js.
 function teesFromCourseDetail(detail) {
-  const all = [...(detail?.tees?.male || []), ...(detail?.tees?.female || [])]
-  return all
+  const male = (detail?.tees?.male || []).map(t => ({ ...t, gender: 'male' }))
+  const female = (detail?.tees?.female || []).map(t => ({ ...t, gender: 'female' }))
+  return [...male, ...female]
     .filter(t => t && t.tee_name)
-    .map(t => ({ name: t.tee_name, slope: t.slope_rating, rating: t.course_rating, par: t.par_total }))
+    .map(t => ({ name: t.tee_name, slope: t.slope_rating, rating: t.course_rating, par: t.par_total, gender: t.gender }))
 }
 
 // The round's own tee, synthesised from its round-level course fields. Used as a
@@ -495,11 +474,17 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   const combinedTees = (primaryTee && !sourceTees.some(t => t.name === primaryTee.name))
     ? [primaryTee, ...sourceTees]
     : sourceTees
-  // Drop gender-duplicate tee names (e.g. "Men's Gold" + "Women's Gold" → one "Gold").
-  const tees = dedupeTeesByName(combinedTees)
+  // Label tees by colour, adding a minimal (M)/(W) qualifier only where a colour
+  // collides across genders with a different rating/slope (see src/lib/tees.js).
+  const tees = labelTees(combinedTees)
   const hasCourse = round.slope_rating != null || tees.length > 0
-  // Round's primary tee name — the default when a player has no saved tee.
-  const defaultTeeName = tees.find(t => t.name === round.tee_name)?.name ?? tees[0]?.name ?? null
+  // Round's primary tee — the default when a player has no saved tee. Match the
+  // stored tee_name against the label first, then the gender-stripped colour so
+  // legacy names (saved before qualifiers existed) still resolve.
+  const defaultTeeName = (
+    tees.find(t => t.label === round.tee_name)
+    ?? tees.find(t => t.color === stripTeeGender(round.tee_name))
+  )?.label ?? tees[0]?.label ?? null
 
   // If the round has no cached tees, pull the full tee list from the golf course
   // API the first time the section is expanded (the synthesised primary tee
@@ -647,9 +632,9 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                       style={teeSelect}
                       value={r.teeName ?? ''}
                       disabled={readOnly}
-                      onChange={e => onChangeTee(round, r.player, tees.find(t => t.name === e.target.value))}
+                      onChange={e => onChangeTee(round, r.player, tees.find(t => t.label === e.target.value))}
                     >
-                      {tees.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                      {tees.map((t, ti) => <option key={`${t.label}-${ti}`} value={t.label}>{t.label}</option>)}
                     </select>
                   ) : (
                     <span style={{ fontSize: 12, color: '#7A8FA6' }}>{r.teeName ?? round.tee_name ?? '—'}</span>
@@ -1757,7 +1742,9 @@ export default function MenuDrawer({
     const row = {
       trip_player_id: player.id,
       round_id: round.id,
-      tee_name: tee?.name ?? null,
+      // Store the display label (e.g. "White" or, on a gender collision, "White
+      // (W)") so it round-trips with the tee <select> value.
+      tee_name: tee?.label ?? tee?.name ?? null,
       slope: tee?.slope ?? null,
       rating: tee?.rating ?? null,
       par: tee?.par ?? null,

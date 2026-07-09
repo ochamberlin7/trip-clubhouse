@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { searchCourses, getCourseDetails } from '../lib/courseApi'
+import { labelTees } from '../lib/tees'
 
 // Self-contained course typeahead → tee picker.
 // Phase 1: debounced search with a results dropdown anchored directly below the
 //          input (absolute, full width) so it always reads clearly.
-// Phase 2: selected-course card + men's/women's tee sections, then "Add".
+// Phase 2: selected-course card + a single tee grid, then "Add". Tees show only
+//          the colour/name — no men's/women's heading — with a minimal (M)/(W)
+//          qualifier only where a colour collides across genders (see lib/tees).
 
 // Tee color coding by name.
 function teeStyle(name) {
@@ -58,8 +61,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null) // null | 'rate' | 'error'
   const [course, setCourse] = useState(null)      // full selected course (Phase 2)
-  const [maleTees, setMaleTees] = useState([])
-  const [femaleTees, setFemaleTees] = useState([])
+  const [tees, setTees] = useState([])            // labelled tee boxes (men's + women's, deduped)
   const [selectedTee, setSelectedTee] = useState(null)
   const [loadingCourse, setLoadingCourse] = useState(false)
   const [rect, setRect] = useState(null) // input position, for the portaled dropdown
@@ -132,20 +134,22 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
       // Fall back to the search row (it often already includes tees/holes).
     }
     setCourse(full)
-    const male = full?.tees?.male || []
-    const female = full?.tees?.female || []
-    setMaleTees(male)
-    setFemaleTees(female)
+    // Tag each tee with its gender, then collapse to one grid — labelTees adds a
+    // (M)/(W) qualifier only where a colour exists for both genders with a
+    // different rating/slope, so distinct tees never look like duplicates.
+    const male = (full?.tees?.male || []).map(t => ({ ...t, gender: 'male' }))
+    const female = (full?.tees?.female || []).map(t => ({ ...t, gender: 'female' }))
+    const labelled = labelTees([...male, ...female])
+    setTees(labelled)
     // Auto-select the first available tee so "Add This Course" is never blocked
     // (the button is disabled until a tee is selected).
-    setSelectedTee(male[0] || female[0] || null)
+    setSelectedTee(labelled[0] || null)
     setLoadingCourse(false)
   }
 
   function clearSelection() {
     setCourse(null)
-    setMaleTees([])
-    setFemaleTees([])
+    setTees([])
     setSelectedTee(null)
     setResults([])
   }
@@ -156,11 +160,13 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
     console.log('[CourseSearchInput] Add This Course clicked; selectedTee =', selectedTee)
     if (!selectedTee) return
     const loc = course.location || {}
-    // Cache every available tee (men's + women's) so per-player tee selection
-    // in Commissioner Tools can offer them all. Normalised to {name,slope,rating,par}.
-    const allTees = [...maleTees, ...femaleTees]
-      .filter(t => t && t.tee_name)
-      .map(t => ({ name: t.tee_name, slope: t.slope_rating, rating: t.course_rating, par: t.par_total }))
+    // Cache every available tee (men's + women's) so per-player tee selection in
+    // Commissioner Tools can offer them all. Normalised to {name,slope,rating,par,
+    // gender}; `name` is the display label (colour, plus a (M)/(W) qualifier only
+    // on a gender collision) and gender is retained for future re-labelling.
+    const allTees = tees
+      .filter(t => t && t.label)
+      .map(t => ({ name: t.label, slope: t.slope_rating, rating: t.course_rating, par: t.par_total, gender: t.gender ?? null }))
     onCourseSelected({
       golfcourse_id: course.id,
       club_name: course.club_name,
@@ -170,7 +176,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
       location_state: loc.state ?? null,
       location_lat: loc.latitude ?? null,
       location_lon: loc.longitude ?? null,
-      tee_name: selectedTee.tee_name,
+      tee_name: selectedTee.label,
       course_rating: selectedTee.course_rating,
       slope_rating: selectedTee.slope_rating,
       par_total: selectedTee.par_total,
@@ -181,37 +187,37 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
     setOpen(false)
   }
 
-  function TeeSection({ title, tees, topMargin }) {
+  // One grid, no gender heading — the colour chip uses the gender-stripped colour
+  // so "White (W)" still renders as a white swatch; the button label carries the
+  // (M)/(W) qualifier only on a collision.
+  function TeeGrid({ tees }) {
     if (!tees || tees.length === 0) return null
     return (
-      <div>
-        <div style={{ ...s.sectionHeader, ...(topMargin ? { marginTop: '10px' } : null) }}>{title}</div>
-        <div style={s.teeGrid}>
-          {tees.map((tee, i) => {
-            const active = selectedTee === tee
-            return (
-              <button
-                key={`${title}-${tee.tee_name}-${i}`}
-                style={{
-                  ...s.teeBtn, ...teeStyle(tee.tee_name),
-                  boxShadow: active ? '0 0 0 2px #1B3F6E' : 'none',
-                  transform: active ? 'scale(1.03)' : 'none',
-                }}
-                onClick={() => setSelectedTee(tee)}
-              >
-                <div style={s.teeName}>{tee.tee_name}</div>
-                <div style={s.teeMeta}>Rating: {tee.course_rating} / Slope: {tee.slope_rating}</div>
-              </button>
-            )
-          })}
-        </div>
+      <div style={s.teeGrid}>
+        {tees.map((tee, i) => {
+          const active = selectedTee === tee
+          return (
+            <button
+              key={`${tee.label}-${i}`}
+              style={{
+                ...s.teeBtn, ...teeStyle(tee.color || tee.tee_name),
+                boxShadow: active ? '0 0 0 2px #1B3F6E' : 'none',
+                transform: active ? 'scale(1.03)' : 'none',
+              }}
+              onClick={() => setSelectedTee(tee)}
+            >
+              <div style={s.teeName}>{tee.label}</div>
+              <div style={s.teeMeta}>Rating: {tee.course_rating} / Slope: {tee.slope_rating}</div>
+            </button>
+          )
+        })}
       </div>
     )
   }
 
   // ── Phase 2: tee selection ──
   if (course) {
-    const hasTees = maleTees.length > 0 || femaleTees.length > 0
+    const hasTees = tees.length > 0
     return (
       <div>
         <div style={s.selectedCard}>
@@ -229,10 +235,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
         {!hasTees ? (
           <div style={s.msg}>No tee data available for this course.</div>
         ) : (
-          <>
-            <TeeSection title="Men's Tees" tees={maleTees} topMargin={false} />
-            <TeeSection title="Women's Tees" tees={femaleTees} topMargin={maleTees.length > 0} />
-          </>
+          <TeeGrid tees={tees} />
         )}
 
         <button style={{ ...s.confirm, opacity: selectedTee ? 1 : 0.4, cursor: selectedTee ? 'pointer' : 'not-allowed' }}
