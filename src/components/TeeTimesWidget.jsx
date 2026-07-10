@@ -51,16 +51,29 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: '12px',
     padding: '10px 14px',
     borderBottom: '1px solid #E8EDF3',
   },
   rowLast: {
     borderBottom: 'none',
   },
+  // Left column: allowed to shrink (minWidth:0) so the course name can
+  // truncate instead of wrapping/pushing the tee time.
+  courseCol: {
+    flex: 1,
+    minWidth: 0,
+  },
   course: {
-    fontSize: '15px',
     fontWeight: 700,
     color: '#0D1B2A',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  teeCol: {
+    textAlign: 'right',
+    flexShrink: 0,
   },
   teeTime: {
     fontSize: '18px',
@@ -68,6 +81,15 @@ const styles = {
     color: '#0D1B2A',
     textAlign: 'right',
   },
+}
+
+// Scale the course name down for longer strings so common names keep the
+// larger size and only long ones shrink to fit more before the ellipsis.
+function courseFontSize(len) {
+  if (len <= 24) return '15px'
+  if (len <= 34) return '14px'
+  if (len <= 44) return '13px'
+  return '12px'
 }
 
 const BADGE = {
@@ -172,13 +194,13 @@ export default function TeeTimesWidget({ rounds = [], tripStartDate, tripEndDate
           : (r.club_name || r.course_name)
         return (
           <div key={r.id} style={{ ...styles.row, ...(isLast ? styles.rowLast : null) }}>
-            <div>
-              <div style={styles.course}>{courseLabel}</div>
+            <div style={styles.courseCol}>
+              <div style={{ ...styles.course, fontSize: courseFontSize((courseLabel || '').length) }} title={courseLabel || undefined}>{courseLabel}</div>
               <Badge type={type} />
             </div>
             {times.length > 0
-              ? <div style={{ textAlign: 'right' }}>{times.map((t, j) => <div key={j} style={styles.teeTime}>{t}</div>)}</div>
-              : <div style={styles.teeTime}>TBD</div>}
+              ? <div style={styles.teeCol}>{times.map((t, j) => <div key={j} style={styles.teeTime}>{t}</div>)}</div>
+              : <div style={{ ...styles.teeCol, ...styles.teeTime }}>TBD</div>}
           </div>
         )
       })}
