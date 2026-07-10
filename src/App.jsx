@@ -8,6 +8,7 @@ import GroupSelector from './pages/home/GroupSelector'
 import TripWizard from './pages/onboarding/TripWizard'
 import TripDashboard from './pages/dashboard/TripDashboard'
 import JoinTrip from './pages/JoinTrip'
+import ProfilePage from './pages/ProfilePage'
 import AppShell from './components/layout/AppShell'
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
               <Route path="/groups" element={<GroupSelector />} />
               <Route path="/onboarding/trip" element={<TripWizard />} />
               <Route path="/dashboard" element={<TripDashboard />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>

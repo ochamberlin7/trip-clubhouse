@@ -94,7 +94,7 @@ select {
 .page-header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
 /* ── Dashboard ── */
-.dashboard-page { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg0); }
+.dashboard-page { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg0); position: relative; }
 /* Extra bottom space so the last rows (scorecard holes 17–18 + totals, leaderboard
    tail, etc.) can scroll clear of the fixed live-score banner. --live-banner-space
    is published by LiveScoreBanner (its measured height + gap) and is 0 when hidden. */
