@@ -52,7 +52,8 @@ function StepTripDetails({
   const [error, setError] = useState('')
 
   function handleNext() {
-    if (!groupName.trim()) { setError('Group name is required.'); return }
+    // Group name is pre-filled with a default and stays editable, so it's no
+    // longer required here — a cleared field falls back to the default on submit.
     if (!tripName.trim()) { setError('Trip name is required.'); return }
     if (!startDate) { setError('Start date is required.'); return }
     if (!endDate) { setError('End date is required.'); return }
@@ -485,6 +486,7 @@ export default function TripWizard() {
 
   // Step 0
   const [groupName, setGroupName] = useState('')   // Change 1
+  const [defaultGroupName, setDefaultGroupName] = useState('')  // "{Last Name} Trip", seeded from profile
   const [tripName, setTripName] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -510,6 +512,12 @@ export default function TripWizard() {
       if (cancelled) return
       const dn = (data?.display_name || user.email.split('@')[0]).trim()
       const parts = dn.split(/\s+/)
+      const lastName = parts.slice(1).join(' ') || parts[0] || dn
+      // Pre-fill the group name with "{Last Name} Trip"; keep it editable and
+      // reuse it as the fallback if the field is cleared before submitting.
+      const defaultName = `${lastName} Trip`.trim()
+      setDefaultGroupName(defaultName)
+      setGroupName(prev => (prev.trim() ? prev : defaultName))
       setPlayers([
         { id: 'me', isCommissioner: true, first_name: parts[0] || dn, last_name: parts.slice(1).join(' '), email: user.email, phone: '' },
         { id: uid(), first_name: '', last_name: '', email: '', phone: '' },
@@ -550,7 +558,7 @@ export default function TripWizard() {
       // 1. Create group using groupName (Change 1)
       const { data: group, error: groupErr } = await supabase
         .from('groups')
-        .insert({ name: groupName.trim(), created_by: user.id })
+        .insert({ name: groupName.trim() || defaultGroupName, created_by: user.id })
         .select()
         .single()
       if (groupErr) throw groupErr
