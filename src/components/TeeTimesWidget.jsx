@@ -165,10 +165,15 @@ export default function TeeTimesWidget({ rounds = [], tripStartDate, tripEndDate
         const type = r.round_type === 'practice' ? 'practice' : 'tournament'
         const isLast = i === displayRounds.length - 1
         const times = [r.tee_time_1, r.tee_time_2].filter(Boolean)
+        // "{Club Name} - {Course Name}", collapsing to a single name when a
+        // field is missing or the two are identical.
+        const courseLabel = r.club_name && r.course_name && r.club_name !== r.course_name
+          ? `${r.club_name} - ${r.course_name}`
+          : (r.club_name || r.course_name)
         return (
           <div key={r.id} style={{ ...styles.row, ...(isLast ? styles.rowLast : null) }}>
             <div>
-              <div style={styles.course}>{r.course_name}</div>
+              <div style={styles.course}>{courseLabel}</div>
               <Badge type={type} />
             </div>
             {times.length > 0
