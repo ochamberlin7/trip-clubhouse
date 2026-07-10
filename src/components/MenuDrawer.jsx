@@ -10,6 +10,7 @@ import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../l
 import { courseHandicapForTee, resolvePlayerTee, tournamentFormatLabel } from '../lib/scoring'
 import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
+import { ProfileBadge } from './ProfileAvatar'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -1470,7 +1471,7 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate }) {
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, onTripUpdate, onRoundsChanged, onSignOut,
+  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, onTripUpdate, onRoundsChanged,
 }) {
   const navigate = useNavigate()
   const { activeTripId, switchTrip } = useGroup()
@@ -1831,6 +1832,14 @@ export default function MenuDrawer({
           <button style={s.closeBtn} onClick={onClose} aria-label="Close menu">✕</button>
         </div>
         <div style={s.nav}>
+          {/* Profile — reuses the circular initials badge; opens the account page */}
+          <button style={s.item} onClick={() => { onClose(); navigate('/profile') }}>
+            <ProfileBadge style={{ width: 36, height: 36, border: 'none', boxShadow: 'none' }} />
+            <span>
+              <span style={{ ...s.itemLabel, display: 'block' }}>Profile</span>
+              <span style={{ ...s.itemSub, display: 'block' }}>Manage your profile</span>
+            </span>
+          </button>
           {/* Trip switcher — styled like the other menu rows; opens the switcher page */}
           <button style={s.item} onClick={() => setPage('switch-trip')}>
             <span style={s.iconBox}>
@@ -1855,20 +1864,6 @@ export default function MenuDrawer({
               </span>
             </button>
           ))}
-          {onSignOut && (
-            <button style={s.item} onClick={onSignOut}>
-              <span style={s.iconBox}>
-                <svg {...svgProps}>
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-              </span>
-              <span>
-                <span style={{ ...s.itemLabel, display: 'block', color: '#C0392B' }}>Sign Out</span>
-              </span>
-            </button>
-          )}
         </div>
       </div>
 

@@ -14,7 +14,6 @@ import DailyMVPCard from '../../components/DailyMVPCard'
 import MenuDrawer from '../../components/MenuDrawer'
 import ScoringTab from '../../components/ScoringTab'
 import LiveScoreBanner from '../../components/LiveScoreBanner'
-import ProfileAvatar from '../../components/ProfileAvatar'
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -1014,11 +1013,6 @@ export default function TripDashboard() {
     if (data) setRounds(data)
   }
 
-  async function handleSignOut() {
-    await supabase.auth.signOut()
-    navigate('/login', { replace: true })
-  }
-
   if (loading) return <div className="loading-screen">Loading trip…</div>
 
   if (fetchError) return (
@@ -1058,8 +1052,6 @@ export default function TripDashboard() {
 
   return (
     <div className="dashboard-page">
-      {/* ── Profile avatar — top corner, links to the account page ── */}
-      <ProfileAvatar />
       {/* ── Tab bar — sticky top ── */}
       <nav className="tab-bar">
         {TABS.map(tab => (
@@ -1141,7 +1133,6 @@ export default function TripDashboard() {
         tournamentFormat={trip.format}
         onTripUpdate={refetchTrip}
         onRoundsChanged={refreshRounds}
-        onSignOut={handleSignOut}
       />
     </div>
   )

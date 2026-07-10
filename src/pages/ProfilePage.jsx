@@ -109,6 +109,12 @@ export default function ProfilePage() {
     }
   }
 
+  // Same sign-out logic previously used by the drawer.
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    navigate('/login', { replace: true })
+  }
+
   return (
     <div className="auth-page">
       <div className="auth-card">
@@ -174,6 +180,25 @@ export default function ProfilePage() {
             {savingPw ? 'Updating…' : 'Update Password'}
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          style={{
+            width: '100%',
+            background: 'transparent',
+            border: '1px solid #E8EDF3',
+            color: '#C0392B',
+            fontWeight: 600,
+            fontSize: 15,
+            padding: '12px',
+            borderRadius: 8,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          Sign Out
+        </button>
       </div>
     </div>
   )
