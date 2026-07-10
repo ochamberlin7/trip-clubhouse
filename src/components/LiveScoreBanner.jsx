@@ -246,25 +246,6 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     && todayISO >= trip.start_date && todayISO <= trip.end_date
   const selectedComplete = tallies.length > 0 && tallies.every(t => t.complete)
 
-  // ── Item 3 diagnostic: report exactly which gate hides the banner, without
-  // changing any of the gate logic below. Remove once the bug is understood.
-  const hiddenBy = !beforeNine ? '9pm cutoff (local hour >= 21)'
-    : !round ? 'no round selected (no round has scores yet, or pairings/pairing_players not loaded)'
-    : !anyHolesScored ? 'zero holes scored across the selected round'
-    : (selectedComplete && !inTripWindow) ? 'selected round is COMPLETE and today is outside the trip date window'
-    : null
-  console.log('[LiveScoreBanner] gate check', {
-    format: trip?.format,
-    hiddenBy: hiddenBy || '(visible)',
-    localHour: now.getHours(), beforeNine,
-    todayISO, tripStart: trip?.start_date, tripEnd: trip?.end_date, inTripWindow,
-    round: round ? { id: round.id, date: round.date, type: round.round_type } : null,
-    anyHolesScored, selectedComplete,
-    pairings: tallies.map(t => ({
-      pairing: t.pairingNumber, thru: t.thru, complete: t.complete, closed: t.closed,
-    })),
-  })
-
   // Whether the banner will actually render (mirrors the two gates below). Used by
   // the measuring effect, which must run unconditionally before any early return.
   const shouldRender = beforeNine && !!round && anyHolesScored && !(selectedComplete && !inTripWindow)
