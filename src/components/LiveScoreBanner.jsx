@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { liveMatchTally, liveStandardMatchTally } from '../lib/scoring'
-import { getTeamDisplayName } from '../lib/teamColors'
+import { getTeamDisplayName, isDefaultTeamName } from '../lib/teamColors'
 
 // Floating live-score banner, fixed to the bottom of the screen. Mounted once at
 // the dashboard level so it persists across every tab. Shows a per-pairing
@@ -44,7 +44,10 @@ function pointsSummary(row, n1, n2) {
   const leadName = side === 0 ? n1 : n2
   const hi = Math.max(row.t1pts, row.t2pts)
   const lo = Math.min(row.t1pts, row.t2pts)
-  return { text: `${leadName} lead ${hi}–${lo}`, side, thru: `Thru ${row.thru}` }
+  // Default "Team N" is a singular subject → "leads"; a custom name is treated as
+  // a plural collective noun per sports convention → "lead" ("Grandmas lead 6–5").
+  const verb = isDefaultTeamName(leadName) ? 'leads' : 'lead'
+  return { text: `${leadName} ${verb} ${hi}–${lo}`, side, thru: `Thru ${row.thru}` }
 }
 
 // Standard Match Play status text + leading side (0/1/null) + "thru" text.
@@ -74,7 +77,10 @@ function standardStatus(row, n1, n2) {
   if (row.leader == null) return { text: 'All Square', side: null, thru: `Thru ${row.thru}` }
   const side = row.leader === 'T1' ? 0 : 1
   const name = side === 0 ? n1 : n2
-  return { text: `${name} ${Math.abs(row.lead)} Up`, side, thru: `Thru ${row.thru}` }
+  // A default "Team N" ends in a digit that would run straight into the score
+  // ("Team 2 1 Up"); separate them with a dash. Custom names read fine as-is.
+  const sep = isDefaultTeamName(name) ? ' – ' : ' '
+  return { text: `${name}${sep}${Math.abs(row.lead)} Up`, side, thru: `Thru ${row.thru}` }
 }
 
 export default function LiveScoreBanner({ trip, rounds, teams }) {

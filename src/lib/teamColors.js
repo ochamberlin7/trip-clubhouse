@@ -30,3 +30,12 @@ export function getTeamDisplayName(team) {
   if (!team) return ''
   return team.name || `Team ${team.team_index ?? '?'}`
 }
+
+// True when a display name is an auto-generated fallback ("Team 1", "Team ?")
+// rather than a custom name. Used for grammar/formatting decisions: a default
+// name is a singular subject (takes "leads", and needs a dash before a score so
+// its trailing digit doesn't run into the score); a custom name is treated as a
+// plural collective noun ("Grandmas lead …", "the Broncos lead …").
+export function isDefaultTeamName(name) {
+  return /^Team (?:\d+|\?)$/.test(String(name || '').trim())
+}

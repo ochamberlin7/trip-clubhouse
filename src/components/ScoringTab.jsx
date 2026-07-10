@@ -781,7 +781,10 @@ function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSav
   }
 
   const m = {
-    overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' },
+    // zIndex 400 matches the app's modal-overlay convention (MenuDrawer modals)
+    // so the sheet sits above the live-score banner (z-index 200), which was
+    // otherwise painting over the Cancel/controls at the equal z-index of 200.
+    overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 400, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' },
     sheet: { background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 32px', width: '100%', maxWidth: 430, borderTop: '1px solid #DDE3EA' },
     round: { fontSize: 11, color: '#7A8FA6', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 },
     holeNum: { fontSize: 30, fontWeight: 900, color: '#0D1B2A', textAlign: 'center', lineHeight: 1 },
