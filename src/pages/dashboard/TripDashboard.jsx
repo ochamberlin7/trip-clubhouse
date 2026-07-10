@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getActiveRound, liveMatchTally, liveStandardMatchTally } from '../../lib/scoring'
+import { getActiveRound, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
@@ -985,7 +985,17 @@ export default function TripDashboard() {
       if (num) pairingNum = num
     }
     setScoringInit({ roundId: active.id, pairingNum })
-    if (!autoNavedRef.current) { autoNavedRef.current = true; setActiveTab('scores') }
+
+    // Only default to the Score tab once we're at least 5 minutes past the
+    // user's scheduled tee time (pairing 2 tees off at tee_time_2). Purely
+    // time-based — independent of whether any score has been logged. Before
+    // then (or with no parseable tee time), leave the landing tab on Home.
+    const teeStr = (pairingNum === 2 && active.tee_time_2) ? active.tee_time_2 : active.tee_time_1
+    const teeMinutes = parseTeeTimeToMinutes(teeStr)
+    const now = new Date()
+    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+    const pastTeeThreshold = teeMinutes > 0 && nowMinutes >= teeMinutes + 5
+    if (pastTeeThreshold && !autoNavedRef.current) { autoNavedRef.current = true; setActiveTab('scores') }
   }
 
   async function refetchTrip() {
