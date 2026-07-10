@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { liveMatchTally, liveStandardMatchTally } from '../lib/scoring'
 import { getTeamDisplayName, isDefaultTeamName } from '../lib/teamColors'
@@ -92,6 +92,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   // Bumped every 60s so the 9pm cutoff is re-evaluated.
   const [, setClockTick] = useState(0)
   const channelRef = useRef(null)
+  const bannerRef = useRef(null) // outer float, for measuring its rendered height
 
   const allowance = trip?.handicap_allowance ?? 100
   const isStandard = trip?.format === 'standard_match_play'
@@ -264,6 +265,38 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     })),
   })
 
+  // Whether the banner will actually render (mirrors the two gates below). Used by
+  // the measuring effect, which must run unconditionally before any early return.
+  const shouldRender = beforeNine && !!round && anyHolesScored && !(selectedComplete && !inTripWindow)
+  const rowCount = tallies.filter(t => t.hasMatch).length
+
+  // Publish the banner's occupied height (its rendered height + fixed bottom
+  // offset + a small gap) to a CSS variable so scrollable views can pad their
+  // bottom and let their last rows scroll clear of the fixed banner. The height is
+  // variable (one row per active pairing), so measure the real node and track it
+  // with a ResizeObserver; reset to 0 whenever the banner isn't shown.
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    const el = bannerRef.current
+    if (!el) { root.style.setProperty('--live-banner-space', '0px'); return }
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      // innerHeight − top spans the banner plus the gap beneath it to the viewport
+      // bottom, so this stays correct for any height / safe-area inset.
+      const space = Math.max(0, Math.ceil(window.innerHeight - rect.top + 12))
+      root.style.setProperty('--live-banner-space', space + 'px')
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(el)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro?.disconnect()
+      window.removeEventListener('resize', measure)
+      root.style.setProperty('--live-banner-space', '0px')
+    }
+  }, [shouldRender, rowCount])
+
   if (!beforeNine || !round || !anyHolesScored) return null
   if (selectedComplete && !inTripWindow) return null
 
@@ -273,7 +306,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   const visibleRows = tallies.filter(t => t.hasMatch)
 
   return (
-    <div className="match-banner-float visible" id="match-banner-float" role="status" aria-label="Live score">
+    <div ref={bannerRef} className="match-banner-float visible" id="match-banner-float" role="status" aria-label="Live score">
       <div className="match-banner-round">{round.club_name || round.course_name} · Live Match</div>
       <div className="match-banner-rows">
         {visibleRows.map(t => {
