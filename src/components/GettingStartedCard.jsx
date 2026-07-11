@@ -33,8 +33,11 @@ function hasRealCourse(r) {
 }
 
 const styles = {
-  card: { background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: '10px', padding: 0, overflow: 'hidden', marginBottom: '10px' },
-  header: { background: '#1B3F6E', color: '#fff', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', padding: '10px 14px' },
+  // Centered modal overlay — matches the app's backdrop convention (ScoringTab).
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  card: { position: 'relative', background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: '14px', padding: 0, overflow: 'hidden', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
+  header: { background: '#1B3F6E', color: '#fff', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', padding: '12px 40px 12px 14px' },
+  close: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 16, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
   body: { padding: '6px 14px 12px' },
   sectionLabel: { fontSize: '10px', fontWeight: 800, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '1px', margin: '12px 0 4px' },
   item: { display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px 0', borderBottom: '1px solid #E8EDF3' },
@@ -45,7 +48,6 @@ const styles = {
   tipDivider: { borderTop: '1px solid #DDE3EA', margin: '10px -14px 0', padding: '2px 14px 0' },
   tip: { display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '6px 0', fontSize: '13px', color: '#334', lineHeight: 1.35 },
   tipBullet: { color: '#1B3F6E', fontWeight: 800, flexShrink: 0 },
-  tipNote: { fontSize: '12px', color: '#7A8FA6', fontStyle: 'italic', marginTop: '6px' },
 }
 
 function Item({ label, hint, isLast }) {
@@ -62,6 +64,7 @@ function Item({ label, hint, isLast }) {
 
 export default function GettingStartedCard({ trip, rounds = [], userId, isCommissioner }) {
   const [state, setState] = useState({ status: 'loading' })
+  const [dismissed, setDismissed] = useState(false) // session-only; never persisted
   const flippedRef = useRef(false) // flip onboarding_completed at most once
 
   // Load the current user's player row + flights row, and (for commissioners)
@@ -141,10 +144,16 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
   // keep the card up once even if everything persistent is already done.
   if (!isFirstLogin && incomplete.length === 0) return null
 
+  // Session-only dismissal — closing just hides it for now. It never persists,
+  // so it reappears next login while the trigger conditions still hold.
+  if (dismissed) return null
+
   return (
-    <div style={styles.card}>
-      <div style={styles.header}>Getting Started</div>
-      <div style={styles.body}>
+    <div style={styles.overlay} role="dialog" aria-modal="true" onClick={() => setDismissed(true)}>
+      <div style={styles.card} onClick={e => e.stopPropagation()}>
+        <button style={styles.close} aria-label="Close" onClick={() => setDismissed(true)}>✕</button>
+        <div style={styles.header}>Getting Started</div>
+        <div style={styles.body}>
         {incomplete.length > 0 ? (
           <>
             <div style={styles.sectionLabel}>To do</div>
@@ -169,9 +178,9 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
               <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Fill in your details above so your commissioner has what they need.</span></div>
             )}
             <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Take a look around: <strong>Rules</strong> for the format, <strong>Score</strong> to enter your card, and <strong>Leaderboard</strong> to track standings.</span></div>
-            <div style={styles.tipNote}>These tips show once. The checklist above stays until it’s done.</div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )
