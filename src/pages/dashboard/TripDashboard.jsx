@@ -11,6 +11,7 @@ import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
 import ChatWidget from '../../components/ChatWidget'
 import DailyMVPCard from '../../components/DailyMVPCard'
+import GettingStartedCard from '../../components/GettingStartedCard'
 import MenuDrawer from '../../components/MenuDrawer'
 import ScoringTab from '../../components/ScoringTab'
 import LiveScoreBanner from '../../components/LiveScoreBanner'
@@ -263,6 +264,10 @@ function WeatherWidget({ rounds = [], tripName }) {
 function TabHome({ trip, rounds, userId, displayName, isCommissioner }) {
   return (
     <div>
+      {/* Getting Started checklist — persistent (live-computed) reminders +
+          one-time first-login tips. Self-hides when there's nothing to show. */}
+      <GettingStartedCard trip={trip} rounds={rounds} userId={userId} isCommissioner={isCommissioner} />
+
       {/* Countdown */}
       <CountdownWidget
         tripName={trip.name}
