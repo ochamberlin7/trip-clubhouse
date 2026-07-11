@@ -14,6 +14,7 @@ import DailyMVPCard from '../../components/DailyMVPCard'
 import MenuDrawer from '../../components/MenuDrawer'
 import ScoringTab from '../../components/ScoringTab'
 import LiveScoreBanner from '../../components/LiveScoreBanner'
+import { FEATURES } from '../../lib/features'
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -288,8 +289,9 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner }) {
         currentUserName={(displayName || '').split(' ')[0] || displayName}
       />
 
-      {/* Daily MVPs — below the chat thread */}
-      <DailyMVPCard tripId={trip.id} today={new Date()} />
+      {/* Daily MVPs — below the chat thread. Hidden behind a feature flag until
+          stats/analytics are built out; component + data fetch are unchanged. */}
+      {FEATURES.dailyMvps && <DailyMVPCard tripId={trip.id} today={new Date()} />}
     </div>
   )
 }
