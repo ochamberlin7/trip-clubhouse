@@ -48,6 +48,8 @@ const styles = {
   tipDivider: { borderTop: '1px solid #DDE3EA', margin: '10px -14px 0', padding: '2px 14px 0' },
   tip: { display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '6px 0', fontSize: '13px', color: '#334', lineHeight: 1.35 },
   tipBullet: { color: '#1B3F6E', fontWeight: 800, flexShrink: 0 },
+  tipButton: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 12px', margin: '6px 0', fontSize: '13px', fontWeight: 700, lineHeight: 1.3, cursor: 'pointer', fontFamily: 'inherit' },
+  tipButtonArrow: { marginLeft: 'auto', fontWeight: 800, flexShrink: 0 },
 }
 
 function Item({ label, hint, isLast }) {
@@ -62,7 +64,7 @@ function Item({ label, hint, isLast }) {
   )
 }
 
-export default function GettingStartedCard({ trip, rounds = [], userId, isCommissioner }) {
+export default function GettingStartedCard({ trip, rounds = [], userId, isCommissioner, onOpenMenuPage }) {
   const [state, setState] = useState({ status: 'loading' })
   const [dismissed, setDismissed] = useState(false) // session-only; never persisted
   const flippedRef = useRef(false) // flip onboarding_completed at most once
@@ -154,20 +156,25 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
         <button style={styles.close} aria-label="Close" onClick={() => setDismissed(true)}>✕</button>
         <div style={styles.header}>Getting Started</div>
         <div style={styles.body}>
-        {incomplete.length > 0 ? (
+        {incomplete.length > 0 && (
           <>
             <div style={styles.sectionLabel}>To do</div>
             {incomplete.map((it, i) => (
               <Item key={it.label} label={it.label} hint={it.hint} isLast={i === incomplete.length - 1} />
             ))}
           </>
-        ) : (
-          isFirstLogin && <div style={{ ...styles.itemText, padding: '8px 0' }}>You’re all set — nice work! 🎉</div>
         )}
 
         {isFirstLogin && (
           <div style={styles.tipDivider}>
             <div style={styles.sectionLabel}>Tips to get going</div>
+            <button
+              style={styles.tipButton}
+              onClick={() => { setDismissed(true); onOpenMenuPage?.('app-info') }}
+            >
+              <span>Add this app to your phone’s home screen for quick access</span>
+              <span style={styles.tipButtonArrow}>→</span>
+            </button>
             {isCommissioner ? (
               <>
                 <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Name your teams so the leaderboard reads nicely.</span></div>
@@ -178,7 +185,6 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
               <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Fill in your details above so your commissioner has what they need.</span></div>
             )}
             <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Take a look around: <strong>Rules</strong> for the format, <strong>Score</strong> to enter your card, and <strong>Leaderboard</strong> to track standings.</span></div>
-            <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Add this app to your phone’s home screen for quick access — see <strong>Menu → App Info</strong> for step-by-step instructions.</span></div>
           </div>
         )}
         </div>

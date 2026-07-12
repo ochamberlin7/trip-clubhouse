@@ -1471,7 +1471,7 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate }) {
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, onTripUpdate, onRoundsChanged,
+  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
   const { activeTripId, switchTrip } = useGroup()
@@ -1485,8 +1485,9 @@ export default function MenuDrawer({
   const [editRound, setEditRound] = useState(null)
   const [savingCourse, setSavingCourse] = useState(false)
 
-  // Reset to the drawer root whenever it is closed externally.
-  useEffect(() => { if (!open) setPage(null) }, [open])
+  // On open, jump to the requested deep-link page (e.g. 'app-info' from the
+  // Getting Started tip) or the drawer root; reset to root whenever it closes.
+  useEffect(() => { setPage(open ? (initialPage ?? null) : null) }, [open, initialPage])
 
   // Mobile swipe-back / browser back should close the drawer instead of leaving the
   // site. While open, push a history entry; a back gesture pops it and we close the

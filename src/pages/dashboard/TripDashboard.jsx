@@ -261,12 +261,12 @@ function WeatherWidget({ rounds = [], tripName }) {
 
 // ── Tab: Home ────────────────────────────────────────────────────
 
-function TabHome({ trip, rounds, userId, displayName, isCommissioner }) {
+function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenuPage }) {
   return (
     <div>
       {/* Getting Started checklist — persistent (live-computed) reminders +
           one-time first-login tips. Self-hides when there's nothing to show. */}
-      <GettingStartedCard trip={trip} rounds={rounds} userId={userId} isCommissioner={isCommissioner} />
+      <GettingStartedCard trip={trip} rounds={rounds} userId={userId} isCommissioner={isCommissioner} onOpenMenuPage={onOpenMenuPage} />
 
       {/* Countdown */}
       <CountdownWidget
@@ -863,6 +863,8 @@ export default function TripDashboard() {
 
   const [activeTab, setActiveTab] = useState('dashboard')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerPage, setDrawerPage] = useState(null) // deep-link target when opening the drawer
+  const openMenuPage = (pageId) => { setDrawerPage(pageId); setDrawerOpen(true) }
   const [showTripBanner, setShowTripBanner] = useState(location.state?.singleTripWarning ?? false)
   const [trip, setTrip] = useState(null)
   const [rounds, setRounds] = useState([])
@@ -1065,7 +1067,7 @@ export default function TripDashboard() {
           <button
             key={tab.id}
             className={`tab-btn ${tab.id !== 'menu' && activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => tab.id === 'menu' ? setDrawerOpen(true) : setActiveTab(tab.id)}
+            onClick={() => tab.id === 'menu' ? openMenuPage(null) : setActiveTab(tab.id)}
           >
             <TabIcon id={tab.id} />
             <span className="tab-label">{tab.label}</span>
@@ -1112,7 +1114,7 @@ export default function TripDashboard() {
       {/* ── Tab content ── (keyed by trip so switching trips remounts everything;
           keys must be UNIQUE among siblings — see the banner/drawer below) */}
       <div className="dashboard-content" key={`content-${trip.id}`}>
-        {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} />}
+        {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} onOpenMenuPage={openMenuPage} />}
         {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
@@ -1125,7 +1127,8 @@ export default function TripDashboard() {
       <MenuDrawer
         key={`drawer-${trip.id}`}
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        initialPage={drawerPage}
+        onClose={() => { setDrawerOpen(false); setDrawerPage(null) }}
         tripId={trip.id}
         groupId={trip.group_id}
         groupName={activeGroup?.name ?? ''}
