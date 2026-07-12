@@ -178,6 +178,7 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
               <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Fill in your details above so your commissioner has what they need.</span></div>
             )}
             <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Take a look around: <strong>Rules</strong> for the format, <strong>Score</strong> to enter your card, and <strong>Leaderboard</strong> to track standings.</span></div>
+            <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Add this app to your phone’s home screen for quick access — see <strong>Menu → App Info</strong> for step-by-step instructions.</span></div>
           </div>
         )}
         </div>
