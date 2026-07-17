@@ -11,15 +11,11 @@ import { labelTees } from '../lib/tees'
 //          qualifier only where a colour collides across genders (see lib/tees).
 
 // Tee color coding by name.
-function teeStyle(name) {
-  const n = (name || '').toLowerCase()
-  if (n.includes('black')) return { background: '#222', color: '#fff', border: '1px solid #222' }
-  if (n.includes('blue')) return { background: '#1B3F6E', color: '#fff', border: '1px solid #1B3F6E' }
-  if (n.includes('white')) return { background: '#fff', color: '#0D1B2A', border: '1px solid #DDE3EA' }
-  if (n.includes('gold')) return { background: '#D4A017', color: '#fff', border: '1px solid #D4A017' }
-  if (n.includes('red')) return { background: '#C0392B', color: '#fff', border: '1px solid #C0392B' }
-  return { background: '#E8EDF3', color: '#0D1B2A', border: '1px solid #DDE3EA' }
-}
+// Neutral style shared by every tee option; only the selected tee is
+// highlighted (see the render). Tee names like "Black"/"Blue" are labels, not
+// theming — they must not drive the box color.
+const TEE_NEUTRAL = { background: '#E8EDF3', color: '#0D1B2A', border: '1px solid #DDE3EA' }
+const TEE_SELECTED = { background: '#1B3F6E', color: '#fff', border: '1px solid #1B3F6E' }
 
 const s = {
   wrap: { position: 'relative' },
@@ -200,7 +196,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
             <button
               key={`${tee.label}-${i}`}
               style={{
-                ...s.teeBtn, ...teeStyle(tee.color || tee.tee_name),
+                ...s.teeBtn, ...(active ? TEE_SELECTED : TEE_NEUTRAL),
                 boxShadow: active ? '0 0 0 2px #1B3F6E' : 'none',
                 transform: active ? 'scale(1.03)' : 'none',
               }}

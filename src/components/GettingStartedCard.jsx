@@ -40,14 +40,12 @@ const styles = {
   close: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 16, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
   body: { padding: '6px 14px 12px' },
   sectionLabel: { fontSize: '10px', fontWeight: 800, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '1px', margin: '12px 0 4px' },
+  subLabel: { fontSize: '12px', fontWeight: 800, color: '#1B3F6E', margin: '12px 0 2px' },
   item: { display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px 0', borderBottom: '1px solid #E8EDF3' },
   itemLast: { borderBottom: 'none' },
   dot: { width: '18px', height: '18px', borderRadius: '50%', border: '2px solid #C6D0DC', flexShrink: 0, marginTop: '1px' },
   itemText: { fontSize: '14px', fontWeight: 600, color: '#0D1B2A', lineHeight: 1.3 },
   itemHint: { fontSize: '11px', color: '#7A8FA6', marginTop: '1px' },
-  tipDivider: { borderTop: '1px solid #DDE3EA', margin: '10px -14px 0', padding: '2px 14px 0' },
-  tip: { display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '6px 0', fontSize: '13px', color: '#334', lineHeight: 1.35 },
-  tipBullet: { color: '#1B3F6E', fontWeight: 800, flexShrink: 0 },
   tipButton: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 12px', margin: '6px 0', fontSize: '13px', fontWeight: 700, lineHeight: 1.3, cursor: 'pointer', fontFamily: 'inherit' },
   tipButtonArrow: { marginLeft: 'auto', fontWeight: 800, flexShrink: 0 },
 }
@@ -118,33 +116,45 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
   const { playerRow, flight, allHandicaps } = state
 
   // ── Persistent items (computed live, never stored as done) ──
-  const items = []
-  if (playerRow) {
-    const drivingAnswered = !!flight // a flights row exists only after an explicit answer
-    const flightInfoFilled = !!flight && (flight.is_driving === true || FLIGHT_FIELDS.some(k => nonEmpty(flight[k])))
-    items.push({ done: nonEmpty(playerRow.phone), label: 'Add your phone number', hint: 'Menu → Players → your card' })
-    items.push({ done: nonEmpty(playerRow.email), label: 'Add your email', hint: 'Menu → Players → your card' })
-    items.push({ done: flightInfoFilled, label: 'Add your flight info', hint: 'Menu → Flights (or mark yourself driving)' })
-    items.push({ done: drivingAnswered, label: 'Answer whether you’re driving', hint: 'Menu → Flights → Driving?' })
-  }
+  // Tracked items auto-complete from data and drive whether the modal reappears.
+  // Flight info is satisfied by flight fields being filled OR the member marking
+  // themselves driving — it does NOT require a separate "driving answered" step
+  // (that item was removed).
+  const flightInfoFilled = !!flight && (flight.is_driving === true || FLIGHT_FIELDS.some(k => nonEmpty(flight[k])))
+  const phoneDone = !!playerRow && nonEmpty(playerRow.phone)
+
+  const playable = rounds.filter(r => r.round_type !== 'none')
+  const withCourse = playable.filter(hasRealCourse)
+  const teeTimesSet = withCourse.length === 0 || withCourse.every(r => nonEmpty(r.tee_time_1))
+
+  // Commissioner rows: three setup tips (no reliable "done" signal — shown as
+  // guidance) followed by the two tracked items, only while incomplete.
+  const commissionerRows = []
   if (isCommissioner) {
-    const playable = rounds.filter(r => r.round_type !== 'none')
-    const withCourse = playable.filter(hasRealCourse)
-    // Companion to the tee-time check: a playable round with a tee time but no
-    // course would otherwise slip past the (course-scoped) tee-time item, so
-    // flag missing courses directly.
-    const coursesAssigned = playable.length === 0 || playable.every(hasRealCourse)
-    const teeTimesSet = withCourse.length === 0 || withCourse.every(r => nonEmpty(r.tee_time_1))
-    items.push({ done: allHandicaps, label: 'Set every player’s handicap index', hint: 'Menu → Players' })
-    items.push({ done: coursesAssigned, label: 'Assign a course to each round', hint: 'Menu → Courses' })
-    items.push({ done: teeTimesSet, label: 'Add tee times to your rounds', hint: 'Tee Times tab' })
+    commissionerRows.push({ label: 'Name your teams', hint: 'Menu → Commissioner Tools' })
+    commissionerRows.push({ label: 'Set your handicap allowance %', hint: 'Menu → Commissioner Tools' })
+    commissionerRows.push({ label: 'Send your invite link', hint: 'Menu → Commissioner Tools' })
+    if (!allHandicaps) commissionerRows.push({ label: 'Set every player’s handicap index', hint: 'Menu → Players' })
+    if (!teeTimesSet) commissionerRows.push({ label: 'Add tee times to your rounds', hint: 'Tee Times tab' })
   }
 
-  const incomplete = items.filter(i => !i.done)
+  // Member rows: tracked items, shown only while incomplete.
+  const memberRows = []
+  if (playerRow) {
+    if (!phoneDone) memberRows.push({ label: 'Add your phone number', hint: 'Menu → Players → your card' })
+    if (!flightInfoFilled) memberRows.push({ label: 'Add your flight info', hint: 'Menu → Flights' })
+  }
 
-  // Persistent items gate the card on return visits; the first-login section can
-  // keep the card up once even if everything persistent is already done.
-  if (!isFirstLogin && incomplete.length === 0) return null
+  // Only the tracked items decide whether the modal reappears — the guidance
+  // tips never nag on their own once first login has passed.
+  const trackedIncomplete =
+    (playerRow ? (!phoneDone ? 1 : 0) + (!flightInfoFilled ? 1 : 0) : 0) +
+    (isCommissioner ? (!allHandicaps ? 1 : 0) + (!teeTimesSet ? 1 : 0) : 0)
+  const hasToDo = commissionerRows.length > 0 || memberRows.length > 0
+
+  // Tracked items gate the modal on return visits; on first login it shows once
+  // regardless so the welcome tip appears.
+  if (!isFirstLogin && trackedIncomplete === 0) return null
 
   // Session-only dismissal — closing just hides it for now. It never persists,
   // so it reappears next login while the trigger conditions still hold.
@@ -156,37 +166,42 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
         <button style={styles.close} aria-label="Close" onClick={() => setDismissed(true)}>✕</button>
         <div style={styles.header}>Getting Started</div>
         <div style={styles.body}>
-        {incomplete.length > 0 && (
-          <>
-            <div style={styles.sectionLabel}>To do</div>
-            {incomplete.map((it, i) => (
-              <Item key={it.label} label={it.label} hint={it.hint} isLast={i === incomplete.length - 1} />
-            ))}
-          </>
-        )}
 
-        {isFirstLogin && (
-          <div style={styles.tipDivider}>
-            <div style={styles.sectionLabel}>Tips to get going</div>
-            <button
-              style={styles.tipButton}
-              onClick={() => { setDismissed(true); onOpenMenuPage?.('app-info') }}
-            >
-              <span>Add this app to your phone’s home screen for quick access</span>
-              <span style={styles.tipButtonArrow}>→</span>
-            </button>
-            {isCommissioner ? (
-              <>
-                <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Name your teams so the leaderboard reads nicely.</span></div>
-                <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Set your handicap allowance % for the tournament.</span></div>
-                <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Send your invite link so everyone can join.</span></div>
-              </>
-            ) : (
-              <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Fill in your details above so your commissioner has what they need.</span></div>
-            )}
-            <div style={styles.tip}><span style={styles.tipBullet}>•</span><span>Take a look around: <strong>Rules</strong> for the format, <strong>Score</strong> to enter your card, and <strong>Leaderboard</strong> to track standings.</span></div>
-          </div>
-        )}
+          {/* First things first — one-time tip (can't detect install, so it
+              only shows on first login). */}
+          {isFirstLogin && (
+            <>
+              <div style={styles.sectionLabel}>First things first</div>
+              <button
+                style={styles.tipButton}
+                onClick={() => { setDismissed(true); onOpenMenuPage?.('app-info') }}
+              >
+                <span>Add this app to your phone’s home screen for quick access</span>
+                <span style={styles.tipButtonArrow}>Tap here →</span>
+              </button>
+            </>
+          )}
+
+          {/* To Do — live checklist, grouped by role. */}
+          {hasToDo && <div style={styles.sectionLabel}>To Do</div>}
+
+          {commissionerRows.length > 0 && (
+            <>
+              <div style={styles.subLabel}>As Commissioner</div>
+              {commissionerRows.map((it, i) => (
+                <Item key={it.label} label={it.label} hint={it.hint} isLast={i === commissionerRows.length - 1} />
+              ))}
+            </>
+          )}
+
+          {memberRows.length > 0 && (
+            <>
+              <div style={styles.subLabel}>As Member</div>
+              {memberRows.map((it, i) => (
+                <Item key={it.label} label={it.label} hint={it.hint} isLast={i === memberRows.length - 1} />
+              ))}
+            </>
+          )}
         </div>
       </div>
     </div>

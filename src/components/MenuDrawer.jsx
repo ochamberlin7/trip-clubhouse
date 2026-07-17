@@ -1135,31 +1135,40 @@ function LocalRulesCard({ tripId, isCommissioner }) {
   )
 }
 
+const STANDARD_MATCH_RULES = [
+  '2 teams — partners rotate each round',
+  'Better ball match play: best net score per pair per hole',
+  'Win a hole to go 1 up; a tied hole leaves the match score unchanged',
+  'Handicap strokes applied to hole by stroke index',
+  'A match is won once a team leads by more holes than remain — each round scores as W, L, or H',
+]
+
+// DRAFT — derived from liveMatchTally() in src/lib/scoring.js. Review wording
+// before treating as official.
+const POINTS_MATCH_RULES = [
+  '2 teams — partners rotate each round',
+  'Better ball: on each hole, each team’s best (lowest) net score counts',
+  'Win a hole (lower best-ball net) to earn 1 point; a tied hole is halved — 0 points to either team',
+  'Handicap strokes applied hole-by-hole by stroke index (net = gross minus strokes received)',
+  'Points accumulate across every tournament round — most total points at the end of the trip wins',
+]
+
 function RulesPage({ tripId, isCommissioner, tournamentFormat }) {
   const isStandard = tournamentFormat === 'standard_match_play'
-  // Legacy 'match_play' and stroke_play trips default to the Point Match Play card.
-  const label = tournamentFormatLabel(isStandard ? 'standard_match_play' : 'points_match_play')
-  const rules = isStandard
-    ? [
-        '2 teams — partners rotate each round',
-        'Better ball match play: best net score per pair per hole',
-        'Win a hole to go 1 up; a tied hole leaves the match score unchanged',
-        'Handicap strokes applied to hole by stroke index',
-        'A match is won once a team leads by more holes than remain — each round scores as W, L, or H',
-      ]
-    : [
-        '2 teams — partners rotate each round',
-        'Better ball match play: best net score per pair per hole',
-        'Each hole worth 1 point — tied holes = 0 pts to both',
-        'Handicap strokes applied to hole by stroke index',
-        'Most total points after all rounds wins',
-      ]
+  // Document both formats; lead with the trip's active format for context.
+  const cards = [
+    { key: 'standard', label: tournamentFormatLabel('standard_match_play'), rules: STANDARD_MATCH_RULES },
+    { key: 'points', label: tournamentFormatLabel('points_match_play'), rules: POINTS_MATCH_RULES },
+  ]
+  if (!isStandard) cards.reverse()
   return (
     <>
       <LocalRulesCard tripId={tripId} isCommissioner={isCommissioner} />
-      <Card title={`${label} Format`}>
-        <RuleList rules={rules} />
-      </Card>
+      {cards.map(c => (
+        <Card key={c.key} title={`${c.label} Format`}>
+          <RuleList rules={c.rules} />
+        </Card>
+      ))}
     </>
   )
 }
@@ -1346,6 +1355,9 @@ function AppInfoPage() {
         <InfoRow label="App" value="Trip Clubhouse" />
         <InfoRow label="Built by" value="Owen Chamberlin" />
         <InfoRow label="Version" value="v2026.1" last />
+        <div style={{ fontSize: '12px', color: '#7A8FA6', textAlign: 'center', marginTop: '12px' }}>
+          © 2026 The Trip Clubhouse. All rights reserved.
+        </div>
       </Card>
     </>
   )
