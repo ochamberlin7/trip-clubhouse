@@ -55,7 +55,24 @@ export function AuthProvider({ children }) {
 
     ;(async () => {
       const { data: { session: current } } = await supabase.auth.getSession()
-      if (current) { apply(current); return }
+      if (current) {
+        // getSession() trusts the token cached in localStorage without asking the
+        // server — so a JWT for a since-deleted user (e.g. the DB was wiped) would
+        // still read as "logged in" until it expires, dropping the user into the
+        // app instead of login. Validate against the server: getUser() rejects a
+        // stale/invalid token. On a definitive auth failure (401/403) clear the
+        // stale session and route to login; on a network error keep the cached
+        // session so offline/transient blips don't log a real user out.
+        let stale = false
+        try {
+          const { data: ud, error: ue } = await supabase.auth.getUser()
+          if ((ue && (ue.status === 401 || ue.status === 403)) || (!ue && !ud?.user)) stale = true
+        } catch { /* network error — trust the cached session */ }
+        if (!active) return
+        if (stale) { await supabase.auth.signOut(); apply(null); return }
+        apply(current)
+        return
+      }
 
       // getSession() returned null. If a refresh token still exists in storage,
       // try to recover the session before concluding the user is logged out —
