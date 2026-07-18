@@ -139,7 +139,7 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
     commissionerRows.push({ label: 'Set your handicap allowance %', hint: 'Menu → Commissioner Tools' })
     commissionerRows.push({ label: 'Send your invite link', hint: 'Menu → Commissioner Tools' })
     if (!allHandicaps) commissionerRows.push({ label: 'Set every player’s handicap index', hint: 'Menu → Players' })
-    if (!coursesAssigned) commissionerRows.push({ label: 'Assign a course to every round', hint: 'Menu → Courses' })
+    if (!coursesAssigned) commissionerRows.push({ label: 'Assign a course to every round', hint: 'Menu → Schedule & Courses' })
     if (!teeTimesSet) commissionerRows.push({ label: 'Add tee times to your rounds', hint: 'Tee Times tab' })
   }
 
