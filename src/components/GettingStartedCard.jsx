@@ -125,16 +125,21 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
 
   const playable = rounds.filter(r => r.round_type !== 'none')
   const withCourse = playable.filter(hasRealCourse)
+  // Companion to the tee-time check: a playable round with a tee time but no
+  // course (course_name 'TBD'/null) would slip past the course-scoped tee-time
+  // item, so flag missing courses directly.
+  const coursesAssigned = playable.length === 0 || playable.every(hasRealCourse)
   const teeTimesSet = withCourse.length === 0 || withCourse.every(r => nonEmpty(r.tee_time_1))
 
   // Commissioner rows: three setup tips (no reliable "done" signal — shown as
-  // guidance) followed by the two tracked items, only while incomplete.
+  // guidance) followed by the tracked items, only while incomplete.
   const commissionerRows = []
   if (isCommissioner) {
     commissionerRows.push({ label: 'Name your teams', hint: 'Menu → Commissioner Tools' })
     commissionerRows.push({ label: 'Set your handicap allowance %', hint: 'Menu → Commissioner Tools' })
     commissionerRows.push({ label: 'Send your invite link', hint: 'Menu → Commissioner Tools' })
     if (!allHandicaps) commissionerRows.push({ label: 'Set every player’s handicap index', hint: 'Menu → Players' })
+    if (!coursesAssigned) commissionerRows.push({ label: 'Assign a course to every round', hint: 'Menu → Courses' })
     if (!teeTimesSet) commissionerRows.push({ label: 'Add tee times to your rounds', hint: 'Tee Times tab' })
   }
 
@@ -149,7 +154,7 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
   // tips never nag on their own once first login has passed.
   const trackedIncomplete =
     (playerRow ? (!phoneDone ? 1 : 0) + (!flightInfoFilled ? 1 : 0) : 0) +
-    (isCommissioner ? (!allHandicaps ? 1 : 0) + (!teeTimesSet ? 1 : 0) : 0)
+    (isCommissioner ? (!allHandicaps ? 1 : 0) + (!coursesAssigned ? 1 : 0) + (!teeTimesSet ? 1 : 0) : 0)
   const hasToDo = commissionerRows.length > 0 || memberRows.length > 0
 
   // Tracked items gate the modal on return visits; on first login it shows once
@@ -161,9 +166,24 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
   if (dismissed) return null
 
   return (
-    <div style={styles.overlay} role="dialog" aria-modal="true" onClick={() => setDismissed(true)}>
+    <GettingStartedView
+      isFirstLogin={isFirstLogin}
+      hasToDo={hasToDo}
+      commissionerRows={commissionerRows}
+      memberRows={memberRows}
+      onHomeScreen={() => { setDismissed(true); onOpenMenuPage?.('app-info') }}
+      onClose={() => setDismissed(true)}
+    />
+  )
+}
+
+// Presentational modal — split out from the data-fetching container above so
+// the view is easy to reason about (and render in isolation).
+function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memberRows = [], onHomeScreen, onClose }) {
+  return (
+    <div style={styles.overlay} role="dialog" aria-modal="true" onClick={onClose}>
       <div style={styles.card} onClick={e => e.stopPropagation()}>
-        <button style={styles.close} aria-label="Close" onClick={() => setDismissed(true)}>✕</button>
+        <button style={styles.close} aria-label="Close" onClick={onClose}>✕</button>
         <div style={styles.header}>Getting Started</div>
         <div style={styles.body}>
 
@@ -172,10 +192,7 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
           {isFirstLogin && (
             <>
               <div style={styles.sectionLabel}>First things first</div>
-              <button
-                style={styles.tipButton}
-                onClick={() => { setDismissed(true); onOpenMenuPage?.('app-info') }}
-              >
+              <button style={styles.tipButton} onClick={onHomeScreen}>
                 <span>Add this app to your phone’s home screen for quick access</span>
                 <span style={styles.tipButtonArrow}>Tap here →</span>
               </button>
