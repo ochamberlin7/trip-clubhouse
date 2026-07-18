@@ -1136,7 +1136,6 @@ function LocalRulesCard({ tripId, isCommissioner }) {
 }
 
 const STANDARD_MATCH_RULES = [
-  '2 teams — partners rotate each round',
   'Better ball match play: best net score per pair per hole',
   'Win a hole to go 1 up; a tied hole leaves the match score unchanged',
   'Handicap strokes applied to hole by stroke index',
@@ -1146,7 +1145,6 @@ const STANDARD_MATCH_RULES = [
 // DRAFT — derived from liveMatchTally() in src/lib/scoring.js. Review wording
 // before treating as official.
 const POINTS_MATCH_RULES = [
-  '2 teams — partners rotate each round',
   'Better ball: on each hole, each team’s best (lowest) net score counts',
   'Win a hole (lower best-ball net) to earn 1 point; a tied hole is halved — 0 points to either team',
   'Handicap strokes applied hole-by-hole by stroke index (net = gross minus strokes received)',
