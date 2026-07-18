@@ -131,13 +131,16 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
   const coursesAssigned = playable.length === 0 || playable.every(hasRealCourse)
   const teeTimesSet = withCourse.length === 0 || withCourse.every(r => nonEmpty(r.tee_time_1))
 
-  // Commissioner rows: three setup tips (no reliable "done" signal — shown as
-  // guidance) followed by the tracked items, only while incomplete.
+  // Commissioner rows: three first-login-only setup tips (no reliable "done"
+  // signal — shown once, gated by onboarding_completed like the welcome tip),
+  // followed by the tracked items which reappear live until complete.
   const commissionerRows = []
   if (isCommissioner) {
-    commissionerRows.push({ label: 'Name your teams', hint: 'Menu → Commissioner Tools' })
-    commissionerRows.push({ label: 'Set your handicap allowance %', hint: 'Menu → Commissioner Tools' })
-    commissionerRows.push({ label: 'Send your invite link', hint: 'Menu → Commissioner Tools' })
+    if (isFirstLogin) {
+      commissionerRows.push({ label: 'Name your teams', hint: 'Menu → Commissioner Tools' })
+      commissionerRows.push({ label: 'Set your handicap allowance %', hint: 'Menu → Commissioner Tools' })
+      commissionerRows.push({ label: 'Send your invite link', hint: 'Menu → Commissioner Tools' })
+    }
     if (!allHandicaps) commissionerRows.push({ label: 'Set every player’s handicap index', hint: 'Menu → Players' })
     if (!coursesAssigned) commissionerRows.push({ label: 'Assign a course to every round', hint: 'Menu → Schedule & Courses' })
     if (!teeTimesSet) commissionerRows.push({ label: 'Add tee times to your rounds', hint: 'Tee Times tab' })
