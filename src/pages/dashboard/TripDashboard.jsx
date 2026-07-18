@@ -669,9 +669,10 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
 }
 
 function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound, playerCount = 0 }) {
-  // Number of pairings scales with players (1 per pairing per team): 2 players → 1
-  // pairing, 4 → 2. Capped at 2 (the schema has tee_time_1 / tee_time_2).
-  const numPairings = Math.min(2, Math.max(1, Math.ceil(playerCount / 2)))
+  // A pairing is one 2v2 better-ball foursome (up to 4 players in a single group,
+  // one tee time), so tee-time fields scale by GROUPS of 4: 1-4 players → 1
+  // pairing, 5-8 → 2. Capped at 2 (the schema has tee_time_1 / tee_time_2).
+  const numPairings = Math.min(2, Math.max(1, Math.ceil(playerCount / 4)))
   // 'none' rounds are placeholders ("not decided yet") — not shown in tee times.
   const teeRounds = rounds.filter(r => r.round_type !== 'none')
   if (teeRounds.length === 0) {
