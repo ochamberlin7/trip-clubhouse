@@ -109,6 +109,34 @@ function roundLocationLabel(r) {
   return null
 }
 
+// Open-Meteo geocoding matches on place NAME only — appending a state
+// abbreviation (e.g. "Cathedral City CA") returns zero results. So we query the
+// city alone and disambiguate by state, mapping the abbreviation to the full
+// name Open-Meteo returns in `admin1` (e.g. "California").
+const US_STATES = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+  CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+  HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
+  KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+  MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri',
+  MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
+  NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio',
+  OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+  VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+  DC: 'District of Columbia',
+}
+
+// Does an Open-Meteo result's admin1 match the course's state (abbreviation or
+// full name)?
+function stateMatches(admin1, state) {
+  if (!admin1 || !state) return false
+  const a = admin1.toLowerCase()
+  const s = String(state).trim()
+  const full = (US_STATES[s.toUpperCase()] || s).toLowerCase()
+  return a === full || a === s.toLowerCase()
+}
+
 // eslint-disable-next-line no-unused-vars -- tripStartDate/tripEndDate kept in the interface
 // `rounds` comes from shared dashboard state; the effect re-runs (and re-fetches
 // weather) whenever rounds change — e.g. after a commissioner edits a course.
@@ -137,13 +165,19 @@ function WeatherWidget({ rounds = [], tripName }) {
         let lon = selected.location_lon
         let label = roundLocationLabel(selected) || tripName || 'Weather'
 
-        // No stored coords → geocode from city + state.
+        // No stored coords → geocode by CITY NAME only (Open-Meteo returns zero
+        // results if the state is appended to the name), then disambiguate by
+        // state and prefer a US match.
         if (lat == null || lon == null) {
-          const query = [selected.location_city, selected.location_state].filter(Boolean).join(' ')
-          if (query) {
-            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`)
+          const city = selected.location_city
+          const state = selected.location_state
+          if (city) {
+            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=10&language=en&format=json`)
             const geo = await geoRes.json()
-            const hit = geo?.results?.[0]
+            const results = Array.isArray(geo?.results) ? geo.results : []
+            const us = results.filter(r => r.country_code === 'US')
+            const pool = us.length ? us : results
+            const hit = (state && pool.find(r => stateMatches(r.admin1, state))) || pool[0]
             if (hit) { lat = hit.latitude; lon = hit.longitude }
           }
         }
