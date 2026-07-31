@@ -486,7 +486,7 @@ export default function TripWizard() {
 
   // Step 0
   const [groupName, setGroupName] = useState('')   // Change 1
-  const [defaultGroupName, setDefaultGroupName] = useState('')  // "{Last Name} Trip", seeded from profile
+  const [defaultGroupName, setDefaultGroupName] = useState('')  // "{Last Name} Group", seeded from profile
   const [tripName, setTripName] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -513,9 +513,9 @@ export default function TripWizard() {
       const dn = (data?.display_name || user.email.split('@')[0]).trim()
       const parts = dn.split(/\s+/)
       const lastName = parts.slice(1).join(' ') || parts[0] || dn
-      // Pre-fill the group name with "{Last Name} Trip"; keep it editable and
+      // Pre-fill the group name with "{Last Name} Group"; keep it editable and
       // reuse it as the fallback if the field is cleared before submitting.
-      const defaultName = `${lastName} Trip`.trim()
+      const defaultName = `${lastName} Group`.trim()
       setDefaultGroupName(defaultName)
       setGroupName(prev => (prev.trim() ? prev : defaultName))
       setPlayers([
