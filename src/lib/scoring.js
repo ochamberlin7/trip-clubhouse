@@ -450,6 +450,11 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
 
     return {
       pairingNumber: pairing.pairing_number,
+      // Real teams on each side (slots 1&2 = team1_id, slots 3&4 = team2_id), so
+      // the leaderboard can attribute t1pts/t2pts to the actual teams instead of
+      // assuming pairing side 1 is always teams[0]. Null on legacy/unbackfilled rows.
+      team1_id: pairing.team1_id ?? null,
+      team2_id: pairing.team2_id ?? null,
       t1pts,
       t2pts,
       thru,
@@ -669,6 +674,10 @@ export function liveStandardMatchTally(round, pairings, pairingPlayers, scoresMa
 
     return {
       pairingNumber: pairing.pairing_number,
+      // Real teams on each side (slots 1&2 = team1_id, slots 3&4 = team2_id) so the
+      // leaderboard attributes a 'T1'/'T2' result to the actual team, not teams[0]/[1].
+      team1_id: pairing.team1_id ?? null,
+      team2_id: pairing.team2_id ?? null,
       thru,
       totalHoles,
       hasMatch,
