@@ -624,8 +624,8 @@ const tp = {
 // Tee-time cell: TBD placeholder or formatted time + Clear. Tapping opens a custom
 // popover time picker (hour / minute / AM-PM) with a ✓ to confirm — no native control.
 function TimeCell({ round, slot, isCommissioner, onSave }) {
-  const col = slot === 1 ? 'tee_time_1' : 'tee_time_2'
-  const value = slot === 1 ? round.tee_time_1 : round.tee_time_2
+  const col = `tee_time_${slot}` // slot 1..5 → tee_time_1..tee_time_5
+  const value = round[col]
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(() => parseDisplayTime(value))
 
@@ -699,10 +699,11 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
 }
 
 function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound, playerCount = 0 }) {
-  // A pairing is one 2v2 better-ball foursome (up to 4 players in a single group,
-  // one tee time), so tee-time fields scale by GROUPS of 4: 1-4 players → 1
-  // pairing, 5-8 → 2. Capped at 2 (the schema has tee_time_1 / tee_time_2).
-  const numPairings = Math.min(2, Math.max(1, Math.ceil(playerCount / 4)))
+  // One tee-time row per pairing — a pairing is a 2v2 foursome, so pairings
+  // scale by GROUPS of 4 (1-4 players → 1, 5-8 → 2, …), matching the count
+  // ScoringTab shows. Bounded at 5 (the 20-player max ⇒ 5 pairings; storage is
+  // tee_time_1…tee_time_5).
+  const numPairings = Math.min(5, Math.max(1, Math.ceil(playerCount / 4)))
   // 'none' rounds are placeholders ("not decided yet") — not shown in tee times.
   const teeRounds = rounds.filter(r => r.round_type !== 'none')
   if (teeRounds.length === 0) {
