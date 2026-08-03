@@ -15,14 +15,12 @@ function normalizeQuery(query) {
     .trim();
 }
 
-// Proxy first (works on netlify dev + production, keeps the key server-side),
-// then a direct call with VITE_GOLF_API_KEY (works on plain `npm run dev`).
-export async function searchCourses(query) {
-  const normalized = normalizeQuery(query);
-  if (!normalized || normalized.length < 2) return [];
-
+// One API call for a single (already-normalized) query. Proxy first (works on
+// netlify dev + production, keeps the key server-side), then a direct call with
+// VITE_GOLF_API_KEY (works on plain `npm run dev`).
+async function runSearch(searchQuery) {
   try {
-    const res = await fetch(`${PROXY_BASE}?endpoint=search&search_query=${encodeURIComponent(normalized)}`);
+    const res = await fetch(`${PROXY_BASE}?endpoint=search&search_query=${encodeURIComponent(searchQuery)}`);
     if (res.ok) {
       const data = await res.json();
       return data.courses || [];
@@ -34,12 +32,35 @@ export async function searchCourses(query) {
   const key = import.meta.env.VITE_GOLF_API_KEY;
   if (!key) throw new Error('No API key');
   const res = await fetch(
-    `${DIRECT_BASE}/v1/search?search_query=${encodeURIComponent(normalized)}`,
+    `${DIRECT_BASE}/v1/search?search_query=${encodeURIComponent(searchQuery)}`,
     { headers: { Authorization: `Key ${key}` } }
   );
   if (!res.ok) throw new Error('Search failed');
   const data = await res.json();
   return data.courses || [];
+}
+
+export async function searchCourses(query) {
+  const normalized = normalizeQuery(query);
+  if (!normalized || normalized.length < 2) return [];
+
+  const courses = await runSearch(normalized);
+  if (courses.length > 0) return courses;
+
+  // Dual-query fallback: the API matches literally, so a space where the real
+  // name has a hyphen (or vice-versa) matches nothing — e.g. "ak chin" misses
+  // "Ak-Chin". Only when the literal query found nothing, retry with spaces and
+  // hyphens swapped and merge the results (dedup by id).
+  const variants = [normalized.replace(/ /g, '-'), normalized.replace(/-/g, ' ')]
+    .filter(v => v !== normalized);
+  const seen = new Set();
+  const merged = [];
+  for (const v of variants) {
+    for (const c of await runSearch(v)) {
+      if (!seen.has(c.id)) { seen.add(c.id); merged.push(c); }
+    }
+  }
+  return merged;
 }
 
 export async function getCourseDetails(id) {
