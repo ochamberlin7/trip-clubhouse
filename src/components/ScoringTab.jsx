@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { strokesOnHole, netScore, courseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally } from '../lib/scoring'
-import { teamPillStyle, getTeamDisplayName } from '../lib/teamColors'
+import { teamPillStyle, getTeamDisplayName, teamColor, colorIndexOf } from '../lib/teamColors'
 
 // Live interactive scorecard — better-ball match play with drink tracking.
 // Scores/drinks keyed by trip_player_id. Pairings use team_slot 1..4
@@ -293,7 +293,6 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const teamById = {}; teams.forEach(t => { teamById[t.id] = t })
   const pairTeam1 = activePairing?.team1_id ? teamById[activePairing.team1_id] : null
   const pairTeam2 = activePairing?.team2_id ? teamById[activePairing.team2_id] : null
-  const sideTeamId = slot => (SLOT_TEAM[slot] === 0 ? activePairing?.team1_id : activePairing?.team2_id) || null
   // slot -> trip_player_id for the active pairing
   const slotMap = {}
   if (activePairing) pairingPlayers.filter(pp => pp.pairing_id === activePairing.id).forEach(pp => { slotMap[pp.team_slot] = pp.trip_player_id })
@@ -402,10 +401,17 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const canAssign = isCommissioner && !readOnly
   const isInPairing = !readOnly && (isCommissioner || [1, 2, 3, 4].some(s => slotMap[s] && playersById[slotMap[s]]?.user_id === currentUserId))
 
-  // ── commissioner: assign a player to a slot ──
+  // ── commissioner: assign (or clear) a player in a slot ──
+  // The pairing's two teams are INFERRED from the players placed, not chosen from
+  // a dropdown: placing the first player on a side sets that side's team_id from
+  // the player's team; clearing the last player on a side nulls it back out.
   async function assignSlot(slot, tripPlayerId) {
     setOpenSlot(null)
     setAssignError(null)
+    const side = SLOT_TEAM[slot]                    // 0 = team1 side, 1 = team2 side
+    const teamCol = side === 0 ? 'team1_id' : 'team2_id'
+    const sideSlots = side === 0 ? [1, 2] : [3, 4]
+    const siblingSlot = sideSlots.find(s => s !== slot)
     try {
       // Find or create the pairing row (no onConflict — explicit & robust).
       let pairing = pairings.find(p => p.round_id === round.id && p.pairing_number === pairNum)
@@ -423,6 +429,20 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         const { error } = await supabase.from('pairing_players')
           .insert({ pairing_id: pairing.id, trip_player_id: tripPlayerId, team_slot: slot })
         if (error) throw error
+        // Infer this side's team from the placed player (first pick sets it).
+        const teamId = playersById[tripPlayerId]?.team_id ?? null
+        const currentTeam = side === 0 ? pairing.team1_id : pairing.team2_id
+        if (teamId && teamId !== currentTeam) {
+          const { error: tErr } = await supabase.from('pairings').update({ [teamCol]: teamId }).eq('id', pairing.id)
+          if (tErr) throw tErr
+        }
+      } else {
+        // Cleared this slot: if the side now has no players (sibling empty too),
+        // drop the inferred team so the side reopens to all teams.
+        const siblingFilled = !!slotMap[siblingSlot]
+        if (!siblingFilled) {
+          await supabase.from('pairings').update({ [teamCol]: null }).eq('id', pairing.id)
+        }
       }
       await loadPairings()
     } catch (e) {
@@ -434,73 +454,50 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
   // Open the assignment dropdown for a slot. Refetches the roster first so the
   // options reflect the latest teams/handicaps. Players without a team simply
-  // don't appear (availableForSlot filters them out) — no global block.
+  // don't appear (availableForSlot filters them out).
   async function openAssign(slot) {
     if (openSlot === slot) { setOpenSlot(null); return }
     await loadPlayers()
     setOpenSlot(slot)
   }
 
-  // Commissioner picks which two teams face off in this pairing. Writes
-  // team1_id/team2_id (creating the pairing if needed); changing a side clears
-  // that side's already-placed players so nobody is left on the wrong team.
-  async function setPairingSide(side, teamId) {
-    setAssignError(null)
-    const col = side === 1 ? 'team1_id' : 'team2_id'
-    const val = teamId || null
-    try {
-      let pairing = pairings.find(p => p.round_id === round.id && p.pairing_number === pairNum)
-      if (!pairing) {
-        const { error } = await supabase.from('pairings')
-          .insert({ round_id: round.id, pairing_number: pairNum, [col]: val })
-        if (error) throw error
-      } else {
-        const prev = side === 1 ? pairing.team1_id : pairing.team2_id
-        if (prev && prev !== val) {
-          const slots = side === 1 ? [1, 2] : [3, 4]
-          await supabase.from('pairing_players').delete().eq('pairing_id', pairing.id).in('team_slot', slots)
-        }
-        const { error } = await supabase.from('pairings').update({ [col]: val }).eq('id', pairing.id)
-        if (error) throw error
-      }
-      await loadPairings()
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('[ScoringTab] setPairingSide failed:', e)
-      setAssignError(e?.message || 'Could not set team')
-    }
-  }
-
   function availableForSlot(slot) {
-    const teamId = sideTeamId(slot)
-    if (!teamId) return [] // this side's team hasn't been picked yet
+    const side = SLOT_TEAM[slot] // 0 = team1 side, 1 = team2 side
+    const thisSideTeam = side === 0 ? activePairing?.team1_id : activePairing?.team2_id
+    const otherSideTeam = side === 0 ? activePairing?.team2_id : activePairing?.team1_id
     const current = slotMap[slot]
-    return Object.values(playersById)
-      // Only this side's team roster; a player with no team can't be placed
-      // (there'd be no team to attribute their points to).
-      .filter(p => p.team_id === teamId)
-      // Exclude anyone already placed in this round — including the same side's
-      // other slot — so each player lands in exactly one pairing per round.
-      .filter(p => p.id === current || !assignedInRound.has(p.id))
+    return Object.values(playersById).filter(p => {
+      if (!p.team_id) return false // no team → can't be placed (no team to score for)
+      // Already placed this round (incl. the same side's other slot) → unavailable,
+      // unless it's the player currently in THIS slot.
+      if (p.id !== current && assignedInRound.has(p.id)) return false
+      // This side's team is known (a player was already placed here) → that team only.
+      if (thisSideTeam) return p.team_id === thisSideTeam
+      // First pick on this side → all teams, except the one already on the other
+      // side (a team can't play itself).
+      return !otherSideTeam || p.team_id !== otherSideTeam
+    })
   }
 
-  function HeaderCell({ slot, teamClass }) {
+  function HeaderCell({ slot }) {
     const tp = slotMap[slot] ? playersById[slotMap[slot]] : null
-    // Filled → team colour; empty → neutral gray (not pre-coloured by team).
-    const nameClass = tp ? teamClass : ''
-    const emptyStyle = tp ? undefined : EMPTY_TH
-    if (!canAssign) return <div className={`sc-th-name ${nameClass}`} style={emptyStyle}>{tp ? firstName(tp.name) : 'TBD'}</div>
-    const hasSideTeam = !!sideTeamId(slot)
-    const canOpen = !!tp || (hasSideTeam && availableForSlot(slot).length > 0)
-    // '+' only once this side's team is picked and someone's available; '—'
-    // prompts the commissioner to choose the team first.
-    const label = tp ? firstName(tp.name) : (hasSideTeam ? (availableForSlot(slot).length > 0 ? '+' : 'TBD') : '—')
+    // Filled → the slot's REAL team colour (the team on this side of the pairing,
+    // matching the Players tab); empty → neutral gray.
+    const sideTeam = SLOT_TEAM[slot] === 0 ? pairTeam1 : pairTeam2
+    const fillStyle = tp
+      ? { background: teamColor(colorIndexOf(sideTeam)).solid, color: '#fff' }
+      : EMPTY_TH
+    if (!canAssign) return <div className="sc-th-name" style={fillStyle}>{tp ? firstName(tp.name) : 'TBD'}</div>
+    // '+' whenever a player can be placed here — the first pick on a side lists
+    // all teams, later picks filter (see availableForSlot).
+    const canOpen = !!tp || availableForSlot(slot).length > 0
+    const label = tp ? firstName(tp.name) : (canOpen ? '+' : 'TBD')
     if (!canOpen) {
-      return <div className={`sc-th-name ${nameClass}`} style={emptyStyle} title={hasSideTeam ? 'No available players' : 'Pick this side’s team first'}>{label}</div>
+      return <div className="sc-th-name" style={fillStyle} title="No available players">{label}</div>
     }
     return (
       <div style={{ position: 'relative' }}>
-        <button className={`sc-th-name ${nameClass} sc-th-btn`} style={emptyStyle} onClick={() => openAssign(slot)}>{label}</button>
+        <button className="sc-th-name sc-th-btn" style={fillStyle} onClick={() => openAssign(slot)}>{label}</button>
         {openSlot === slot && (
           <div className="sc-th-dropdown">
             <button className="sc-th-opt" onClick={() => assignSlot(slot, null)} style={{ color: 'var(--muted)', fontWeight: 700 }}>Clear</button>
@@ -700,34 +697,6 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         </div>
       )}
 
-      {/* Commissioner: pick which two teams face off in this pairing (any team can
-          face any other; a team can appear in more than one pairing). */}
-      {canAssign && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-          <select
-            value={activePairing?.team1_id || ''}
-            onChange={e => setPairingSide(1, e.target.value)}
-            style={{ flex: 1, fontSize: 13, padding: '8px 10px' }}
-          >
-            <option value="">Select team…</option>
-            {teams.filter(t => t.id !== activePairing?.team2_id).map(t => (
-              <option key={t.id} value={t.id}>{getTeamDisplayName(t)}</option>
-            ))}
-          </select>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#7A8FA6' }}>vs</span>
-          <select
-            value={activePairing?.team2_id || ''}
-            onChange={e => setPairingSide(2, e.target.value)}
-            style={{ flex: 1, fontSize: 13, padding: '8px 10px' }}
-          >
-            <option value="">Select team…</option>
-            {teams.filter(t => t.id !== activePairing?.team1_id).map(t => (
-              <option key={t.id} value={t.id}>{getTeamDisplayName(t)}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
       {/* Surface who still needs placing, so the commissioner can see who's left. */}
       {canAssign && (unassignedInRound.length > 0 || noTeamPlayers.length > 0) && (
         <div style={{ fontSize: 12, color: '#7A8FA6', padding: '0 0 8px', lineHeight: 1.5 }}>
@@ -742,7 +711,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
       {!visibleFilled && (
         <div style={{ textAlign: 'center', fontSize: 12, color: '#7A8FA6', fontStyle: 'italic', padding: '8px 0' }}>
-          {isCommissioner ? (pairTeam1 && pairTeam2 ? 'Tap a + header to assign players to this pairing' : 'Pick the two teams above to start this pairing') : 'Pairings not set yet — ask your commissioner'}
+          {isCommissioner ? 'Tap a + header to add players — each side’s team is set by the first player you pick' : 'Pairings not set yet — ask your commissioner'}
         </div>
       )}
       {assignError && (
@@ -758,9 +727,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           <div className="sc-h">Hole</div>
           <div className="sc-h">Par</div>
           <div className="sc-h">S.I.</div>
-          {t1Slots.map(s => <HeaderCell key={s} slot={s} teamClass="sc-th-t1" />)}
+          {t1Slots.map(s => <HeaderCell key={s} slot={s} />)}
           <div className="sc-h">{isStandard ? 'Match' : 'Pts'}</div>
-          {t2Slots.map(s => <HeaderCell key={s} slot={s} teamClass="sc-th-t2" />)}
+          {t2Slots.map(s => <HeaderCell key={s} slot={s} />)}
         </div>
 
         {Array.from({ length: 18 }, (_, i) => i + 1).map(hole => {
