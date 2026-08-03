@@ -1,10 +1,16 @@
 const PROXY_BASE = '/.netlify/functions/golf-course-proxy';
 const DIRECT_BASE = 'https://api.golfcourseapi.com';
 
+// GolfCourseAPI matches the query as a literal, case-insensitive substring of the
+// course name — hyphens and other punctuation are matched as-is (e.g. "ak-chin"
+// matches "Ak-Chin Southern Dunes", but "ak chin" does not). So DON'T rewrite
+// hyphens to spaces or strip punctuation — that turns matching queries into
+// non-matching ones. The only cleanup: drop a leading article ("the"/"a"/"an"),
+// which never appears mid-name and otherwise breaks the substring match
+// (e.g. "the raven golf club" → 0, but "raven golf club" → the real results).
 function normalizeQuery(query) {
   return query
-    .replace(/[-_]/g, ' ')
-    .replace(/[^a-zA-Z0-9 ]/g, '')
+    .replace(/^\s*(?:the|a|an)\s+/i, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
