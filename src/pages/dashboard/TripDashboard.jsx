@@ -393,7 +393,7 @@ function PointsLeaderboard({ trip, teams, rounds }) {
     }
     async function loadAll() {
       const [pairRes, tpRes] = await Promise.all([
-        supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', roundIds),
+        supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds),
         supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
       ])
       const pairs = pairRes.data || []
@@ -437,52 +437,48 @@ function PointsLeaderboard({ trip, teams, rounds }) {
     return m
   }, [roundKey, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // teams[0] plays slots 1&2 (side 1); teams[1] plays 3&4 (side 2).
-  const sideOfTeam = team => (teams[0] && team.id === teams[0].id) ? 1 : (teams[1] && team.id === teams[1].id) ? 2 : null
-
-  // A team's points in one round = sum of hole wins across the round's pairings;
-  // `scored` tracks whether any hole is complete yet (to show '—' before play).
-  const roundPointsFor = (side, roundId) => {
+  // Attribute each pairing's hole wins to the REAL team on that side
+  // (team1_id = slots 1&2, team2_id = slots 3&4), so any team can face any other
+  // and a team split across pairings is summed correctly. `scored` only counts
+  // pairings this team is in, so an unplayed team still shows '—' per round.
+  const roundPointsForTeam = (teamId, roundId) => {
     let pts = 0, scored = 0
     for (const row of (byRound.get(roundId) || [])) {
-      scored += row.holesScored
-      pts += side === 1 ? row.t1pts : row.t2pts
+      if (row.team1_id === teamId) { pts += row.t1pts; scored += row.holesScored }
+      else if (row.team2_id === teamId) { pts += row.t2pts; scored += row.holesScored }
     }
     return { pts, scored }
   }
-  const totalFor = side => lbRounds.reduce((a, r) => a + roundPointsFor(side, r.id).pts, 0)
-  const roundCell = (side, roundId) => {
-    const { pts, scored } = roundPointsFor(side, roundId)
+  const totalForTeam = teamId => lbRounds.reduce((a, r) => a + roundPointsForTeam(teamId, r.id).pts, 0)
+  const roundCellTeam = (teamId, roundId) => {
+    const { pts, scored } = roundPointsForTeam(teamId, roundId)
     return scored === 0 ? '—' : pts
   }
 
   return (
     <div>
-      {teams.map(team => {
-        const side = sideOfTeam(team)
-        return (
-          <div key={team.id} className="lb-team-card">
-            {/* Colour by stable index (1 navy, 2 teal, 3 brown, 4 purple), never by name. */}
-            <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
-              <span className="lb-team-name">{getTeamDisplayName(team)}</span>
-              <span className="lb-team-pts">{side ? totalFor(side) : '—'}</span>
-            </div>
-            <div className="lb-rounds">
-              {lbRounds.map(r => (
-                <div key={r.id} className="lb-round-row">
-                  <span className="lb-round-name">{r.course_name}</span>
-                  <span className="lb-round-score">{side ? roundCell(side, r.id) : '—'}</span>
-                </div>
-              ))}
-              {lbRounds.length === 0 && (
-                <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
-                  No rounds yet
-                </div>
-              )}
-            </div>
+      {teams.map(team => (
+        <div key={team.id} className="lb-team-card">
+          {/* Colour by stable index (1 navy, 2 teal, 3 brown, 4 purple), never by name. */}
+          <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
+            <span className="lb-team-name">{getTeamDisplayName(team)}</span>
+            <span className="lb-team-pts">{totalForTeam(team.id)}</span>
           </div>
-        )
-      })}
+          <div className="lb-rounds">
+            {lbRounds.map(r => (
+              <div key={r.id} className="lb-round-row">
+                <span className="lb-round-name">{r.course_name}</span>
+                <span className="lb-round-score">{roundCellTeam(team.id, r.id)}</span>
+              </div>
+            ))}
+            {lbRounds.length === 0 && (
+              <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
+                No rounds yet
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -508,7 +504,7 @@ function StandardLeaderboard({ trip, teams, rounds }) {
     let cancelled = false
     ;(async () => {
       const [pairRes, tpRes, scoreRes, prRes] = await Promise.all([
-        supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', roundIds),
+        supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds),
         supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
         supabase.from('scores').select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds),
         supabase.from('player_rounds').select('trip_player_id, round_id, slope, rating, par').in('round_id', roundIds),
@@ -538,15 +534,18 @@ function StandardLeaderboard({ trip, teams, rounds }) {
     return m
   }, [roundKey, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // teams[0] plays slots 1&2 (T1); teams[1] plays 3&4 (T2).
-  const sideOfTeam = team => (teams[0] && team.id === teams[0].id) ? 'T1' : (teams[1] && team.id === teams[1].id) ? 'T2' : null
   const fmtPts = x => (Number.isInteger(x) ? String(x) : x.toFixed(1))
 
-  // Points a team earned in one round (summed over that round's completed matches).
-  const roundPointsFor = (side, roundId) => {
+  // Attribute each pairing's match result to the REAL team on that side
+  // (team1_id -> 'T1', team2_id -> 'T2'). `matches` only counts pairings this
+  // team is in, so a team in exactly one match shows W/H/L while a team split
+  // across two matches in a round shows its summed points.
+  const roundPointsForTeam = (teamId, roundId) => {
     let pts = 0, matches = 0, completed = 0
     for (const row of (byRound.get(roundId) || [])) {
       if (!row.hasMatch) continue
+      const side = row.team1_id === teamId ? 'T1' : row.team2_id === teamId ? 'T2' : null
+      if (!side) continue
       matches++
       if (!row.complete) continue
       completed++
@@ -555,9 +554,9 @@ function StandardLeaderboard({ trip, teams, rounds }) {
     }
     return { pts, matches, completed }
   }
-  const totalFor = side => lbRounds.reduce((a, r) => a + roundPointsFor(side, r.id).pts, 0)
-  const roundBadge = (side, roundId) => {
-    const { pts, matches, completed } = roundPointsFor(side, roundId)
+  const totalForTeam = teamId => lbRounds.reduce((a, r) => a + roundPointsForTeam(teamId, r.id).pts, 0)
+  const roundBadge = (teamId, roundId) => {
+    const { pts, matches, completed } = roundPointsForTeam(teamId, roundId)
     if (matches === 0 || completed === 0) return '—'
     if (matches === 1) return pts === 1 ? 'W' : pts === 0.5 ? 'H' : 'L'
     return fmtPts(pts) // multiple matches in one round → show the earned points
@@ -565,30 +564,27 @@ function StandardLeaderboard({ trip, teams, rounds }) {
 
   return (
     <div>
-      {teams.map(team => {
-        const side = sideOfTeam(team)
-        return (
-          <div key={team.id} className="lb-team-card">
-            <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
-              <span className="lb-team-name">{getTeamDisplayName(team)}</span>
-              <span className="lb-team-pts">{fmtPts(totalFor(side))}</span>
-            </div>
-            <div className="lb-rounds">
-              {lbRounds.map(r => (
-                <div key={r.id} className="lb-round-row">
-                  <span className="lb-round-name">{r.course_name}</span>
-                  <span className="lb-round-score">{roundBadge(side, r.id)}</span>
-                </div>
-              ))}
-              {lbRounds.length === 0 && (
-                <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
-                  No rounds yet
-                </div>
-              )}
-            </div>
+      {teams.map(team => (
+        <div key={team.id} className="lb-team-card">
+          <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
+            <span className="lb-team-name">{getTeamDisplayName(team)}</span>
+            <span className="lb-team-pts">{fmtPts(totalForTeam(team.id))}</span>
           </div>
-        )
-      })}
+          <div className="lb-rounds">
+            {lbRounds.map(r => (
+              <div key={r.id} className="lb-round-row">
+                <span className="lb-round-name">{r.course_name}</span>
+                <span className="lb-round-score">{roundBadge(team.id, r.id)}</span>
+              </div>
+            ))}
+            {lbRounds.length === 0 && (
+              <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
+                No rounds yet
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
