@@ -49,7 +49,10 @@ const styles = {
   tipButton: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 12px', margin: '6px 0', fontSize: '13px', fontWeight: 700, lineHeight: 1.3, cursor: 'pointer', fontFamily: 'inherit' },
   tipButtonArrow: { marginLeft: 'auto', fontWeight: 800, flexShrink: 0 },
   footer: { display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #E8EDF3', padding: '11px 14px', cursor: 'pointer', userSelect: 'none' },
-  footerLabel: { fontSize: '13px', color: '#5A6B7A' },
+  // Restore the native checkbox: the global `input` reset stretches it to 100%
+  // width and strips its appearance, which renders it as a full-width bar.
+  checkbox: { width: '16px', height: '16px', flexShrink: 0, margin: 0, padding: 0, appearance: 'auto', WebkitAppearance: 'auto', accentColor: '#1B3F6E' },
+  footerLabel: { fontSize: '13px', color: '#5A6B7A', whiteSpace: 'nowrap' },
 }
 
 function Item({ label, hint, isLast }) {
@@ -258,7 +261,7 @@ function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memb
         {/* Footer: permanent opt-out. When checked, dismissing (X / click-outside)
             suppresses this modal forever for this trip_player. */}
         <label style={styles.footer}>
-          <input type="checkbox" checked={optOut} onChange={e => onToggleOptOut?.(e.target.checked)} />
+          <input type="checkbox" style={styles.checkbox} checked={optOut} onChange={e => onToggleOptOut?.(e.target.checked)} />
           <span style={styles.footerLabel}>Don’t remind me again</span>
         </label>
       </div>
