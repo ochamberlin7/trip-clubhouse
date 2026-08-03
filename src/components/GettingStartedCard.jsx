@@ -48,6 +48,8 @@ const styles = {
   itemHint: { fontSize: '11px', color: '#7A8FA6', marginTop: '1px' },
   tipButton: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 12px', margin: '6px 0', fontSize: '13px', fontWeight: 700, lineHeight: 1.3, cursor: 'pointer', fontFamily: 'inherit' },
   tipButtonArrow: { marginLeft: 'auto', fontWeight: 800, flexShrink: 0 },
+  footer: { display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #E8EDF3', padding: '11px 14px', cursor: 'pointer', userSelect: 'none' },
+  footerLabel: { fontSize: '13px', color: '#5A6B7A' },
 }
 
 function Item({ label, hint, isLast }) {
@@ -65,6 +67,7 @@ function Item({ label, hint, isLast }) {
 export default function GettingStartedCard({ trip, rounds = [], userId, isCommissioner, onOpenMenuPage }) {
   const [state, setState] = useState({ status: 'loading' })
   const [dismissed, setDismissed] = useState(false) // session-only; never persisted
+  const [optOut, setOptOut] = useState(false) // "don't remind me again" checkbox
   const flippedRef = useRef(false) // flip onboarding_completed at most once
 
   // Load the current user's player row + flights row, and (for commissioners)
@@ -74,10 +77,22 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
     async function load() {
       if (!trip?.id || !userId) { setState({ status: 'ready', playerRow: null }); return }
 
-      const { data: playerRow } = await supabase
-        .from('trip_players')
-        .select('id, phone, email, onboarding_completed')
-        .eq('trip_id', trip.id).eq('user_id', userId).maybeSingle()
+      // Prefer the columns including the opt-out flag; if the migration adding
+      // it hasn't run yet the query errors, so fall back without it (opt-out
+      // then reads as false until the column exists).
+      let playerRow = null
+      {
+        const base = supabase.from('trip_players')
+        let res = await base
+          .select('id, phone, email, onboarding_completed, getting_started_opted_out')
+          .eq('trip_id', trip.id).eq('user_id', userId).maybeSingle()
+        if (res.error) {
+          res = await supabase.from('trip_players')
+            .select('id, phone, email, onboarding_completed')
+            .eq('trip_id', trip.id).eq('user_id', userId).maybeSingle()
+        }
+        playerRow = res.data
+      }
 
       let flight = null
       if (playerRow) {
@@ -114,6 +129,11 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
 
   if (state.status !== 'ready') return null
   const { playerRow, flight, allHandicaps } = state
+
+  // Permanent opt-out ("don't remind me again") — an independent flag that
+  // suppresses the modal entirely, regardless of onboarding_completed or which
+  // persistent items are (in)complete.
+  if (playerRow?.getting_started_opted_out) return null
 
   // ── Persistent items (computed live, never stored as done) ──
   // Tracked items auto-complete from data and drive whether the modal reappears.
@@ -165,8 +185,17 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
   if (!isFirstLogin && trackedIncomplete === 0) return null
 
   // Session-only dismissal — closing just hides it for now. It never persists,
-  // so it reappears next login while the trigger conditions still hold.
+  // so it reappears next login while the trigger conditions still hold —
+  // UNLESS "don't remind me again" is checked, which persists a permanent opt-out.
   if (dismissed) return null
+
+  // On any dismissal, persist the permanent opt-out if the box is checked.
+  const dismiss = () => {
+    if (optOut && playerRow?.id) {
+      supabase.from('trip_players').update({ getting_started_opted_out: true }).eq('id', playerRow.id).then(() => {})
+    }
+    setDismissed(true)
+  }
 
   return (
     <GettingStartedView
@@ -174,15 +203,17 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
       hasToDo={hasToDo}
       commissionerRows={commissionerRows}
       memberRows={memberRows}
-      onHomeScreen={() => { setDismissed(true); onOpenMenuPage?.('app-info') }}
-      onClose={() => setDismissed(true)}
+      optOut={optOut}
+      onToggleOptOut={setOptOut}
+      onHomeScreen={() => { dismiss(); onOpenMenuPage?.('app-info') }}
+      onClose={dismiss}
     />
   )
 }
 
 // Presentational modal — split out from the data-fetching container above so
 // the view is easy to reason about (and render in isolation).
-function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memberRows = [], onHomeScreen, onClose }) {
+function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memberRows = [], optOut = false, onToggleOptOut, onHomeScreen, onClose }) {
   return (
     <div style={styles.overlay} role="dialog" aria-modal="true" onClick={onClose}>
       <div style={styles.card} onClick={e => e.stopPropagation()}>
@@ -223,6 +254,13 @@ function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memb
             </>
           )}
         </div>
+
+        {/* Footer: permanent opt-out. When checked, dismissing (X / click-outside)
+            suppresses this modal forever for this trip_player. */}
+        <label style={styles.footer}>
+          <input type="checkbox" checked={optOut} onChange={e => onToggleOptOut?.(e.target.checked)} />
+          <span style={styles.footerLabel}>Don’t remind me again</span>
+        </label>
       </div>
     </div>
   )
