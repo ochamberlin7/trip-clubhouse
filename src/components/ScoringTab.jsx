@@ -300,9 +300,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // every trip_player assigned to any slot in any pairing of this round
   const roundPairingIds = pairings.filter(p => p.round_id === round.id).map(p => p.id)
   const assignedInRound = new Set(pairingPlayers.filter(pp => roundPairingIds.includes(pp.pairing_id)).map(pp => pp.trip_player_id))
-  // Players still to place (have a team, not yet in a pairing this round) and
-  // players who can't be placed at all until they're on a team.
-  const unassignedInRound = Object.values(playersById).filter(p => p.team_id && !assignedInRound.has(p.id))
+  // Players who can't be placed at all until they're on a team.
   const noTeamPlayers = Object.values(playersById).filter(p => !p.team_id)
 
   const slotPlayers = [1, 2, 3, 4].map(s => slotMap[s] ? playersById[slotMap[s]] : null)
@@ -697,21 +695,16 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         </div>
       )}
 
-      {/* Surface who still needs placing, so the commissioner can see who's left. */}
-      {canAssign && (unassignedInRound.length > 0 || noTeamPlayers.length > 0) && (
-        <div style={{ fontSize: 12, color: '#7A8FA6', padding: '0 0 8px', lineHeight: 1.5 }}>
-          {unassignedInRound.length > 0 && (
-            <div>Unassigned this round: {unassignedInRound.map(p => firstName(p.name)).join(', ')}</div>
-          )}
-          {noTeamPlayers.length > 0 && (
-            <div style={{ color: '#C0392B' }}>No team yet (can’t be placed): {noTeamPlayers.map(p => firstName(p.name)).join(', ')} — set teams in Menu → Players</div>
-          )}
+      {/* Flag players who can't be placed until they're on a team. */}
+      {canAssign && noTeamPlayers.length > 0 && (
+        <div style={{ fontSize: 12, color: '#C0392B', padding: '0 0 8px', lineHeight: 1.5 }}>
+          No team yet (can’t be placed): {noTeamPlayers.map(p => firstName(p.name)).join(', ')} — set teams in Menu → Players
         </div>
       )}
 
-      {!visibleFilled && (
+      {!visibleFilled && !isCommissioner && (
         <div style={{ textAlign: 'center', fontSize: 12, color: '#7A8FA6', fontStyle: 'italic', padding: '8px 0' }}>
-          {isCommissioner ? 'Tap a + header to add players — each side’s team is set by the first player you pick' : 'Pairings not set yet — ask your commissioner'}
+          Pairings not set yet — ask your commissioner
         </div>
       )}
       {assignError && (
