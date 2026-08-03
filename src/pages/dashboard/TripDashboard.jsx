@@ -1028,10 +1028,11 @@ export default function TripDashboard() {
     setScoringInit({ roundId: active.id, pairingNum })
 
     // Only default to the Score tab once we're at least 5 minutes past the
-    // user's scheduled tee time (pairing 2 tees off at tee_time_2). Purely
+    // user's own scheduled tee time — pairing N tees off at tee_time_N (up to 5),
+    // falling back to tee_time_1 if that pairing's time isn't set. Purely
     // time-based — independent of whether any score has been logged. Before
     // then (or with no parseable tee time), leave the landing tab on Home.
-    const teeStr = (pairingNum === 2 && active.tee_time_2) ? active.tee_time_2 : active.tee_time_1
+    const teeStr = active[`tee_time_${pairingNum}`] || active.tee_time_1
     const teeMinutes = parseTeeTimeToMinutes(teeStr)
     const now = new Date()
     const nowMinutes = now.getHours() * 60 + now.getMinutes()

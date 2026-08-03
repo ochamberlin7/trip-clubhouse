@@ -174,8 +174,14 @@ export default function TeeTimesWidget({ rounds = [], tripStartDate, tripEndDate
 
   if (displayRounds.length === 0) return null
 
-  // Pluralize.
-  const heading = displayRounds.length >= 2 ? `${label}s` : label
+  // Each round can have a tee time per pairing (up to 5), not just two.
+  const TEE_COLS = ['tee_time_1', 'tee_time_2', 'tee_time_3', 'tee_time_4', 'tee_time_5']
+  const timesByRound = displayRounds.map(r => TEE_COLS.map(c => r[c]).filter(Boolean))
+  const totalTimes = timesByRound.reduce((n, ts) => n + ts.length, 0)
+
+  // "…Tee Times" (plural) once more than one time is shown (across pairings
+  // and/or rounds); "…Tee Time" when there's just one.
+  const heading = totalTimes > 1 ? `${label}s` : label
 
   return (
     <div style={styles.card}>
@@ -186,7 +192,7 @@ export default function TeeTimesWidget({ rounds = [], tripStartDate, tripEndDate
       {displayRounds.map((r, i) => {
         const type = r.round_type === 'practice' ? 'practice' : 'tournament'
         const isLast = i === displayRounds.length - 1
-        const times = [r.tee_time_1, r.tee_time_2].filter(Boolean)
+        const times = timesByRound[i]
         // "{Club Name} - {Course Name}", collapsing to a single name when a
         // field is missing or the two are identical.
         const courseLabel = r.club_name && r.course_name && r.club_name !== r.course_name

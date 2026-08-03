@@ -106,14 +106,16 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
       }
 
       let allHandicaps = true
+      let playerCount = 0
       if (isCommissioner) {
         const { data: hcps } = await supabase
           .from('trip_players').select('handicap_index').eq('trip_id', trip.id)
-        allHandicaps = (hcps || []).length > 0 && (hcps || []).every(p => p.handicap_index != null)
+        playerCount = (hcps || []).length
+        allHandicaps = playerCount > 0 && (hcps || []).every(p => p.handicap_index != null)
       }
 
       if (cancelled) return
-      setState({ status: 'ready', playerRow, flight, allHandicaps })
+      setState({ status: 'ready', playerRow, flight, allHandicaps, playerCount })
     }
     load()
     return () => { cancelled = true }
@@ -131,7 +133,7 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
   }, [isFirstLogin, pr?.id])
 
   if (state.status !== 'ready') return null
-  const { playerRow, flight, allHandicaps } = state
+  const { playerRow, flight, allHandicaps, playerCount = 0 } = state
 
   // Permanent opt-out ("don't remind me again") — an independent flag that
   // suppresses the modal entirely, regardless of onboarding_completed or which
@@ -152,7 +154,12 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
   // course (course_name 'TBD'/null) would slip past the course-scoped tee-time
   // item, so flag missing courses directly.
   const coursesAssigned = playable.length === 0 || playable.every(hasRealCourse)
-  const teeTimesSet = withCourse.length === 0 || withCourse.every(r => nonEmpty(r.tee_time_1))
+  // A round needs a tee time for EVERY pairing, not just the first — same count
+  // the Tee Times tab shows (one 2v2 foursome per 4 players, up to 5). Checking
+  // only tee_time_1 wrongly marked a partly-timed round complete.
+  const numPairings = Math.min(5, Math.max(1, Math.ceil(playerCount / 4)))
+  const roundTeeTimesSet = r => Array.from({ length: numPairings }, (_, i) => `tee_time_${i + 1}`).every(c => nonEmpty(r[c]))
+  const teeTimesSet = withCourse.length === 0 || withCourse.every(roundTeeTimesSet)
 
   // Commissioner rows: three first-login-only setup tips (no reliable "done"
   // signal — shown once, gated by onboarding_completed like the welcome tip),
