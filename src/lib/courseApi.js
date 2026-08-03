@@ -15,6 +15,36 @@ function normalizeQuery(query) {
     .trim();
 }
 
+function escapeRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Best match tier of one name against the query (lower = better), so the client
+// can order the API's results by relevance (its own order isn't relevance-based).
+//   0 exact · 1 word-prefix (query is the first whole word) · 2 whole-word
+//   anywhere · 3 plain substring · 4 no name match.
+function tierFor(name, q) {
+  const n = (name || '').toLowerCase().trim();
+  if (!n) return 4;
+  if (n === q) return 0;
+  const e = escapeRe(q);
+  if (new RegExp('^' + e + '(?![a-z0-9])').test(n)) return 1;
+  if (new RegExp('(^|[^a-z0-9])' + e + '([^a-z0-9]|$)').test(n)) return 2;
+  if (n.includes(q)) return 3;
+  return 4;
+}
+
+// Re-rank by best tier across club_name AND course_name (equal weight), keeping
+// the API's original order within each tier (stable sort via original index).
+function rankCourses(courses, query) {
+  const q = (query || '').toLowerCase().trim();
+  if (!q) return courses;
+  return courses
+    .map((c, i) => ({ c, i, tier: Math.min(tierFor(c.club_name, q), tierFor(c.course_name, q)) }))
+    .sort((a, b) => a.tier - b.tier || a.i - b.i)
+    .map(x => x.c);
+}
+
 // One API call for a single (already-normalized) query. Proxy first (works on
 // netlify dev + production, keeps the key server-side), then a direct call with
 // VITE_GOLF_API_KEY (works on plain `npm run dev`).
@@ -45,7 +75,7 @@ export async function searchCourses(query) {
   if (!normalized || normalized.length < 2) return [];
 
   const courses = await runSearch(normalized);
-  if (courses.length > 0) return courses;
+  if (courses.length > 0) return rankCourses(courses, normalized);
 
   // Dual-query fallback: the API matches literally, so a space where the real
   // name has a hyphen (or vice-versa) matches nothing — e.g. "ak chin" misses
@@ -60,7 +90,7 @@ export async function searchCourses(query) {
       if (!seen.has(c.id)) { seen.add(c.id); merged.push(c); }
     }
   }
-  return merged;
+  return rankCourses(merged, normalized);
 }
 
 export async function getCourseDetails(id) {
