@@ -50,7 +50,9 @@ const styles = {
   row: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    // Anchor both columns to the top so the course name stays pinned to the
+    // top-left instead of drifting down as the tee-time list grows.
+    alignItems: 'flex-start',
     gap: '12px',
     padding: '10px 14px',
     borderBottom: '1px solid #E8EDF3',
@@ -72,14 +74,19 @@ const styles = {
     textOverflow: 'ellipsis',
   },
   teeCol: {
-    textAlign: 'right',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: '3px',
     flexShrink: 0,
+    textAlign: 'right',
   },
   teeTime: {
     fontSize: '18px',
     fontWeight: 800,
     color: '#0D1B2A',
     textAlign: 'right',
+    lineHeight: 1.15,
   },
 }
 
