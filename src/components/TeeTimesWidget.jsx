@@ -72,12 +72,18 @@ const styles = {
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    // Tight, matched line-height so the first tee time's text lines up flush
+    // with the course name's cap-top despite the font-size difference.
+    lineHeight: 1.1,
   },
   teeCol: {
     display: 'flex',
     flexDirection: 'column',
+    // Column main axis is vertical → justify-content pins the list to the TOP
+    // (flush with the course name); align-items keeps every line right-aligned.
+    justifyContent: 'flex-start',
     alignItems: 'flex-end',
-    gap: '3px',
+    gap: '4px',
     flexShrink: 0,
     textAlign: 'right',
   },
@@ -86,7 +92,7 @@ const styles = {
     fontWeight: 800,
     color: '#0D1B2A',
     textAlign: 'right',
-    lineHeight: 1.15,
+    lineHeight: 1.1,
   },
 }
 
