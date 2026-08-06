@@ -21,7 +21,9 @@ function formatRange(startDate, endDate) {
 const styles = {
   container: {
     background: '#FFFFFF',
-    padding: '20px 16px 16px',
+    // Top-most element on the Home tab now (tab bar moved to the bottom), so it
+    // carries the status-bar / notch inset; white bg fills the safe area.
+    padding: 'max(env(safe-area-inset-top), 20px) 16px 16px',
     borderBottom: '1px solid #DDE3EA',
     textAlign: 'center',
   },
