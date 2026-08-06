@@ -59,7 +59,7 @@ const s = {
   pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: '16px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 16px)', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: '12px' },
   backBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1B3F6E', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 },
   pageContext: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 500 },
-  pageTitle: { fontSize: '20px', fontWeight: 700, color: '#0D1B2A', marginTop: '1px' },
+  pageTitle: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#0D1B2A', marginTop: '1px' },
   pageBody: { padding: '16px' },
 
   card: { background: '#fff', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px' },

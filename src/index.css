@@ -6,7 +6,7 @@
   --bg3:    #DDE3EA;
   --navy:   #1B3F6E;
   --navy2:  #2C5F8A;
-  --teal:   #1E8A6E;   /* Team 2 color — canonical (see src/lib/teamColors.js) */
+  --teal:   #0F6E56;   /* Team 2 color — canonical (see src/lib/teamColors.js) */
   --cream:  #0D1B2A;
   --cream2: #2C3E50;
   --muted:  #7A8FA6;
@@ -15,6 +15,9 @@
   --gold:   #C49A2A;   /* amber/gold accent — live-match banner */
   --radius:    10px;
   --radius-sm:  6px;
+  /* Serif display face — the "Clubhouse" identity. Used for major page titles
+     (not body/labels/chrome). Loaded at 700 in index.html. */
+  --font-serif: 'Playfair Display', Georgia, serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -76,7 +79,7 @@ select {
 .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg0); padding: 24px; }
 .auth-card { background: var(--bg1); border-radius: var(--radius); border: 1px solid var(--bg3); padding: 24px; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 20px; }
 .auth-brand { font-size: 11px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--navy); }
-.auth-card h2 { font-size: 22px; font-weight: 700; color: var(--cream); letter-spacing: -0.3px; margin-top: 2px; }
+.auth-card h2 { font-family: var(--font-serif); font-size: 24px; font-weight: 700; color: var(--cream); letter-spacing: -0.2px; margin-top: 2px; }
 .auth-form { display: flex; flex-direction: column; gap: 12px; }
 
 /* ── Cards ── */
@@ -90,7 +93,7 @@ select {
 /* ── Page header — CTI .page-header exact ── */
 .page-header { background: var(--bg1); padding: 16px 16px 12px; border-bottom: 1px solid var(--bg3); }
 .page-header h1 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--navy); font-weight: 500; }
-.page-header h2 { font-size: 22px; font-weight: 700; color: var(--cream); margin-top: 2px; letter-spacing: -0.3px; }
+.page-header h2 { font-family: var(--font-serif); font-size: 24px; font-weight: 700; color: var(--cream); margin-top: 2px; letter-spacing: -0.2px; }
 .page-header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
 /* ── Dashboard ── */
@@ -196,7 +199,7 @@ select {
 .wizard-progress-track { height: 3px; background: var(--bg3); border-radius: 2px; margin-bottom: -1px; }
 .wizard-progress-fill { height: 100%; background: var(--navy); border-radius: 2px; transition: width 0.3s ease; }
 .wizard-body { flex: 1; padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
-.wizard-title { font-size: 22px; font-weight: 700; color: var(--cream); letter-spacing: -0.3px; }
+.wizard-title { font-family: var(--font-serif); font-size: 24px; font-weight: 700; color: var(--cream); letter-spacing: -0.2px; }
 .wizard-step-subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .wizard-footer { padding: 16px; display: flex; gap: 10px; }
 .wizard-footer .btn { flex: 1; }
@@ -299,7 +302,7 @@ select {
 .sc-head .sc-h { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; text-align: center; padding-bottom: 4px; }
 .sc-th-name { font-size: 10px; font-weight: 700; color: #fff; text-align: center; padding: 4px 2px; border-radius: 4px 4px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-th-t1 { background: var(--navy); }
-.sc-th-t2 { background: #1E8A6E; }
+.sc-th-t2 { background: #0F6E56; }
 .sc-hole-row { border-bottom: 1px solid var(--bg2); }
 .sc-hole-row.nine-divider { border-top: 2px solid var(--bg3); }
 .sc-cell-hole { font-size: 13px; font-weight: 700; color: var(--cream2); text-align: center; }
@@ -331,13 +334,13 @@ select {
 
 .sc-pts-chip { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; font-size: 12px; }
 .sc-pts-chip.t1 { background: var(--navy); color: #fff; }
-.sc-pts-chip.t2 { background: #1E8A6E; color: #fff; }
+.sc-pts-chip.t2 { background: #0F6E56; color: #fff; }
 .sc-pts-chip.halve { background: var(--bg3); color: var(--cream2); }
 .sc-pts-chip.null { background: transparent; color: var(--bg3); }
 /* Standard Match Play running-status cell */
 .sc-match-chip { display: inline-flex; align-items: center; justify-content: center; justify-self: center; gap: 1px; font-size: 10px; font-weight: 800; line-height: 1; white-space: nowrap; }
 .sc-match-chip.t1 { color: var(--navy); }
-.sc-match-chip.t2 { color: #1E8A6E; }
+.sc-match-chip.t2 { color: #0F6E56; }
 .sc-match-chip.as { color: var(--muted); }
 .sc-match-halve { color: var(--bg3); font-size: 8px; }
 /* Standard Match Play: locked (unenterable) hole after the match is decided */
@@ -352,7 +355,7 @@ select {
 .sc-sub-par { font-size: 11px; color: var(--muted); text-align: center; }
 .sc-sub-score { font-size: 13px; font-weight: 800; text-align: center; }
 .sc-sub-score.t1 { color: var(--navy); }
-.sc-sub-score.t2 { color: #1E8A6E; }
+.sc-sub-score.t2 { color: #0F6E56; }
 .sc-sub-pts { font-size: 11px; font-weight: 800; color: var(--cream); text-align: center; }
 
 /* ── Misc ── */
