@@ -87,6 +87,26 @@ const wxStyles = {
   detailLabel: { fontSize: '11px', color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' },
   detailValue: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#2C3E50' },
   loading: { padding: '14px', fontSize: '13px', color: '#7A8FA6', textAlign: 'center' },
+  forecastHint: { marginLeft: 'auto', alignSelf: 'center', fontSize: '12px', fontWeight: 700, color: '#1B3F6E' },
+  // 10-day forecast modal (portal + centered overlay, matching the app pattern).
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  modalCard: { position: 'relative', background: '#fff', borderRadius: '14px', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
+  modalClose: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 16, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
+  fRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid #E8EDF3' },
+  fDay: { fontSize: '13px', fontWeight: 700, color: '#0D1B2A', width: 78, flexShrink: 0 },
+  fEmoji: { fontSize: '22px', width: 26, textAlign: 'center', flexShrink: 0 },
+  fCond: { fontSize: '12px', color: '#7A8FA6', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  fPop: { fontSize: '12px', color: '#3F6FA6', width: 40, textAlign: 'right', flexShrink: 0 },
+  fTemp: { fontSize: '13px', fontWeight: 700, color: '#0D1B2A', width: 74, textAlign: 'right', flexShrink: 0 },
+}
+
+const WX_DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const WX_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function fmtForecastDay(iso, idx) {
+  if (idx === 0) return 'Today'
+  const d = new Date(iso + 'T00:00:00')
+  if (isNaN(d)) return iso
+  return `${WX_DOW[d.getDay()]}, ${WX_MON[d.getMonth()]} ${d.getDate()}`
 }
 
 function WeatherIcon() {
@@ -144,6 +164,7 @@ function WeatherWidget({ rounds = [], tripName }) {
   const [wx, setWx] = useState(null)
   const [status, setStatus] = useState('loading') // 'loading' | 'ok' | 'error'
   const [locationLabel, setLocationLabel] = useState('Weather')
+  const [showForecast, setShowForecast] = useState(false) // 10-day forecast modal
 
   // Stable dependency: only the locations that affect which weather we show.
   const locationKey = rounds.map(r => `${r.date}|${r.location_lat}|${r.location_lon}|${r.location_city}|${r.location_state}|${r.club_name}`).join(';')
@@ -187,19 +208,28 @@ function WeatherWidget({ rounds = [], tripName }) {
         const res = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
           `&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m` +
-          `&daily=temperature_2m_max,temperature_2m_min` +
-          `&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto&forecast_days=1`
+          `&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_max` +
+          `&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto&forecast_days=10`
         )
         const data = await res.json()
         if (cancelled) return
         if (data?.current) {
+          const d = data.daily || {}
+          const days = (d.time || []).map((date, i) => ({
+            date,
+            hi: Math.round(d.temperature_2m_max?.[i]),
+            lo: Math.round(d.temperature_2m_min?.[i]),
+            code: d.weathercode?.[i],
+            pop: d.precipitation_probability_max?.[i],
+          }))
           setWx({
             temp: Math.round(data.current.temperature_2m),
             code: data.current.weathercode,
             wind: Math.round(data.current.windspeed_10m),
             humidity: data.current.relativehumidity_2m,
-            hi: Math.round(data.daily.temperature_2m_max[0]),
-            lo: Math.round(data.daily.temperature_2m_min[0]),
+            hi: days[0]?.hi,
+            lo: days[0]?.lo,
+            daily: days, // full 10-day forecast for the tap-through modal
           })
           setLocationLabel(label)
           setStatus('ok')
@@ -261,35 +291,65 @@ function WeatherWidget({ rounds = [], tripName }) {
     </div>
   )
 
+  const days = wx.daily || []
   return (
-    <div style={wxStyles.card}>
-      {header}
-      <div style={wxStyles.inner}>
-        <div style={wxStyles.mainRow}>
-          <div>
-            <div style={wxStyles.temp}>{wx.temp}°F</div>
-            <div style={wxStyles.condition}>{wxDesc(wx.code)}</div>
-          </div>
-          <div style={wxStyles.rightCol}>
-            <div style={wxStyles.hiloBlock}>
-              <div style={wxStyles.hi}>↑ {wx.hi}°</div>
-              <div style={wxStyles.lo}>↓ {wx.lo}°</div>
+    <>
+      {/* Current conditions (unchanged) — the whole card taps through to the
+          10-day forecast. */}
+      <div style={{ ...wxStyles.card, cursor: 'pointer' }} onClick={() => setShowForecast(true)} role="button" tabIndex={0} aria-label="Open 10-day forecast">
+        {header}
+        <div style={wxStyles.inner}>
+          <div style={wxStyles.mainRow}>
+            <div>
+              <div style={wxStyles.temp}>{wx.temp}°F</div>
+              <div style={wxStyles.condition}>{wxDesc(wx.code)}</div>
             </div>
-            <div style={wxStyles.emoji}>{wxIcon(wx.code)}</div>
+            <div style={wxStyles.rightCol}>
+              <div style={wxStyles.hiloBlock}>
+                <div style={wxStyles.hi}>↑ {wx.hi}°</div>
+                <div style={wxStyles.lo}>↓ {wx.lo}°</div>
+              </div>
+              <div style={wxStyles.emoji}>{wxIcon(wx.code)}</div>
+            </div>
           </div>
-        </div>
-        <div style={wxStyles.detailsRow}>
-          <div>
-            <span style={wxStyles.detailLabel}>Wind</span>
-            <span style={wxStyles.detailValue}>{wx.wind} mph</span>
-          </div>
-          <div>
-            <span style={wxStyles.detailLabel}>Humidity</span>
-            <span style={wxStyles.detailValue}>{wx.humidity}%</span>
+          <div style={wxStyles.detailsRow}>
+            <div>
+              <span style={wxStyles.detailLabel}>Wind</span>
+              <span style={wxStyles.detailValue}>{wx.wind} mph</span>
+            </div>
+            <div>
+              <span style={wxStyles.detailLabel}>Humidity</span>
+              <span style={wxStyles.detailValue}>{wx.humidity}%</span>
+            </div>
+            {days.length > 1 && <span style={wxStyles.forecastHint}>10-day ›</span>}
           </div>
         </div>
       </div>
-    </div>
+
+      {showForecast && days.length > 0 && createPortal(
+        <div style={wxStyles.overlay} role="dialog" aria-modal="true" onClick={() => setShowForecast(false)}>
+          <div style={wxStyles.modalCard} onClick={e => e.stopPropagation()}>
+            <button style={wxStyles.modalClose} aria-label="Close" onClick={() => setShowForecast(false)}>✕</button>
+            <div style={{ ...wxStyles.header, borderRadius: '14px 14px 0 0' }}>
+              <span style={wxStyles.headerLeft}><WeatherIcon /> 10-Day Forecast</span>
+              <span style={wxStyles.headerRight}>{locationLabel}</span>
+            </div>
+            <div>
+              {days.map((day, i) => (
+                <div key={day.date} style={{ ...wxStyles.fRow, ...(i === days.length - 1 ? { borderBottom: 'none' } : null) }}>
+                  <span style={wxStyles.fDay}>{fmtForecastDay(day.date, i)}</span>
+                  <span style={wxStyles.fEmoji}>{wxIcon(day.code)}</span>
+                  <span style={wxStyles.fCond}>{wxDesc(day.code)}</span>
+                  <span style={wxStyles.fPop}>{day.pop != null ? `${day.pop}%` : ''}</span>
+                  <span style={wxStyles.fTemp}>{day.hi}° / {day.lo}°</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
 
