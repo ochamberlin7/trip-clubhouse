@@ -91,7 +91,7 @@ const wxStyles = {
   // 10-day forecast modal (portal + centered overlay, matching the app pattern).
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   modalCard: { position: 'relative', background: '#fff', borderRadius: '14px', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
-  modalClose: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 16, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
+  modalClose: { position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
   fRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid #E8EDF3' },
   fDay: { fontSize: '13px', fontWeight: 700, color: '#0D1B2A', width: 78, flexShrink: 0 },
   fEmoji: { fontSize: '22px', width: 26, textAlign: 'center', flexShrink: 0 },
@@ -329,12 +329,13 @@ function WeatherWidget({ rounds = [], tripName }) {
       {showForecast && days.length > 0 && createPortal(
         <div style={wxStyles.overlay} role="dialog" aria-modal="true" onClick={() => setShowForecast(false)}>
           <div style={wxStyles.modalCard} onClick={e => e.stopPropagation()}>
-            <button style={wxStyles.modalClose} aria-label="Close" onClick={() => setShowForecast(false)}>✕</button>
-            {/* Extra right padding reserves space for the close (✕) button so the
-                location label doesn't run under it. */}
-            <div style={{ ...wxStyles.header, borderRadius: '14px 14px 0 0', paddingRight: '44px' }}>
+            {/* Close button lives inside the header (position: relative) and is
+                vertically centred on the same plane as the city label; the right
+                padding reserves its space so the label doesn't run under it. */}
+            <div style={{ ...wxStyles.header, borderRadius: '14px 14px 0 0', position: 'relative', paddingRight: '44px' }}>
               <span style={wxStyles.headerLeft}><WeatherIcon /> 10-Day Forecast</span>
               <span style={wxStyles.headerRight}>{locationLabel}</span>
+              <button style={wxStyles.modalClose} aria-label="Close" onClick={() => setShowForecast(false)}>✕</button>
             </div>
             <div>
               {days.map((day, i) => (
