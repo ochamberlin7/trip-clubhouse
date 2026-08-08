@@ -15,6 +15,7 @@ import GettingStartedCard from '../../components/GettingStartedCard'
 import MenuDrawer from '../../components/MenuDrawer'
 import ScoringTab from '../../components/ScoringTab'
 import LiveScoreBanner from '../../components/LiveScoreBanner'
+import FeedbackButton from '../../components/FeedbackButton'
 import { FEATURES } from '../../lib/features'
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -1228,6 +1229,10 @@ export default function TripDashboard() {
 
       {/* Floating live-score banner — mounted once here so it persists across tabs */}
       <LiveScoreBanner key={`banner-${trip.id}`} trip={trip} rounds={rounds} teams={teams} />
+
+      {/* Persistent feedback FAB — visible on every tab, floats above the tab bar
+          and (when shown) the live-score banner. */}
+      <FeedbackButton tripId={trip.id} userId={user?.id} />
 
       {/* Slide-out menu drawer (opened by the MENU tab) */}
       <MenuDrawer
