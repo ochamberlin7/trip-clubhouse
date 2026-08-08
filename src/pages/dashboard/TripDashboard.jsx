@@ -1017,27 +1017,37 @@ export default function TripDashboard() {
     const active = getActiveRound(roundList, { assignedByRound, holesByRoundPlayer })
     if (!active) { setScoringInit(null); return }
 
-    // The user's pairing for the active round.
+    // The user's OWN pairing for the active round — resolved from their
+    // trip_player, never defaulted silently. Reused for the tee-time lookup, the
+    // scores check, and the landing pairing (scoringInit).
     const myTp = rawPlayers.find(p => p.user_id === user?.id)?.id
-    let pairingNum = 1
-    if (myTp) {
-      const myPairingId = pp.find(x => x.trip_player_id === myTp && roundOfPairing[x.pairing_id] === active.id)?.pairing_id
-      const num = pairings.find(p => p.id === myPairingId)?.pairing_number
-      if (num) pairingNum = num
-    }
+    const myPairingId = myTp
+      ? pp.find(x => x.trip_player_id === myTp && roundOfPairing[x.pairing_id] === active.id)?.pairing_id
+      : null
+    const pairingNum = pairings.find(p => p.id === myPairingId)?.pairing_number || 1
     setScoringInit({ roundId: active.id, pairingNum })
 
-    // Only default to the Score tab once we're at least 5 minutes past the
-    // user's own scheduled tee time — pairing N tees off at tee_time_N (up to 5),
-    // falling back to tee_time_1 if that pairing's time isn't set. Purely
-    // time-based — independent of whether any score has been logged. Before
-    // then (or with no parseable tee time), leave the landing tab on Home.
+    // Auto-open Score if EITHER condition holds (else stay on Home):
+    //   1. TIME — we're ≥5 min past the user's own scheduled tee time (pairing N
+    //      tees off at tee_time_N, falling back to tee_time_1).
+    //   2. DATA — the user's OWN pairing has already entered at least one score,
+    //      even if the time window hasn't opened / a tee time isn't set. Scoped
+    //      to their pairing so another group teeing off first doesn't pull in a
+    //      user whose own group hasn't started. Reuses holesByRoundPlayer (built
+    //      above from the scores query) — no extra query.
     const teeStr = active[`tee_time_${pairingNum}`] || active.tee_time_1
     const teeMinutes = parseTeeTimeToMinutes(teeStr)
     const now = new Date()
     const nowMinutes = now.getHours() * 60 + now.getMinutes()
     const pastTeeThreshold = teeMinutes > 0 && nowMinutes >= teeMinutes + 5
-    if (pastTeeThreshold && !autoNavedRef.current) { autoNavedRef.current = true; setActiveTab('scores') }
+
+    const myPairPlayers = myPairingId ? pp.filter(x => x.pairing_id === myPairingId).map(x => x.trip_player_id) : []
+    const myPairingHasScores = myPairPlayers.some(tp => (holesByRoundPlayer[`${active.id}:${tp}`]?.size ?? 0) > 0)
+
+    if ((pastTeeThreshold || myPairingHasScores) && !autoNavedRef.current) {
+      autoNavedRef.current = true
+      setActiveTab('scores')
+    }
   }
 
   async function refetchTrip() {
