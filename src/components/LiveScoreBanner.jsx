@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { liveMatchTally, liveStandardMatchTally } from '../lib/scoring'
-import { getTeamDisplayName, isDefaultTeamName } from '../lib/teamColors'
+import { getTeamDisplayName, isDefaultTeamName, teamColor, colorIndexOf } from '../lib/teamColors'
 
 // Floating live-score banner, fixed to the bottom of the screen. Mounted once at
 // the dashboard level so it persists across every tab. Shows a per-pairing
@@ -28,10 +28,11 @@ function todayIsoLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Maps a leading side (0 = Team 1, 1 = Team 2, null = tied) to the status
-// colour class used by the banner (t1lead → navy, t2lead → teal, tied → cream2).
-function sideClass(side) {
-  return side === 0 ? 't1lead' : side === 1 ? 't2lead' : 'tied'
+// Status text colour: the leading team's own assigned colour (from teamColors.js,
+// same source as the scorecard header), or a neutral muted tone when tied.
+function statusColor(side, teams) {
+  const team = side === 0 ? teams?.[0] : side === 1 ? teams?.[1] : null
+  return team ? teamColor(colorIndexOf(team)).solid : 'var(--cream2)'
 }
 
 // Points Match Play status text + leading side (0/1/null) + "thru" text.
@@ -295,7 +296,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
           return (
             <div className="match-banner-row" key={t.pairingNumber}>
               <span className="match-banner-pair-label">Pairing {t.pairingNumber}</span>
-              <span className={`match-banner-status ${sideClass(st.side)}`}>{st.text}</span>
+              <span className="match-banner-status" style={{ color: statusColor(st.side, teams) }}>{st.text}</span>
               <span className="match-banner-thru">{st.thru}</span>
             </div>
           )

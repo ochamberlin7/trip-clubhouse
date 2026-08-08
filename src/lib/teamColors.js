@@ -5,13 +5,15 @@
 // Palette is coordinated around the app's navy: every colour is muted with a
 // cool undertone (no warm brown/orange sitting among the cool chrome). The UI
 // supports up to 4 teams today; 5-6 are provided so the palette covers growth.
-//   1 navy · 2 teal · 3 plum · 4 olive · 5 steel-blue · 6 berry.
+//   1 navy · 2 teal · 3 plum · 4 steel-blue · 5 olive · 6 berry.
+// Team 4 was olive (green) and read too close to the teal of Team 2; swapped for
+// a steel blue — distinct hue, still cool/coordinated. Olive kept at slot 5.
 export const TEAM_COLORS = {
   1: { solid: '#1B3F6E', pillBg: 'rgba(27,63,110,0.15)', text: '#1B3F6E' },
   2: { solid: '#0F6E56', pillBg: 'rgba(15,110,86,0.15)', text: '#0F6E56' },
   3: { solid: '#7B4B94', pillBg: 'rgba(123,75,148,0.15)', text: '#7B4B94' },
-  4: { solid: '#3C6E1F', pillBg: 'rgba(60,110,31,0.15)', text: '#3C6E1F' },
-  5: { solid: '#2E6E8E', pillBg: 'rgba(46,110,142,0.15)', text: '#2E6E8E' },
+  4: { solid: '#4A6FA5', pillBg: 'rgba(74,111,165,0.15)', text: '#4A6FA5' },
+  5: { solid: '#3C6E1F', pillBg: 'rgba(60,110,31,0.15)', text: '#3C6E1F' },
   6: { solid: '#8A4A6E', pillBg: 'rgba(138,74,110,0.15)', text: '#8A4A6E' },
 }
 
