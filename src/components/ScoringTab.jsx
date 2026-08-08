@@ -233,6 +233,15 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         setScores(prev => { const n = { ...prev }; delete n[key]; return n })
         setDrinks(prev => { const n = { ...prev }; delete n[key]; return n })
       })
+      // Score/drink entries also sync via Broadcast (see commitScore): the
+      // postgres_changes INSERT/UPDATE handlers above weren't reliably reaching
+      // other viewers, so the writer emits an explicit broadcast to everyone on
+      // this round's shared topic. applyScore/applyDrink dedup, so if the
+      // postgres_changes path does fire too there's no double-apply/flicker.
+      .on('broadcast', { event: 'score_changed' }, ({ payload }) => {
+        applyScore({ new: payload })
+        applyDrink({ new: payload })
+      })
       .subscribe(onStatus)
     channelRef.current = ch
 
@@ -523,10 +532,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
   // Optimistic score save: update the scorecard and close the modal instantly,
   // then write to Supabase in the background. On failure, roll the score (and
-  // its drink cell) back to the previous value and surface a toast. Our own
-  // successful write echoes back via postgres_changes, but applyScore dedups
-  // identical values so there's no flicker. INSERT/UPDATE already reach other
-  // clients through realtime, so no explicit broadcast is needed here.
+  // its drink cell) back to the previous value and surface a toast. After a
+  // successful write we emit a `score_changed` broadcast so OTHER viewers of this
+  // round update live — the postgres_changes INSERT/UPDATE path wasn't reliably
+  // reaching them (the same reason DELETE already uses a broadcast).
   function commitScore(hole, tpId, score, drinkCount) {
     const key = `${round.id}:${tpId}:${hole}`
     const hadScore = key in scores
@@ -573,6 +582,14 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       } else {
         await supabase.from('drinks').delete().eq('round_id', round.id).eq('trip_player_id', tpId).eq('hole_number', hole)
       }
+      // Push the change to every other client on this round's shared topic. This
+      // is what actually makes other viewers update live; broadcast defaults to
+      // self:false so our own already-optimistic view isn't re-applied.
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'score_changed',
+        payload: { round_id: round.id, trip_player_id: tpId, hole_number: hole, gross_score: score, count: drinkCount },
+      })
     })()
   }
 
