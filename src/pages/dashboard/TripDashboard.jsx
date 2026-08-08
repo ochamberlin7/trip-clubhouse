@@ -330,7 +330,9 @@ function WeatherWidget({ rounds = [], tripName }) {
         <div style={wxStyles.overlay} role="dialog" aria-modal="true" onClick={() => setShowForecast(false)}>
           <div style={wxStyles.modalCard} onClick={e => e.stopPropagation()}>
             <button style={wxStyles.modalClose} aria-label="Close" onClick={() => setShowForecast(false)}>✕</button>
-            <div style={{ ...wxStyles.header, borderRadius: '14px 14px 0 0' }}>
+            {/* Extra right padding reserves space for the close (✕) button so the
+                location label doesn't run under it. */}
+            <div style={{ ...wxStyles.header, borderRadius: '14px 14px 0 0', paddingRight: '44px' }}>
               <span style={wxStyles.headerLeft}><WeatherIcon /> 10-Day Forecast</span>
               <span style={wxStyles.headerRight}>{locationLabel}</span>
             </div>
