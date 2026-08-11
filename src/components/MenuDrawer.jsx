@@ -978,11 +978,12 @@ function FlightCard({ player, flight, canEdit, onPatch }) {
       <div style={fl.header}>
         <span style={fl.name}>{first}</span>
         {/* Driving toggle shows on every card. Editable (commissioner or own card)
-            → tappable to mark driving; otherwise a dimmed, non-interactive
-            read-only indicator — same canEdit rule as the flight fields. */}
+            → a tappable button to mark driving; otherwise a non-interactive
+            read-only indicator (full opacity, not faded) — same canEdit rule as
+            the flight fields. */}
         {canEdit
           ? <button style={fl.toggleBtn} onClick={() => onPatch({ is_driving: true })}>Driving</button>
-          : <span style={{ ...fl.toggleBtn, cursor: 'default', opacity: 0.5 }}>Driving</span>}
+          : <span style={{ ...fl.toggleBtn, cursor: 'default' }}>Driving</span>}
       </div>
       <div style={fl.cols}>
         <div style={fl.col}>
