@@ -27,29 +27,32 @@ const styles = {
     borderBottom: '1px solid #DDE3EA',
     textAlign: 'center',
   },
+  // Trip name — the real anchor identity; noticeable but still below "Clubhouse".
   eyebrow: {
-    fontSize: '10px',
+    fontSize: '15px',
     fontWeight: 700,
-    letterSpacing: '2.5px',
+    letterSpacing: '2px',
     textTransform: 'uppercase',
     color: '#1B3F6E',
-    marginBottom: '4px',
+    marginBottom: '5px',
   },
+  // "Clubhouse" wordmark — a touch smaller than before so the trip name reads
+  // as the subject, but still the largest element.
   title: {
     fontFamily: "'Playfair Display', Georgia, serif",
-    fontSize: '56px',
+    fontSize: '40px',
     fontWeight: 700,
     color: '#0D1B2A',
     letterSpacing: '2px',
     lineHeight: 1,
   },
   subtitle: {
-    fontSize: '10px',
+    fontSize: '13px',
     fontWeight: 600,
-    letterSpacing: '2.5px',
+    letterSpacing: '2px',
     textTransform: 'uppercase',
-    color: '#7A8FA6',
-    marginTop: '6px',
+    color: '#5A7290',
+    marginTop: '7px',
   },
 }
 
