@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <!-- Trip Clubhouse browser-tab favicon: white serif "TC" on navy, rounded square. -->
+  <!-- Trip Clubhouse app icon: white serif "TC" monogram on solid navy, rounded
+       square. Corner radius 112 ≈ 22% of 512. No transparency. -->
   <rect width="512" height="512" rx="112" ry="112" fill="#1B3F6E"/>
   <text x="256" y="256" fill="#FFFFFF"
         font-family="Georgia, 'Times New Roman', 'Playfair Display', serif"
