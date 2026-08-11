@@ -37,7 +37,7 @@ const styles = {
   },
   title: {
     fontFamily: "'Playfair Display', Georgia, serif",
-    fontSize: '44px',
+    fontSize: '56px',
     fontWeight: 700,
     color: '#0D1B2A',
     letterSpacing: '2px',

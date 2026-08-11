@@ -1,32 +1,13 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import SupportForm from './SupportForm'
 
-// Persistent floating action button shown across all dashboard tabs. Opens the
+// Persistent floating "Feedback" pill shown across all dashboard tabs. Opens the
 // shared SupportForm pre-set to "feature_request" with lighter, suggestion-y
-// copy. Positioned to sit above BOTH the bottom tab bar and the live-score
-// banner: --live-banner-space (0 when hidden) already spans down through the tab
-// bar when the banner shows, so max() clears whichever is taller. z-index 201 is
-// above the banner (200) but below modals/drawer (>=300).
+// copy. Positioning + responsive centering live in index.css (.feedback-fab); it
+// floats 10px above max(tab bar, live-score banner) at z-index 201 (above the
+// banner at 200, below modals/drawer at >=300).
 const styles = {
-  // Small, low-profile "Feedback" pill (not a bold FAB) — subtle so it doesn't
-  // compete with content, but still reachable in the bottom corner.
-  fab: {
-    position: 'fixed',
-    right: '14px',
-    bottom: 'calc(max(var(--tab-bar-space), var(--live-banner-space, 0px)) + 10px)',
-    zIndex: 201,
-    padding: '5px 11px',
-    borderRadius: '16px',
-    background: '#1B3F6E',
-    color: '#FFFFFF',
-    border: 'none',
-    boxShadow: '0 1px 4px rgba(13,27,42,0.2)',
-    fontSize: '12px',
-    fontWeight: 700,
-    fontFamily: 'inherit',
-    cursor: 'pointer',
-  },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   card: { position: 'relative', background: '#fff', borderRadius: '14px', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
   header: { position: 'relative', background: '#1B3F6E', color: '#fff', padding: '12px 44px 12px 16px', borderRadius: '14px 14px 0 0' },
@@ -37,10 +18,32 @@ const styles = {
 
 export default function FeedbackButton({ tripId, userId }) {
   const [open, setOpen] = useState(false)
+  const fabRef = useRef(null)
+
+  // Publish the button's measured height so scrollable views (.dashboard-content)
+  // can pad their bottom enough for content to clear the pill — the same
+  // ResizeObserver approach the live-score banner uses. Its bottom offset is
+  // derived from --tab-bar-space / --live-banner-space in CSS, so only the height
+  // is measured here (and it stays correct when the banner shows/hides).
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    const el = fabRef.current
+    if (!el) return
+    const measure = () => root.style.setProperty('--feedback-btn-height', `${Math.ceil(el.getBoundingClientRect().height)}px`)
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(el)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro?.disconnect()
+      window.removeEventListener('resize', measure)
+      root.style.setProperty('--feedback-btn-height', '0px')
+    }
+  }, [])
 
   return (
     <>
-      <button style={styles.fab} onClick={() => setOpen(true)} aria-label="Send feedback">
+      <button ref={fabRef} className="feedback-fab" onClick={() => setOpen(true)} aria-label="Send feedback">
         Feedback
       </button>
 

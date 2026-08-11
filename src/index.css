@@ -104,11 +104,18 @@ select {
 /* ── Dashboard ── */
 .dashboard-page { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg0); position: relative; }
 /* Bottom space so the last rows (scorecard holes 17–18 + totals, leaderboard tail,
-   etc.) scroll clear of the fixed bottom tab bar AND the live-score banner.
-   --tab-bar-space is always present; --live-banner-space (0 when hidden) already
-   spans down through the tab bar when the banner shows, so max() avoids double-
-   counting: hidden → tab bar; visible → the banner's full occupied height. */
-.dashboard-content { flex: 1; padding: 16px 16px calc(16px + max(var(--tab-bar-space), var(--live-banner-space, 0px))); }
+   etc.) scroll clear of the fixed bottom tab bar, the live-score banner, AND the
+   floating feedback button.
+   • max(--tab-bar-space, --live-banner-space): --tab-bar-space is always present;
+     --live-banner-space (0 when hidden) already spans down through the tab bar
+     when the banner shows, so max() avoids double-counting.
+   • The feedback button floats 10px above that max line; --feedback-btn-height is
+     its measured height (published by FeedbackButton via ResizeObserver), plus a
+     12px gap so content clears the top of the button too. */
+.dashboard-content {
+  flex: 1;
+  padding: 16px 16px calc(16px + max(var(--tab-bar-space), var(--live-banner-space, 0px)) + 10px + var(--feedback-btn-height, 0px) + 12px);
+}
 
 /* ── Tab bar — fixed BOTTOM, full-bleed edge-to-edge (structural app chrome) ── */
 .tab-bar {
@@ -123,6 +130,34 @@ select {
   width: 100%;
   /* Clear the iOS home-indicator so the bar doesn't sit under the gesture bar. */
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── Floating feedback pill — bottom-right, above the tab bar / banner ── */
+.feedback-fab {
+  position: fixed;
+  right: 14px;
+  bottom: calc(max(var(--tab-bar-space), var(--live-banner-space, 0px)) + 10px);
+  z-index: 201;
+  padding: 5px 11px;
+  border-radius: 16px;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  box-shadow: 0 1px 4px rgba(13, 27, 42, 0.2);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Wide viewports (> the 430px content column): the tab bar and feedback button
+   are full-bleed/viewport-anchored on mobile, which mismatches the centered
+   content column on desktop. Constrain both to the column so they line up.
+   Below the breakpoint (real mobile/PWA), the existing full-bleed rules stand. */
+@media (min-width: 431px) {
+  .tab-bar { left: 50%; right: auto; transform: translateX(-50%); width: 430px; }
+  /* 430/2 = 215; keep the 14px inset from the column's right edge → 50% - 201px. */
+  .feedback-fab { right: calc(50% - 201px); }
 }
 .tab-btn {
   flex: 1;
