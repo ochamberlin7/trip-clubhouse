@@ -921,6 +921,10 @@ const fl = {
   drivingBtn: { fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '0.5px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 },
   // Visible toggle button on the navy header (off state).
   toggleBtn: { fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.45)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
+  // Read-only (non-editable) version of the toggle — clearly disabled: muted,
+  // dashed border, not-allowed cursor, so it reads as "not editable" rather than
+  // a clickable button that does nothing.
+  toggleBtnDisabled: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', background: 'transparent', border: '1px dashed rgba(255,255,255,0.35)', borderRadius: 6, padding: '4px 10px', cursor: 'not-allowed', fontFamily: 'inherit', whiteSpace: 'nowrap' },
   cols: { display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: '#fff' },
   col: { padding: '10px 12px' },
   divider: { background: '#DDE3EA' },
@@ -978,12 +982,11 @@ function FlightCard({ player, flight, canEdit, onPatch }) {
       <div style={fl.header}>
         <span style={fl.name}>{first}</span>
         {/* Driving toggle shows on every card. Editable (commissioner or own card)
-            → a tappable button to mark driving; otherwise a non-interactive
-            read-only indicator (full opacity, not faded) — same canEdit rule as
-            the flight fields. */}
+            → a tappable button to mark driving; otherwise a real disabled button so
+            it's clearly non-interactive (not a fake clickable badge). */}
         {canEdit
           ? <button style={fl.toggleBtn} onClick={() => onPatch({ is_driving: true })}>Driving</button>
-          : <span style={{ ...fl.toggleBtn, cursor: 'default' }}>Driving</span>}
+          : <button style={fl.toggleBtnDisabled} disabled aria-disabled="true">Driving</button>}
       </div>
       <div style={fl.cols}>
         <div style={fl.col}>
@@ -1031,7 +1034,12 @@ function FlightsPage({ data, tripId, isCommissioner, currentUserId, onUpdate }) 
   return (
     <>
       {players.map(p => {
-        const canEdit = isCommissioner || p.claimed_user_id === currentUserId
+        // Same permission pattern as PlayerCard (Players & Teams): commissioner
+        // edits anyone; a member edits only their own card (matched by user_id OR
+        // claimed_user_id). Previously this checked claimed_user_id only, which is
+        // why the driving toggle worked on nobody's card except the current user's.
+        const isOwnCard = !!currentUserId && (p.user_id === currentUserId || p.claimed_user_id === currentUserId)
+        const canEdit = isCommissioner || isOwnCard
         return <FlightCard key={p.id} player={p} flight={byPlayer[p.id]} canEdit={canEdit} onPatch={fields => patch(p, fields)} />
       })}
     </>
@@ -1672,7 +1680,7 @@ export default function MenuDrawer({
     if (page === 'flights' && !flightsData) {
       (async () => {
         const [tpRes, flRes] = await Promise.all([
-          supabase.from('trip_players').select('id, claimed_user_id, first_name, last_name, guest_name').eq('trip_id', tripId).order('last_name'),
+          supabase.from('trip_players').select('id, user_id, claimed_user_id, first_name, last_name, guest_name').eq('trip_id', tripId).order('last_name'),
           supabase.from('flights').select('*').eq('trip_id', tripId),
         ])
         const players = (tpRes.data || []).map(tp => ({ ...tp, name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || 'Player' }))
