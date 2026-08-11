@@ -21,6 +21,13 @@
   /* Occupied height of the fixed bottom tab bar (content + home-indicator inset).
      The live-score banner floats just above this; scroll views pad by it. */
   --tab-bar-space: calc(54px + env(safe-area-inset-bottom));
+  /* Bottom padding any scroll container needs so its last rows clear the fixed
+     chrome: 16px base + whichever of the tab bar / live-score banner is taller,
+     + the feedback pill (floats 10px above that, --feedback-btn-height measured
+     by FeedbackButton) + a 12px gap. Used by .dashboard-content AND the drawer's
+     secondary pages, so the feedback-button clearance applies everywhere it
+     shows. --live-banner-space / --feedback-btn-height are 0 until published. */
+  --content-bottom-clearance: calc(16px + max(var(--tab-bar-space), var(--live-banner-space, 0px)) + 10px + var(--feedback-btn-height, 0px) + 12px);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -114,7 +121,7 @@ select {
      12px gap so content clears the top of the button too. */
 .dashboard-content {
   flex: 1;
-  padding: 16px 16px calc(16px + max(var(--tab-bar-space), var(--live-banner-space, 0px)) + 10px + var(--feedback-btn-height, 0px) + 12px);
+  padding: 16px 16px var(--content-bottom-clearance);
 }
 
 /* ── Tab bar — fixed BOTTOM, full-bleed edge-to-edge (structural app chrome) ── */

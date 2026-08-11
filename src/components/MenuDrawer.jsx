@@ -61,7 +61,9 @@ const s = {
   backBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1B3F6E', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 },
   pageContext: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 500 },
   pageTitle: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#0D1B2A', marginTop: '1px' },
-  pageBody: { padding: '16px' },
+  // paddingBottom clears the floating feedback pill (z-index 201) which renders
+  // above these secondary pages — same shared clearance as .dashboard-content.
+  pageBody: { padding: '16px', paddingBottom: 'var(--content-bottom-clearance)' },
 
   card: { background: '#fff', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px' },
   cardHeader: { background: '#1B3F6E', padding: '10px 14px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#fff' },
@@ -975,7 +977,12 @@ function FlightCard({ player, flight, canEdit, onPatch }) {
     <div style={fl.card}>
       <div style={fl.header}>
         <span style={fl.name}>{first}</span>
-        {canEdit && <button style={fl.toggleBtn} onClick={() => onPatch({ is_driving: true })}>Driving</button>}
+        {/* Driving toggle shows on every card. Editable (commissioner or own card)
+            → tappable to mark driving; otherwise a dimmed, non-interactive
+            read-only indicator — same canEdit rule as the flight fields. */}
+        {canEdit
+          ? <button style={fl.toggleBtn} onClick={() => onPatch({ is_driving: true })}>Driving</button>
+          : <span style={{ ...fl.toggleBtn, cursor: 'default', opacity: 0.5 }}>Driving</span>}
       </div>
       <div style={fl.cols}>
         <div style={fl.col}>
@@ -1154,21 +1161,17 @@ const POINTS_MATCH_RULES = [
 ]
 
 function RulesPage({ tripId, isCommissioner, tournamentFormat }) {
+  // Show ONLY the rules for the trip's actual format — hide the other entirely.
+  // Legacy 'match_play' and 'stroke_play' fall through to Points Match Play.
   const isStandard = tournamentFormat === 'standard_match_play'
-  // Document both formats; lead with the trip's active format for context.
-  const cards = [
-    { key: 'standard', label: tournamentFormatLabel('standard_match_play'), rules: STANDARD_MATCH_RULES },
-    { key: 'points', label: tournamentFormatLabel('points_match_play'), rules: POINTS_MATCH_RULES },
-  ]
-  if (!isStandard) cards.reverse()
+  const label = tournamentFormatLabel(isStandard ? 'standard_match_play' : 'points_match_play')
+  const rules = isStandard ? STANDARD_MATCH_RULES : POINTS_MATCH_RULES
   return (
     <>
       <LocalRulesCard tripId={tripId} isCommissioner={isCommissioner} />
-      {cards.map(c => (
-        <Card key={c.key} title={`${c.label} Format`}>
-          <RuleList rules={c.rules} />
-        </Card>
-      ))}
+      <Card title={`${label} Format`}>
+        <RuleList rules={rules} />
+      </Card>
     </>
   )
 }
