@@ -427,3 +427,24 @@ select {
 .match-banner-status.t2lead{color:var(--teal)}
 .match-banner-status.tied{color:var(--cream2)}
 .match-banner-thru{font-size:11px;color:var(--muted);text-align:right;min-width:38px}
+
+/* ── Stats tab — --gold is the neutral accent (NOT a team colour) ── */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0}
+.stat-card{background:var(--bg1);border:1px solid var(--bg3);border-radius:var(--radius);overflow:hidden}
+.stat-card-header{background:var(--bg2);padding:7px 10px;display:flex;align-items:center;gap:6px}
+.stat-card-icon{font-size:13px}
+.stat-card-title{font-size:10px;font-weight:700;color:var(--cream);text-transform:uppercase;letter-spacing:0.5px}
+.stat-row-item{display:flex;align-items:center;padding:5px 8px}
+.stat-rank{font-size:11px;font-weight:700;color:var(--muted);width:16px;flex-shrink:0}
+.stat-rank.gold{color:var(--gold)}
+.stat-player-name{font-size:12px;font-weight:600;color:var(--cream);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-value{font-size:13px;font-weight:800;color:var(--cream2);min-width:24px;text-align:right}
+.stat-value.highlight{color:var(--gold)}
+.drink-lb-card{background:var(--bg1);border:1px solid var(--bg3);border-radius:var(--radius);overflow:hidden;margin-bottom:10px}
+.drink-lb-header{background:var(--gold);padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
+.drink-lb-title{font-size:14px;font-weight:800;color:#FFFFFF}
+.drink-lb-subtitle{font-size:11px;color:rgba(255,255,255,0.75);margin-top:2px}
+.drink-inline-popup{position:absolute;right:0;top:50%;transform:translateY(-50%);background:var(--bg1);border:1px solid var(--bg3);border-radius:8px;padding:4px 6px;display:none;align-items:center;gap:4px;z-index:10;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+.drink-inline-popup.open{display:flex}
+.dip-btn{width:28px;height:28px;border-radius:50%;border:1px solid var(--bg3);background:var(--bg2);color:var(--gold);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.dip-val{font-size:13px;font-weight:800;color:var(--gold);min-width:20px;text-align:center}
