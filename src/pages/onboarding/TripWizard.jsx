@@ -42,14 +42,92 @@ function getValidTeamCounts(n) {
 // Change 1: groupName field added as first field
 // Change 4: date changes use parent-supplied handlers that guard schedule state
 
+// ── Range calendar (no external dependency) ───────────────────────
+const CAL_DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const CAL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+// Local YYYY-MM-DD (never UTC, so the calendar day matches what the user tapped).
+function isoOf(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function parseIso(s) { return s ? new Date(s + 'T00:00:00') : null }
+function fmtShort(s) { return parseIso(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
+
+const cal = {
+  wrap: { border: '1px solid #DDE3EA', borderRadius: 10, padding: 10, background: '#fff' },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  nav: { width: 34, height: 34, border: 'none', background: '#E8EDF3', borderRadius: 8, fontSize: 18, lineHeight: 1, color: '#1B3F6E', cursor: 'pointer', fontFamily: 'inherit' },
+  monthLabel: { fontSize: 14, fontWeight: 700, color: '#0D1B2A' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, textAlign: 'center' },
+  dow: { fontSize: 10, fontWeight: 700, color: '#7A8FA6', padding: '4px 0' },
+  day: { border: 'none', background: 'none', borderRadius: 8, padding: '9px 0', fontSize: 13, fontWeight: 600, color: '#0D1B2A', cursor: 'pointer', fontFamily: 'inherit' },
+  inrange: { background: 'rgba(27,63,110,0.12)', borderRadius: 4 },
+  endpoint: { background: '#1B3F6E', color: '#fff', fontWeight: 800 },
+}
+
+function RangeCalendar({ startDate, endDate, onSelect }) {
+  const [view, setView] = useState(() => {
+    const base = parseIso(startDate) || new Date()
+    return new Date(base.getFullYear(), base.getMonth(), 1)
+  })
+  const year = view.getFullYear()
+  const month = view.getMonth()
+  const firstDow = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  const cells = []
+  for (let i = 0; i < firstDow; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+  return (
+    <div style={cal.wrap}>
+      <div style={cal.header}>
+        <button type="button" style={cal.nav} onClick={() => setView(new Date(year, month - 1, 1))} aria-label="Previous month">‹</button>
+        <span style={cal.monthLabel}>{CAL_MONTHS[month]} {year}</span>
+        <button type="button" style={cal.nav} onClick={() => setView(new Date(year, month + 1, 1))} aria-label="Next month">›</button>
+      </div>
+      <div style={cal.grid}>
+        {CAL_DOW.map((d, i) => <span key={`h${i}`} style={cal.dow}>{d}</span>)}
+        {cells.map((d, i) => {
+          if (d == null) return <span key={i} />
+          const iso = isoOf(new Date(year, month, d))
+          const isEndpoint = iso === startDate || iso === endDate
+          const inRange = startDate && endDate && iso > startDate && iso < endDate
+          return (
+            <button
+              type="button"
+              key={i}
+              onClick={() => onSelect(iso)}
+              style={{ ...cal.day, ...(inRange ? cal.inrange : null), ...(isEndpoint ? cal.endpoint : null) }}
+            >
+              {d}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function StepTripDetails({
   groupName, setGroupName,
   tripName, setTripName,
-  startDate, onStartDateChange,
-  endDate, onEndDateChange,
+  startDate, endDate, onRangeChange,
   onNext,
 }) {
   const [error, setError] = useState('')
+
+  // Single-interaction range selection: 1st click = start (clears any end), 2nd
+  // click = end if it's on/after start, else it becomes a new start. A complete
+  // range stays visible; clicking again begins a new range.
+  function handleDateClick(iso) {
+    if (!startDate || (startDate && endDate)) { onRangeChange(iso, ''); return }
+    if (iso < startDate) { onRangeChange(iso, ''); return }
+    onRangeChange(startDate, iso)
+  }
+
+  const rangeText = startDate
+    ? (endDate ? `${fmtShort(startDate)} – ${fmtShort(endDate)}` : `${fmtShort(startDate)} – select end date`)
+    : 'Tap a date to set your trip start'
 
   function handleNext() {
     // Group name is pre-filled with a default and stays editable, so it's no
@@ -87,23 +165,11 @@ function StepTripDetails({
         />
       </div>
       <div>
-        <label className="field-label">Start Date</label>
-        <input
-          className="wizard-field"
-          type="date"
-          value={startDate}
-          onChange={e => onStartDateChange(e.target.value)}
-        />
-      </div>
-      <div>
-        <label className="field-label">End Date</label>
-        <input
-          className="wizard-field"
-          type="date"
-          value={endDate}
-          onChange={e => onEndDateChange(e.target.value)}
-          min={startDate}
-        />
+        <label className="field-label">Trip Dates</label>
+        <RangeCalendar startDate={startDate} endDate={endDate} onSelect={handleDateClick} />
+        <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: startDate && endDate ? '#0D1B2A' : '#7A8FA6' }}>
+          {rangeText}
+        </div>
       </div>
       {error && <p className="error-msg">{error}</p>}
       <button className="btn btn-primary" onClick={handleNext}>
@@ -406,14 +472,8 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
           <div>
             <p className="field-label" style={{ marginBottom: 10 }}>Tournament Format</p>
             <div className="format-options">
-              <button
-                type="button"
-                className={`format-option ${tournamentFormat === 'points_match_play' ? 'selected' : ''}`}
-                onClick={() => setTournamentFormat('points_match_play')}
-              >
-                <span className="format-option-name">Point Match Play</span>
-                <span className="format-option-desc">Earn 1 point per hole won. Points accumulate across all rounds.</span>
-              </button>
+              {/* Display order only: Standard on the left, Points on the right.
+                  Values/defaults/logic are unchanged. */}
               <button
                 type="button"
                 className={`format-option ${tournamentFormat === 'standard_match_play' ? 'selected' : ''}`}
@@ -421,6 +481,14 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
               >
                 <span className="format-option-name">Standard Match Play</span>
                 <span className="format-option-desc">Win the match by leading more holes than remain. Results in W, L, or H per round.</span>
+              </button>
+              <button
+                type="button"
+                className={`format-option ${tournamentFormat === 'points_match_play' ? 'selected' : ''}`}
+                onClick={() => setTournamentFormat('points_match_play')}
+              >
+                <span className="format-option-name">Point Match Play</span>
+                <span className="format-option-desc">Earn 1 point per hole won. Points accumulate across all rounds.</span>
               </button>
             </div>
           </div>
@@ -526,21 +594,17 @@ export default function TripWizard() {
     return () => { cancelled = true }
   }, [user])
 
-  // Change 4: guard date changes — confirm+clear schedule if already built
-  function handleStartDateChange(val) {
-    if (schedule.length > 0 && val !== startDate) {
+  // Change 4: guard date changes — confirm+clear schedule if already built. The
+  // range calendar sets both dates through here (start-only mid-selection has
+  // nextEnd = '').
+  function handleRangeChange(nextStart, nextEnd) {
+    const changed = nextStart !== startDate || nextEnd !== endDate
+    if (schedule.length > 0 && changed) {
       if (!window.confirm('Changing the dates will reset your schedule. Continue?')) return
       setSchedule([])
     }
-    setStartDate(val)
-  }
-
-  function handleEndDateChange(val) {
-    if (schedule.length > 0 && val !== endDate) {
-      if (!window.confirm('Changing the dates will reset your schedule. Continue?')) return
-      setSchedule([])
-    }
-    setEndDate(val)
+    setStartDate(nextStart)
+    setEndDate(nextEnd)
   }
 
   function goToStep1() {
@@ -718,8 +782,7 @@ export default function TripWizard() {
           <StepTripDetails
             groupName={groupName} setGroupName={setGroupName}
             tripName={tripName} setTripName={setTripName}
-            startDate={startDate} onStartDateChange={handleStartDateChange}
-            endDate={endDate} onEndDateChange={handleEndDateChange}
+            startDate={startDate} endDate={endDate} onRangeChange={handleRangeChange}
             onNext={goToStep1}
           />
         )}
