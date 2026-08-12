@@ -155,54 +155,61 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   useEffect(() => {
     let cancelled = false
     async function load() {
-      if (!trip?.id || roundIds.length === 0) { if (!cancelled) setData({ empty: true }); return }
-      const [scoresRes, holesRes, pairingsRes, tpRes, prRes, drinksRes] = await Promise.all([
-        supabase.from('scores').select('round_id, hole_number, trip_player_id, gross_score').in('round_id', roundIds),
-        supabase.from('course_holes').select('round_id, hole_number, par, stroke_index').in('round_id', roundIds),
-        supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds),
-        supabase.from('trip_players').select('id, user_id, claimed_user_id, guest_name, handicap_index, team_id, manual_drinks').eq('trip_id', trip.id),
-        supabase.from('player_rounds').select('trip_player_id, round_id, tee_name, slope, rating, par').in('round_id', roundIds),
-        supabase.from('drinks').select('trip_player_id, count').in('round_id', roundIds),
-      ])
-      const pairings = pairingsRes.data || []
-      const pairIds = pairings.map(p => p.id)
-      let pairingPlayers = []
-      if (pairIds.length) {
-        const r = await supabase.from('pairing_players').select('id, pairing_id, trip_player_id, team_slot').in('pairing_id', pairIds)
-        pairingPlayers = r.data || []
-      }
-      const tripPlayers = tpRes.data || []
+      if (!trip?.id) { if (!cancelled) setData({ tripPlayers: [], profileMap: {}, scores: [], courseHoles: [], pairings: [], pairingPlayers: [], playerRounds: [], drinks: [] }); return }
+
+      // Players load ALWAYS (the drink leaderboard is independent of scoring).
+      const { data: tpData } = await supabase.from('trip_players')
+        .select('id, user_id, claimed_user_id, guest_name, handicap_index, team_id, manual_drinks').eq('trip_id', trip.id)
+      const tripPlayers = tpData || []
       const userIds = tripPlayers.map(p => p.user_id).filter(Boolean)
       const profileMap = {}
       if (userIds.length) {
         const { data: profs } = await supabase.from('profiles').select('id, display_name').in('id', userIds)
         if (profs) profs.forEach(p => { profileMap[p.id] = p.display_name })
       }
+
+      // Round-scoped scoring data — empty when the trip has no rounds yet.
+      let scores = [], courseHoles = [], pairings = [], pairingPlayers = [], playerRounds = [], drinks = []
+      if (roundIds.length) {
+        const [scoresRes, holesRes, pairingsRes, prRes, drinksRes] = await Promise.all([
+          supabase.from('scores').select('round_id, hole_number, trip_player_id, gross_score').in('round_id', roundIds),
+          supabase.from('course_holes').select('round_id, hole_number, par, stroke_index').in('round_id', roundIds),
+          supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds),
+          supabase.from('player_rounds').select('trip_player_id, round_id, tee_name, slope, rating, par').in('round_id', roundIds),
+          supabase.from('drinks').select('trip_player_id, count').in('round_id', roundIds),
+        ])
+        scores = scoresRes.data || []; courseHoles = holesRes.data || []
+        pairings = pairingsRes.data || []; playerRounds = prRes.data || []; drinks = drinksRes.data || []
+        const pairIds = pairings.map(p => p.id)
+        if (pairIds.length) {
+          const r = await supabase.from('pairing_players').select('id, pairing_id, trip_player_id, team_slot').in('pairing_id', pairIds)
+          pairingPlayers = r.data || []
+        }
+      }
       if (cancelled) return
-      setData({
-        scores: scoresRes.data || [], courseHoles: holesRes.data || [], pairings, pairingPlayers,
-        tripPlayers, playerRounds: prRes.data || [], drinks: drinksRes.data || [], profileMap,
-      })
+      setData({ scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds, drinks, profileMap })
     }
     load()
     return () => { cancelled = true }
   }, [trip?.id, roundKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const computed = useMemo(() => {
-    if (!data || data.empty) return null
+    if (!data) return null
     return computePlayerStats({ rounds, ...data }, allowance)
   }, [data, roundKey, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!data) return <div className="empty-state">Loading stats…</div>
-  if (data.empty || !computed || !data.tripPlayers.length || !computed.anyScore) {
-    return <div className="empty-state"><span className="empty-state-icon">📊</span>No stats yet — enter some scores first.</div>
-  }
 
   const players = data.tripPlayers.map(p => ({ ...p, name: playerName(p, data.profileMap) }))
-  const { stats, drinkByPlayer } = computed
+  const { stats, drinkByPlayer, anyScore } = computed
 
   const totalDrinks = p => (drinkByPlayer.get(p.id) || 0) + (p.manual_drinks || 0)
-  const drinkRows = players.slice().sort((a, b) => totalDrinks(b) - totalDrinks(a))
+  // Drinks descending; ties broken alphabetically by first name.
+  const drinkRows = players.slice().sort((a, b) => {
+    const d = totalDrinks(b) - totalDrinks(a)
+    if (d !== 0) return d
+    return (firstName(a.name) || a.name).localeCompare(firstName(b.name) || b.name)
+  })
 
   const canEditDrinks = p => !!isCommissioner || (!!currentUserId && (p.user_id === currentUserId || p.claimed_user_id === currentUserId))
 
@@ -210,6 +217,10 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     const next = Math.max(0, (p.manual_drinks || 0) + delta)
     setData(prev => ({ ...prev, tripPlayers: prev.tripPlayers.map(x => x.id === p.id ? { ...x, manual_drinks: next } : x) }))
     await supabase.from('trip_players').update({ manual_drinks: next }).eq('id', p.id)
+  }
+
+  if (!players.length) {
+    return <div className="empty-state"><span className="empty-state-icon">📊</span>No players on this trip yet.</div>
   }
 
   return (
@@ -256,16 +267,20 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
         })}
       </div>
 
-      {/* Stat grid */}
-      <div className="stats-grid">
-        {STAT_CARDS.map(c => (
-          <StatCard
-            key={c.key}
-            title={c.title} icon={c.icon} statKey={c.key} hi={c.hi} dash={c.dash}
-            players={players} stats={stats}
-          />
-        ))}
-      </div>
+      {/* Stat grid — golf stats need scores; the drink card above does not. */}
+      {anyScore ? (
+        <div className="stats-grid">
+          {STAT_CARDS.map(c => (
+            <StatCard
+              key={c.key}
+              title={c.title} icon={c.icon} statKey={c.key} hi={c.hi} dash={c.dash}
+              players={players} stats={stats}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state"><span className="empty-state-icon">📊</span>No stats yet — enter some scores first.</div>
+      )}
     </div>
   )
 }
