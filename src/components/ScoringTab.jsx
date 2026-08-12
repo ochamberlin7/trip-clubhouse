@@ -86,6 +86,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const [openSlot, setOpenSlot] = useState(null) // commissioner header dropdown
   const [assignError, setAssignError] = useState(null)
   const [saveError, setSaveError] = useState(null) // transient toast when an optimistic score save fails
+  const [notice, setNotice] = useState(null) // transient guidance toast (e.g. tapping a score cell before teams are set)
   const [playerRoundsMap, setPlayerRoundsMap] = useState({}) // `${roundId}:${tpId}` -> player_rounds row (per-player tee)
   const [connStatus, setConnStatus] = useState('connecting') // connecting | connected | disconnected
   const [reconnectTick, setReconnectTick] = useState(0)
@@ -274,6 +275,13 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const id = setTimeout(() => setSaveError(null), 4000)
     return () => clearTimeout(id)
   }, [saveError])
+
+  // Auto-dismiss the guidance toast after a few seconds.
+  useEffect(() => {
+    if (!notice) return
+    const id = setTimeout(() => setNotice(null), 4000)
+    return () => clearTimeout(id)
+  }, [notice])
 
   if (loading) return <div className="empty-state">Loading scorecard…</div>
   // 'none' rounds are placeholders — never shown in the scoring round picker.
@@ -596,7 +604,21 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   function ScoreCell({ slot, hole, shownSet }) {
     const tpId = slotMap[slot]
     if (!tpId) {
-      return <span className="sc-score-wrap"><button className="sc-score empty" style={{ opacity: 0.5, cursor: 'default' }} tabIndex={-1}>{readOnly ? '' : '+'}</button></span>
+      // Empty slot. If players still lack a team, tapping "+" can't lead anywhere
+      // (no pairings yet) → show a guidance toast instead of a dead button.
+      const blocked = !readOnly && noTeamPlayers.length > 0
+      return (
+        <span className="sc-score-wrap">
+          <button
+            className="sc-score empty"
+            style={{ opacity: 0.5, cursor: blocked ? 'pointer' : 'default' }}
+            tabIndex={blocked ? 0 : -1}
+            onClick={blocked ? () => setNotice('Please assign teams before setting the pairings.') : undefined}
+          >
+            {readOnly ? '' : '+'}
+          </button>
+        </span>
+      )
     }
     const gross = getScore(tpId, hole)
     // Lock empty cells on holes played after the match was decided; already-scored
@@ -712,13 +734,6 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         </div>
       )}
 
-      {/* Flag players who can't be placed until they're on a team. */}
-      {canAssign && noTeamPlayers.length > 0 && (
-        <div style={{ fontSize: 12, color: '#C0392B', padding: '0 0 8px', lineHeight: 1.5 }}>
-          No team yet (can’t be placed): {noTeamPlayers.map(p => firstName(p.name)).join(', ')} — set teams in Menu → Players
-        </div>
-      )}
-
       {!visibleFilled && !isCommissioner && (
         <div style={{ textAlign: 'center', fontSize: 12, color: '#7A8FA6', fontStyle: 'italic', padding: '8px 0' }}>
           Pairings not set yet — ask your commissioner
@@ -796,6 +811,18 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', cursor: 'pointer',
         }}>
           {saveError}
+        </div>
+      )}
+
+      {/* Transient guidance toast (navy — informational, not an error). */}
+      {notice && (
+        <div role="status" onClick={() => setNotice(null)} style={{
+          position: 'fixed', top: 'calc(env(safe-area-inset-top) + 12px)', left: '50%',
+          transform: 'translateX(-50%)', zIndex: 300, maxWidth: '90%', textAlign: 'center',
+          background: '#1B3F6E', color: '#fff', padding: '10px 16px', borderRadius: 8,
+          fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', cursor: 'pointer',
+        }}>
+          {notice}
         </div>
       )}
     </div>
