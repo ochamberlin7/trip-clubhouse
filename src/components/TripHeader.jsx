@@ -45,9 +45,11 @@ const styles = {
     lineHeight: 1,
     marginBottom: '5px',
   },
-  // Trip name — MIDDLE, the large dominant headline. font-size is set dynamically
-  // by TripNameFit so it always stays on one line.
+  // Trip name — MIDDLE, the large dominant headline. Playfair Display (serif) to
+  // match the "Trip Clubhouse" wordmark's type language. font-size is set
+  // dynamically by TripNameFit so it always stays on one line.
   tripName: {
+    fontFamily: "'Playfair Display', serif",
     fontWeight: 700,
     letterSpacing: '2px',
     textTransform: 'uppercase',
@@ -76,7 +78,9 @@ function TripNameFit({ text }) {
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
+    let cancelled = false
     function fit() {
+      if (cancelled || !el.isConnected) return
       el.style.whiteSpace = 'nowrap'
       let size = TRIP_NAME_MAX
       el.style.fontSize = `${size}px`
@@ -90,12 +94,15 @@ function TripNameFit({ text }) {
       setWrap(overflow)
     }
     fit()
+    // The trip name is now Playfair Display (a web font), so re-measure once fonts
+    // finish loading — the first pass may measure against the fallback metrics.
+    if (document.fonts?.ready) document.fonts.ready.then(fit)
     // Observe the container width (not this element, which would loop on font change).
     const parent = el.parentElement
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null
     if (ro && parent) ro.observe(parent)
     window.addEventListener('resize', fit)
-    return () => { ro?.disconnect(); window.removeEventListener('resize', fit) }
+    return () => { cancelled = true; ro?.disconnect(); window.removeEventListener('resize', fit) }
   }, [text])
 
   return (
