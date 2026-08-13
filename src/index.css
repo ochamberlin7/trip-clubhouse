@@ -440,6 +440,7 @@ select {
 .stat-player-name{font-size:12px;font-weight:600;color:var(--cream);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stat-value{font-size:13px;font-weight:800;color:var(--cream2);min-width:24px;text-align:right}
 .stat-value.highlight{color:var(--gold)}
+.stat-empty{padding:8px 10px;font-size:11px;font-style:italic;color:var(--muted)}
 .drink-lb-card{background:var(--bg1);border:1px solid var(--bg3);border-radius:var(--radius);overflow:hidden;margin-bottom:10px}
 .drink-lb-header{background:var(--gold);padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
 .drink-lb-title{font-size:14px;font-weight:800;color:#FFFFFF}

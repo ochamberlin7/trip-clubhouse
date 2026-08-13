@@ -127,19 +127,26 @@ function StatCard({ title, icon, players, stats, statKey, hi, dash }) {
     if (bn) return -1
     return hi ? b.v - a.v : a.v - b.v
   })
+  // "No data yet" when nobody has qualifying data for THIS stat — all zero for a
+  // counting stat, or all null for a dash stat (e.g. no complete 18-hole round).
+  const hasData = rows.some(r => r.v != null && r.v !== 0)
   return (
     <div className="stat-card">
       <div className="stat-card-header">
         <span className="stat-card-icon">{icon}</span>
         <span className="stat-card-title">{title}</span>
       </div>
-      {rows.map((row, i) => (
-        <div className="stat-row-item" key={row.p.id}>
-          <span className={`stat-rank ${i === 0 ? 'gold' : ''}`}>{i + 1}</span>
-          <span className="stat-player-name">{firstName(row.p.name) || row.p.name}</span>
-          <span className={`stat-value ${i === 0 ? 'highlight' : ''}`}>{row.v == null ? '—' : row.v}</span>
-        </div>
-      ))}
+      {hasData ? (
+        rows.map((row, i) => (
+          <div className="stat-row-item" key={row.p.id}>
+            <span className={`stat-rank ${i === 0 ? 'gold' : ''}`}>{i + 1}</span>
+            <span className="stat-player-name">{firstName(row.p.name) || row.p.name}</span>
+            <span className={`stat-value ${i === 0 ? 'highlight' : ''}`}>{row.v == null ? '—' : row.v}</span>
+          </div>
+        ))
+      ) : (
+        <div className="stat-empty">No data yet</div>
+      )}
     </div>
   )
 }
@@ -201,7 +208,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   if (!data) return <div className="empty-state">Loading stats…</div>
 
   const players = data.tripPlayers.map(p => ({ ...p, name: playerName(p, data.profileMap) }))
-  const { stats, drinkByPlayer, anyScore } = computed
+  const { stats, drinkByPlayer } = computed
 
   const totalDrinks = p => (drinkByPlayer.get(p.id) || 0) + (p.manual_drinks || 0)
   // Drinks descending; ties broken alphabetically by first name.
@@ -267,20 +274,17 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
         })}
       </div>
 
-      {/* Stat grid — golf stats need scores; the drink card above does not. */}
-      {anyScore ? (
-        <div className="stats-grid">
-          {STAT_CARDS.map(c => (
-            <StatCard
-              key={c.key}
-              title={c.title} icon={c.icon} statKey={c.key} hi={c.hi} dash={c.dash}
-              players={players} stats={stats}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="empty-state"><span className="empty-state-icon">📊</span>No stats yet — enter some scores first.</div>
-      )}
+      {/* Stat grid — all 12 cards always render; each shows its own "No data yet"
+          body until that specific stat has qualifying data. */}
+      <div className="stats-grid">
+        {STAT_CARDS.map(c => (
+          <StatCard
+            key={c.key}
+            title={c.title} icon={c.icon} statKey={c.key} hi={c.hi} dash={c.dash}
+            players={players} stats={stats}
+          />
+        ))}
+      </div>
     </div>
   )
 }
