@@ -27,20 +27,21 @@ const styles = {
     borderBottom: '1px solid #DDE3EA',
     textAlign: 'center',
   },
-  // Trip name — the real anchor identity; noticeable but still below "Clubhouse".
+  // Trip name — now the PRIMARY headline (large, dominant). Same colour/styling
+  // as before, just the larger of the two.
   eyebrow: {
-    fontSize: '15px',
+    fontSize: '40px',
     fontWeight: 700,
     letterSpacing: '2px',
     textTransform: 'uppercase',
     color: '#1B3F6E',
     marginBottom: '5px',
   },
-  // "Clubhouse" wordmark — a touch smaller than before so the trip name reads
-  // as the subject, but still the largest element.
+  // "Clubhouse" wordmark — now the SECONDARY label (small subtitle-style) under
+  // the trip name. Same serif/colour as before, just the smaller of the two.
   title: {
     fontFamily: "'Playfair Display', Georgia, serif",
-    fontSize: '40px',
+    fontSize: '15px',
     fontWeight: 700,
     color: '#0D1B2A',
     letterSpacing: '2px',
