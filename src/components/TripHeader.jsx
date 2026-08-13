@@ -27,25 +27,24 @@ const styles = {
     borderBottom: '1px solid #DDE3EA',
     textAlign: 'center',
   },
-  // Trip name — now the PRIMARY headline (large, dominant). Same colour/styling
-  // as before, just the larger of the two.
-  eyebrow: {
+  // "Trip Clubhouse" wordmark — TOP, small small-caps serif label.
+  wordmark: {
+    fontFamily: "'Playfair Display SC', serif",
+    fontStyle: 'normal',
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#0D1B2A',
+    letterSpacing: '0.5px',
+    lineHeight: 1,
+    marginBottom: '5px',
+  },
+  // Trip name — MIDDLE, the large dominant headline (unchanged size/weight/font).
+  tripName: {
     fontSize: '40px',
     fontWeight: 700,
     letterSpacing: '2px',
     textTransform: 'uppercase',
     color: '#1B3F6E',
-    marginBottom: '5px',
-  },
-  // "Clubhouse" wordmark — now the SECONDARY label (small subtitle-style) under
-  // the trip name. Same serif/colour as before, just the smaller of the two.
-  title: {
-    fontFamily: "'Playfair Display', Georgia, serif",
-    fontSize: '15px',
-    fontWeight: 700,
-    color: '#0D1B2A',
-    letterSpacing: '2px',
-    lineHeight: 1,
   },
   subtitle: {
     fontSize: '13px',
@@ -61,8 +60,8 @@ export default function TripHeader({ tripName, startDate, endDate }) {
   const range = formatRange(startDate, endDate)
   return (
     <div style={styles.container}>
-      {tripName && <div style={styles.eyebrow}>{tripName}</div>}
-      <div style={styles.title}>Clubhouse</div>
+      <div style={styles.wordmark}>Trip Clubhouse</div>
+      {tripName && <div style={styles.tripName}>{tripName}</div>}
       {range && <div style={styles.subtitle}>{range}</div>}
     </div>
   )
