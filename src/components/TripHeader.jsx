@@ -54,7 +54,7 @@ const styles = {
     // Normal tracking — Playfair Display bold's default. (The old 2px tracking
     // was for the sans-serif look and stretched the serif caps.)
     letterSpacing: 'normal',
-    textTransform: 'uppercase',
+    // Display exactly as entered (title case) — no forced uppercase.
     color: 'var(--navy)',
     lineHeight: 1.05,
   },
