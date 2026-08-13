@@ -1,6 +1,12 @@
-// CTI Clubhouse header — eyebrow trip name, serif "Clubhouse" title, date range subtitle.
+// Home banner — "Trip Clubhouse" small-caps wordmark, auto-fit trip name, date range.
+import { useLayoutEffect, useRef, useState } from 'react'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+// Trip-name headline auto-sizing bounds (px). Shrinks from MAX to fit one line;
+// won't go below MIN (below that it wraps to 2 lines rather than truncating).
+const TRIP_NAME_MAX = 40
+const TRIP_NAME_MIN = 22
 
 function parseDate(iso) {
   if (!iso) return null
@@ -27,24 +33,26 @@ const styles = {
     borderBottom: '1px solid #DDE3EA',
     textAlign: 'center',
   },
-  // "Trip Clubhouse" wordmark — TOP, small small-caps serif label.
+  // "Trip Clubhouse" wordmark — TOP, small small-caps serif label. Navy to match
+  // the trip name and other banner elements (var(--navy), not a hardcoded hex).
   wordmark: {
     fontFamily: "'Playfair Display SC', serif",
     fontStyle: 'normal',
     fontSize: '15px',
     fontWeight: 700,
-    color: '#0D1B2A',
+    color: 'var(--navy)',
     letterSpacing: '0.5px',
     lineHeight: 1,
     marginBottom: '5px',
   },
-  // Trip name — MIDDLE, the large dominant headline (unchanged size/weight/font).
+  // Trip name — MIDDLE, the large dominant headline. font-size is set dynamically
+  // by TripNameFit so it always stays on one line.
   tripName: {
-    fontSize: '40px',
     fontWeight: 700,
     letterSpacing: '2px',
     textTransform: 'uppercase',
-    color: '#1B3F6E',
+    color: 'var(--navy)',
+    lineHeight: 1.05,
   },
   subtitle: {
     fontSize: '13px',
@@ -56,12 +64,53 @@ const styles = {
   },
 }
 
+// Shrink-to-fit trip name: measure the rendered text (nowrap) against the
+// container width and step the font-size down from MAX until it fits on one
+// line, floored at MIN. Below the floor it wraps rather than shrinking further.
+// Runs in useLayoutEffect (pre-paint, so no flash) and on container/window resize.
+function TripNameFit({ text }) {
+  const ref = useRef(null)
+  const [fontSize, setFontSize] = useState(TRIP_NAME_MAX)
+  const [wrap, setWrap] = useState(false)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    function fit() {
+      el.style.whiteSpace = 'nowrap'
+      let size = TRIP_NAME_MAX
+      el.style.fontSize = `${size}px`
+      while (size > TRIP_NAME_MIN && el.scrollWidth > el.clientWidth) {
+        size -= 1
+        el.style.fontSize = `${size}px`
+      }
+      const overflow = el.scrollWidth > el.clientWidth // still too long at the floor
+      el.style.whiteSpace = overflow ? 'normal' : 'nowrap'
+      setFontSize(size)
+      setWrap(overflow)
+    }
+    fit()
+    // Observe the container width (not this element, which would loop on font change).
+    const parent = el.parentElement
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null
+    if (ro && parent) ro.observe(parent)
+    window.addEventListener('resize', fit)
+    return () => { ro?.disconnect(); window.removeEventListener('resize', fit) }
+  }, [text])
+
+  return (
+    <div ref={ref} style={{ ...styles.tripName, fontSize: `${fontSize}px`, whiteSpace: wrap ? 'normal' : 'nowrap' }}>
+      {text}
+    </div>
+  )
+}
+
 export default function TripHeader({ tripName, startDate, endDate }) {
   const range = formatRange(startDate, endDate)
   return (
     <div style={styles.container}>
       <div style={styles.wordmark}>Trip Clubhouse</div>
-      {tripName && <div style={styles.tripName}>{tripName}</div>}
+      {tripName && <TripNameFit text={tripName} />}
       {range && <div style={styles.subtitle}>{range}</div>}
     </div>
   )
