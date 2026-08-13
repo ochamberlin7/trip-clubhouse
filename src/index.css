@@ -442,7 +442,7 @@ select {
 .stat-value.highlight{color:var(--gold)}
 .stat-empty{padding:8px 10px;font-size:11px;font-style:italic;color:var(--muted)}
 .drink-lb-card{background:var(--bg1);border:1px solid var(--bg3);border-radius:var(--radius);overflow:hidden;margin-bottom:10px}
-.drink-lb-header{background:var(--gold);padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
+.drink-lb-header{background:var(--navy);padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
 .drink-lb-title{font-size:14px;font-weight:800;color:#FFFFFF}
 .drink-lb-subtitle{font-size:11px;color:rgba(255,255,255,0.75);margin-top:2px}
 .drink-inline-popup{position:absolute;right:0;top:50%;transform:translateY(-50%);background:var(--bg1);border:1px solid var(--bg3);border-radius:8px;padding:4px 6px;display:none;align-items:center;gap:4px;z-index:10;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
