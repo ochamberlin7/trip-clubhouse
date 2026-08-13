@@ -5,7 +5,7 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 
 // Trip-name headline auto-sizing bounds (px). Shrinks from MAX to fit one line;
 // won't go below MIN (below that it wraps to 2 lines rather than truncating).
-const TRIP_NAME_MAX = 40
+const TRIP_NAME_MAX = 34
 const TRIP_NAME_MIN = 22
 
 function parseDate(iso) {
@@ -51,7 +51,9 @@ const styles = {
   tripName: {
     fontFamily: "'Playfair Display', serif",
     fontWeight: 700,
-    letterSpacing: '2px',
+    // Normal tracking — Playfair Display bold's default. (The old 2px tracking
+    // was for the sans-serif look and stretched the serif caps.)
+    letterSpacing: 'normal',
     textTransform: 'uppercase',
     color: 'var(--navy)',
     lineHeight: 1.05,
