@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  analyzeScoring, resolvePlayerTee, courseHandicapForTee, strokesOnHole, playerName, firstName,
+  analyzeScoring, standardHolesWonByPlayer, resolvePlayerTee, courseHandicapForTee, strokesOnHole, playerName, firstName,
 } from '../lib/scoring'
 
 // ── Trip Stats ────────────────────────────────────────────────────
@@ -24,9 +24,12 @@ function absPlayingHandicap(round, teeRow, handicapIndex, allowance) {
 
 function computePlayerStats({ rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance) {
   // Points — reuse the existing per-player match-play point logic.
-  const { pointsByPlayer } = analyzeScoring(
-    { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds }, null, allowance,
-  )
+  const bundle = { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds }
+  const { pointsByPlayer } = analyzeScoring(bundle, null, allowance)
+  // Holes Won — per-player holes their side won (Standard Match Play card). Reuses
+  // standardMatchTally's hole-win detection; computed for all trips, shown only
+  // when the trip is Standard Match Play.
+  const holesWonByPlayer = standardHolesWonByPlayer(bundle, allowance)
 
   // Lookups.
   const roundById = new Map(rounds.map(r => [r.id, r]))
@@ -45,12 +48,13 @@ function computePlayerStats({ rounds, scores, courseHoles, pairings, pairingPlay
   for (const s of scores) if (s.gross_score != null) scoreMap.set(`${s.round_id}:${s.trip_player_id}:${s.hole_number}`, s.gross_score)
 
   const blank = () => ({
-    points: 0, eagles: 0, birdies: 0, pars: 0, parsOrBetter: 0,
+    points: 0, holesWon: 0, eagles: 0, birdies: 0, pars: 0, parsOrBetter: 0,
     bogeys: 0, doubles: 0, triples: 0, fireStreak: 0, fireHoles: 0,
     bestRound: null, worstRound: null,
   })
   const stats = new Map(tripPlayers.map(p => [p.id, blank()]))
   for (const [tp, pts] of pointsByPlayer) { if (stats.has(tp)) stats.get(tp).points = pts }
+  for (const [tp, hw] of holesWonByPlayer) { if (stats.has(tp)) stats.get(tp).holesWon = hw }
 
   let anyScore = false
   for (const r of rounds) {
@@ -218,6 +222,13 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     return (firstName(a.name) || a.name).localeCompare(firstName(b.name) || b.name)
   })
 
+  // Standard Match Play trips show "Holes Won" in place of the 🏆 Points card
+  // (same icon and first-slot position); every other card is unchanged.
+  const isStandard = trip?.format === 'standard_match_play'
+  const statCards = isStandard
+    ? [{ title: 'Holes Won', icon: '🏆', key: 'holesWon', hi: true }, ...STAT_CARDS.slice(1)]
+    : STAT_CARDS
+
   const canEditDrinks = p => !!isCommissioner || (!!currentUserId && (p.user_id === currentUserId || p.claimed_user_id === currentUserId))
 
   async function adjustManual(p, delta) {
@@ -277,7 +288,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
       {/* Stat grid — all 12 cards always render; each shows its own "No data yet"
           body until that specific stat has qualifying data. */}
       <div className="stats-grid">
-        {STAT_CARDS.map(c => (
+        {statCards.map(c => (
           <StatCard
             key={c.key}
             title={c.title} icon={c.icon} statKey={c.key} hi={c.hi} dash={c.dash}

@@ -692,3 +692,87 @@ export function liveStandardMatchTally(round, pairings, pairingPlayers, scoresMa
     }
   })
 }
+
+// Per-player count of holes their SIDE won across all Standard Match Play rounds.
+// Reuses the SAME hole-win determination as the running match state — each
+// pairing is scored with standardMatchTally (identical net/stroke math to the
+// live banner/leaderboard), and every hole it marks 'T1'/'T2' credits a win to
+// each player on that side (slots 1&2 = team1, 3&4 = team2). Halved and
+// not-yet-fully-scored holes count for nobody, and holes after a match is closed
+// out aren't contested — matching how the live match state treats them.
+// Takes the same data bundle as analyzeScoring. Returns Map(trip_player_id -> holesWon).
+export function standardHolesWonByPlayer(
+  { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds = [] },
+  allowance = 100
+) {
+  const hcpByPlayer = new Map(tripPlayers.map(p => [p.id, p.handicap_index]))
+  const roundById = new Map(rounds.map(r => [r.id, r]))
+  const teeRowByRoundPlayer = new Map()
+  for (const pr of playerRounds) teeRowByRoundPlayer.set(`${pr.round_id}:${pr.trip_player_id}`, pr)
+
+  // Holes per round (ordered 1..N) from course_holes, for strokeIndexOfHole().
+  const holesByRound = new Map() // roundId -> [{ hole_number, stroke_index, par }]
+  for (const ch of courseHoles) {
+    if (!holesByRound.has(ch.round_id)) holesByRound.set(ch.round_id, [])
+    holesByRound.get(ch.round_id).push(ch)
+  }
+  for (const arr of holesByRound.values()) arr.sort((a, b) => a.hole_number - b.hole_number)
+
+  // Gross lookup: `${roundId}:${tpId}:${hole}` -> gross.
+  const scoreMap = {}
+  for (const s of scores) if (s.gross_score != null) scoreMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score
+
+  const pairingsByRound = new Map()
+  for (const pr of pairings) {
+    if (!pairingsByRound.has(pr.round_id)) pairingsByRound.set(pr.round_id, [])
+    pairingsByRound.get(pr.round_id).push(pr)
+  }
+  const ppByPairing = new Map()
+  for (const pp of pairingPlayers) {
+    if (!ppByPairing.has(pp.pairing_id)) ppByPairing.set(pp.pairing_id, [])
+    ppByPairing.get(pp.pairing_id).push(pp)
+  }
+
+  const holesWon = new Map()
+  const credit = (tp) => holesWon.set(tp, (holesWon.get(tp) || 0) + 1)
+
+  for (const r of rounds) {
+    if (!isTournamentRound(r)) continue // practice/none rounds never count
+    const round = roundById.get(r.id)
+    const holes = holesByRound.get(r.id) || (Array.isArray(round?.holes) ? round.holes : [])
+    if (!holes.length) continue
+    const totalHoles = holes.length
+
+    for (const pairing of (pairingsByRound.get(r.id) || [])) {
+      const slotMap = {}
+      for (const pp of (ppByPairing.get(pairing.id) || [])) slotMap[pp.team_slot] = pp.trip_player_id
+      const t1Players = [slotMap[1], slotMap[2]].filter(Boolean)
+      const t2Players = [slotMap[3], slotMap[4]].filter(Boolean)
+      if (!t1Players.length || !t2Players.length) continue // need both sides for a match
+      const all = [...t1Players, ...t2Players]
+
+      // Low-ball playing handicaps (per-player tee), identical to liveStandardMatchTally.
+      const entries = all.map(id => {
+        const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
+        return { id, ch: courseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
+      })
+      const playing = shotsGivenFromCourseHandicaps(entries, allowance)
+      const grossFor = id => {
+        const o = {}
+        for (let h = 1; h <= totalHoles; h++) { const g = scoreMap[`${r.id}:${id}:${h}`]; if (g != null) o[h] = g }
+        return o
+      }
+      const players = [
+        ...t1Players.map(id => ({ id, team: 1, playingHandicap: playing.get(id) ?? 0, grossByHole: grossFor(id) })),
+        ...t2Players.map(id => ({ id, team: 2, playingHandicap: playing.get(id) ?? 0, grossByHole: grossFor(id) })),
+      ]
+
+      const tally = standardMatchTally(holes, players, {})
+      for (const res of tally.results) {
+        if (res.winner === 'T1') t1Players.forEach(credit)
+        else if (res.winner === 'T2') t2Players.forEach(credit)
+      }
+    }
+  }
+  return holesWon
+}
