@@ -1,4 +1,6 @@
 /* ── CTI Clubhouse design system — exact match ── */
+/* Pull-to-refresh spinner (PullToRefresh.jsx). */
+@keyframes ptr-spin { to { transform: rotate(360deg); } }
 :root {
   --bg0:    #F0F4F8;
   --bg1:    #FFFFFF;

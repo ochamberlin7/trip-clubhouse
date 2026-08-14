@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { strokesOnHole, netScore, courseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally } from '../lib/scoring'
 import { teamPillStyle, getTeamDisplayName, teamColor, colorIndexOf } from '../lib/teamColors'
+import { useResumeRefetch } from '../lib/useResumeRefetch'
+import PullToRefresh from './PullToRefresh'
 
 // Live interactive scorecard — better-ball match play with drink tracking.
 // Scores/drinks keyed by trip_player_id. Pairings use team_slot 1..4
@@ -90,6 +92,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const [playerRoundsMap, setPlayerRoundsMap] = useState({}) // `${roundId}:${tpId}` -> player_rounds row (per-player tee)
   const [connStatus, setConnStatus] = useState('connecting') // connecting | connected | disconnected
   const [reconnectTick, setReconnectTick] = useState(0)
+  const [reloadTick, setReloadTick] = useState(0) // bumped to refetch data (resume / pull-to-refresh)
+  const hasLoadedRef = useRef(false) // true after the first successful load (skip the full-screen spinner on refetch)
   const reconnectTimer = useRef(null)
   const channelRef = useRef(null)
   const headerRef = useRef(null)
@@ -145,7 +149,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   useEffect(() => {
     let cancelled = false
     async function load() {
-      setLoading(true)
+      // Only show the full-screen spinner on the very first load — a resume /
+      // pull-to-refresh refetch updates silently over the existing scorecard.
+      if (!hasLoadedRef.current) setLoading(true)
       if (roundIds.length === 0) { setLoading(false); return }
       const [teamRes, scoreRes, drinkRes] = await Promise.all([
         // Order by team_index for a stable team list (matchup selector, colours).
@@ -163,11 +169,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       await loadPlayers()
       await loadPairings()
       await loadPlayerRounds()
+      hasLoadedRef.current = true
       setLoading(false)
     }
     load()
     return () => { cancelled = true }
-  }, [trip.id, roundIds])
+  }, [trip.id, roundIds, reloadTick])
 
   // Realtime for the active round. INSERT/UPDATE come via postgres_changes;
   // DELETE syncs via Broadcast (postgres_changes DELETE is unreliable because
@@ -265,6 +272,19 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // Pairing reset on round change is handled in the pill onClick, so the
   // auto-selected pairing isn't clobbered on mount.
   useEffect(() => { setOpenSlot(null) }, [activeRoundId])
+
+  // Resume from background: the realtime socket can stall silently while the OS
+  // suspends the PWA (no error fires), so on return refetch fresh data AND force
+  // the channel to re-establish (reconnectTick). Covers "switched apps and back".
+  useResumeRefetch(() => { setReloadTick(t => t + 1); setReconnectTick(t => t + 1) })
+
+  // Manual pull-to-refresh fallback (see PullToRefresh wrapper below). Bumps the
+  // same ticks; the returned promise keeps the spinner up while the refetch runs.
+  const handlePullRefresh = () => {
+    setReloadTick(t => t + 1)
+    setReconnectTick(t => t + 1)
+    return new Promise(resolve => setTimeout(resolve, 700))
+  }
 
   // Report realtime status up so the page header can show the live dot.
   useEffect(() => { onConnStatus?.(connStatus) }, [connStatus, onConnStatus])
@@ -713,6 +733,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   }
 
   return (
+    <PullToRefresh onRefresh={handlePullRefresh} disabled={!!modal || !!notice || openSlot != null}>
     <div>
       {/* Round pills */}
       <div className="pill-row">
@@ -849,6 +870,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         </div>
       )}
     </div>
+    </PullToRefresh>
   )
 }
 

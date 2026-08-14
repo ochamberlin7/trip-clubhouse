@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, uniqueChannelName } from '../lib/supabase'
+import { useResumeRefetch } from '../lib/useResumeRefetch'
 import {
   analyzeScoring, standardHolesWonByPlayer, resolvePlayerTee, courseHandicapForTee, strokesOnHole, playerName, firstName,
 } from '../lib/scoring'
@@ -158,6 +159,7 @@ function StatCard({ title, icon, players, stats, statKey, hi, dash }) {
 export default function StatsTab({ trip, rounds = [], isCommissioner, currentUserId }) {
   const [data, setData] = useState(null)
   const [openDrinkPopup, setOpenDrinkPopup] = useState(null) // trip_player_id
+  const [refreshTick, setRefreshTick] = useState(0) // bumped by realtime score changes + resume to refetch
   const allowance = trip?.handicap_allowance ?? 100
 
   const roundIds = rounds.map(r => r.id)
@@ -202,7 +204,34 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     }
     load()
     return () => { cancelled = true }
+  }, [trip?.id, roundKey, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live updates: the 12 stat cards compute from `data.scores`, which is fetched
+  // above and otherwise only refetched on trip/round change — so newly-entered
+  // scores never reached them (the drink leaderboard only looked live because
+  // manual_drinks updates optimistically). Subscribe to the scoring tables and
+  // refetch (debounced) so the cards update as scores come in. Best Round /
+  // Worst Round stay correct on their own: computePlayerStats only records them
+  // for complete 18-hole rounds, so recomputing from fresh scores can't populate
+  // them mid-round.
+  useEffect(() => {
+    if (!trip?.id || roundIds.length === 0) return
+    const filter = `round_id=in.(${roundIds.join(',')})`
+    let timer = null
+    const bump = () => { if (timer) clearTimeout(timer); timer = setTimeout(() => setRefreshTick(t => t + 1), 400) }
+    const ch = supabase.channel(uniqueChannelName(`stats:${trip.id}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scores', filter }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'drinks', filter }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_rounds', filter }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${trip.id}` }, bump)
+      .subscribe()
+    return () => { if (timer) clearTimeout(timer); supabase.removeChannel(ch) }
   }, [trip?.id, roundKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Resume from background: the realtime socket may have stalled while suspended,
+  // so refetch on return (covers the "switched apps and back" case).
+  useResumeRefetch(() => setRefreshTick(t => t + 1))
 
   const computed = useMemo(() => {
     if (!data) return null
