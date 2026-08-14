@@ -855,8 +855,15 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, all
           const assigned = playersByRound[r.id]
           const calcPlayers = (assigned && assigned.size) ? players.filter(p => assigned.has(p.id)) : players
           const locked = scoredRounds?.has(r.id) || (r.date != null && r.date < todayIso)
+          // Multiple courses on one date → give each its own subtle inset band
+          // (page-bg fill + border, matching the app's panel convention) so they
+          // read as clearly separate. A single course stays a plain plate.
+          const multi = arr.length > 1
+          const entryStyle = multi
+            ? { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: i === arr.length - 1 ? 0 : 10 }
+            : { padding: '10px 0' }
           return (
-            <div key={r.id} style={{ padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
+            <div key={r.id} style={entryStyle}>
               {/* Distinguish multiple rounds on the same day. */}
               {arr.length > 1 && <div style={roundNumLabel}>Round {i + 1}</div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>

@@ -245,7 +245,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
           const open = openDrinkPopup === p.id
           return (
             <div className="stat-row-item" key={p.id} style={{ position: 'relative' }}>
-              <span className={`stat-rank ${i === 0 ? 'gold' : ''}`}>{i + 1}</span>
+              <span className="stat-rank">{i + 1}</span>
               {editable ? (
                 <button
                   className="stat-player-name"

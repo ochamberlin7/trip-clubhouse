@@ -362,12 +362,12 @@ function WeatherWidget({ rounds = [], tripName }) {
 
 // ── Tab: Home ────────────────────────────────────────────────────
 
-function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenuPage }) {
+function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenuPage, onNavigateTab }) {
   return (
     <div>
       {/* Getting Started checklist — persistent (live-computed) reminders +
           one-time first-login tips. Self-hides when there's nothing to show. */}
-      <GettingStartedCard trip={trip} rounds={rounds} userId={userId} isCommissioner={isCommissioner} onOpenMenuPage={onOpenMenuPage} />
+      <GettingStartedCard trip={trip} rounds={rounds} userId={userId} isCommissioner={isCommissioner} onOpenMenuPage={onOpenMenuPage} onNavigateTab={onNavigateTab} />
 
       {/* Countdown */}
       <CountdownWidget
@@ -659,7 +659,7 @@ function StandardLeaderboard({ trip, teams, rounds }) {
 // ── Tab: Tee Times ───────────────────────────────────────────────
 
 const TEE_HOURS = Array.from({ length: 12 }, (_, i) => i + 1)      // 1..12
-const TEE_MINUTES = Array.from({ length: 12 }, (_, i) => i * 5)    // 0,5,...,55
+const TEE_MINUTES = Array.from({ length: 60 }, (_, i) => i)        // 0,1,...,59 (every minute)
 
 // Parse a stored display time ("7:45 AM") into picker parts; default 8:00 AM.
 function parseDisplayTime(disp) {
@@ -1226,7 +1226,7 @@ export default function TripDashboard() {
       {/* ── Tab content ── (keyed by trip so switching trips remounts everything;
           keys must be UNIQUE among siblings — see the banner/drawer below) */}
       <div className="dashboard-content" key={`content-${trip.id}`}>
-        {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} onOpenMenuPage={openMenuPage} />}
+        {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} onOpenMenuPage={openMenuPage} onNavigateTab={setActiveTab} />}
         {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} />}

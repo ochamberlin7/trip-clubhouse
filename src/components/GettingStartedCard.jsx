@@ -42,6 +42,11 @@ const styles = {
   sectionLabel: { fontSize: '10px', fontWeight: 800, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '1px', margin: '12px 0 4px' },
   subLabel: { fontSize: '12px', fontWeight: 800, color: '#1B3F6E', margin: '12px 0 2px' },
   item: { display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px 0', borderBottom: '1px solid #E8EDF3' },
+  // Turn the row into a full-width tappable button without changing its look
+  // (overrides the global button reset: transparent bg, no border/rounding).
+  itemButton: { width: '100%', background: 'none', border: 'none', borderRadius: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', font: 'inherit' },
+  itemBody: { flex: 1, minWidth: 0 },
+  itemChevron: { flexShrink: 0, alignSelf: 'center', color: '#7A8FA6', fontSize: '20px', fontWeight: 700, lineHeight: 1, marginLeft: '4px' },
   itemLast: { borderBottom: 'none' },
   dot: { width: '18px', height: '18px', borderRadius: '50%', border: '2px solid #C6D0DC', flexShrink: 0, marginTop: '1px' },
   itemText: { fontSize: '14px', fontWeight: 600, color: '#0D1B2A', lineHeight: 1.3 },
@@ -55,19 +60,26 @@ const styles = {
   footerLabel: { fontSize: '13px', color: '#5A6B7A', whiteSpace: 'nowrap' },
 }
 
-function Item({ label, hint, isLast }) {
+// Each item is a button that navigates to the section it describes. The trailing
+// chevron signals it's tappable.
+function Item({ label, hint, isLast, onClick }) {
   return (
-    <div style={{ ...styles.item, ...(isLast ? styles.itemLast : null) }}>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{ ...styles.item, ...styles.itemButton, ...(isLast ? styles.itemLast : null) }}
+    >
       <span style={styles.dot} />
-      <span>
+      <span style={styles.itemBody}>
         <div style={styles.itemText}>{label}</div>
         {hint && <div style={styles.itemHint}>{hint}</div>}
       </span>
-    </div>
+      <span style={styles.itemChevron} aria-hidden="true">›</span>
+    </button>
   )
 }
 
-export default function GettingStartedCard({ trip, rounds = [], userId, isCommissioner, onOpenMenuPage }) {
+export default function GettingStartedCard({ trip, rounds = [], userId, isCommissioner, onOpenMenuPage, onNavigateTab }) {
   const [state, setState] = useState({ status: 'loading' })
   const [dismissed, setDismissed] = useState(false) // session-only; never persisted
   const [optOut, setOptOut] = useState(false) // "don't remind me again" checkbox
@@ -164,23 +176,26 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
   // Commissioner rows: three first-login-only setup tips (no reliable "done"
   // signal — shown once, gated by onboarding_completed like the welcome tip),
   // followed by the tracked items which reappear live until complete.
+  // Each row carries a `target` that clicking it navigates to: `{ page }` opens
+  // that drawer page, `{ tab }` switches a main dashboard tab. Destinations follow
+  // the hint text (Commissioner Tools, Players, Schedule & Courses, etc.).
   const commissionerRows = []
   if (isCommissioner) {
     if (isFirstLogin) {
-      commissionerRows.push({ label: 'Name your teams', hint: 'Menu → Commissioner Tools' })
-      commissionerRows.push({ label: 'Set your handicap allowance %', hint: 'Menu → Commissioner Tools' })
-      commissionerRows.push({ label: 'Send your invite link', hint: 'Menu → Commissioner Tools' })
+      commissionerRows.push({ label: 'Name your teams', hint: 'Menu → Commissioner Tools', target: { page: 'commissioner' } })
+      commissionerRows.push({ label: 'Set your handicap allowance %', hint: 'Menu → Commissioner Tools', target: { page: 'commissioner' } })
+      commissionerRows.push({ label: 'Send your invite link', hint: 'Menu → Commissioner Tools', target: { page: 'commissioner' } })
     }
-    if (!allHandicaps) commissionerRows.push({ label: 'Set every player’s handicap index', hint: 'Menu → Players' })
-    if (!coursesAssigned) commissionerRows.push({ label: 'Assign a course to every round', hint: 'Menu → Schedule & Courses' })
-    if (!teeTimesSet) commissionerRows.push({ label: 'Add tee times to your rounds', hint: 'Tee Times tab' })
+    if (!allHandicaps) commissionerRows.push({ label: 'Set every player’s handicap index', hint: 'Menu → Players', target: { page: 'players' } })
+    if (!coursesAssigned) commissionerRows.push({ label: 'Assign a course to every round', hint: 'Menu → Schedule & Courses', target: { page: 'courses' } })
+    if (!teeTimesSet) commissionerRows.push({ label: 'Add tee times to your rounds', hint: 'Tee Times tab', target: { tab: 'tee-times' } })
   }
 
   // Member rows: tracked items, shown only while incomplete.
   const memberRows = []
   if (playerRow) {
-    if (!phoneDone) memberRows.push({ label: 'Add your phone number', hint: 'Menu → Players → your card' })
-    if (!flightInfoFilled) memberRows.push({ label: 'Add your flight info', hint: 'Menu → Flights' })
+    if (!phoneDone) memberRows.push({ label: 'Add your phone number', hint: 'Menu → Players → your card', target: { page: 'players' } })
+    if (!flightInfoFilled) memberRows.push({ label: 'Add your flight info', hint: 'Menu → Flights', target: { page: 'flights' } })
   }
 
   // Only the tracked items decide whether the modal reappears — the guidance
@@ -207,6 +222,15 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
     setDismissed(true)
   }
 
+  // Clicking a checklist item closes the modal and jumps to its destination —
+  // a drawer page ({ page }) or a main dashboard tab ({ tab }).
+  const navigateTo = (target) => {
+    dismiss()
+    if (!target) return
+    if (target.tab) onNavigateTab?.(target.tab)
+    else if (target.page) onOpenMenuPage?.(target.page)
+  }
+
   return (
     <GettingStartedView
       isFirstLogin={isFirstLogin}
@@ -215,6 +239,7 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
       memberRows={memberRows}
       optOut={optOut}
       onToggleOptOut={setOptOut}
+      onNavigate={navigateTo}
       onHomeScreen={() => { dismiss(); onOpenMenuPage?.('app-info') }}
       onClose={dismiss}
     />
@@ -223,7 +248,7 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
 
 // Presentational modal — split out from the data-fetching container above so
 // the view is easy to reason about (and render in isolation).
-function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memberRows = [], optOut = false, onToggleOptOut, onHomeScreen, onClose }) {
+function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memberRows = [], optOut = false, onToggleOptOut, onNavigate, onHomeScreen, onClose }) {
   return (
     <div style={styles.overlay} role="dialog" aria-modal="true" onClick={onClose}>
       <div style={styles.card} onClick={e => e.stopPropagation()}>
@@ -250,7 +275,7 @@ function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memb
             <>
               <div style={styles.subLabel}>As Commissioner</div>
               {commissionerRows.map((it, i) => (
-                <Item key={it.label} label={it.label} hint={it.hint} isLast={i === commissionerRows.length - 1} />
+                <Item key={it.label} label={it.label} hint={it.hint} isLast={i === commissionerRows.length - 1} onClick={() => onNavigate?.(it.target)} />
               ))}
             </>
           )}
@@ -259,7 +284,7 @@ function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memb
             <>
               <div style={styles.subLabel}>As Member</div>
               {memberRows.map((it, i) => (
-                <Item key={it.label} label={it.label} hint={it.hint} isLast={i === memberRows.length - 1} />
+                <Item key={it.label} label={it.label} hint={it.hint} isLast={i === memberRows.length - 1} onClick={() => onNavigate?.(it.target)} />
               ))}
             </>
           )}
