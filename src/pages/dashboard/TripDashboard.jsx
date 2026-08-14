@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
@@ -695,6 +695,22 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
   const value = round[col]
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(() => parseDisplayTime(value))
+  const hourListRef = useRef(null)
+  const minListRef = useRef(null)
+
+  // When the picker opens, scroll the currently-selected hour and minute into the
+  // centre of their (fixed-height, scrollable) columns. Without this, editing an
+  // already-set time opens the lists at the top — the saved value is highlighted
+  // but off-screen, so it looks blank/reset (esp. with 60 minute rows).
+  useLayoutEffect(() => {
+    if (!open) return
+    for (const listRef of [hourListRef, minListRef]) {
+      const list = listRef.current
+      if (!list) continue
+      const active = list.querySelector('[data-active="true"]')
+      if (active) list.scrollTop = active.offsetTop - list.clientHeight / 2 + active.offsetHeight / 2
+    }
+  }, [open])
 
   function openPicker() {
     setDraft(parseDisplayTime(value))
@@ -730,18 +746,18 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
             <div style={tp.cols}>
               <div style={tp.colWrap}>
                 <div style={tp.colLabel}>Hour</div>
-                <div style={tp.list}>
+                <div ref={hourListRef} style={tp.list}>
                   {TEE_HOURS.map(h => (
-                    <button key={h} onClick={() => setDraft(d => ({ ...d, h }))}
+                    <button key={h} data-active={draft.h === h ? 'true' : undefined} onClick={() => setDraft(d => ({ ...d, h }))}
                       style={{ ...tp.item, ...(draft.h === h ? tp.itemActive : null) }}>{h}</button>
                   ))}
                 </div>
               </div>
               <div style={tp.colWrap}>
                 <div style={tp.colLabel}>Min</div>
-                <div style={tp.list}>
+                <div ref={minListRef} style={tp.list}>
                   {TEE_MINUTES.map(m => (
-                    <button key={m} onClick={() => setDraft(d => ({ ...d, m }))}
+                    <button key={m} data-active={draft.m === m ? 'true' : undefined} onClick={() => setDraft(d => ({ ...d, m }))}
                       style={{ ...tp.item, ...(draft.m === m ? tp.itemActive : null) }}>{String(m).padStart(2, '0')}</button>
                   ))}
                 </div>
