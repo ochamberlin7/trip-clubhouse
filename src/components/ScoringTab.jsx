@@ -86,7 +86,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const [openSlot, setOpenSlot] = useState(null) // commissioner header dropdown
   const [assignError, setAssignError] = useState(null)
   const [saveError, setSaveError] = useState(null) // transient toast when an optimistic score save fails
-  const [notice, setNotice] = useState(null) // transient guidance toast (e.g. tapping a score cell before teams are set)
+  const [notice, setNotice] = useState(null) // guidance modal message (e.g. tapping a score cell before teams are set)
   const [playerRoundsMap, setPlayerRoundsMap] = useState({}) // `${roundId}:${tpId}` -> player_rounds row (per-player tee)
   const [connStatus, setConnStatus] = useState('connecting') // connecting | connected | disconnected
   const [reconnectTick, setReconnectTick] = useState(0)
@@ -275,13 +275,6 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const id = setTimeout(() => setSaveError(null), 4000)
     return () => clearTimeout(id)
   }, [saveError])
-
-  // Auto-dismiss the guidance toast after a few seconds.
-  useEffect(() => {
-    if (!notice) return
-    const id = setTimeout(() => setNotice(null), 4000)
-    return () => clearTimeout(id)
-  }, [notice])
 
   if (loading) return <div className="empty-state">Loading scorecard…</div>
   // 'none' rounds are placeholders — never shown in the scoring round picker.
@@ -814,15 +807,24 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         </div>
       )}
 
-      {/* Transient guidance toast (navy — informational, not an error). */}
+      {/* Guidance modal — centered dialog with a backdrop and an explicit OK
+          (no auto-dismiss). Tap outside also dismisses. Matches the app's
+          centered-modal convention (GettingStartedCard). */}
       {notice && (
-        <div role="status" onClick={() => setNotice(null)} style={{
-          position: 'fixed', top: 'calc(env(safe-area-inset-top) + 12px)', left: '50%',
-          transform: 'translateX(-50%)', zIndex: 300, maxWidth: '90%', textAlign: 'center',
-          background: '#1B3F6E', color: '#fff', padding: '10px 16px', borderRadius: 8,
-          fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', cursor: 'pointer',
-        }}>
-          {notice}
+        <div
+          role="dialog" aria-modal="true"
+          onClick={() => setNotice(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid #DDE3EA', borderRadius: 14, padding: '24px 20px 18px', width: '100%', maxWidth: 340, textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A', lineHeight: 1.4, marginBottom: 20 }}>{notice}</div>
+            <button
+              onClick={() => setNotice(null)}
+              style={{ width: '100%', padding: 13, background: '#1B3F6E', border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              OK
+            </button>
+          </div>
         </div>
       )}
     </div>
