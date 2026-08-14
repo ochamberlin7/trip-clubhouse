@@ -23,7 +23,27 @@ function absPlayingHandicap(round, teeRow, handicapIndex, allowance) {
   return Math.max(0, Math.round(ch * (allowance / 100)))
 }
 
-function computePlayerStats({ rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance) {
+function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance) {
+  // Hole par + stroke index live on rounds.holes — a positional JSON array where
+  // index i is hole i+1 (par via `.par`, stroke index via `.handicap`). This is
+  // the SAME source the scorecard reads. The course_holes table is never
+  // populated by any code, so building hole info from it (as this function used
+  // to) left every round with no holes → the per-round loop skipped everything
+  // and all 12 cards showed "No data yet". Derive the { round_id, hole_number,
+  // par, stroke_index } shape the scoring helpers expect from rounds.holes.
+  const courseHoles = []
+  for (const r of rounds) {
+    if (!Array.isArray(r.holes)) continue
+    r.holes.forEach((h, i) => {
+      courseHoles.push({
+        round_id: r.id,
+        hole_number: i + 1,
+        par: h?.par ?? null,
+        stroke_index: h?.stroke_index ?? h?.handicap ?? h?.strokeIndex ?? null,
+      })
+    })
+  }
+
   // Points — reuse the existing per-player match-play point logic.
   const bundle = { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds }
   const { pointsByPlayer } = analyzeScoring(bundle, null, allowance)
