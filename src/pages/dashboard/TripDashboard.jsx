@@ -672,12 +672,14 @@ function parseDisplayTime(disp) {
 const tp = {
   // Rendered via a portal to document.body and fixed-centred so the parent card's
   // overflow:hidden (.tee-group) can't clip it.
-  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 999 },
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 999, touchAction: 'none' },
   popover: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 12, boxShadow: '0 8px 28px rgba(13,27,42,0.18)', padding: 16, width: 240 },
   cols: { display: 'flex', gap: 8 },
   colWrap: { flex: 1, minWidth: 0 },
   colLabel: { fontSize: 9, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: '#7A8FA6', textAlign: 'center', marginBottom: 4 },
-  list: { height: 150, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: '#F5F8FA', borderRadius: 8 },
+  // overscrollBehavior:contain + touchAction:pan-y keep touch scrolling inside the
+  // list instead of chaining to the page behind the popover.
+  list: { height: 150, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y', display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: '#F5F8FA', borderRadius: 8 },
   item: { padding: '7px 0', fontSize: 14, fontWeight: 600, color: '#2C3E50', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
   itemActive: { background: '#1B3F6E', color: '#fff', fontWeight: 800 },
   apCol: { display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' },
@@ -697,6 +699,32 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
   const [draft, setDraft] = useState(() => parseDisplayTime(value))
   const hourListRef = useRef(null)
   const minListRef = useRef(null)
+
+  // Lock the page (which scrolls the window/body — there's no inner scroll
+  // container) while the picker is open, so dragging the hour/minute lists scrolls
+  // THEM, not the page behind the fixed popover. iOS-safe: pin the body with
+  // position:fixed and restore the scroll offset on close.
+  useEffect(() => {
+    if (!open) return
+    const scrollY = window.scrollY
+    const b = document.body
+    const prev = { position: b.style.position, top: b.style.top, left: b.style.left, right: b.style.right, width: b.style.width, overflow: b.style.overflow }
+    b.style.position = 'fixed'
+    b.style.top = `-${scrollY}px`
+    b.style.left = '0'
+    b.style.right = '0'
+    b.style.width = '100%'
+    b.style.overflow = 'hidden'
+    return () => {
+      b.style.position = prev.position
+      b.style.top = prev.top
+      b.style.left = prev.left
+      b.style.right = prev.right
+      b.style.width = prev.width
+      b.style.overflow = prev.overflow
+      window.scrollTo(0, scrollY)
+    }
+  }, [open])
 
   // When the picker opens, scroll the currently-selected hour and minute into the
   // centre of their (fixed-height, scrollable) columns. Without this, editing an
