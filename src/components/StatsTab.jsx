@@ -172,7 +172,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
 
       // Players load ALWAYS (the drink leaderboard is independent of scoring).
       const { data: tpData } = await supabase.from('trip_players')
-        .select('id, user_id, claimed_user_id, guest_name, handicap_index, team_id, manual_drinks').eq('trip_id', trip.id)
+        .select('id, user_id, claimed_user_id, first_name, last_name, guest_name, handicap_index, team_id, manual_drinks').eq('trip_id', trip.id)
       const tripPlayers = tpData || []
       const userIds = tripPlayers.map(p => p.user_id).filter(Boolean)
       const profileMap = {}

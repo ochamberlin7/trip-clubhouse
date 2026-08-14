@@ -180,9 +180,16 @@ export function shotsGivenFromCourseHandicaps(entries, allowance = 100) {
 }
 
 // Display name for a trip player (guest name, else profile display name).
-export function playerName(tp, profileMap) {
+// Canonical display name for a trip player. The trip_players first_name/last_name
+// are the source of truth (what the Players page edits); guest_name covers players
+// without those set, and the linked account's profiles.display_name is the last
+// resort. Same precedence ScoringTab.loadPlayers() uses, so every surface agrees.
+// NOTE: callers MUST select first_name, last_name (and guest_name) from
+// trip_players, or edited names won't show.
+export function playerName(tp, profileMap = {}) {
   if (!tp) return 'Unknown'
-  return tp.guest_name || profileMap[tp.user_id] || 'Unknown'
+  const full = [tp.first_name, tp.last_name].filter(Boolean).join(' ')
+  return full || tp.guest_name || profileMap[tp.user_id] || 'Unknown'
 }
 
 // Up-to-two-letter initials from a name.

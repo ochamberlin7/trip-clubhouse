@@ -53,7 +53,7 @@ export default function DailyMVPCard({ tripId, today }) {
         supabase.from('scores').select('round_id, hole_number, trip_player_id, gross_score').in('round_id', roundIds),
         supabase.from('course_holes').select('round_id, hole_number, par, stroke_index').in('round_id', roundIds),
         supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', roundIds),
-        supabase.from('trip_players').select('id, user_id, guest_name, handicap_index, team_id').eq('trip_id', tripId),
+        supabase.from('trip_players').select('id, user_id, first_name, last_name, guest_name, handicap_index, team_id').eq('trip_id', tripId),
         supabase.from('player_rounds').select('trip_player_id, round_id, tee_name, slope, rating, par').in('round_id', roundIds),
       ])
 
