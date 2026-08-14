@@ -71,7 +71,7 @@ function MatchCell({ entry }) {
   )
 }
 
-export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, readOnly = false, initialRoundId, initialPairingNum, onConnStatus }) {
+export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, readOnly = false, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage }) {
   const [pairings, setPairings] = useState([])
   const [pairingPlayers, setPairingPlayers] = useState([]) // {id, pairing_id, trip_player_id, team_slot}
   const [playersById, setPlayersById] = useState({})
@@ -464,6 +464,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // options reflect the latest teams/handicaps. Players without a team simply
   // don't appear (availableForSlot filters them out).
   async function openAssign(slot) {
+    // Same guard as the "+" score cells: can't place a player into a pairing
+    // until everyone has a team. Show the guidance modal instead of the picker.
+    if (!readOnly && noTeamPlayers.length > 0) {
+      setNotice('Please assign teams before setting the pairings.')
+      return
+    }
     if (openSlot === slot) { setOpenSlot(null); return }
     await loadPlayers()
     setOpenSlot(slot)
@@ -501,6 +507,13 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const canOpen = !!tp || availableForSlot(slot).length > 0
     const label = tp ? firstName(tp.name) : (canOpen ? '+' : 'TBD')
     if (!canOpen) {
+      // "TBD" — no players available for this slot. When that's because nobody has
+      // a team yet, make it a live button that surfaces the guidance modal (via
+      // the guarded openAssign); otherwise it's an inert "no available players".
+      const blocked = !readOnly && noTeamPlayers.length > 0
+      if (blocked) {
+        return <button className="sc-th-name sc-th-btn" style={fillStyle} onClick={() => openAssign(slot)}>{label}</button>
+      }
       return <div className="sc-th-name" style={fillStyle} title="No available players">{label}</div>
     }
     return (
@@ -818,9 +831,17 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         >
           <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid #DDE3EA', borderRadius: 14, padding: '24px 20px 18px', width: '100%', maxWidth: 340, textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
             <div style={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A', lineHeight: 1.4, marginBottom: 20 }}>{notice}</div>
+            {onOpenMenuPage && (
+              <button
+                onClick={() => { setNotice(null); onOpenMenuPage('players') }}
+                style={{ width: '100%', padding: 13, background: '#1B3F6E', border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Go to Players &amp; Teams
+              </button>
+            )}
             <button
               onClick={() => setNotice(null)}
-              style={{ width: '100%', padding: 13, background: '#1B3F6E', border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ width: '100%', padding: 11, marginTop: 8, background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               OK
             </button>

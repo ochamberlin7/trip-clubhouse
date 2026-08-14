@@ -1271,7 +1271,7 @@ export default function TripDashboard() {
           keys must be UNIQUE among siblings — see the banner/drawer below) */}
       <div className="dashboard-content" key={`content-${trip.id}`}>
         {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} onOpenMenuPage={openMenuPage} onNavigateTab={setActiveTab} />}
-        {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} />}
+        {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
