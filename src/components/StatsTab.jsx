@@ -144,34 +144,35 @@ const STAT_CARDS = [
 ]
 
 function StatCard({ title, icon, players, stats, statKey, hi, dash }) {
+  const nameOf = p => firstName(p.name) || p.name || ''
   const rows = players.map(p => ({ p, v: stats.get(p.id)?.[statKey] ?? (dash ? null : 0) }))
-  rows.sort((a, b) => {
-    const an = a.v == null, bn = b.v == null
-    if (an && bn) return 0
-    if (an) return 1
-    if (bn) return -1
-    return hi ? b.v - a.v : a.v - b.v
-  })
-  // "No data yet" when nobody has qualifying data for THIS stat — all zero for a
-  // counting stat, or all null for a dash stat (e.g. no complete 18-hole round).
-  const hasData = rows.some(r => r.v != null && r.v !== 0)
+  if (dash) {
+    // Best/Worst Round are gross score TOTALS, not counts — a "0" would be
+    // misleading. List every player alphabetically, showing "—" for anyone
+    // without a complete 18-hole round yet.
+    rows.sort((a, b) => nameOf(a.p).localeCompare(nameOf(b.p)))
+  } else {
+    // Counting stats — every player always listed (even at 0), ordered by value
+    // (each card's natural direction via `hi`) with ties broken alphabetically,
+    // matching the Drink Leaderboard.
+    rows.sort((a, b) => {
+      if (a.v !== b.v) return hi ? b.v - a.v : a.v - b.v
+      return nameOf(a.p).localeCompare(nameOf(b.p))
+    })
+  }
   return (
     <div className="stat-card">
       <div className="stat-card-header">
         <span className="stat-card-icon">{icon}</span>
         <span className="stat-card-title">{title}</span>
       </div>
-      {hasData ? (
-        rows.map((row, i) => (
-          <div className="stat-row-item" key={row.p.id}>
-            <span className={`stat-rank ${i === 0 ? 'gold' : ''}`}>{i + 1}</span>
-            <span className="stat-player-name">{firstName(row.p.name) || row.p.name}</span>
-            <span className={`stat-value ${i === 0 ? 'highlight' : ''}`}>{row.v == null ? '—' : row.v}</span>
-          </div>
-        ))
-      ) : (
-        <div className="stat-empty">No data yet</div>
-      )}
+      {rows.map((row, i) => (
+        <div className="stat-row-item" key={row.p.id}>
+          <span className="stat-rank">{i + 1}</span>
+          <span className="stat-player-name">{firstName(row.p.name) || row.p.name}</span>
+          <span className="stat-value">{row.v == null ? '—' : row.v}</span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -334,8 +335,8 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
         })}
       </div>
 
-      {/* Stat grid — all 12 cards always render; each shows its own "No data yet"
-          body until that specific stat has qualifying data. */}
+      {/* Stat grid — all 12 cards always render the full player list (even at 0),
+          like the Drink Leaderboard; Best/Worst Round show "—" instead of 0. */}
       <div className="stats-grid">
         {statCards.map(c => (
           <StatCard
