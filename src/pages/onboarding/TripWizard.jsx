@@ -578,7 +578,12 @@ export default function TripWizard() {
     ;(async () => {
       const { data } = await supabase.from('profiles').select('display_name, phone').eq('id', user.id).maybeSingle()
       if (cancelled) return
-      const dn = (data?.display_name || user.email.split('@')[0]).trim()
+      // Prefer the profile's display name, then the auth metadata's (set at signup
+      // with the full "First Last" — reliable even before the profile row syncs),
+      // and only fall back to the email prefix if neither exists. Using the email
+      // is what made the default group name read "{email} Group" instead of the
+      // last name, since an email prefix has no space to split a surname from.
+      const dn = (data?.display_name || user.user_metadata?.display_name || user.email.split('@')[0]).trim()
       // Prefill the commissioner's phone from their account (profiles.phone, with
       // auth metadata as a fallback — the two mirror each other, see ProfilePage).
       const myPhone = data?.phone || user.user_metadata?.phone || ''
