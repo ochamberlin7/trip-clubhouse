@@ -576,9 +576,12 @@ export default function TripWizard() {
     if (!user || players.length > 0) return
     let cancelled = false
     ;(async () => {
-      const { data } = await supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle()
+      const { data } = await supabase.from('profiles').select('display_name, phone').eq('id', user.id).maybeSingle()
       if (cancelled) return
       const dn = (data?.display_name || user.email.split('@')[0]).trim()
+      // Prefill the commissioner's phone from their account (profiles.phone, with
+      // auth metadata as a fallback — the two mirror each other, see ProfilePage).
+      const myPhone = data?.phone || user.user_metadata?.phone || ''
       const parts = dn.split(/\s+/)
       const lastName = parts.slice(1).join(' ') || parts[0] || dn
       // Pre-fill the group name with "{Last Name} Group"; keep it editable and
@@ -587,7 +590,7 @@ export default function TripWizard() {
       setDefaultGroupName(defaultName)
       setGroupName(prev => (prev.trim() ? prev : defaultName))
       setPlayers([
-        { id: 'me', isCommissioner: true, first_name: parts[0] || dn, last_name: parts.slice(1).join(' '), email: user.email, phone: '' },
+        { id: 'me', isCommissioner: true, first_name: parts[0] || dn, last_name: parts.slice(1).join(' '), email: user.email, phone: myPhone },
         { id: uid(), first_name: '', last_name: '', email: '', phone: '' },
       ])
     })()
