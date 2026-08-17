@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import CourseSearchInput from '../../components/CourseSearchInput'
+import { formatPhone } from '../../lib/formatPhone'
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -408,13 +409,15 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
                 onChange={e => update(p.id, 'email', e.target.value)}
               />
 
-              {/* Phone full width — optional; enables phone matching on invite. */}
+              {/* Phone full width — optional; enables phone matching on invite.
+                  Store raw digits, display formatted (invite matching normalizes
+                  digits on both sides, so the stored format doesn't matter). */}
               <input
                 style={playerInputStyle}
                 type="tel"
                 placeholder="Phone (optional)"
-                value={p.phone ?? ''}
-                onChange={e => update(p.id, 'phone', e.target.value)}
+                value={formatPhone(p.phone ?? '')}
+                onChange={e => update(p.id, 'phone', e.target.value.replace(/\D/g, ''))}
               />
               </div>
             </div>
