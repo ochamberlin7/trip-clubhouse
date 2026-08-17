@@ -55,7 +55,7 @@ const styles = {
     // was for the sans-serif look and stretched the serif caps.)
     letterSpacing: 'normal',
     // Display exactly as entered (title case) — no forced uppercase.
-    color: 'var(--navy)',
+    color: '#000000',
     lineHeight: 1.05,
   },
   subtitle: {
