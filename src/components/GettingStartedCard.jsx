@@ -36,8 +36,12 @@ const styles = {
   // Centered modal overlay — matches the app's backdrop convention (ScoringTab).
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   card: { position: 'relative', background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: '14px', padding: 0, overflow: 'hidden', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
-  header: { background: '#1B3F6E', color: '#fff', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', padding: '12px 40px 12px 14px' },
-  close: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 16, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
+  header: { position: 'relative', background: '#1B3F6E', color: '#fff', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', padding: '12px 40px 12px 14px' },
+  // Absolutely centered within the header (the blue banner): top:50% + translateY
+  // vertically centers the circle to the banner; the flexbox centers the ✕ glyph
+  // within the circle. lineHeight:0 removes the glyph's line-box bias so it's
+  // optically centered rather than sitting slightly low.
+  close: { position: 'absolute', top: '50%', right: 8, transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 15, lineHeight: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
   body: { padding: '6px 14px 12px' },
   sectionLabel: { fontSize: '10px', fontWeight: 800, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '1px', margin: '12px 0 4px' },
   subLabel: { fontSize: '12px', fontWeight: 800, color: '#1B3F6E', margin: '12px 0 2px' },
@@ -252,8 +256,10 @@ function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memb
   return (
     <div style={styles.overlay} role="dialog" aria-modal="true" onClick={onClose}>
       <div style={styles.card} onClick={e => e.stopPropagation()}>
-        <button style={styles.close} aria-label="Close" onClick={onClose}>✕</button>
-        <div style={styles.header}>Getting Started</div>
+        <div style={styles.header}>
+          Getting Started
+          <button style={styles.close} aria-label="Close" onClick={onClose}>✕</button>
+        </div>
         <div style={styles.body}>
 
           {/* First things first — one-time tip (can't detect install, so it
