@@ -258,7 +258,13 @@ function GettingStartedView({ isFirstLogin, hasToDo, commissionerRows = [], memb
       <div style={styles.card} onClick={e => e.stopPropagation()}>
         <div style={styles.header}>
           Getting Started
-          <button style={styles.close} aria-label="Close" onClick={onClose}>✕</button>
+          <button style={styles.close} aria-label="Close" onClick={onClose}>
+            {/* SVG X — geometrically centered; the ✕ text glyph carries a baked-in
+                vertical offset that flex centering can't correct. */}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
         <div style={styles.body}>
 

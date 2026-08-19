@@ -572,7 +572,7 @@ export default function TripWizard() {
   // Step 3
   const [hasTournament, setHasTournament] = useState(null)
   const [numTeams, setNumTeams] = useState(2) // 2 teams is the default
-  const [tournamentFormat, setTournamentFormat] = useState('points_match_play') // default
+  const [tournamentFormat, setTournamentFormat] = useState('standard_match_play') // default (pre-selected)
 
   // Seed the player list: commissioner (locked, from profile) + one blank row.
   useEffect(() => {
