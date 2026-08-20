@@ -171,8 +171,8 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
       // Fall back to the search row (it often already includes tees/holes).
     }
     setCourse(full)
-    // Tag each tee with its gender, then collapse to one grid — labelTees adds a
-    // (M)/(W) qualifier only where a colour exists for both genders with a
+    // Tag each tee with its gender, then collapse to one grid — labelTees marks
+    // only the women's box "(W)" where a colour exists for both genders with a
     // different rating/slope, so distinct tees never look like duplicates.
     const male = (full?.tees?.male || []).map(t => ({ ...t, gender: 'male' }))
     const female = (full?.tees?.female || []).map(t => ({ ...t, gender: 'female' }))

@@ -447,7 +447,7 @@ function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
 }
 
 // Normalise GolfCourseAPI course detail → [{name,slope,rating,par,gender}]
-// (men's + women's). Gender is retained so labelTees can add a minimal (M)/(W)
+// (men's + women's). Gender is retained so labelTees can add a minimal (W)
 // qualifier only when a colour collides across genders; see src/lib/tees.js.
 function teesFromCourseDetail(detail) {
   const male = (detail?.tees?.male || []).map(t => ({ ...t, gender: 'male' }))
@@ -484,8 +484,8 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   const combinedTees = (primaryTee && !sourceTees.some(t => t.name === primaryTee.name))
     ? [primaryTee, ...sourceTees]
     : sourceTees
-  // Label tees by colour, adding a minimal (M)/(W) qualifier only where a colour
-  // collides across genders with a different rating/slope (see src/lib/tees.js).
+  // Label tees by colour, adding a minimal (W) qualifier to the women's box only
+  // where a colour collides across genders (see src/lib/tees.js).
   const tees = labelTees(combinedTees)
   const hasCourse = round.slope_rating != null || tees.length > 0
   // Round's primary tee — the default when a player has no saved tee. Match the

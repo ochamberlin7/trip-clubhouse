@@ -3,8 +3,9 @@
 // on its own — the app only cares which tee box you play from. The one exception
 // is a genuine collision: the SAME colour exists for both men and women with a
 // DIFFERENT course rating/slope (standard WHS — ratings are gender-specific). In
-// that case a minimal "(M)"/"(W)" qualifier is added so the two distinct tees
-// don't render as identical duplicates.
+// that case ONLY the women's box is marked "(W)"; men's boxes are never marked
+// "(M)" (most players are men, so the unqualified colour reads as men's). If two
+// same-gender boxes still collide, a rating suffix disambiguates them.
 
 // "Men's Gold" / "Women's Gold" / "Gold (W)" → "Gold".
 export function stripTeeGender(name) {
@@ -32,9 +33,9 @@ const genderAbbr = g => {
 // and a gender-stripped `color`, preserving every other field (rating, slope,
 // par, holes, gender, …) untouched:
 //   • non-colliding colour → clean label ("White")
-//   • colour present for both genders with differing rating/slope → "White (M)" /
-//     "White (W)"; falls back to a rating suffix ("White · 71.8") when the
-//     collision carries no gender info (e.g. legacy cached data).
+//   • colour present for both genders with differing rating/slope → men's stays
+//     "White", women's becomes "White (W)". Any remaining duplicate labels (rare
+//     same-gender collision) fall back to a rating suffix ("White · 71.8").
 // Identical boxes (same gender + rating + slope) are de-duplicated to one.
 export function labelTees(tees) {
   const list = (Array.isArray(tees) ? tees : []).filter(t => t && teeRawName(t))
@@ -60,13 +61,22 @@ export function labelTees(tees) {
       uniq.push(t)
     }
     const collision = uniq.length > 1
-    for (const t of uniq) {
-      let label = color
-      if (collision) {
-        const abbr = genderAbbr(t.gender)
-        label = abbr ? `${color} (${abbr})` : `${color} · ${teeRating(t) ?? teeSlope(t) ?? ''}`.trim()
+    // Only women's boxes get a "(W)" qualifier; men's/unknown stay the bare colour.
+    const labeled = uniq.map(t => {
+      const abbr = genderAbbr(t.gender)
+      const label = (collision && abbr === 'W') ? `${color} (W)` : color
+      return { ...t, color, label }
+    })
+    // Guard against identical labels (e.g. two same-gender boxes that collide, or
+    // a man + gender-unknown box): disambiguate with a rating suffix — never "(M)".
+    const counts = {}
+    labeled.forEach(t => { counts[t.label] = (counts[t.label] || 0) + 1 })
+    for (const t of labeled) {
+      if (counts[t.label] > 1) {
+        const r = teeRating(t) ?? teeSlope(t) ?? ''
+        if (r !== '') t.label = `${color} · ${r}`
       }
-      out.push({ ...t, color, label })
+      out.push(t)
     }
   }
   return out
