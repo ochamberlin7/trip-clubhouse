@@ -523,9 +523,11 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
     return () => { cancelled = true }
   }, [open, round.id, round.golfcourse_id, round.tees, apiTees])
 
-  // Player gets the remaining space and its name wraps (never truncated);
-  // the numeric columns are compact fixed widths.
-  const grid = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 54px 36px 38px 42px 34px', alignItems: 'center', gap: 4 }
+  // Player gets the remaining space (name wraps, never truncated); Tee is fixed;
+  // the four numeric columns are content-width + right-aligned so they compress
+  // into a tight cluster on the right instead of spreading across the row.
+  const grid = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 54px auto auto auto auto', alignItems: 'center', gap: 8 }
+  const numCell = { fontSize: 13, textAlign: 'right' }
   const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
   const muted = { color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
   const teeSelect = { width: '100%', fontSize: 12, fontWeight: 600, color: '#0D1B2A', fontFamily: 'inherit', border: '1px solid #DDE3EA', borderRadius: 6, padding: '4px 4px', background: '#fff', boxSizing: 'border-box' }
@@ -623,10 +625,10 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
               <div style={{ ...grid, padding: '8px 10px', background: '#F5F8FA', borderBottom: '1px solid #DDE3EA' }}>
                 <span style={headCell}>Player</span>
                 <span style={headCell}>Tee</span>
-                <span style={headCell}>Idx</span>
-                <span style={headCell}>Crs</span>
-                <span style={headCell}>Play</span>
-                <span style={{ ...headCell, whiteSpace: 'nowrap' }}>Shots</span>
+                <span style={{ ...headCell, textAlign: 'right' }}>Idx</span>
+                <span style={{ ...headCell, textAlign: 'right' }}>Crs</span>
+                <span style={{ ...headCell, textAlign: 'right' }}>Play</span>
+                <span style={{ ...headCell, textAlign: 'right', whiteSpace: 'nowrap' }}>Shots</span>
               </div>
               {orderedRows.map((r, i) => (
                 <div key={r.id}
@@ -645,10 +647,10 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                   ) : (
                     <span style={{ fontSize: 12, color: '#7A8FA6' }}>{r.teeName ?? round.tee_name ?? '—'}</span>
                   )}
-                  <span style={{ fontSize: 13, color: r.idx == null ? '#7A8FA6' : '#2C3E50' }}>{r.idx ?? 'TBD'}</span>
-                  <span style={{ fontSize: 13, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1B3F6E' }}>{r.playing ?? '—'}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1B3F6E' }}>{r.shotsOff ?? '—'}</span>
+                  <span style={{ ...numCell, color: r.idx == null ? '#7A8FA6' : '#2C3E50' }}>{r.idx ?? 'TBD'}</span>
+                  <span style={{ ...numCell, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>
+                  <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{r.playing ?? '—'}</span>
+                  <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{r.shotsOff ?? '—'}</span>
                 </div>
               ))}
               <div style={{ background: '#F5F8FA', padding: '8px 10px', fontSize: 11, color: '#7A8FA6', fontStyle: 'italic' }}>
@@ -672,7 +674,7 @@ const toolbarPillStyle = { flex: 1, display: 'inline-flex', alignItems: 'center'
 const toolbarPillDisabledStyle = { ...toolbarPillStyle, opacity: 0.4, cursor: 'not-allowed', borderColor: '#DDE3EA', color: '#7A8FA6' }
 const ICON = { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
 const IconHandicaps = () => <svg {...ICON}><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-const IconTournament = () => <svg {...ICON}><path d="M4 22h16"/><path d="M10 14.66V17c0 .55.47.98.97 1.21C12.15 18.75 13 20.24 13 22"/><path d="M14 14.66V17c0 .55-.47.98-.97 1.21C11.85 18.75 11 20.24 11 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+const IconTournament = () => <svg {...ICON}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
 const IconEdit = () => <svg {...ICON}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z"/></svg>
 const IconChevronDown = () => <svg {...ICON} width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg>
 
@@ -777,16 +779,6 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
             </div>
           )
         })}
-        {/* Convert the day back to a non-golf day (removes this round). */}
-        <div style={{ borderTop: '1px solid #E8EDF3' }} />
-        {[['travel', 'Travel Day'], ['non_golf', 'Non-Golf Day']].map(([val, txt]) => (
-          <div key={val} onClick={() => pick(val)}
-            style={{ display: 'flex', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#7A8FA6' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
-            <span>{txt}</span>
-          </div>
-        ))}
       </div>,
       document.body,
     )
@@ -936,7 +928,10 @@ const addActionStyle = { display: 'block', width: '100%', background: '#fff', bo
 const mealCustomInputStyle = { width: '100%', marginTop: 8, padding: '7px 10px', borderRadius: 6, border: '1px solid #DDE3EA', fontSize: 13, fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box' }
 const mealBadgeStyle = { ...typeBadgeBase, background: 'rgba(15,110,86,0.1)', color: '#0F6E56', border: '1px solid #0F6E56' }
 const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', margin: '12px 0 5px' }
-const modalInput = { width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #DDE3EA', fontSize: 14, fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box', background: '#fff' }
+// Fixed height so text / date / time inputs render identically (native date/time
+// inputs otherwise pick their own intrinsic height). Textareas override height:auto.
+const modalInput = { width: '100%', height: 40, padding: '9px 11px', borderRadius: 8, border: '1px solid #DDE3EA', fontSize: 14, lineHeight: '20px', fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box', background: '#fff', WebkitAppearance: 'none', appearance: 'none' }
+const convertDayBtnStyle = { flex: 1, padding: '9px', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
 
 // "AUG 13 – 16" (same month collapses to one label; cross-month shows both).
 function fmtStayRange(ci, co) {
@@ -971,7 +966,7 @@ function MealRow({ meal, isCommissioner, onEditMeal }) {
     <button type="button" disabled={!clickable}
       onClick={clickable ? () => onEditMeal(meal) : undefined}
       style={{ ...scheduleRowStyle, cursor: clickable ? 'pointer' : 'default' }}>
-      <div style={mealLabelLineStyle}>{`Meal${typeLabel ? ' · ' + typeLabel : ''}`}</div>
+      <div style={mealLabelLineStyle}>{typeLabel || 'Meal'}</div>
       <div style={{ fontSize: 13, marginTop: 2 }}>
         <span style={{ fontWeight: 700, color: '#0D1B2A' }}>{name}</span>
         {detail && <span style={{ color: '#7A8FA6' }}> — {detail}</span>}
@@ -1071,7 +1066,7 @@ function MealModal({ meal, saving, onSave, onDelete, onClose }) {
             width:100% (it otherwise shrinks to intrinsic content width). */}
         <input style={{ ...modalInput, display: 'block', WebkitAppearance: 'none', appearance: 'none' }} type="time" value={time} onChange={e => setTime(e.target.value)} />
         <div style={modalFieldLabel}>Notes (optional)</div>
-        <textarea style={{ ...modalInput, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
+        <textarea style={{ ...modalInput, height: 'auto', minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
         <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
           onClick={submit} disabled={saving}>{saving ? 'Saving…' : (isNew ? 'Add Meal' : 'Save Meal')}</button>
         {!isNew && (
@@ -1128,7 +1123,7 @@ function StayModal({ stay, saving, tripStartDate, tripEndDate, onSave, onDelete,
         <div style={modalFieldLabel}>Confirmation # (optional)</div>
         <input style={modalInput} value={confirmation} onChange={e => setConfirmation(e.target.value)} />
         <div style={modalFieldLabel}>Notes (optional)</div>
-        <textarea style={{ ...modalInput, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
+        <textarea style={{ ...modalInput, height: 'auto', minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
         <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
           onClick={submit} disabled={saving}>{saving ? 'Saving…' : (isNew ? 'Add Stay' : 'Save Stay')}</button>
         {!isNew && (
@@ -2067,7 +2062,7 @@ export default function MenuDrawer({
 
   // Revert a golf round back to a non-golf day: delete the round (and its
   // dependent rows) and mark the day Travel/Non-Golf, so the Courses page shows
-  // the slim placeholder again. Used to undo an accidentally added round.
+  // the slim placeholder again. Invoked from the Edit Course modal.
   async function revertRoundToDay(round, dayType) {
     const label = dayType === 'travel' ? 'Travel Day' : 'Non-Golf Day'
     if (!window.confirm(`Remove this round and set ${fmtShort(round.date)} to ${label}? This deletes the round and any scores entered for it.`)) return
@@ -2084,15 +2079,15 @@ export default function MenuDrawer({
     if (error) { console.error('[MenuDrawer] revertRoundToDay failed:', error); return }
 
     await setDayType(round.date, dayType)
+    setEditRound(null)         // close the Edit modal
     setCoursesData(null)       // reload — the day now shows the placeholder
     if (onRoundsChanged) onRoundsChanged()
   }
 
-  // Route a round-card dropdown selection: round types update the round; the
-  // Travel/Non-Golf options revert the day to a placeholder.
+  // Round-type selector now only sets the round type (Tournament/Practice/Not
+  // Set). Converting a day to Travel/Non-Golf lives in the Edit Course modal.
   function handleRoundTypeSelect(round, val) {
-    if (val === 'travel' || val === 'non_golf') revertRoundToDay(round, val)
-    else changeRoundType(round.id, val)
+    changeRoundType(round.id, val)
   }
 
   // ── Meals ──
@@ -2136,11 +2131,24 @@ export default function MenuDrawer({
   async function saveStay(stayData) {
     setSavingStay(true)
     const { id, ...fields } = stayData
-    const { error } = id
-      ? await supabase.from('stays').update(fields).eq('id', id)
-      : await supabase.from('stays').insert({ trip_id: tripId, ...fields })
+    const write = (payload) => id
+      ? supabase.from('stays').update(payload).eq('id', id)
+      : supabase.from('stays').insert({ trip_id: tripId, ...payload })
+    let { error } = await write(fields)
+    // The `address` column exists only after migration 20260653. If it hasn't
+    // been run yet the write fails ("column address does not exist") — retry
+    // without address so the rest of the stay still saves (address persists once
+    // the migration is applied).
+    if (error && /address/i.test(error.message || '') && 'address' in fields) {
+      const { address, ...rest } = fields
+      ;({ error } = await write(rest))
+    }
     setSavingStay(false)
-    if (error) { console.error('[MenuDrawer] saveStay failed:', error); return }
+    if (error) {
+      console.error('[MenuDrawer] saveStay failed:', error)
+      alert('Could not save the stay: ' + (error.message || 'unknown error'))
+      return
+    }
     setEditStay(null)
     setCoursesData(null)
     if (onRoundsChanged) onRoundsChanged()
@@ -2296,6 +2304,15 @@ export default function MenuDrawer({
               onCourseSelected={saveCourseEdit}
             />
             {savingCourse && <div style={{ ...s.muted, textAlign: 'center', marginTop: '10px' }}>Saving…</div>}
+            {/* Convert this day to a non-golf day (moved here from the type pill). */}
+            <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>
+              <div style={modalFieldLabel}>Change day type</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button style={convertDayBtnStyle} onClick={() => revertRoundToDay(editRound, 'travel')}>Travel Day</button>
+                <button style={convertDayBtnStyle} onClick={() => revertRoundToDay(editRound, 'non_golf')}>Non-Golf Day</button>
+              </div>
+              <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Removes this round and any scores entered for it.</div>
+            </div>
           </div>
         </div>
       )}

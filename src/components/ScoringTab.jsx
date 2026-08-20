@@ -33,10 +33,12 @@ function firstName(name) { return (name || '').trim().split(/\s+/)[0] || '—' }
 function formatRoundPillName(clubName) {
   if (!clubName) return '—'
   const stripped = clubName
-    .replace(/\b(Golf Club|Golf Course|Country Club|CC|GC|Golf)\b/gi, '')
+    // Drop generic suffixes and the filler word "of" (e.g. "TPC of Scottsdale"
+    // → "TPC Scottsdale") so the abbreviated pill never reads "TPC of".
+    .replace(/\b(Golf Club|Golf Course|Country Club|CC|GC|Golf|of)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim()
-  if (stripped.length <= 12) return stripped
+  if (stripped.length <= 14) return stripped
   return stripped.split(' ').filter(Boolean).slice(0, 2).join(' ')
 }
 function initialsOf(p) {
