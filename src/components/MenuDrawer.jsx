@@ -7,7 +7,7 @@ import { uniqueChannelName } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
-import { courseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes } from '../lib/scoring'
+import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes } from '../lib/scoring'
 import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
 import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } from '../lib/meals'
@@ -541,8 +541,11 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   const rows = players.map(p => {
     const saved = playerRoundsMap?.[`${round.id}:${p.id}`]
     const tee = resolvePlayerTee(round, saved)
-    const courseHCP = courseHandicapForTee(p.handicap_index, tee.slope, tee.rating, tee.par)
-    const playing = courseHCP == null ? null : Math.round(courseHCP * (alw / 100))
+    // Displayed Course Handicap is the rounded value; Playing Handicap is rounded
+    // ONCE from the RAW unrounded course handicap (official WHS order of ops).
+    const rawCH = rawCourseHandicapForTee(p.handicap_index, tee.slope, tee.rating, tee.par)
+    const courseHCP = rawCH == null ? null : Math.round(rawCH)
+    const playing = rawCH == null ? null : Math.round(rawCH * (alw / 100))
     return { id: p.id, name: p.name, idx: p.handicap_index, courseHCP, playing, teeName: saved?.tee_name ?? defaultTeeName, player: p }
   })
   // SHOTS OFF = shots given = playing HCP minus the LOWEST playing HCP among this

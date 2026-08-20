@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { strokesOnHole, netScore, courseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally } from '../lib/scoring'
+import { strokesOnHole, netScore, rawCourseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally } from '../lib/scoring'
 import { teamPillStyle, getTeamDisplayName, teamColor, colorIndexOf } from '../lib/teamColors'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import PullToRefresh from './PullToRefresh'
@@ -370,7 +370,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const allowance = trip.handicap_allowance ?? 100
   const chEntries = [1, 2, 3, 4].map(s => slotMap[s]).filter(Boolean).map(id => {
     const tee = resolvePlayerTee(round, playerRoundsMap[`${round.id}:${id}`])
-    return { id, ch: courseHandicapForTee(playersById[id]?.handicap_index, tee.slope, tee.rating, tee.par) }
+    return { id, ch: rawCourseHandicapForTee(playersById[id]?.handicap_index, tee.slope, tee.rating, tee.par) }
   })
   const shotsByTp = shotsGivenFromCourseHandicaps(chEntries, allowance)
   const sgOf = tpId => shotsByTp.get(tpId) ?? 0

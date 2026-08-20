@@ -104,18 +104,29 @@ export function netScore(gross, playingHandicap, strokeIndex) {
   return gross - strokesOnHole(playingHandicap, strokeIndex)
 }
 
-// Course handicap for a SPECIFIC tee, using the World Handicap System formula:
-//   round(handicap_index * (slope / 113) + (course_rating - par))
+// RAW (UNROUNDED) course handicap for a SPECIFIC tee — the WHS formula in full
+// precision: handicap_index * (slope / 113) + (course_rating - par).
 // slope defaults to neutral 113; the rating adjustment is dropped when rating or
-// par is missing so a tee with only a slope still yields a sensible number.
-export function courseHandicapForTee(handicapIndex, slope, rating, par) {
+// par is missing. Returns null when the index isn't a finite number.
+// This unrounded value is the input to the Playing Handicap calc: per the
+// official USGA/R&A rule the course handicap is rounded ONCE, at the Playing
+// Handicap step (round(raw × allowance%)), NOT before the allowance is applied.
+export function rawCourseHandicapForTee(handicapIndex, slope, rating, par) {
   const hi = Number(handicapIndex)
   if (!Number.isFinite(hi)) return null
   const sl = Number(slope) || 113
   const r = Number(rating)
   const p = Number(par)
   const ratingAdj = (Number.isFinite(r) && Number.isFinite(p)) ? (r - p) : 0
-  return Math.round(hi * (sl / 113) + ratingAdj)
+  return hi * (sl / 113) + ratingAdj
+}
+
+// The DISPLAYED Course Handicap: the raw value rounded to a whole number. Used
+// for the Handicaps table's Course column (and net-double-bogey adjustments) —
+// NOT as the input to the Playing Handicap calc (that uses the raw value above).
+export function courseHandicapForTee(handicapIndex, slope, rating, par) {
+  const raw = rawCourseHandicapForTee(handicapIndex, slope, rating, par)
+  return raw == null ? null : Math.round(raw)
 }
 
 // Resolve the tee (slope / rating / par) a player is playing for a round.
@@ -138,14 +149,16 @@ export function resolvePlayerTee(round, playerRoundRow) {
   }
 }
 
-// WHS better-ball "shots given" for a group (pairing). Each player's PLAYING
-// handicap is round(courseHandicap × allowance/100) — the absolute figure shown
-// in the Schedule & Courses PLAYING column. Shots given (the strokes a player
-// receives, and hence their stroke dots) are that minus the LOWEST playing
-// handicap in the group, so the lowest player plays off scratch (0). Rounding is
-// done on each player's playing handicap FIRST, then the minimum is subtracted —
-// this is what makes dots, net scores and the SHOTS OFF column all agree.
-// `entries` is an array of { id, ch } (ch may be null → 0). Returns Map id -> shots.
+// WHS better-ball "shots given" for a group (pairing). Per the official USGA/R&A
+// rule, each player's PLAYING handicap = round(RAW unrounded course handicap ×
+// allowance/100) — the course handicap is rounded ONCE, HERE, from the full-
+// precision value (NOT from a pre-rounded course handicap). This is the absolute
+// figure shown in the Schedule & Courses PLAYING column. Shots given (strokes
+// received, i.e. stroke dots) are that minus the LOWEST playing handicap in the
+// group, so the lowest player plays off scratch (0) — keeping dots, net scores
+// and the SHOTS OFF column all in agreement.
+// `entries` is an array of { id, ch } where `ch` is the RAW unrounded course
+// handicap (rawCourseHandicapForTee); null → 0. Returns Map id -> shots.
 export function shotsGivenFromCourseHandicaps(entries, allowance = 100) {
   const playing = entries.map(e => ({ id: e.id, ph: e.ch == null ? null : Math.round(e.ch * (allowance / 100)) }))
   const valid = playing.filter(p => p.ph != null).map(p => p.ph)
@@ -272,7 +285,7 @@ export function analyzeScoring(
     for (const group of groupsForRound(r)) {
       const entries = group.map(tp => {
         const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${tp}`))
-        return { id: tp, ch: courseHandicapForTee(hcpByPlayer.get(tp), tee.slope, tee.rating, tee.par) }
+        return { id: tp, ch: rawCourseHandicapForTee(hcpByPlayer.get(tp), tee.slope, tee.rating, tee.par) }
       })
       const phMap = shotsGivenFromCourseHandicaps(entries, allowance)
       for (const [tp, ph] of phMap) playing.set(tp, ph)
@@ -403,7 +416,7 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
       // lowest — the same value the scorecard stroke dots use, so net matches dots.
       const entries = [...t1Players, ...t2Players].map(id => {
         const tee = resolvePlayerTee(round, getTeeRow(id))
-        return { id, ch: courseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
+        return { id, ch: rawCourseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
       })
       const playing = shotsGivenFromCourseHandicaps(entries, allowance)
 
@@ -624,7 +637,7 @@ export function liveStandardMatchTally(round, pairings, pairingPlayers, scoresMa
     // lowest — the same value the scorecard stroke dots use, so net matches dots.
     const entries = all.map(id => {
       const tee = resolvePlayerTee(round, getTeeRow(id))
-      return { id, ch: courseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
+      return { id, ch: rawCourseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
     })
     const playing = shotsGivenFromCourseHandicaps(entries, allowance)
 
@@ -737,7 +750,7 @@ export function standardHolesWonByPlayer(
       // Low-ball playing handicaps (per-player tee), identical to liveStandardMatchTally.
       const entries = all.map(id => {
         const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
-        return { id, ch: courseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
+        return { id, ch: rawCourseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
       })
       const playing = shotsGivenFromCourseHandicaps(entries, allowance)
       const grossFor = id => {

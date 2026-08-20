@@ -1,61 +1,73 @@
-// Regression check for the WHS two-step handicap math. Run: `npm test`.
+// Regression check for the WHS handicap math. Run: `npm test`.
 //
-// The bug this guards against is invisible at 100% allowance (rounding once vs.
-// twice give the same result there) and only surfaces at other allowances — so
-// these cases lock in the official USGA World Handicap System order of operations:
-//   1. Course Handicap = ROUND(Index × (Slope/113) + (Rating − Par))  ← full
-//      DECIMAL index, rounded ONCE.
-//   2. Playing Handicap = ROUND(CourseHandicap × Allowance%)          ← a SEPARATE
-//      round applied to the already-rounded Course Handicap.
-//   3. Shots off = PlayingHandicap − lowest PlayingHandicap in the group.
+// Official USGA/R&A World Handicap System order of operations:
+//   Course Handicap (raw) = Index × (Slope/113) + (Rating − Par)   ← full decimal
+//   Playing Handicap      = ROUND(raw Course Handicap × Allowance%) ← rounded ONCE,
+//     from the UNROUNDED course handicap (NOT from a pre-rounded course handicap).
+//   Shots off             = Playing Handicap − lowest Playing Handicap in the group.
+// The displayed Course Handicap is the raw value rounded to a whole number, but
+// that rounded value is NOT what feeds the Playing Handicap calc.
 // Rounding is "round half up" (Math.round), NOT banker's rounding.
 //
-// Reference: Arizona Country Club — Rating 71.5, Slope 128, Par 72.
+// This double-vs-single rounding is invisible at 100% allowance and only diverges
+// at other allowances — hence these cases, which lock in the single-rounding order.
+// Reference: Arizona Country Club — Rating 71.5, Slope 128, Par 72 (verified
+// against USGA's own calculator).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { courseHandicapForTee, shotsGivenFromCourseHandicaps } from './scoring.js'
+import { rawCourseHandicapForTee, courseHandicapForTee, shotsGivenFromCourseHandicaps } from './scoring.js'
 
 const SL = 128, RT = 71.5, PAR = 72
-const playingHcp = (ch, allowance) => Math.round(ch * (allowance / 100))
 function group(players, allowance) {
-  const entries = players.map(([id, idx]) => ({ id, ch: courseHandicapForTee(idx, SL, RT, PAR) }))
-  const shots = shotsGivenFromCourseHandicaps(entries, allowance)
-  return entries.map(e => ({ ch: e.ch, ph: playingHcp(e.ch, allowance), shots: shots.get(e.id) }))
+  const entries = players.map(([id, idx]) => ({ id, raw: rawCourseHandicapForTee(idx, SL, RT, PAR) }))
+  const shots = shotsGivenFromCourseHandicaps(entries.map(e => ({ id: e.id, ch: e.raw })), allowance)
+  return entries.map(e => ({
+    displayCH: Math.round(e.raw),
+    ph: Math.round(e.raw * (allowance / 100)),
+    shots: shots.get(e.id),
+  }))
 }
 const REF = [['Monty', 5], ['Owen', 7], ['Nicole', 15]]
 
-test('Course Handicap: full decimal index, rounded once', () => {
-  assert.equal(courseHandicapForTee(5, SL, RT, PAR), 5)   // raw 5.164 → 5
-  assert.equal(courseHandicapForTee(7, SL, RT, PAR), 7)   // raw 7.429 → 7
-  assert.equal(courseHandicapForTee(15, SL, RT, PAR), 16) // raw 16.491 → 16
-  // A decimal index must be used EXACTLY (not floored to a whole number first):
-  //   7.4 → raw 7.882 → CH 8, whereas index 7 → CH 7. If 7.4 were pre-floored to
-  //   7 this would (wrongly) give 7.
-  assert.equal(courseHandicapForTee(7.4, SL, RT, PAR), 8)
+test('raw Course Handicap keeps full decimal precision; displayed value is rounded', () => {
+  assert.ok(Math.abs(rawCourseHandicapForTee(5, SL, RT, PAR) - 5.163717) < 1e-4)
+  assert.ok(Math.abs(rawCourseHandicapForTee(7, SL, RT, PAR) - 7.429204) < 1e-4)
+  assert.ok(Math.abs(rawCourseHandicapForTee(15, SL, RT, PAR) - 16.491150) < 1e-4)
+  assert.equal(courseHandicapForTee(5, SL, RT, PAR), 5)   // displayed
+  assert.equal(courseHandicapForTee(7, SL, RT, PAR), 7)
+  assert.equal(courseHandicapForTee(15, SL, RT, PAR), 16)
 })
 
-test('90% allowance — reference case (the two-step bug is visible here)', () => {
+test('90% allowance — official single-rounding from the RAW course handicap', () => {
   const [m, o, n] = group(REF, 90)
-  assert.deepEqual([m.ch, o.ch, n.ch], [5, 7, 16], 'Course Handicap')
-  assert.deepEqual([m.ph, o.ph, n.ph], [5, 6, 14], 'Playing Handicap (separate round of CH×90%)')
-  assert.deepEqual([m.shots, o.shots, n.shots], [0, 1, 9], 'Shots off the lowest Playing Handicap')
+  assert.deepEqual([m.displayCH, o.displayCH, n.displayCH], [5, 7, 16], 'displayed Course Handicap')
+  // ROUND(5.164×.9)=5, ROUND(7.429×.9)=ROUND(6.686)=7, ROUND(16.491×.9)=ROUND(14.842)=15
+  // (double-rounding would wrongly give 5/6/14 here — that was the bug.)
+  assert.deepEqual([m.ph, o.ph, n.ph], [5, 7, 15], 'Playing Handicap (single round of raw×90%)')
+  assert.deepEqual([m.shots, o.shots, n.shots], [0, 2, 10], 'Shots off the lowest Playing Handicap')
 })
 
 test('round half UP at a .5 boundary (not banker\'s rounding)', () => {
-  // Monty: ROUND(5 × 0.90) = ROUND(4.5) = 5. Banker's rounding would give 4.
-  assert.equal(Math.round(4.5), 5)
-  assert.equal(playingHcp(5, 90), 5)
+  assert.equal(Math.round(4.5), 5) // banker's rounding would give 4
 })
 
-test('100% allowance — Playing Handicap equals Course Handicap', () => {
+test('100% allowance — Playing Handicap equals the rounded Course Handicap', () => {
   const [m, o, n] = group(REF, 100)
   assert.deepEqual([m.ph, o.ph, n.ph], [5, 7, 16])
   assert.deepEqual([m.shots, o.shots, n.shots], [0, 2, 11])
 })
 
-test('95% allowance — consistent two-step behaviour', () => {
+test('95% allowance — consistent single-rounding from raw', () => {
   const [m, o, n] = group(REF, 95)
-  // ROUND(5×.95)=5, ROUND(7×.95)=ROUND(6.65)=7, ROUND(16×.95)=ROUND(15.2)=15
-  assert.deepEqual([m.ph, o.ph, n.ph], [5, 7, 15])
-  assert.deepEqual([m.shots, o.shots, n.shots], [0, 2, 10])
+  // ROUND(5.164×.95)=5, ROUND(7.429×.95)=ROUND(7.058)=7, ROUND(16.491×.95)=ROUND(15.667)=16
+  assert.deepEqual([m.ph, o.ph, n.ph], [5, 7, 16])
+  assert.deepEqual([m.shots, o.shots, n.shots], [0, 2, 11])
+})
+
+test('decimal Handicap Index carries full precision into the Playing Handicap', () => {
+  // Index 7.4 → raw CH 7.882 (used EXACTLY, not floored to 7 or pre-rounded to 8).
+  const raw = rawCourseHandicapForTee(7.4, SL, RT, PAR)
+  assert.ok(Math.abs(raw - 7.882301) < 1e-4)
+  assert.equal(courseHandicapForTee(7.4, SL, RT, PAR), 8)   // displayed
+  assert.equal(Math.round(raw * 0.90), 7)                   // Playing @90% = ROUND(7.094)
 })

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import {
-  analyzeScoring, standardHolesWonByPlayer, resolvePlayerTee, courseHandicapForTee, strokesOnHole, playerName, firstName,
+  analyzeScoring, standardHolesWonByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName,
 } from '../lib/scoring'
 
 // ── Trip Stats ────────────────────────────────────────────────────
@@ -14,13 +14,14 @@ import {
 //     pairing-relative net analyzeScoring uses for match play.
 //   • Best/Worst round: gross 18-hole totals for complete 18-hole rounds only.
 
-// Absolute per-player playing handicap for a round (course handicap × allowance,
-// no pairing-relative subtraction — this is an individual stat, not match play).
+// Absolute per-player playing handicap for a round: round(RAW course handicap ×
+// allowance) per the official WHS order (single rounding, from the unrounded
+// course handicap). Individual stat, not pairing-relative match play.
 function absPlayingHandicap(round, teeRow, handicapIndex, allowance) {
   const tee = resolvePlayerTee(round, teeRow)
-  const ch = courseHandicapForTee(handicapIndex, tee.slope, tee.rating, tee.par)
-  if (ch == null) return 0
-  return Math.max(0, Math.round(ch * (allowance / 100)))
+  const rawCH = rawCourseHandicapForTee(handicapIndex, tee.slope, tee.rating, tee.par)
+  if (rawCH == null) return 0
+  return Math.max(0, Math.round(rawCH * (allowance / 100)))
 }
 
 function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance) {
