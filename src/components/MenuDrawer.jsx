@@ -822,17 +822,22 @@ const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase
 
 // Card for a day with no golf round — coloured left accent per day type, lighter
 // than the navy golf cards. Commissioners can add a round.
-function PlaceholderDayCard({ date, type, isCommissioner, onAddRound }) {
+function PlaceholderDayCard({ date, type, isCommissioner, onAddRound, meals = [], onEditMeal, onAddMeal, onMealTypeChange, onCustomLabel }) {
   const meta = DAY_PLACEHOLDER_META[type] || DAY_PLACEHOLDER_META.unknown
   return (
-    <div style={{ background: '#EAEFF4', border: '1px solid #CFD9E4', borderLeft: `5px solid ${meta.accent}`, borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{fmtShort(date)}</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#2C3E50', marginTop: 2 }}>{meta.label}</div>
+    <div style={{ background: '#EAEFF4', border: '1px solid #CFD9E4', borderLeft: `5px solid ${meta.accent}`, borderRadius: 10, padding: '14px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{fmtShort(date)}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#2C3E50', marginTop: 2 }}>{meta.label}</div>
+        </div>
+        {isCommissioner && (
+          <button style={{ ...s.editCourseBtn, marginTop: 0, flexShrink: 0 }} onClick={() => onAddRound(date)}>+ Add Round</button>
+        )}
       </div>
-      {isCommissioner && (
-        <button style={{ ...s.editCourseBtn, marginTop: 0, flexShrink: 0 }} onClick={() => onAddRound(date)}>+ Add Round</button>
-      )}
+      {/* Meals apply to every day type — same section as the golf day cards. */}
+      <MealsSection date={date} meals={meals} isCommissioner={isCommissioner}
+        onEditMeal={onEditMeal} onAddMeal={onAddMeal} onMealTypeChange={onMealTypeChange} onCustomLabel={onCustomLabel} />
     </div>
   )
 }
@@ -856,9 +861,14 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, all
       {days.map(date => {
     const dayRounds = roundsByDate[date] || []
     const dayMeals = mealsByDate[date] || []
-    // Empty day → slim placeholder by stored day type.
+    // Non-golf day → slim placeholder by stored day type, with its own Meals section.
     if (dayRounds.length === 0) {
-      return <PlaceholderDayCard key={date} date={date} type={scheduleByDate[date]} isCommissioner={isCommissioner} onAddRound={onAddRound} />
+      return (
+        <PlaceholderDayCard
+          key={date} date={date} type={scheduleByDate[date]} isCommissioner={isCommissioner} onAddRound={onAddRound}
+          meals={dayMeals} onEditMeal={onEditMeal} onAddMeal={onAddMeal} onMealTypeChange={onMealTypeChange} onCustomLabel={onCustomLabel}
+        />
+      )
     }
     return (
       <Card key={date} title={fmtShort(date)}>
