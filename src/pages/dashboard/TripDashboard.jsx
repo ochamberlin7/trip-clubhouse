@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import { getActiveRound, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
+import { mealTypeLabel } from '../../lib/meals'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
@@ -809,7 +810,25 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
   )
 }
 
-function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound, playerCount = 0 }) {
+// Compact, read-only meal row for the Tee Times list: time on the left, the
+// restaurant name + meal type as the row text, a "Meal" tag on the right. Editing
+// meals happens only on the Schedule & Courses page.
+function MealTeeRow({ meal }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', gap: 10 }}>
+      <span style={{ fontSize: 12, color: '#7A8FA6', fontWeight: 600, width: 68, flexShrink: 0 }}>{meal.meal_time || 'TBD'}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {(meal.location || '').trim() || mealTypeLabel(meal)}
+        </div>
+        <div style={{ fontSize: 11, color: '#7A8FA6' }}>{mealTypeLabel(meal)}</div>
+      </div>
+      <span className="type-pill meal">Meal</span>
+    </div>
+  )
+}
+
+function TabTeeTimes({ rounds, meals = [], trip, isCommissioner, onUpdateRound, playerCount = 0 }) {
   // One tee-time row per pairing — a pairing is a 2v2 foursome, so pairings
   // scale by GROUPS of 4 (1-4 players → 1, 5-8 → 2, …), matching the count
   // ScoringTab shows. Bounded at 5 (the 20-player max ⇒ 5 pairings; storage is
@@ -817,7 +836,15 @@ function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound, playerCount 
   const numPairings = Math.min(5, Math.max(1, Math.ceil(playerCount / 4)))
   // 'none' rounds are placeholders ("not decided yet") — not shown in tee times.
   const teeRounds = rounds.filter(r => r.round_type !== 'none')
-  if (teeRounds.length === 0) {
+
+  // Days = union of golf-round days and meal days (lodging is deliberately NOT
+  // shown here — a stay isn't a "be here at time X" event).
+  const dayMap = {} // date -> { rounds: [], meals: [] }
+  teeRounds.forEach(r => { (dayMap[r.date] ??= { rounds: [], meals: [] }).rounds.push(r) })
+  meals.forEach(m => { if (m.day) (dayMap[m.day] ??= { rounds: [], meals: [] }).meals.push(m) })
+  const days = Object.keys(dayMap).filter(Boolean).sort()
+
+  if (days.length === 0) {
     return (
       <div className="empty-state">
         <span className="empty-state-icon">⏰</span>
@@ -826,43 +853,62 @@ function TabTeeTimes({ rounds, trip, isCommissioner, onUpdateRound, playerCount 
     )
   }
 
-  const groups = groupByDate(teeRounds)
-
   async function saveTeeTime(roundId, col, display) {
     await supabase.from('rounds').update({ [col]: display }).eq('id', roundId)
     onUpdateRound(roundId, { [col]: display })
   }
 
+  const teeMinutes = t => (t ? parseTeeTimeToMinutes(t) : Infinity) // unset → bottom
+
   return (
     <div>
-      {groups.map(([date, dayRounds]) => (
-        <div key={date} className="tee-group">
-          <div className="tee-group-header">{fmtDayHeader(date)}</div>
-          {dayRounds.map(r => {
-            const isTournament = r.round_type !== 'practice'
-            return (
-              <div key={r.id} style={{ background: 'var(--bg1)', padding: '12px 14px', borderTop: '1px solid var(--bg2)' }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A' }}>{r.course_name}</div>
+      {days.map(date => {
+        const { rounds: dayRounds, meals: dayMeals } = dayMap[date]
+        const sortedMeals = [...dayMeals].sort((a, b) => teeMinutes(a.meal_time) - teeMinutes(b.meal_time))
+        return (
+          <div key={date} className="tee-group">
+            <div className="tee-group-header">{fmtDayHeader(date)}</div>
+            {dayRounds.map((r, ri) => {
+              const isTournament = r.round_type !== 'practice'
+              // Merge this round's pairing tee times with the day's meals into ONE
+              // chronological list (meals attach to the day's first round block so
+              // they aren't duplicated across multiple rounds).
+              const teeItems = Array.from({ length: numPairings }, (_, i) => i + 1)
+                .map(slot => ({ kind: 'tee', slot, minutes: teeMinutes(r[`tee_time_${slot}`]) }))
+              const mealItems = (ri === 0 ? sortedMeals : []).map(m => ({ kind: 'meal', meal: m, minutes: teeMinutes(m.meal_time) }))
+              const merged = [...teeItems, ...mealItems].sort((a, b) => a.minutes - b.minutes)
+              return (
+                <div key={r.id} style={{ background: 'var(--bg1)', padding: '12px 14px', borderTop: '1px solid var(--bg2)' }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A' }}>{r.course_name}</div>
 
-                {/* Round type — read-only; managed in the Courses page. */}
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, marginBottom: 10 }}>
-                  <span className={`type-pill ${isTournament ? 'tournament' : 'practice'}`}>
-                    {isTournament ? 'Tournament' : 'Practice'}
-                  </span>
-                </div>
-
-                {/* Pairing tee-time rows — scaled to the number of pairings */}
-                {Array.from({ length: numPairings }, (_, i) => i + 1).map(slot => (
-                  <div key={slot} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0' }}>
-                    <span style={{ fontSize: 12, color: '#7A8FA6', fontWeight: 500 }}>Pairing {slot}</span>
-                    <TimeCell round={r} slot={slot} isCommissioner={isCommissioner} onSave={saveTeeTime} />
+                  {/* Round type — read-only; managed in the Courses page. */}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, marginBottom: 10 }}>
+                    <span className={`type-pill ${isTournament ? 'tournament' : 'practice'}`}>
+                      {isTournament ? 'Tournament' : 'Practice'}
+                    </span>
                   </div>
-                ))}
+
+                  {/* Pairing tee-time rows + meal rows, sorted chronologically together. */}
+                  {merged.map(item => item.kind === 'tee' ? (
+                    <div key={`t${item.slot}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0' }}>
+                      <span style={{ fontSize: 12, color: '#7A8FA6', fontWeight: 500 }}>Pairing {item.slot}</span>
+                      <TimeCell round={r} slot={item.slot} isCommissioner={isCommissioner} onSave={saveTeeTime} />
+                    </div>
+                  ) : (
+                    <MealTeeRow key={`m${item.meal.id}`} meal={item.meal} />
+                  ))}
+                </div>
+              )
+            })}
+            {/* Meal-only day (no golf rounds) → the meals still appear here. */}
+            {dayRounds.length === 0 && (
+              <div style={{ background: 'var(--bg1)', padding: '12px 14px', borderTop: '1px solid var(--bg2)' }}>
+                {sortedMeals.map(m => <MealTeeRow key={m.id} meal={m} />)}
               </div>
-            )
-          })}
-        </div>
-      ))}
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -1012,6 +1058,7 @@ export default function TripDashboard() {
   const [showTripBanner, setShowTripBanner] = useState(location.state?.singleTripWarning ?? false)
   const [trip, setTrip] = useState(null)
   const [rounds, setRounds] = useState([])
+  const [meals, setMeals] = useState([]) // trip meals, woven into the Tee Times list
   const [players, setPlayers] = useState([])
   const [teams, setTeams] = useState([])
   const [isCommissioner, setIsCommissioner] = useState(false)
@@ -1063,7 +1110,7 @@ export default function TripDashboard() {
       if (!tripData) { setLoading(false); return }
       setTrip(tripData)
 
-      const [roundsRes, playersRes, teamsRes, memberRes] = await Promise.all([
+      const [roundsRes, playersRes, teamsRes, memberRes, mealsRes] = await Promise.all([
         // Calendar order (date asc); round_number only breaks ties within a day.
         supabase.from('rounds').select('*').eq('trip_id', tripData.id).order('date').order('round_number'),
         supabase.from('trip_players').select('id, user_id, guest_name, handicap_index').eq('trip_id', tripData.id),
@@ -1071,9 +1118,11 @@ export default function TripDashboard() {
         user?.id
           ? supabase.from('group_members').select('role').eq('group_id', tripData.group_id).eq('user_id', user.id).maybeSingle()
           : Promise.resolve({ data: null }),
+        supabase.from('meals').select('*').eq('trip_id', tripData.id).order('day'),
       ])
       if (roundsRes.error) throw roundsRes.error
       setIsCommissioner(memberRes.data?.role === 'admin')
+      setMeals(mealsRes.data || [])
 
       const rawPlayers = playersRes.data || []
       const userIds = rawPlayers.map(p => p.user_id).filter(Boolean)
@@ -1175,6 +1224,9 @@ export default function TripDashboard() {
     // Calendar order (date asc); round_number only breaks ties within a day.
     const { data } = await supabase.from('rounds').select('*').eq('trip_id', trip.id).order('date').order('round_number')
     if (data) setRounds(data)
+    // Meals change via the Schedule page's onRoundsChanged too — keep Tee Times fresh.
+    const { data: mealData } = await supabase.from('meals').select('*').eq('trip_id', trip.id).order('day')
+    if (mealData) setMeals(mealData)
   }
 
   if (loading) return <div className="loading-screen">Loading trip…</div>
@@ -1274,7 +1326,7 @@ export default function TripDashboard() {
         {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} />}
-        {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
+        {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} meals={meals} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
       </div>
 
       {/* Floating live-score banner — mounted once here so it persists across tabs */}

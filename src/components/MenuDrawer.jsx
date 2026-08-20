@@ -7,9 +7,10 @@ import { uniqueChannelName } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
-import { courseHandicapForTee, resolvePlayerTee, tournamentFormatLabel } from '../lib/scoring'
+import { courseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes } from '../lib/scoring'
 import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
+import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } from '../lib/meals'
 import { ProfileBadge } from './ProfileAvatar'
 import SupportForm from './SupportForm'
 
@@ -836,15 +837,25 @@ function PlaceholderDayCard({ date, type, isCommissioner, onAddRound }) {
   )
 }
 
-function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound }) {
+function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, tripStartDate, tripEndDate, onEditStay, onAddStay, onEditMeal, onAddMeal, onMealTypeChange, onCustomLabel }) {
   if (!data) return <div style={s.muted}>Loading…</div>
-  const { days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds } = data
+  const { days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, stays = [], mealsByDate = {} } = data
+  const staysBanner = <StaysSection stays={stays} isCommissioner={isCommissioner} tripStartDate={tripStartDate} tripEndDate={tripEndDate} onEditStay={onEditStay} onAddStay={onAddStay} />
   if (!days || days.length === 0) {
-    return <Card title="Schedule"><div style={s.muted}>Course schedule will appear once the trip dates are set.</div></Card>
+    return (
+      <>
+        {staysBanner}
+        <Card title="Schedule"><div style={s.muted}>Course schedule will appear once the trip dates are set.</div></Card>
+      </>
+    )
   }
   const todayIso = new Date().toISOString().slice(0, 10)
-  return days.map(date => {
+  return (
+    <>
+      {staysBanner}
+      {days.map(date => {
     const dayRounds = roundsByDate[date] || []
+    const dayMeals = mealsByDate[date] || []
     // Empty day → slim placeholder by stored day type.
     if (dayRounds.length === 0) {
       return <PlaceholderDayCard key={date} date={date} type={scheduleByDate[date]} isCommissioner={isCommissioner} onAddRound={onAddRound} />
@@ -898,9 +909,310 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, all
             </div>
           )
         })}
+        <MealsSection date={date} meals={dayMeals} isCommissioner={isCommissioner}
+          onEditMeal={onEditMeal} onAddMeal={onAddMeal} onMealTypeChange={onMealTypeChange} onCustomLabel={onCustomLabel} />
       </Card>
     )
-  })
+      })}
+    </>
+  )
+}
+
+// ── Stays (lodging) + Meals ───────────────────────────────────────
+// Shared visual tokens, matching the app's card/pill/field-row language.
+const stayBannerStyle = { background: '#EAEFF4', border: '1px solid #CFD9E4', borderLeft: '5px solid #1B3F6E', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }
+const stayLabelStyle = { fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }
+const stayTitleStyle = { fontSize: 15, fontWeight: 700, color: '#2C3E50', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const staySubStyle = { fontSize: 12, color: '#7A8FA6', marginTop: 2 }
+const mealsLabelStyle = { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#7A8FA6', margin: '14px 0 8px' }
+const mealSubCardStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: 8 }
+const addActionStyle = { display: 'block', width: '100%', background: '#fff', border: '1px dashed #C4CEDA', color: '#1B3F6E', fontSize: 12, fontWeight: 700, borderRadius: 6, padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }
+const mealCustomInputStyle = { width: '100%', marginTop: 8, padding: '7px 10px', borderRadius: 6, border: '1px solid #DDE3EA', fontSize: 13, fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box' }
+const mealBadgeStyle = { ...typeBadgeBase, background: 'rgba(15,110,86,0.1)', color: '#0F6E56', border: '1px solid #0F6E56' }
+const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', margin: '12px 0 5px' }
+const modalInput = { width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #DDE3EA', fontSize: 14, fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box', background: '#fff' }
+
+// "AUG 13 – 16" (same month collapses to one label; cross-month shows both).
+function fmtStayRange(ci, co) {
+  const a = parseDate(ci), b = parseDate(co)
+  if (!a && !b) return ''
+  if (a && !b) return `${MO[a.getMonth()].toUpperCase()} ${a.getDate()}`
+  if (!a && b) return `${MO[b.getMonth()].toUpperCase()} ${b.getDate()}`
+  const am = MO[a.getMonth()].toUpperCase(), bm = MO[b.getMonth()].toUpperCase()
+  return am === bm ? `${am} ${a.getDate()} – ${b.getDate()}` : `${am} ${a.getDate()} – ${bm} ${b.getDate()}`
+}
+
+// Dropdown-pill meal-type selector, mirroring RoundTypeBadge (portaled menu).
+function MealTypeBadge({ meal, isCommissioner, onChange }) {
+  const [open, setOpen] = useState(false)
+  const [rect, setRect] = useState(null)
+  const ref = useRef(null)
+  const menuRef = useRef(null)
+  const label = mealTypeLabel(meal).toUpperCase()
+
+  useEffect(() => {
+    if (!open) return
+    function onDoc(e) {
+      const inTrigger = ref.current && ref.current.contains(e.target)
+      const inMenu = menuRef.current && menuRef.current.contains(e.target)
+      if (!inTrigger && !inMenu) setOpen(false)
+    }
+    function reposition() { if (ref.current) setRect(ref.current.getBoundingClientRect()) }
+    document.addEventListener('mousedown', onDoc)
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
+    }
+  }, [open])
+
+  if (!isCommissioner) return <span style={mealBadgeStyle}>{label}</span>
+
+  function toggle() {
+    if (!open && ref.current) setRect(ref.current.getBoundingClientRect())
+    setOpen(o => !o)
+  }
+  function pick(val) { setOpen(false); if (val !== meal.meal_type) onChange(meal, val) }
+
+  let menu = null
+  if (open && rect) {
+    const spaceBelow = window.innerHeight - rect.bottom
+    const dropUp = spaceBelow < 230 && rect.top > spaceBelow
+    const menuStyle = {
+      position: 'fixed',
+      right: Math.max(8, window.innerWidth - rect.right),
+      ...(dropUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+      zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8,
+      boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: 160,
+    }
+    menu = createPortal(
+      <div ref={menuRef} style={menuStyle}>
+        {MEAL_TYPES.map(({ value, label: txt }) => {
+          const active = value === meal.meal_type
+          return (
+            <div key={value} onClick={() => { if (!active) pick(value); else setOpen(false) }}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#0D1B2A' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
+              <span>{txt}</span>
+              {active && <span style={{ color: '#0F6E56' }}>✓</span>}
+            </div>
+          )
+        })}
+      </div>,
+      document.body,
+    )
+  }
+  return (
+    <span ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <button style={{ ...mealBadgeStyle, cursor: 'pointer' }} onClick={toggle}>{label} ▾</button>
+      {menu}
+    </span>
+  )
+}
+
+// One meal sub-card: bold restaurant/location title, meal-type pill, Time /
+// Location field rows (course-card style), inline custom label when "Other".
+function MealCard({ meal, isCommissioner, onEditMeal, onMealTypeChange, onCustomLabel }) {
+  return (
+    <div style={mealSubCardStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#0D1B2A' }}>{(meal.location || '').trim() || mealTypeLabel(meal)}</div>
+        </div>
+        <MealTypeBadge meal={meal} isCommissioner={isCommissioner} onChange={onMealTypeChange} />
+      </div>
+      {meal.meal_type === 'other' && isCommissioner && (
+        <input
+          style={mealCustomInputStyle}
+          defaultValue={meal.custom_label || ''}
+          placeholder="Custom label (e.g. Team Cookout)"
+          onBlur={e => { const v = e.target.value.trim(); if (v !== (meal.custom_label || '')) onCustomLabel(meal, v) }}
+        />
+      )}
+      <div style={{ paddingTop: 8 }}>
+        <div style={cdRow(false)}><span style={cdLabel}>Time</span><span style={cdValue}>{meal.meal_time || '—'}</span></div>
+        <div style={cdRow(!meal.notes)}><span style={cdLabel}>Location</span><span style={cdValue}>{(meal.location || '').trim() || '—'}</span></div>
+        {meal.notes && (
+          <div style={cdRow(true)}><span style={cdLabel}>Notes</span><span style={cdValue}>{meal.notes}</span></div>
+        )}
+      </div>
+      {isCommissioner && (
+        <div style={{ marginTop: 8 }}>
+          <button style={{ ...s.editCourseBtn, marginTop: 0 }} onClick={() => onEditMeal(meal)}>Edit Meal</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// The "Meals" section inside a day card: label, meal sub-cards, "+ Add Meal".
+function MealsSection({ date, meals = [], isCommissioner, onEditMeal, onAddMeal, onMealTypeChange, onCustomLabel }) {
+  if (!isCommissioner && meals.length === 0) return null
+  return (
+    <div>
+      <div style={mealsLabelStyle}>Meals</div>
+      {meals.map(m => (
+        <MealCard key={m.id} meal={m} isCommissioner={isCommissioner}
+          onEditMeal={onEditMeal} onMealTypeChange={onMealTypeChange} onCustomLabel={onCustomLabel} />
+      ))}
+      {isCommissioner && (
+        <button style={addActionStyle} onClick={() => onAddMeal(date)}>+ Add Meal</button>
+      )}
+    </div>
+  )
+}
+
+// Stays banner(s) at the top of the page — Travel-Day-style cards.
+function StaysSection({ stays = [], isCommissioner, tripStartDate, tripEndDate, onEditStay, onAddStay }) {
+  if (!stays.length) {
+    if (!isCommissioner) return null
+    return (
+      <div style={stayBannerStyle}>
+        <div style={{ minWidth: 0 }}>
+          <div style={stayLabelStyle}>{fmtStayRange(tripStartDate, tripEndDate) || 'Lodging'}</div>
+          <div style={stayTitleStyle}>No stay added yet</div>
+        </div>
+        <button style={{ ...s.editCourseBtn, marginTop: 0, flexShrink: 0 }} onClick={onAddStay}>+ Add Stay</button>
+      </div>
+    )
+  }
+  return (
+    <>
+      {stays.map(st => (
+        <div key={st.id} style={stayBannerStyle}>
+          <div style={{ minWidth: 0 }}>
+            <div style={stayLabelStyle}>{fmtStayRange(st.check_in, st.check_out) || 'Lodging'}</div>
+            <div style={stayTitleStyle}>{(st.hotel_name || '').trim() || 'Hotel'}</div>
+            {st.confirmation && <div style={staySubStyle}>Confirmation: {st.confirmation}</div>}
+          </div>
+          {isCommissioner && (
+            <button style={{ ...s.editCourseBtn, marginTop: 0, flexShrink: 0 }} onClick={() => onEditStay(st)}>Edit Stay</button>
+          )}
+        </div>
+      ))}
+      {isCommissioner && (
+        <button style={{ ...addActionStyle, marginBottom: 12 }} onClick={onAddStay}>+ Add another stay</button>
+      )}
+    </>
+  )
+}
+
+// Meal add/edit modal. `meal` may be a real row (edit) or { day, __new } (add).
+function MealModal({ meal, saving, onSave, onDelete, onClose }) {
+  const isNew = !!meal.__new
+  const [type, setType] = useState(meal.meal_type || 'dinner')
+  const [custom, setCustom] = useState(meal.custom_label || '')
+  const [location, setLocation] = useState(meal.location || '')
+  const [time, setTime] = useState(displayToTimeInput(meal.meal_time))
+  const [notes, setNotes] = useState(meal.notes || '')
+
+  function submit() {
+    onSave({
+      id: isNew ? undefined : meal.id,
+      day: meal.day,
+      meal_type: type,
+      custom_label: type === 'other' ? (custom.trim() || null) : null,
+      location: location.trim() || null,
+      meal_time: timeInputToDisplay(time) || null,
+      notes: notes.trim() || null,
+    })
+  }
+  return (
+    <div style={s.modalOverlay} onClick={() => !saving && onClose()}>
+      <div style={s.modalSheet} onClick={e => e.stopPropagation()}>
+        <div style={s.modalTitle}>
+          <span>{isNew ? 'Add Meal' : 'Edit Meal'}</span>
+          <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div style={modalFieldLabel}>Type</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {MEAL_TYPES.map(({ value, label }) => {
+            const active = value === type
+            return (
+              <button key={value} onClick={() => setType(value)}
+                style={{ ...mealBadgeStyle, cursor: 'pointer', padding: '5px 10px', ...(active ? { background: '#0F6E56', color: '#fff' } : null) }}>
+                {label}
+              </button>
+            )
+          })}
+        </div>
+        {type === 'other' && (
+          <>
+            <div style={modalFieldLabel}>Custom label</div>
+            <input style={modalInput} value={custom} onChange={e => setCustom(e.target.value)} placeholder="e.g. Team Cookout" />
+          </>
+        )}
+        <div style={modalFieldLabel}>Restaurant / Location</div>
+        <input style={modalInput} value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. The Steakhouse" />
+        <div style={modalFieldLabel}>Time</div>
+        <input style={modalInput} type="time" value={time} onChange={e => setTime(e.target.value)} />
+        <div style={modalFieldLabel}>Notes (optional)</div>
+        <textarea style={{ ...modalInput, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
+        <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
+          onClick={submit} disabled={saving}>{saving ? 'Saving…' : (isNew ? 'Add Meal' : 'Save Meal')}</button>
+        {!isNew && (
+          <button style={{ width: '100%', marginTop: 8, padding: '9px', background: 'none', border: 'none', color: '#C0392B', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            onClick={() => onDelete(meal)} disabled={saving}>Delete Meal</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Stay add/edit modal. `stay` may be a real row (edit) or { __new } (add).
+function StayModal({ stay, saving, tripStartDate, tripEndDate, onSave, onDelete, onClose }) {
+  const isNew = !!stay.__new
+  const [hotel, setHotel] = useState(stay.hotel_name || '')
+  const [checkIn, setCheckIn] = useState(stay.check_in || (isNew ? (tripStartDate || '') : ''))
+  const [checkOut, setCheckOut] = useState(stay.check_out || (isNew ? (tripEndDate || '') : ''))
+  const [confirmation, setConfirmation] = useState(stay.confirmation || '')
+  const [notes, setNotes] = useState(stay.notes || '')
+
+  function submit() {
+    onSave({
+      id: isNew ? undefined : stay.id,
+      hotel_name: hotel.trim() || null,
+      check_in: checkIn || null,
+      check_out: checkOut || null,
+      confirmation: confirmation.trim() || null,
+      notes: notes.trim() || null,
+    })
+  }
+  return (
+    <div style={s.modalOverlay} onClick={() => !saving && onClose()}>
+      <div style={s.modalSheet} onClick={e => e.stopPropagation()}>
+        <div style={s.modalTitle}>
+          <span>{isNew ? 'Add Stay' : 'Edit Stay'}</span>
+          <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div style={modalFieldLabel}>Hotel name</div>
+        <input style={modalInput} value={hotel} onChange={e => setHotel(e.target.value)} placeholder="e.g. Marriott Downtown" />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <div style={modalFieldLabel}>Check-in</div>
+            <input style={modalInput} type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={modalFieldLabel}>Check-out</div>
+            <input style={modalInput} type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)} />
+          </div>
+        </div>
+        <div style={modalFieldLabel}>Confirmation # (optional)</div>
+        <input style={modalInput} value={confirmation} onChange={e => setConfirmation(e.target.value)} />
+        <div style={modalFieldLabel}>Notes (optional)</div>
+        <textarea style={{ ...modalInput, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
+        <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
+          onClick={submit} disabled={saving}>{saving ? 'Saving…' : (isNew ? 'Add Stay' : 'Save Stay')}</button>
+        {!isNew && (
+          <button style={{ width: '100%', marginTop: 8, padding: '9px', background: 'none', border: 'none', color: '#C0392B', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            onClick={() => onDelete(stay)} disabled={saving}>Delete Stay</button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 const ARRIVE_FIELDS = [
@@ -1512,6 +1824,10 @@ export default function MenuDrawer({
   const [flightsData, setFlightsData] = useState(null)
   const [editRound, setEditRound] = useState(null)
   const [savingCourse, setSavingCourse] = useState(false)
+  const [editMeal, setEditMeal] = useState(null) // meal row (edit) or { day, __new } (add)
+  const [savingMeal, setSavingMeal] = useState(false)
+  const [editStay, setEditStay] = useState(null) // stay row (edit) or { __new } (add)
+  const [savingStay, setSavingStay] = useState(false)
 
   // On open, jump to the requested deep-link page (e.g. 'app-info' from the
   // Getting Started tip) or the drawer root; reset to root whenever it closes.
@@ -1626,10 +1942,12 @@ export default function MenuDrawer({
         const { data: roundData } = await supabase.from('rounds').select('*').eq('trip_id', tripId).order('date').order('round_number')
         const roundList = roundData || []
         const roundIds = roundList.map(r => r.id)
-        const [tpRes, pairRes, tripRes] = await Promise.all([
+        const [tpRes, pairRes, tripRes, staysRes, mealsRes] = await Promise.all([
           supabase.from('trip_players').select('id, first_name, last_name, guest_name, handicap_index').eq('trip_id', tripId),
           roundIds.length ? supabase.from('pairings').select('id, round_id').in('round_id', roundIds) : Promise.resolve({ data: [] }),
           supabase.from('trips').select('schedule').eq('id', tripId).maybeSingle(),
+          supabase.from('stays').select('*').eq('trip_id', tripId).order('check_in'),
+          supabase.from('meals').select('*').eq('trip_id', tripId).order('day'),
         ])
         const pairings = pairRes.data || []
         const pairIds = pairings.map(p => p.id)
@@ -1656,10 +1974,17 @@ export default function MenuDrawer({
         const scheduleByDate = {}
         ;(tripRes.data?.schedule || []).forEach(d => { if (d && d.date) scheduleByDate[d.date] = d.type })
 
-        // Every day in the trip range, plus any round date outside it (edge case).
+        // Meals grouped by day, each day's list sorted chronologically by time.
+        const stays = staysRes.data || []
+        const mealsByDate = {}
+        ;(mealsRes.data || []).forEach(m => { if (m.day) (mealsByDate[m.day] ??= []).push(m) })
+        Object.values(mealsByDate).forEach(list => list.sort((a, b) => parseTeeTimeToMinutes(a.meal_time) - parseTeeTimeToMinutes(b.meal_time)))
+
+        // Every day in the trip range, plus any round or meal date outside it.
         let days = daysInRange(tripStartDate, tripEndDate)
         const dateSet = new Set(days)
         Object.keys(roundsByDate).forEach(d => { if (d) dateSet.add(d) })
+        Object.keys(mealsByDate).forEach(d => { if (d) dateSet.add(d) })
         days = [...dateSet].sort()
 
         // A round is locked if it has any score (else it locks once its date passes).
@@ -1670,7 +1995,7 @@ export default function MenuDrawer({
         }
         if (!cancelled) {
           setScoredRounds(scored)
-          setCoursesData({ days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, roundIds })
+          setCoursesData({ days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, roundIds, stays, mealsByDate })
         }
       })()
     }
@@ -1845,6 +2170,68 @@ export default function MenuDrawer({
     else changeRoundType(round.id, val)
   }
 
+  // ── Meals ──
+  // Quick field updates from the sub-card (meal-type pill, custom label): patch
+  // the row, then reload the page + refresh other views.
+  async function patchMeal(meal, patch) {
+    const { error } = await supabase.from('meals').update(patch).eq('id', meal.id)
+    if (error) { console.error('[MenuDrawer] patchMeal failed:', error); return }
+    setCoursesData(null)
+    if (onRoundsChanged) onRoundsChanged()
+  }
+  const changeMealType = (meal, type) => patchMeal(meal, { meal_type: type, ...(type !== 'other' ? { custom_label: null } : {}) })
+  const setMealCustomLabel = (meal, label) => patchMeal(meal, { custom_label: label || null })
+
+  // Add (insert) or edit (update) a meal from the modal.
+  async function saveMeal(mealData) {
+    setSavingMeal(true)
+    const { id, day, ...fields } = mealData
+    const { error } = id
+      ? await supabase.from('meals').update(fields).eq('id', id)
+      : await supabase.from('meals').insert({ trip_id: tripId, day, ...fields })
+    setSavingMeal(false)
+    if (error) { console.error('[MenuDrawer] saveMeal failed:', error); return }
+    setEditMeal(null)
+    setCoursesData(null)
+    if (onRoundsChanged) onRoundsChanged()
+  }
+
+  async function deleteMeal(meal) {
+    if (!window.confirm('Delete this meal?')) return
+    setSavingMeal(true)
+    const { error } = await supabase.from('meals').delete().eq('id', meal.id)
+    setSavingMeal(false)
+    if (error) { console.error('[MenuDrawer] deleteMeal failed:', error); return }
+    setEditMeal(null)
+    setCoursesData(null)
+    if (onRoundsChanged) onRoundsChanged()
+  }
+
+  // ── Stays ──
+  async function saveStay(stayData) {
+    setSavingStay(true)
+    const { id, ...fields } = stayData
+    const { error } = id
+      ? await supabase.from('stays').update(fields).eq('id', id)
+      : await supabase.from('stays').insert({ trip_id: tripId, ...fields })
+    setSavingStay(false)
+    if (error) { console.error('[MenuDrawer] saveStay failed:', error); return }
+    setEditStay(null)
+    setCoursesData(null)
+    if (onRoundsChanged) onRoundsChanged()
+  }
+
+  async function deleteStay(stay) {
+    if (!window.confirm('Delete this stay?')) return
+    setSavingStay(true)
+    const { error } = await supabase.from('stays').delete().eq('id', stay.id)
+    setSavingStay(false)
+    if (error) { console.error('[MenuDrawer] deleteStay failed:', error); return }
+    setEditStay(null)
+    setCoursesData(null)
+    if (onRoundsChanged) onRoundsChanged()
+  }
+
   return (
     <>
       {/* Overlay */}
@@ -1929,7 +2316,15 @@ export default function MenuDrawer({
       )}
       {page === 'courses' && (
         <SecondaryPage context={tripName} title="Schedule & Courses" onBack={backToDrawer}>
-          <CoursesPage data={coursesData} isCommissioner={isCommissioner} readOnly={readOnly} onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds} onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound} />
+          <CoursesPage
+            data={coursesData} isCommissioner={isCommissioner} readOnly={readOnly}
+            onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds}
+            onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound}
+            tripStartDate={tripStartDate} tripEndDate={tripEndDate}
+            onEditStay={setEditStay} onAddStay={() => setEditStay({ __new: true })}
+            onEditMeal={setEditMeal} onAddMeal={(date) => setEditMeal({ __new: true, day: date, meal_type: 'dinner' })}
+            onMealTypeChange={changeMealType} onCustomLabel={setMealCustomLabel}
+          />
         </SecondaryPage>
       )}
       {page === 'flights' && (
@@ -1980,6 +2375,16 @@ export default function MenuDrawer({
             {savingCourse && <div style={{ ...s.muted, textAlign: 'center', marginTop: '10px' }}>Saving…</div>}
           </div>
         </div>
+      )}
+
+      {/* Meal add/edit modal */}
+      {editMeal && (
+        <MealModal meal={editMeal} saving={savingMeal} onSave={saveMeal} onDelete={deleteMeal} onClose={() => setEditMeal(null)} />
+      )}
+
+      {/* Stay add/edit modal */}
+      {editStay && (
+        <StayModal stay={editStay} saving={savingStay} tripStartDate={tripStartDate} tripEndDate={tripEndDate} onSave={saveStay} onDelete={deleteStay} onClose={() => setEditStay(null)} />
       )}
     </>
   )
