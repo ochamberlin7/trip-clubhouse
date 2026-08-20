@@ -104,17 +104,6 @@ export function netScore(gross, playingHandicap, strokeIndex) {
   return gross - strokesOnHole(playingHandicap, strokeIndex)
 }
 
-// Low-ball handicap allowance for a group of players:
-//   playing = round((courseHandicap - minCourseHandicap) * allowance/100)
-// `players` is an array of { id, handicap_index }. Returns Map id -> playing.
-export function computePlayingHandicaps(players, slopeRating, allowance = 100) {
-  const chs = players.map(p => courseHandicap(p.handicap_index, slopeRating))
-  const min = chs.length ? Math.min(...chs) : 0
-  const map = new Map()
-  players.forEach((p, i) => map.set(p.id, Math.round((chs[i] - min) * (allowance / 100))))
-  return map
-}
-
 // Course handicap for a SPECIFIC tee, using the World Handicap System formula:
 //   round(handicap_index * (slope / 113) + (course_rating - par))
 // slope defaults to neutral 113; the rating adjustment is dropped when rating or
@@ -147,19 +136,6 @@ export function resolvePlayerTee(round, playerRoundRow) {
     rating: round?.course_rating ?? firstTee?.rating ?? null,
     par: round?.par_total ?? firstTee?.par ?? holesPar,
   }
-}
-
-// Low-ball playing handicaps from per-player course handicaps:
-//   playing = round((courseHandicap - minCourseHandicap) * allowance/100)
-// `entries` is an array of { id, ch } (ch may be null → playing 0).
-export function playingFromCourseHandicaps(entries, allowance = 100) {
-  const valid = entries.filter(e => e.ch != null).map(e => e.ch)
-  const min = valid.length ? Math.min(...valid) : 0
-  const map = new Map()
-  for (const e of entries) {
-    map.set(e.id, e.ch != null ? Math.round((e.ch - min) * (allowance / 100)) : 0)
-  }
-  return map
 }
 
 // WHS better-ball "shots given" for a group (pairing). Each player's PLAYING
