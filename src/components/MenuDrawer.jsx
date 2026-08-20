@@ -21,9 +21,12 @@ import SupportForm from './SupportForm'
 
 // ── date helpers ──────────────────────────────────────────────────
 const WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+const WD_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 function parseDate(iso) { if (!iso) return null; const d = new Date(iso + 'T00:00:00'); return isNaN(d) ? null : d }
 function fmtShort(iso) { const d = parseDate(iso); return d ? `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}` : '' }
+// Full weekday for the navy day bars ("Thursday, Sep 24"); uppercased via CSS.
+function fmtDayLong(iso) { const d = parseDate(iso); return d ? `${WD_FULL[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}` : '' }
 // Every ISO date from start..end inclusive (local), for the full trip schedule.
 function daysInRange(start, end) {
   const a = parseDate(start), b = parseDate(end)
@@ -523,10 +526,11 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
     return () => { cancelled = true }
   }, [open, round.id, round.golfcourse_id, round.tees, apiTees])
 
-  // Player gets the remaining space (name wraps, never truncated); Tee is fixed;
-  // the four numeric columns are content-width + right-aligned so they compress
-  // into a tight cluster on the right instead of spreading across the row.
-  const grid = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 54px auto auto auto auto', alignItems: 'center', gap: 8 }
+  // FIXED column widths (not `auto`) so every row — header and data — shares the
+  // same tracks and each column is a straight vertical line, regardless of the
+  // Tee dropdown's or a number's rendered width. Player takes the slack; the four
+  // numeric columns are compact + right-aligned.
+  const grid = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 56px 38px 32px 32px 30px', alignItems: 'center', gap: 6 }
   const numCell = { fontSize: 13, textAlign: 'right' }
   const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
   const muted = { color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
@@ -626,9 +630,9 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                 <span style={headCell}>Player</span>
                 <span style={headCell}>Tee</span>
                 <span style={{ ...headCell, textAlign: 'right' }}>Idx</span>
-                <span style={{ ...headCell, textAlign: 'right' }}>Crs</span>
-                <span style={{ ...headCell, textAlign: 'right' }}>Play</span>
-                <span style={{ ...headCell, textAlign: 'right', whiteSpace: 'nowrap' }}>Shots</span>
+                <span style={{ ...headCell, textAlign: 'right' }}>CH</span>
+                <span style={{ ...headCell, textAlign: 'right' }}>PH</span>
+                <span style={{ ...headCell, textAlign: 'right' }}>SO</span>
               </div>
               {orderedRows.map((r, i) => (
                 <div key={r.id}
@@ -881,7 +885,7 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, all
           // Past days render as one dimmed, non-interactive unit (recomputed each render).
           <div key={date} style={{ ...s.card, ...(isPast ? { opacity: 0.5, pointerEvents: 'none' } : null) }}>
             <div style={{ ...s.cardHeader, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>{fmtShort(date)}</span>
+              <span>{fmtDayLong(date)}</span>
               {isToday && <span style={todayBadgeStyle}>Today</span>}
             </div>
             <div style={s.cardBody}>
