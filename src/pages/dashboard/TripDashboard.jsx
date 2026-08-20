@@ -752,7 +752,7 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
 
   if (!isCommissioner) {
     return value
-      ? <span style={{ fontSize: 14, fontWeight: 700, color: '#0D1B2A' }}>{value}</span>
+      ? <span style={{ fontSize: 17, fontWeight: 800, color: '#1B3F6E' }}>{value}</span>
       : <span style={{ fontSize: 13, fontWeight: 600, color: '#7A8FA6' }}>TBD</span>
   }
 
@@ -760,7 +760,7 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
     <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
       {value ? (
         <>
-          <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: '#0D1B2A' }}>{value}</button>
+          <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 17, fontWeight: 800, color: '#1B3F6E' }}>{value}</button>
           <button onClick={() => onSave(round.id, col, null)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: '#7A8FA6' }}>Clear</button>
         </>
       ) : (
@@ -810,23 +810,24 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
   )
 }
 
-// Compact, read-only meal row for the Tee Times list: time on the left, the
-// restaurant name + meal type as the row text, a "Meal" tag on the right. Editing
-// meals happens only on the Schedule & Courses page.
+// Tee Times meal row — plain, indented, secondary to the tee-time card above:
+// "restaurant · type" muted on the left, muted time on the right. No card, no tag.
 function MealTeeRow({ meal }) {
+  const name = (meal.location || '').trim() || mealTypeLabel(meal)
+  const type = mealTypeLabel(meal)
+  const label = type && name !== type ? `${name} · ${type}` : name
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', gap: 10 }}>
-      <span style={{ fontSize: 12, color: '#7A8FA6', fontWeight: 600, width: 68, flexShrink: 0 }}>{meal.meal_time || 'TBD'}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {(meal.location || '').trim() || mealTypeLabel(meal)}
-        </div>
-        <div style={{ fontSize: 11, color: '#7A8FA6' }}>{mealTypeLabel(meal)}</div>
-      </div>
-      <span className="type-pill meal">Meal</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '4px 14px 4px 26px' }}>
+      <span style={{ fontSize: 12, color: '#7A8FA6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <span style={{ fontSize: 12, color: '#7A8FA6', flexShrink: 0 }}>{meal.meal_time || ''}</span>
     </div>
   )
 }
+
+const teeRoundCardStyle = { background: 'var(--bg2)', border: '1px solid var(--bg3)', borderRadius: 10, margin: '10px 12px', overflow: 'hidden' }
+const teeRoundHeaderStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '10px 12px', borderBottom: '1px solid var(--bg3)' }
+const teePairingLabelStyle = { fontSize: 13, fontWeight: 600, color: '#2C3E50' }
+const teeTodayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: 'var(--navy)', background: '#fff', borderRadius: 10, padding: '1px 8px' }
 
 function TabTeeTimes({ rounds, meals = [], trip, isCommissioner, onUpdateRound, playerCount = 0 }) {
   // One tee-time row per pairing — a pairing is a 2v2 foursome, so pairings
@@ -859,53 +860,57 @@ function TabTeeTimes({ rounds, meals = [], trip, isCommissioner, onUpdateRound, 
   }
 
   const teeMinutes = t => (t ? parseTeeTimeToMinutes(t) : Infinity) // unset → bottom
+  // Local "today" — recomputed each render so past/today flips at midnight.
+  const now = new Date()
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
   return (
     <div>
       {days.map(date => {
         const { rounds: dayRounds, meals: dayMeals } = dayMap[date]
         const sortedMeals = [...dayMeals].sort((a, b) => teeMinutes(a.meal_time) - teeMinutes(b.meal_time))
+        const isPast = date < todayIso
+        const isToday = date === todayIso
         return (
-          <div key={date} className="tee-group">
-            <div className="tee-group-header">{fmtDayHeader(date)}</div>
-            {dayRounds.map((r, ri) => {
-              const isTournament = r.round_type !== 'practice'
-              // Merge this round's pairing tee times with the day's meals into ONE
-              // chronological list (meals attach to the day's first round block so
-              // they aren't duplicated across multiple rounds).
-              const teeItems = Array.from({ length: numPairings }, (_, i) => i + 1)
-                .map(slot => ({ kind: 'tee', slot, minutes: teeMinutes(r[`tee_time_${slot}`]) }))
-              const mealItems = (ri === 0 ? sortedMeals : []).map(m => ({ kind: 'meal', meal: m, minutes: teeMinutes(m.meal_time) }))
-              const merged = [...teeItems, ...mealItems].sort((a, b) => a.minutes - b.minutes)
-              return (
-                <div key={r.id} style={{ background: 'var(--bg1)', padding: '12px 14px', borderTop: '1px solid var(--bg2)' }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A' }}>{r.course_name}</div>
-
-                  {/* Round type — read-only; managed in the Courses page. */}
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, marginBottom: 10 }}>
-                    <span className={`type-pill ${isTournament ? 'tournament' : 'practice'}`}>
-                      {isTournament ? 'Tournament' : 'Practice'}
-                    </span>
-                  </div>
-
-                  {/* Pairing tee-time rows + meal rows, sorted chronologically together. */}
-                  {merged.map(item => item.kind === 'tee' ? (
-                    <div key={`t${item.slot}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0' }}>
-                      <span style={{ fontSize: 12, color: '#7A8FA6', fontWeight: 500 }}>Pairing {item.slot}</span>
-                      <TimeCell round={r} slot={item.slot} isCommissioner={isCommissioner} onSave={saveTeeTime} />
+          // Past days render as one dimmed, non-interactive unit.
+          <div key={date} className="tee-group" style={isPast ? { opacity: 0.5, pointerEvents: 'none' } : undefined}>
+            <div className="tee-group-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{fmtDayHeader(date)}</span>
+              {isToday && <span style={teeTodayBadgeStyle}>Today</span>}
+            </div>
+            <div style={{ background: 'var(--bg1)', padding: '2px 0 6px' }}>
+              {dayRounds.map(r => {
+                const isTournament = r.round_type !== 'practice'
+                const primary = r.club_name || r.course_name
+                const secondary = (r.club_name && r.course_name && r.course_name !== r.club_name) ? r.course_name : null
+                return (
+                  // Each round is one light-gray card that grows a row per pairing.
+                  <div key={r.id} style={teeRoundCardStyle}>
+                    <div style={teeRoundHeaderStyle}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: '#0D1B2A' }}>{primary}</div>
+                        {secondary && <div style={{ fontSize: 12, color: '#7A8FA6', marginTop: 1 }}>{secondary}</div>}
+                      </div>
+                      <span className={`type-pill ${isTournament ? 'tournament' : 'practice'}`}>
+                        {isTournament ? 'Tournament' : 'Practice'}
+                      </span>
                     </div>
-                  ) : (
-                    <MealTeeRow key={`m${item.meal.id}`} meal={item.meal} />
-                  ))}
+                    {Array.from({ length: numPairings }, (_, i) => i + 1).map((slot, idx) => (
+                      <div key={slot} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', borderTop: idx === 0 ? 'none' : '1px solid var(--bg3)' }}>
+                        <span style={teePairingLabelStyle}>Pairing {slot}</span>
+                        <TimeCell round={r} slot={slot} isCommissioner={isCommissioner} onSave={saveTeeTime} />
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+              {/* Meals for the day — below the round card(s), plain & secondary. */}
+              {sortedMeals.length > 0 && (
+                <div style={{ padding: '2px 0' }}>
+                  {sortedMeals.map(m => <MealTeeRow key={m.id} meal={m} />)}
                 </div>
-              )
-            })}
-            {/* Meal-only day (no golf rounds) → the meals still appear here. */}
-            {dayRounds.length === 0 && (
-              <div style={{ background: 'var(--bg1)', padding: '12px 14px', borderTop: '1px solid var(--bg2)' }}>
-                {sortedMeals.map(m => <MealTeeRow key={m.id} meal={m} />)}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )
       })}

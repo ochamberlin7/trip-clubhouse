@@ -467,8 +467,7 @@ function roundPrimaryTee(round) {
 // The TEE column is the first after the player name; selecting a tee auto-fills
 // slope/rating/par, recomputes Course + Playing, and saves to player_rounds (any
 // trip member may change any tee). Works on completed rounds too.
-function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChangeTee, readOnly = false }) {
-  const [open, setOpen] = useState(false)
+function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChangeTee, readOnly = false, open = false }) {
   const [apiTees, setApiTees] = useState(null) // tees fetched from the API when rounds.tees is empty
   const alw = allowance ?? 100
   const cachedTees = Array.isArray(round.tees) ? round.tees.filter(t => t && t.name) : []
@@ -606,14 +605,11 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
 
   const allNull = rows.every(r => r.idx == null)
 
+  if (!open) return null
   return (
-    <div style={{ marginTop: 4 }}>
-      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 4, padding: '10px 4px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#1B3F6E' }}>Handicaps</span>
-        <Chevron open={open} />
-      </div>
-      {open && (
-        <div style={{ borderRadius: '0 0 10px 10px', overflow: 'hidden', marginBottom: 12 }}>
+    <div style={{ marginTop: 8 }}>
+      {(
+        <div style={{ border: '1px solid #DDE3EA', borderRadius: 8, overflow: 'hidden' }}>
           {!hasCourse ? (
             <div style={muted}>Set a course to calculate handicaps</div>
           ) : allNull ? (
@@ -665,6 +661,17 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
 const editRowStyle = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }
 const lockToastStyle = { flexBasis: '100%', fontSize: 12, color: '#C0392B', padding: '6px 10px', background: 'rgba(192,57,43,0.08)', borderRadius: 6, border: '1px solid rgba(192,57,43,0.2)' }
 
+// Course-card action toolbar: a row of equal-weight navy-outline pills (icon +
+// label), centered at the bottom of the card. Handicaps · Tournament · Edit.
+const toolbarRowStyle = { display: 'flex', gap: 8, marginTop: 12 }
+const toolbarPillStyle = { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, background: '#fff', border: '1px solid #1B3F6E', color: '#1B3F6E', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '7px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', width: '100%' }
+const toolbarPillDisabledStyle = { ...toolbarPillStyle, opacity: 0.4, cursor: 'not-allowed', borderColor: '#DDE3EA', color: '#7A8FA6' }
+const ICON = { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
+const IconHandicaps = () => <svg {...ICON}><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+const IconTournament = () => <svg {...ICON}><path d="M4 22h16"/><path d="M10 14.66V17c0 .55.47.98.97 1.21C12.15 18.75 13 20.24 13 22"/><path d="M14 14.66V17c0 .55-.47.98-.97 1.21C11.85 18.75 11 20.24 11 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+const IconEdit = () => <svg {...ICON}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z"/></svg>
+const IconChevronDown = () => <svg {...ICON} width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg>
+
 function EditCourseButton({ round, locked, onEditCourse }) {
   const [toast, setToast] = useState(false) // tap-to-show message (mobile-safe)
   const timer = useRef(null)
@@ -678,19 +685,14 @@ function EditCourseButton({ round, locked, onEditCourse }) {
 
   if (locked) {
     return (
-      <div style={editRowStyle}>
-        <button
-          style={{ ...s.editCourseBtn, marginTop: 0, opacity: 0.4, cursor: 'not-allowed', background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }}
-          onClick={showToast}
-        >Edit Course</button>
-        {toast && <div style={lockToastStyle}>Scoring has started — course cannot be changed</div>}
-      </div>
+      <>
+        <button style={toolbarPillDisabledStyle} onClick={showToast}><IconEdit />Edit</button>
+        {toast && createPortal(<div style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 1000, ...lockToastStyle, flexBasis: 'auto', maxWidth: '90%' }}>Scoring has started — course cannot be changed</div>, document.body)}
+      </>
     )
   }
   return (
-    <div style={editRowStyle}>
-      <button style={{ ...s.editCourseBtn, marginTop: 0 }} onClick={() => onEditCourse(round)}>Edit Course</button>
-    </div>
+    <button style={toolbarPillStyle} onClick={() => onEditCourse(round)}><IconEdit />Edit</button>
   )
 }
 
@@ -787,8 +789,8 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
   }
 
   return (
-    <span ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
-      <button style={{ ...style, cursor: 'pointer' }} onClick={toggle}>{label} ▾</button>
+    <span ref={ref} style={{ position: 'relative', flex: 1, display: 'flex' }}>
+      <button style={toolbarPillStyle} onClick={toggle}><IconTournament />{label}<IconChevronDown /></button>
       {menu}
     </span>
   )
@@ -820,109 +822,99 @@ const DAY_PLACEHOLDER_META = {
 }
 const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', marginBottom: 6 }
 
-// Card for a day with no golf round — coloured left accent per day type, lighter
-// than the navy golf cards. Commissioners can add a round.
-function PlaceholderDayCard({ date, type, isCommissioner, onAddRound, meals = [], onEditMeal, onAddMeal, onMealTypeChange, onCustomLabel }) {
-  const meta = DAY_PLACEHOLDER_META[type] || DAY_PLACEHOLDER_META.unknown
+// Day-card chrome (navy bar Today badge, bottom text-link actions, non-golf type label).
+const todayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: '#1B3F6E', background: '#fff', borderRadius: 10, padding: '1px 8px' }
+const dayActionsRowStyle = { display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 14, borderTop: '1px solid #E8EDF3', paddingTop: 10 }
+const dayActionLinkStyle = { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }
+const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: '#7A8FA6' }
+
+// One golf round: unchanged content (name, rating/slope, location, par) plus the
+// new bottom toolbar (Handicaps · Tournament · Edit). Own hcOpen state so the
+// Handicaps pill toggles the handicaps table below.
+function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, onEditCourse, onRoundTypeChange, onChangePlayerTee }) {
+  const [hcOpen, setHcOpen] = useState(false)
+  const entryStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: roundIndex === roundCount - 1 ? 0 : 10 }
   return (
-    <div style={{ background: '#EAEFF4', border: '1px solid #CFD9E4', borderLeft: `5px solid ${meta.accent}`, borderRadius: 10, padding: '14px', marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{fmtShort(date)}</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#2C3E50', marginTop: 2 }}>{meta.label}</div>
-        </div>
-        {isCommissioner && (
-          <button style={{ ...s.editCourseBtn, marginTop: 0, flexShrink: 0 }} onClick={() => onAddRound(date)}>+ Add Round</button>
+    <div style={entryStyle}>
+      {roundCount > 1 && <div style={roundNumLabel}>Round {roundIndex + 1}</div>}
+      <div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B2A' }}>{r.club_name || r.course_name}</div>
+        {r.club_name && r.course_name && r.course_name !== r.club_name && (
+          <div style={{ fontSize: '12px', color: '#7A8FA6', marginTop: '1px' }}>{r.course_name}</div>
+        )}
+        {(r.course_rating != null || r.slope_rating != null) && (
+          <div style={{ fontSize: '11px', color: '#7A8FA6', marginTop: '3px' }}>
+            Rating: {r.course_rating ?? '—'} · Slope: {r.slope_rating ?? '—'}
+          </div>
         )}
       </div>
-      {/* Meals apply to every day type — same section as the golf day cards. */}
-      <MealsSection date={date} meals={meals} isCommissioner={isCommissioner}
-        onEditMeal={onEditMeal} onAddMeal={onAddMeal} onMealTypeChange={onMealTypeChange} onCustomLabel={onCustomLabel} />
+      <div style={{ paddingTop: 8 }}>
+        <div style={cdRow(false)}><span style={cdLabel}>Location</span><span style={cdValue}>{locationText(r)}</span></div>
+        <div style={cdRow(true)}><span style={cdLabel}>Par</span><span style={cdValue}>{parText(r)}</span></div>
+      </div>
+      <div style={toolbarRowStyle}>
+        <button style={{ ...toolbarPillStyle, ...(hcOpen ? { background: '#1B3F6E', color: '#fff' } : null) }} onClick={() => setHcOpen(o => !o)}><IconHandicaps />Handicaps</button>
+        {isCommissioner && <RoundTypeBadge round={r} isCommissioner onChange={onRoundTypeChange} />}
+        {isCommissioner && <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />}
+      </div>
+      <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} readOnly={readOnly} open={hcOpen} />
     </div>
   )
 }
 
-function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, tripStartDate, tripEndDate, onEditStay, onAddStay, onEditMeal, onAddMeal, onMealTypeChange, onCustomLabel }) {
+function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const { days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, stays = [], mealsByDate = {} } = data
-  const staysBanner = <StaysSection stays={stays} isCommissioner={isCommissioner} tripStartDate={tripStartDate} tripEndDate={tripEndDate} onEditStay={onEditStay} onAddStay={onAddStay} />
   if (!days || days.length === 0) {
-    return (
-      <>
-        {staysBanner}
-        <Card title="Schedule"><div style={s.muted}>Course schedule will appear once the trip dates are set.</div></Card>
-      </>
-    )
+    return <Card title="Schedule"><div style={s.muted}>Course schedule will appear once the trip dates are set.</div></Card>
   }
-  const todayIso = new Date().toISOString().slice(0, 10)
+  // Local "today" — recomputed every render so past/today flips naturally at midnight.
+  const now = new Date()
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   return (
     <>
-      {staysBanner}
       {days.map(date => {
-    const dayRounds = roundsByDate[date] || []
-    const dayMeals = mealsByDate[date] || []
-    // Non-golf day → slim placeholder by stored day type, with its own Meals section.
-    if (dayRounds.length === 0) {
-      return (
-        <PlaceholderDayCard
-          key={date} date={date} type={scheduleByDate[date]} isCommissioner={isCommissioner} onAddRound={onAddRound}
-          meals={dayMeals} onEditMeal={onEditMeal} onAddMeal={onAddMeal} onMealTypeChange={onMealTypeChange} onCustomLabel={onCustomLabel}
-        />
-      )
-    }
-    return (
-      <Card key={date} title={fmtShort(date)}>
-        {dayRounds.map((r, i, arr) => {
-          const assigned = playersByRound[r.id]
-          const calcPlayers = (assigned && assigned.size) ? players.filter(p => assigned.has(p.id)) : players
-          const locked = scoredRounds?.has(r.id) || (r.date != null && r.date < todayIso)
-          // Every course gets its own subtle inset band (page-bg fill + border,
-          // matching the app's panel convention) so entries read as clearly
-          // separate — applied on single- and multi-course days alike.
-          const entryStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: i === arr.length - 1 ? 0 : 10 }
-          return (
-            <div key={r.id} style={entryStyle}>
-              {/* Distinguish multiple rounds on the same day. */}
-              {arr.length > 1 && <div style={roundNumLabel}>Round {i + 1}</div>}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-                <div>
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B2A' }}>{r.club_name || r.course_name}</div>
-                  {r.club_name && r.course_name && r.course_name !== r.club_name && (
-                    <div style={{ fontSize: '12px', color: '#7A8FA6', marginTop: '1px' }}>{r.course_name}</div>
-                  )}
-                  {(r.course_rating != null || r.slope_rating != null) && (
-                    <div style={{ fontSize: '11px', color: '#7A8FA6', marginTop: '3px' }}>
-                      Rating: {r.course_rating ?? '—'} · Slope: {r.slope_rating ?? '—'}
-                    </div>
-                  )}
-                </div>
-                <RoundTypeBadge round={r} isCommissioner={isCommissioner} onChange={onRoundTypeChange} />
-              </div>
-
-              {/* Detail rows */}
-              <div style={{ paddingTop: 8 }}>
-                <div style={cdRow(false)}>
-                  <span style={cdLabel}>Location</span>
-                  <span style={cdValue}>{locationText(r)}</span>
-                </div>
-                <div style={cdRow(true)}>
-                  <span style={cdLabel}>Par</span>
-                  <span style={cdValue}>{parText(r)}</span>
-                </div>
-              </div>
-
-              {isCommissioner && (
-                <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />
-              )}
-              {/* Tee picker + handicaps — any trip member can change any player's tee. */}
-              <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} readOnly={readOnly} />
+        const dayRounds = roundsByDate[date] || []
+        const dayMeals = mealsByDate[date] || []
+        const stay = stays.find(st => st.check_in === date) || null // lodging shows only on its check-in day
+        const dayType = scheduleByDate[date]
+        const isPast = date < todayIso
+        const isToday = date === todayIso
+        const typeLabel = dayRounds.length === 0 && dayType && dayType !== 'unknown' ? DAY_PLACEHOLDER_META[dayType]?.label : null
+        return (
+          // Past days render as one dimmed, non-interactive unit (recomputed each render).
+          <div key={date} style={{ ...s.card, ...(isPast ? { opacity: 0.5, pointerEvents: 'none' } : null) }}>
+            <div style={{ ...s.cardHeader, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{fmtShort(date)}</span>
+              {isToday && <span style={todayBadgeStyle}>Today</span>}
             </div>
-          )
-        })}
-        <MealsSection date={date} meals={dayMeals} isCommissioner={isCommissioner}
-          onEditMeal={onEditMeal} onAddMeal={onAddMeal} onMealTypeChange={onMealTypeChange} onCustomLabel={onCustomLabel} />
-      </Card>
-    )
+            <div style={s.cardBody}>
+              {dayRounds.map((r, i, arr) => {
+                const assigned = playersByRound[r.id]
+                const calcPlayers = (assigned && assigned.size) ? players.filter(p => assigned.has(p.id)) : players
+                const locked = scoredRounds?.has(r.id) || (r.date != null && r.date < todayIso)
+                return (
+                  <GolfRoundEntry
+                    key={r.id} round={r} roundIndex={i} roundCount={arr.length}
+                    isCommissioner={isCommissioner} readOnly={readOnly} allowance={allowance}
+                    calcPlayers={calcPlayers} playerRounds={playerRounds} locked={locked}
+                    onEditCourse={onEditCourse} onRoundTypeChange={onRoundTypeChange} onChangePlayerTee={onChangePlayerTee}
+                  />
+                )
+              })}
+              {typeLabel && <div style={dayTypeLabelStyle}>{typeLabel}</div>}
+              <MealsSection meals={dayMeals} isCommissioner={isCommissioner} onEditMeal={onEditMeal} />
+              {stay && <LodgingRow stay={stay} isCommissioner={isCommissioner} onEditStay={onEditStay} />}
+              {isCommissioner && !isPast && (
+                <div style={dayActionsRowStyle}>
+                  <button style={dayActionLinkStyle} onClick={() => onAddRound(date)}>+ Add Round</button>
+                  <button style={dayActionLinkStyle} onClick={() => onAddMeal(date)}>+ Add Meal</button>
+                  {!stay && <button style={dayActionLinkStyle} onClick={() => onAddStay(date)}>+ Add Lodging</button>}
+                </div>
+              )}
+            </div>
+          </div>
+        )
       })}
     </>
   )
@@ -952,161 +944,70 @@ function fmtStayRange(ci, co) {
   return am === bm ? `${am} ${a.getDate()} – ${b.getDate()}` : `${am} ${a.getDate()} – ${bm} ${b.getDate()}`
 }
 
-// Dropdown-pill meal-type selector, mirroring RoundTypeBadge (portaled menu).
-function MealTypeBadge({ meal, isCommissioner, onChange }) {
-  const [open, setOpen] = useState(false)
-  const [rect, setRect] = useState(null)
-  const ref = useRef(null)
-  const menuRef = useRef(null)
-  const label = mealTypeLabel(meal).toUpperCase()
+// Two-line row styling shared by meals + lodging.
+const mealLabelLineStyle = { fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#1f6f5c' }
+const lodgingLabelLineStyle = { fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#3346ab' }
+const scheduleRowStyle = { display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', fontFamily: 'inherit', padding: '8px 0' }
 
-  useEffect(() => {
-    if (!open) return
-    function onDoc(e) {
-      const inTrigger = ref.current && ref.current.contains(e.target)
-      const inMenu = menuRef.current && menuRef.current.contains(e.target)
-      if (!inTrigger && !inMenu) setOpen(false)
-    }
-    function reposition() { if (ref.current) setRect(ref.current.getBoundingClientRect()) }
-    document.addEventListener('mousedown', onDoc)
-    window.addEventListener('scroll', reposition, true)
-    window.addEventListener('resize', reposition)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      window.removeEventListener('scroll', reposition, true)
-      window.removeEventListener('resize', reposition)
-    }
-  }, [open])
+// Muted detail line for a lodging row (date range; falls back to confirmation).
+function fmtStayDetail(st) {
+  const range = fmtStayRange(st.check_in, st.check_out)
+  if (range) return range
+  return st.confirmation ? `Conf. ${st.confirmation}` : ''
+}
 
-  if (!isCommissioner) return <span style={mealBadgeStyle}>{label}</span>
-
-  function toggle() {
-    if (!open && ref.current) setRect(ref.current.getBoundingClientRect())
-    setOpen(o => !o)
-  }
-  function pick(val) { setOpen(false); if (val !== meal.meal_type) onChange(meal, val) }
-
-  let menu = null
-  if (open && rect) {
-    const spaceBelow = window.innerHeight - rect.bottom
-    const dropUp = spaceBelow < 230 && rect.top > spaceBelow
-    const menuStyle = {
-      position: 'fixed',
-      right: Math.max(8, window.innerWidth - rect.right),
-      ...(dropUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
-      zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8,
-      boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: 160,
-    }
-    menu = createPortal(
-      <div ref={menuRef} style={menuStyle}>
-        {MEAL_TYPES.map(({ value, label: txt }) => {
-          const active = value === meal.meal_type
-          return (
-            <div key={value} onClick={() => { if (!active) pick(value); else setOpen(false) }}
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#0D1B2A' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
-              <span>{txt}</span>
-              {active && <span style={{ color: '#0F6E56' }}>✓</span>}
-            </div>
-          )
-        })}
-      </div>,
-      document.body,
-    )
-  }
+// Compact meal row: teal uppercase "Meal · <type>" label, then
+// "<bold restaurant> — <muted type, time>". Tap (commissioner) → edit modal.
+function MealRow({ meal, isCommissioner, onEditMeal }) {
+  const typeLabel = mealTypeLabel(meal)
+  const name = (meal.location || '').trim() || 'Meal'
+  const detail = [typeLabel, meal.meal_time].filter(Boolean).join(', ')
+  const clickable = !!isCommissioner
   return (
-    <span ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
-      <button style={{ ...mealBadgeStyle, cursor: 'pointer' }} onClick={toggle}>{label} ▾</button>
-      {menu}
-    </span>
+    <button type="button" disabled={!clickable}
+      onClick={clickable ? () => onEditMeal(meal) : undefined}
+      style={{ ...scheduleRowStyle, cursor: clickable ? 'pointer' : 'default' }}>
+      <div style={mealLabelLineStyle}>{`Meal${typeLabel ? ' · ' + typeLabel : ''}`}</div>
+      <div style={{ fontSize: 13, marginTop: 2 }}>
+        <span style={{ fontWeight: 700, color: '#0D1B2A' }}>{name}</span>
+        {detail && <span style={{ color: '#7A8FA6' }}> — {detail}</span>}
+      </div>
+    </button>
   )
 }
 
-// One meal sub-card: bold restaurant/location title, meal-type pill, Time /
-// Location field rows (course-card style), inline custom label when "Other".
-function MealCard({ meal, isCommissioner, onEditMeal, onMealTypeChange, onCustomLabel }) {
+// "Meals" section: small label + compact rows (hairline between rows). Renders
+// only when the day has meals — adding is the day card's "+ Add Meal" action.
+function MealsSection({ meals = [], isCommissioner, onEditMeal }) {
+  if (!meals.length) return null
   return (
-    <div style={mealSubCardStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#0D1B2A' }}>{(meal.location || '').trim() || mealTypeLabel(meal)}</div>
-        </div>
-        <MealTypeBadge meal={meal} isCommissioner={isCommissioner} onChange={onMealTypeChange} />
-      </div>
-      {meal.meal_type === 'other' && isCommissioner && (
-        <input
-          style={mealCustomInputStyle}
-          defaultValue={meal.custom_label || ''}
-          placeholder="Custom label (e.g. Team Cookout)"
-          onBlur={e => { const v = e.target.value.trim(); if (v !== (meal.custom_label || '')) onCustomLabel(meal, v) }}
-        />
-      )}
-      <div style={{ paddingTop: 8 }}>
-        <div style={cdRow(false)}><span style={cdLabel}>Time</span><span style={cdValue}>{meal.meal_time || '—'}</span></div>
-        <div style={cdRow(!meal.notes)}><span style={cdLabel}>Location</span><span style={cdValue}>{(meal.location || '').trim() || '—'}</span></div>
-        {meal.notes && (
-          <div style={cdRow(true)}><span style={cdLabel}>Notes</span><span style={cdValue}>{meal.notes}</span></div>
-        )}
-      </div>
-      {isCommissioner && (
-        <div style={{ marginTop: 8 }}>
-          <button style={{ ...s.editCourseBtn, marginTop: 0 }} onClick={() => onEditMeal(meal)}>Edit Meal</button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// The "Meals" section inside a day card: label, meal sub-cards, "+ Add Meal".
-function MealsSection({ date, meals = [], isCommissioner, onEditMeal, onAddMeal, onMealTypeChange, onCustomLabel }) {
-  if (!isCommissioner && meals.length === 0) return null
-  return (
-    <div>
+    <div style={{ marginTop: 12 }}>
       <div style={mealsLabelStyle}>Meals</div>
-      {meals.map(m => (
-        <MealCard key={m.id} meal={m} isCommissioner={isCommissioner}
-          onEditMeal={onEditMeal} onMealTypeChange={onMealTypeChange} onCustomLabel={onCustomLabel} />
+      {meals.map((m, i) => (
+        <div key={m.id} style={i > 0 ? { borderTop: '1px solid #E8EDF3' } : undefined}>
+          <MealRow meal={m} isCommissioner={isCommissioner} onEditMeal={onEditMeal} />
+        </div>
       ))}
-      {isCommissioner && (
-        <button style={addActionStyle} onClick={() => onAddMeal(date)}>+ Add Meal</button>
-      )}
     </div>
   )
 }
 
-// Stays banner(s) at the top of the page — Travel-Day-style cards.
-function StaysSection({ stays = [], isCommissioner, tripStartDate, tripEndDate, onEditStay, onAddStay }) {
-  if (!stays.length) {
-    if (!isCommissioner) return null
-    return (
-      <div style={stayBannerStyle}>
-        <div style={{ minWidth: 0 }}>
-          <div style={stayLabelStyle}>{fmtStayRange(tripStartDate, tripEndDate) || 'Lodging'}</div>
-          <div style={stayTitleStyle}>No stay added yet</div>
-        </div>
-        <button style={{ ...s.editCourseBtn, marginTop: 0, flexShrink: 0 }} onClick={onAddStay}>+ Add Stay</button>
-      </div>
-    )
-  }
+// Lodging row (check-in day only): indigo uppercase "Lodging" label, then
+// "<bold hotel> — <muted date range>". Tap (commissioner) → edit modal.
+function LodgingRow({ stay, isCommissioner, onEditStay }) {
+  const name = (stay.hotel_name || '').trim() || 'Hotel'
+  const detail = fmtStayDetail(stay)
+  const clickable = !!isCommissioner
   return (
-    <>
-      {stays.map(st => (
-        <div key={st.id} style={stayBannerStyle}>
-          <div style={{ minWidth: 0 }}>
-            <div style={stayLabelStyle}>{fmtStayRange(st.check_in, st.check_out) || 'Lodging'}</div>
-            <div style={stayTitleStyle}>{(st.hotel_name || '').trim() || 'Hotel'}</div>
-            {st.confirmation && <div style={staySubStyle}>Confirmation: {st.confirmation}</div>}
-          </div>
-          {isCommissioner && (
-            <button style={{ ...s.editCourseBtn, marginTop: 0, flexShrink: 0 }} onClick={() => onEditStay(st)}>Edit Stay</button>
-          )}
-        </div>
-      ))}
-      {isCommissioner && (
-        <button style={{ ...addActionStyle, marginBottom: 12 }} onClick={onAddStay}>+ Add another stay</button>
-      )}
-    </>
+    <button type="button" disabled={!clickable}
+      onClick={clickable ? () => onEditStay(stay) : undefined}
+      style={{ ...scheduleRowStyle, marginTop: 12, cursor: clickable ? 'pointer' : 'default' }}>
+      <div style={lodgingLabelLineStyle}>Lodging</div>
+      <div style={{ fontSize: 13, marginTop: 2 }}>
+        <span style={{ fontWeight: 700, color: '#0D1B2A' }}>{name}</span>
+        {detail && <span style={{ color: '#7A8FA6' }}> — {detail}</span>}
+      </div>
+    </button>
   )
 }
 
@@ -2330,10 +2231,8 @@ export default function MenuDrawer({
             data={coursesData} isCommissioner={isCommissioner} readOnly={readOnly}
             onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds}
             onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound}
-            tripStartDate={tripStartDate} tripEndDate={tripEndDate}
-            onEditStay={setEditStay} onAddStay={() => setEditStay({ __new: true })}
+            onEditStay={setEditStay} onAddStay={(date) => setEditStay({ __new: true, check_in: date })}
             onEditMeal={setEditMeal} onAddMeal={(date) => setEditMeal({ __new: true, day: date, meal_type: 'dinner' })}
-            onMealTypeChange={changeMealType} onCustomLabel={setMealCustomLabel}
           />
         </SecondaryPage>
       )}
