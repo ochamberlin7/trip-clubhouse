@@ -1288,6 +1288,9 @@ export default function TripDashboard() {
         ))}
       </nav>
 
+      {/* Internal scroll region (headers + tab content). The page shell itself is
+          fixed-height/overflow:hidden so the fixed bottom tab bar never drifts. */}
+      <div className="dashboard-scroll">
       {/* ── Page header ── */}
       {activeTab === 'dashboard' && (
         <TripHeader tripName={trip.name} startDate={trip.start_date} endDate={trip.end_date} />
@@ -1332,6 +1335,7 @@ export default function TripDashboard() {
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} meals={meals} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
+      </div>
       </div>
 
       {/* Floating live-score banner — mounted once here so it persists across tabs */}

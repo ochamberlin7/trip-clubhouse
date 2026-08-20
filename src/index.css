@@ -111,7 +111,10 @@ select {
 .page-header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
 /* ── Dashboard ── */
-.dashboard-page { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg0); position: relative; }
+/* Fixed-height app shell: the page itself never scrolls (so the fixed bottom tab
+   bar can't drift on iOS during body scroll); .dashboard-scroll scrolls inside. */
+.dashboard-page { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; background: var(--bg0); position: relative; }
+.dashboard-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 /* Bottom space so the last rows (scorecard holes 17–18 + totals, leaderboard tail,
    etc.) scroll clear of the fixed bottom tab bar, the live-score banner, AND the
    floating feedback button.

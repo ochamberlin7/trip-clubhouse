@@ -57,7 +57,9 @@ const s = {
   itemLabel: { fontSize: '15px', fontWeight: 600, color: '#0D1B2A' },
   itemSub: { fontSize: '11px', color: '#7A8FA6', marginTop: '1px' },
 
-  page: { position: 'fixed', inset: 0, zIndex: 200, background: '#F0F4F8', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
+  // z above the persistent bottom chrome (tab-bar 100, live banner 200, feedback
+  // FAB 201) so a secondary page fully covers the scorecard — no leftover shows.
+  page: { position: 'fixed', inset: 0, zIndex: 250, background: '#F0F4F8', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
   pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: '16px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 16px)', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: '12px' },
   backBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1B3F6E', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 },
   pageContext: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 500 },
@@ -521,7 +523,9 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
     return () => { cancelled = true }
   }, [open, round.id, round.golfcourse_id, round.tees, apiTees])
 
-  const grid = { display: 'grid', gridTemplateColumns: '1fr 70px 38px 46px 50px 52px', alignItems: 'center', gap: 4 }
+  // Player gets the remaining space and its name wraps (never truncated);
+  // the numeric columns are compact fixed widths.
+  const grid = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 54px 36px 38px 42px 34px', alignItems: 'center', gap: 4 }
   const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
   const muted = { color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
   const teeSelect = { width: '100%', fontSize: 12, fontWeight: 600, color: '#0D1B2A', fontFamily: 'inherit', border: '1px solid #DDE3EA', borderRadius: 6, padding: '4px 4px', background: '#fff', boxSizing: 'border-box' }
@@ -619,16 +623,16 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
               <div style={{ ...grid, padding: '8px 10px', background: '#F5F8FA', borderBottom: '1px solid #DDE3EA' }}>
                 <span style={headCell}>Player</span>
                 <span style={headCell}>Tee</span>
-                <span style={headCell}>Index</span>
-                <span style={headCell}>Course</span>
-                <span style={headCell}>Playing</span>
-                <span style={headCell}>Shots</span>
+                <span style={headCell}>Idx</span>
+                <span style={headCell}>Crs</span>
+                <span style={headCell}>Play</span>
+                <span style={{ ...headCell, whiteSpace: 'nowrap' }}>Shots</span>
               </div>
               {orderedRows.map((r, i) => (
                 <div key={r.id}
                   ref={node => { const m = rowElemsRef.current; if (node) m.set(r.id, node); else m.delete(r.id) }}
                   style={{ ...grid, padding: '8px 10px', borderBottom: i === orderedRows.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', lineHeight: 1.2, overflowWrap: 'break-word', wordBreak: 'normal' }}>{r.name}</span>
                   {tees.length > 0 ? (
                     <select
                       style={teeSelect}
@@ -949,7 +953,7 @@ const mealLabelLineStyle = { fontSize: 10, fontWeight: 700, letterSpacing: '0.5p
 const lodgingLabelLineStyle = { fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#3346ab' }
 const scheduleRowStyle = { display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', fontFamily: 'inherit', padding: '8px 0' }
 
-// Muted detail line for a lodging row (date range; falls back to confirmation).
+// Date range for a lodging row's top-right (falls back to confirmation).
 function fmtStayDetail(st) {
   const range = fmtStayRange(st.check_in, st.check_out)
   if (range) return range
@@ -996,17 +1000,21 @@ function MealsSection({ meals = [], isCommissioner, onEditMeal }) {
 // "<bold hotel> — <muted date range>". Tap (commissioner) → edit modal.
 function LodgingRow({ stay, isCommissioner, onEditStay }) {
   const name = (stay.hotel_name || '').trim() || 'Hotel'
-  const detail = fmtStayDetail(stay)
+  const range = fmtStayDetail(stay)
+  const address = (stay.address || '').trim()
   const clickable = !!isCommissioner
   return (
     <button type="button" disabled={!clickable}
       onClick={clickable ? () => onEditStay(stay) : undefined}
       style={{ ...scheduleRowStyle, marginTop: 12, cursor: clickable ? 'pointer' : 'default' }}>
       <div style={lodgingLabelLineStyle}>Lodging</div>
-      <div style={{ fontSize: 13, marginTop: 2 }}>
-        <span style={{ fontWeight: 700, color: '#0D1B2A' }}>{name}</span>
-        {detail && <span style={{ color: '#7A8FA6' }}> — {detail}</span>}
+      {/* Top line: hotel name (left) + date range (right). */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#0D1B2A', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+        {range && <span style={{ fontSize: 12, color: '#7A8FA6', flexShrink: 0 }}>{range}</span>}
       </div>
+      {/* Second line: address (muted), only if present. */}
+      {address && <div style={{ fontSize: 12, color: '#7A8FA6', marginTop: 2 }}>{address}</div>}
     </button>
   )
 }
@@ -1059,7 +1067,9 @@ function MealModal({ meal, saving, onSave, onDelete, onClose }) {
         <div style={modalFieldLabel}>Restaurant / Location</div>
         <input style={modalInput} value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. The Steakhouse" />
         <div style={modalFieldLabel}>Time</div>
-        <input style={modalInput} type="time" value={time} onChange={e => setTime(e.target.value)} />
+        {/* display:block + appearance:none forces iOS <input type=time> to honour
+            width:100% (it otherwise shrinks to intrinsic content width). */}
+        <input style={{ ...modalInput, display: 'block', WebkitAppearance: 'none', appearance: 'none' }} type="time" value={time} onChange={e => setTime(e.target.value)} />
         <div style={modalFieldLabel}>Notes (optional)</div>
         <textarea style={{ ...modalInput, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
         <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
@@ -1077,6 +1087,7 @@ function MealModal({ meal, saving, onSave, onDelete, onClose }) {
 function StayModal({ stay, saving, tripStartDate, tripEndDate, onSave, onDelete, onClose }) {
   const isNew = !!stay.__new
   const [hotel, setHotel] = useState(stay.hotel_name || '')
+  const [address, setAddress] = useState(stay.address || '')
   const [checkIn, setCheckIn] = useState(stay.check_in || (isNew ? (tripStartDate || '') : ''))
   const [checkOut, setCheckOut] = useState(stay.check_out || (isNew ? (tripEndDate || '') : ''))
   const [confirmation, setConfirmation] = useState(stay.confirmation || '')
@@ -1086,6 +1097,7 @@ function StayModal({ stay, saving, tripStartDate, tripEndDate, onSave, onDelete,
     onSave({
       id: isNew ? undefined : stay.id,
       hotel_name: hotel.trim() || null,
+      address: address.trim() || null,
       check_in: checkIn || null,
       check_out: checkOut || null,
       confirmation: confirmation.trim() || null,
@@ -1101,6 +1113,8 @@ function StayModal({ stay, saving, tripStartDate, tripEndDate, onSave, onDelete,
         </div>
         <div style={modalFieldLabel}>Hotel name</div>
         <input style={modalInput} value={hotel} onChange={e => setHotel(e.target.value)} placeholder="e.g. Marriott Downtown" />
+        <div style={modalFieldLabel}>Address (optional)</div>
+        <input style={modalInput} value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. 123 Main St, Scottsdale, AZ" />
         <div style={{ display: 'flex', gap: 10 }}>
           <div style={{ flex: 1 }}>
             <div style={modalFieldLabel}>Check-in</div>

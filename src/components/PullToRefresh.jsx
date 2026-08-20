@@ -15,7 +15,13 @@ export default function PullToRefresh({ onRefresh, disabled = false, children })
   const [refreshing, setRefreshing] = useState(false)
   const startY = useRef(null)
 
-  const atTop = () => (window.scrollY || document.documentElement.scrollTop || 0) <= 0
+  // The dashboard scrolls inside .dashboard-scroll (the page shell is fixed-height),
+  // so check that container's scrollTop; fall back to the window for other layouts.
+  const atTop = () => {
+    const sc = typeof document !== 'undefined' && document.querySelector('.dashboard-scroll')
+    if (sc) return sc.scrollTop <= 0
+    return (window.scrollY || document.documentElement.scrollTop || 0) <= 0
+  }
 
   function onTouchStart(e) {
     if (disabled || refreshing) { startY.current = null; return }
