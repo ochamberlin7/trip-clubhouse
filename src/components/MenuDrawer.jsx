@@ -1997,13 +1997,17 @@ export default function MenuDrawer({
   }
 
   // Add a golf round on a previously non-golf day (replaces the placeholder). The
-  // round starts as a TBD, type 'none' (hidden until the commissioner sets a
-  // course/type via Edit Course). Then the courses page reloads.
+  // round starts as a TBD with a VISIBLE type — 'none' rounds are filtered out of
+  // the Scorecard, Leaderboard, Tee Times and live banner, so a 'none' round would
+  // only show on this page and never propagate to those tabs. Default to
+  // 'tournament' on a tournament trip (matching the wizard) else 'practice'; the
+  // commissioner can still change it via the type pill. Then reload/broadcast.
   async function addRound(date) {
     const { data: existing } = await supabase.from('rounds').select('round_number').eq('trip_id', tripId)
     const nextNum = (existing || []).reduce((m, r) => Math.max(m, r.round_number || 0), 0) + 1
+    const defaultType = tournamentFormat && tournamentFormat !== 'stroke_play' ? 'tournament' : 'practice'
     const { error } = await supabase.from('rounds').insert({
-      trip_id: tripId, round_number: nextNum, date, course_name: 'TBD', round_type: 'none', status: 'upcoming',
+      trip_id: tripId, round_number: nextNum, date, course_name: 'TBD', round_type: defaultType, status: 'upcoming',
     })
     if (error) {
       console.error('[MenuDrawer] addRound failed:', error)
