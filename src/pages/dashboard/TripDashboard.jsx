@@ -764,7 +764,7 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
           <button onClick={() => onSave(round.id, col, null)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: '#7A8FA6' }}>Clear</button>
         </>
       ) : (
-        <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: '#7A8FA6' }}>TBD</button>
+        <button onClick={openPicker} style={{ background: '#fff', border: '1px solid #1B3F6E', color: '#1B3F6E', padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>TBD</button>
       )}
 
       {open && createPortal(
