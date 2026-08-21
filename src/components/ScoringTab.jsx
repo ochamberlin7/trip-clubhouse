@@ -70,26 +70,27 @@ function PointsChip({ result }) {
   return <span className="sc-pts-badge empty" aria-hidden="true" />
 }
 
-// Standard Match Play: one filled circular badge per hole showing the cumulative
-// match score, coloured by the leading team.
-//   • T1 (Owen/Monty) leading  → navy circle, "1UP »"
-//   • T2 (Nicole/Robert) leading → green circle, "« 1UP"
-//   • all square → grey circle, "AS" (no arrow)
-// Text is the running margin ("1UP" / "2UP", or the closeout margin like "3&2"
-// once decided); the chevron points toward the leading team's side.
+// Standard Match Play: one filled 52px circular badge per hole showing the
+// cumulative match score (Option 9 design — a large number with a tiny inline
+// "UP" label), coloured by the leading team.
+//   • T1 (Owen/Monty) leading   → navy circle, big "N" + tiny "UP"
+//   • T2 (Nicole/Robert) leading → green circle, big "N" + tiny "UP"
+//   • all square → grey circle, "AS" (no "UP" label)
+// Text is the running margin, or the closeout margin once decided ("NUP" split
+// into number + "UP"; an early closeout like "3&2" is shown centred as-is).
+// "Dormie N" collapses to "NUP" so it always fits the circle; the result banner
+// still surfaces the full status.
 function MatchCell({ entry }) {
   if (!entry || entry.statusShort == null) return <span className="sc-match-badge empty" aria-hidden="true" />
   const leaderClass = entry.leader === 'T1' ? 't1' : entry.leader === 'T2' ? 't2' : 'as'
   const absLead = Math.abs(entry.lead || 0)
-  // Show the raw margin (or the closeout margin once decided); "Dormie N" is
-  // collapsed to "NUP" so the text always fits the circle. The banner/result
-  // still surface the full status elsewhere.
   const text = entry.closed ? entry.statusShort : absLead === 0 ? 'AS' : `${absLead}UP`
+  const upMatch = /^(\d+)UP$/.exec(text) // "2UP" → big "2" + tiny "UP"
   return (
     <span className={`sc-match-badge ${leaderClass}`}>
-      {entry.leader === 'T2' && <Chevron dir="left" size={12} />}
-      <span className="sc-match-badge-txt">{text}</span>
-      {entry.leader === 'T1' && <Chevron dir="right" size={12} />}
+      {upMatch
+        ? <span className="sc-match-inner"><span className="sc-match-num">{upMatch[1]}</span><span className="sc-match-up">UP</span></span>
+        : <span className="sc-match-as">{text}</span>}
     </span>
   )
 }
