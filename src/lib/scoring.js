@@ -689,13 +689,14 @@ export function liveStandardMatchTally(round, pairings, pairingPlayers, scoresMa
   })
 }
 
-// Per-player count of holes their SIDE won across all Standard Match Play rounds.
-// Reuses the SAME hole-win determination as the running match state — each
-// pairing is scored with standardMatchTally (identical net/stroke math to the
-// live banner/leaderboard), and every hole it marks 'T1'/'T2' credits a win to
-// each player on that side (slots 1&2 = team1, 3&4 = team2). Halved and
+// Per-player count of holes they PERSONALLY won across all Standard Match Play
+// rounds. The winning SIDE per hole is determined by standardMatchTally
+// (identical net/stroke math to the live banner/leaderboard — halved and
 // not-yet-fully-scored holes count for nobody, and holes after a match is closed
-// out aren't contested — matching how the live match state treats them.
+// out aren't contested). But the hole is credited only to the winning side's
+// best-net player(s) — the one whose net won it, or BOTH if the teammates tie
+// for the side's best net — NOT to both players unconditionally (which
+// over-counted). This is the same low-ball attribution as matchPlayPointsByPlayer.
 // Takes the same data bundle as analyzeScoring. Returns Map(trip_player_id -> holesWon).
 export function standardHolesWonByPlayer(
   { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds = [] },
@@ -764,9 +765,23 @@ export function standardHolesWonByPlayer(
       ]
 
       const tally = standardMatchTally(holes, players, {})
+      // Credit the hole only to the winning side's best-net player(s) (both if
+      // teammates tie for low), not to both teammates unconditionally.
+      const bestNetWinners = (side, holeNumber) => {
+        const si = strokeIndexOfHole(holes[holeNumber - 1])
+        let best = Infinity, winners = []
+        for (const id of side) {
+          const g = scoreMap[`${r.id}:${id}:${holeNumber}`]
+          if (g == null) continue
+          const n = g - strokesOnHole(playing.get(id) ?? 0, si)
+          if (n < best) { best = n; winners = [id] }
+          else if (n === best) winners.push(id)
+        }
+        return winners
+      }
       for (const res of tally.results) {
-        if (res.winner === 'T1') t1Players.forEach(credit)
-        else if (res.winner === 'T2') t2Players.forEach(credit)
+        if (res.winner === 'T1') bestNetWinners(t1Players, res.hole).forEach(credit)
+        else if (res.winner === 'T2') bestNetWinners(t2Players, res.hole).forEach(credit)
       }
     }
   }
