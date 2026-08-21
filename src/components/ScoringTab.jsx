@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { strokesOnHole, netScore, rawCourseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally } from '../lib/scoring'
 import { teamPillStyle, getTeamDisplayName, teamColor, colorIndexOf } from '../lib/teamColors'
@@ -916,9 +917,13 @@ function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSav
   }
 
   const m = {
-    // zIndex 400 matches the app's modal-overlay convention (MenuDrawer modals)
-    // so the sheet sits above the live-score banner (z-index 200), which was
-    // otherwise painting over the Cancel/controls at the equal z-index of 200.
+    // Rendered via a portal to document.body (see return below) so the overlay
+    // lands in the root stacking context — otherwise it stays trapped inside the
+    // ScoringTab / PullToRefresh subtree and the fixed live-score banner (z-index
+    // 200) and Feedback FAB (z-index 201), which are painted later as siblings of
+    // the tab content, show through it despite the higher number. zIndex 400
+    // matches the app's modal-overlay convention (MenuDrawer modals) and, in the
+    // root context, reliably covers both the banner (200) and the Feedback FAB (201).
     overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 400, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' },
     sheet: { background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 32px', width: '100%', maxWidth: 430, borderTop: '1px solid #DDE3EA' },
     round: { fontSize: 11, color: '#7A8FA6', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 },
@@ -941,7 +946,7 @@ function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSav
   }
   const teamStyle = teamPillStyle(teamSide === 'T1' ? 1 : 2)
 
-  return (
+  return createPortal(
     <div style={m.overlay} onClick={onClose}>
       <div style={m.sheet} onClick={e => e.stopPropagation()}>
         <div style={m.round}>{round.club_name || round.course_name}</div>
@@ -976,6 +981,7 @@ function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSav
         {canSave && existingScore != null && <button style={m.remove} onClick={remove} disabled={busy}>Remove Score</button>}
         <button style={m.cancel} onClick={onClose}>Cancel</button>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
