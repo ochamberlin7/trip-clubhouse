@@ -955,13 +955,6 @@ const mealLabelLineStyle = { fontSize: 10, fontWeight: 700, letterSpacing: '0.5p
 const lodgingLabelLineStyle = { fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#3346ab' }
 const scheduleRowStyle = { display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', fontFamily: 'inherit', padding: '8px 0' }
 
-// Date range for a lodging row's top-right (falls back to confirmation).
-function fmtStayDetail(st) {
-  const range = fmtStayRange(st.check_in, st.check_out)
-  if (range) return range
-  return st.confirmation ? `Conf. ${st.confirmation}` : ''
-}
-
 // Compact meal row: teal uppercase "Meal · <type>" label, then
 // "<bold restaurant> — <muted type, time>". Tap (commissioner) → edit modal.
 function MealRow({ meal, isCommissioner, onEditMeal }) {
@@ -998,11 +991,13 @@ function MealsSection({ meals = [], isCommissioner, onEditMeal }) {
   )
 }
 
-// Lodging row (check-in day only): indigo uppercase "Lodging" label, then
-// "<bold hotel> — <muted date range>". Tap (commissioner) → edit modal.
+// Lodging row (check-in day only): indigo uppercase "Lodging" label, then two
+// balanced columns — hotel name + address on the left, a "CHECK-IN" label above
+// the date range on the right. Tap (commissioner) → edit modal.
 function LodgingRow({ stay, isCommissioner, onEditStay }) {
   const name = (stay.hotel_name || '').trim() || 'Hotel'
-  const range = fmtStayDetail(stay)
+  const range = fmtStayRange(stay.check_in, stay.check_out)
+  const confFallback = !range && stay.confirmation ? `Conf. ${stay.confirmation}` : ''
   const address = (stay.address || '').trim()
   const clickable = !!isCommissioner
   return (
@@ -1010,13 +1005,21 @@ function LodgingRow({ stay, isCommissioner, onEditStay }) {
       onClick={clickable ? () => onEditStay(stay) : undefined}
       style={{ ...scheduleRowStyle, marginTop: 12, cursor: clickable ? 'pointer' : 'default' }}>
       <div style={lodgingLabelLineStyle}>Lodging</div>
-      {/* Top line: hotel name (left) + date range (right). */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#0D1B2A', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-        {range && <span style={{ fontSize: 12, color: '#7A8FA6', flexShrink: 0 }}>{range}</span>}
+      {/* Left: hotel name + address. Right: CHECK-IN label above the date range. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginTop: 2 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+          {address && <div style={{ fontSize: 12, color: '#7A8FA6', marginTop: 2 }}>{address}</div>}
+        </div>
+        {range
+          ? (
+            <div style={{ flexShrink: 0, textAlign: 'right' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#8a96a3' }}>Check-in</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#1B3F6E', marginTop: 2 }}>{range}</div>
+            </div>
+          )
+          : confFallback && <span style={{ fontSize: 12, color: '#7A8FA6', flexShrink: 0 }}>{confFallback}</span>}
       </div>
-      {/* Second line: address (muted), only if present. */}
-      {address && <div style={{ fontSize: 12, color: '#7A8FA6', marginTop: 2 }}>{address}</div>}
     </button>
   )
 }

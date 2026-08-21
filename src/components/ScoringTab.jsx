@@ -64,8 +64,8 @@ function Chevron({ dir, size = 18 }) {
 //   • halved → grey circle with an en-dash
 //   • unscored → transparent placeholder (keeps the column aligned)
 function PointsChip({ result }) {
-  if (result === 'T1') return <span className="sc-pts-badge t1"><Chevron dir="right" /></span>
-  if (result === 'T2') return <span className="sc-pts-badge t2"><Chevron dir="left" /></span>
+  if (result === 'T1') return <span className="sc-pts-badge t1"><Chevron dir="right" size={16} /></span>
+  if (result === 'T2') return <span className="sc-pts-badge t2"><Chevron dir="left" size={16} /></span>
   if (result === 'halve') return <span className="sc-pts-badge halve">–</span>
   return <span className="sc-pts-badge empty" aria-hidden="true" />
 }
@@ -379,7 +379,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // Both formats render a circular badge per hole, so the middle column is sized
   // to hold it (a touch wider for Standard's status text).
   const isStandard = trip?.format === 'standard_match_play'
-  const midColW = isStandard ? '50px' : '46px'
+  const midColW = isStandard ? '44px' : '42px'
   const scGridCols = `30px 24px 24px ${t1Slots.map(() => '1fr').join(' ')} ${midColW} ${t2Slots.map(() => '1fr').join(' ')}`
   // Whether the visible slots are all filled (for the "assign players" hint only).
   const visibleFilled = [...t1Slots, ...t2Slots].every(s => slotMap[s])

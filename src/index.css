@@ -391,22 +391,22 @@ select {
 
 /* Point Match Play: filled 48px circular hole-winner badge (one per hole).
    navy = Team 1 (Owen/Monty), green = Team 2 (Nicole/Robert), grey = halved. */
-.sc-pts-badge { width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; font-size: 17px; font-weight: 700; color: #fff; line-height: 1; }
+.sc-pts-badge { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; font-size: 15px; font-weight: 700; color: #fff; line-height: 1; }
 .sc-pts-badge.t1 { background: #1B3F6E; }
 .sc-pts-badge.t2 { background: #047857; }
 .sc-pts-badge.halve { background: #8a96a3; }
 .sc-pts-badge.empty { background: transparent; }
 /* Standard Match Play: filled 52px circular running-status badge (one per hole),
    coloured by the leading team (Option 9 — large number + tiny inline "UP"). */
-.sc-match-badge { width: 46px; height: 46px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; color: #fff; line-height: 1; }
+.sc-match-badge { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; color: #fff; line-height: 1; }
 .sc-match-badge.t1 { background: #1B3F6E; }
 .sc-match-badge.t2 { background: #047857; }
 .sc-match-badge.as { background: #8a96a3; }
 .sc-match-badge.empty { background: transparent; }
 .sc-match-inner { display: inline-flex; align-items: baseline; line-height: 1; }
-.sc-match-num { font-size: 18px; font-weight: 700; }
-.sc-match-up { font-size: 9px; font-weight: 700; margin-left: 1px; }
-.sc-match-as { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+.sc-match-num { font-size: 16px; font-weight: 700; }
+.sc-match-up { font-size: 8px; font-weight: 700; margin-left: 1px; }
+.sc-match-as { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; }
 /* Standard Match Play: locked (unenterable) hole after the match is decided */
 .sc-score.locked { opacity: 0.3; cursor: not-allowed; color: var(--muted); }
 /* Standard Match Play: prominent final-result banner above the scorecard */
