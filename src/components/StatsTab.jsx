@@ -2,15 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import {
-  matchPlayPointsByPlayer, standardHolesWonByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName,
+  matchPlayPointsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName,
 } from '../lib/scoring'
 
 // ── Trip Stats ────────────────────────────────────────────────────
 // All scoring reuses src/lib/scoring.js — no duplicate/divergent logic:
-//   • Card 1 (mode-independent): Standard Match Play → "Holes Won"
-//     (standardHolesWonByPlayer); Point Match Play → "Points Won"
-//     (matchPlayPointsByPlayer). Both are net-based by definition and never read
-//     the Gross/Net toggle.
+//   • Card 1 (mode-independent): the per-hole best-ball net point calc
+//     (matchPlayPointsByPlayer) drives BOTH tournament types — only the label
+//     differs (Standard Match Play → "Holes Won", Point Match Play →
+//     "Points Won"). On each hole the winning side's best-net player(s) score
+//     (both when tied for low); it's net-based by definition and never reads the
+//     Gross/Net toggle.
 //   • Gross/Net cards (eagles/birdies/…/best-worst round): each player's diff vs
 //     par per hole, tracked INDEPENDENTLY for gross (raw − par) and net (own
 //     absolute net − par). The two sets of counts are separate running totals.
@@ -48,13 +50,12 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
     })
   }
 
-  // Card 1 values (mode-independent). Both compute for every trip; the component
-  // shows only the one matching the tournament type. Points = per-hole best-ball
-  // points (Point Match Play); Holes Won = per-hole side wins (Standard Match
-  // Play). Both accrue hole-by-hole across all tournament rounds.
+  // Card 1 value (mode-independent). Identical net best-ball point calc for both
+  // tournament types — Standard Match Play labels it "Holes Won", Point Match
+  // Play "Points Won". Accrues hole-by-hole across all tournament rounds: on each
+  // decided hole the winning side's best-net player(s) score (both when tied).
   const bundle = { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds }
-  const pointsByPlayer = matchPlayPointsByPlayer(bundle, allowance)
-  const holesWonByPlayer = standardHolesWonByPlayer(bundle, allowance)
+  const primaryByPlayer = matchPlayPointsByPlayer(bundle, allowance)
 
   // Lookups.
   const roundById = new Map(rounds.map(r => [r.id, r]))
@@ -75,10 +76,9 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
   // Six vs-par categories + best/worst round, tracked separately for gross and
   // net (never derived from each other).
   const emptyMode = () => ({ eagles: 0, birdies: 0, pars: 0, parsOrBetter: 0, bogeys: 0, doubles: 0, triples: 0, bestRound: null, worstRound: null })
-  const blank = () => ({ points: 0, holesWon: 0, gross: emptyMode(), net: emptyMode() })
+  const blank = () => ({ primary: 0, gross: emptyMode(), net: emptyMode() })
   const stats = new Map(tripPlayers.map(p => [p.id, blank()]))
-  for (const [tp, pts] of pointsByPlayer) { if (stats.has(tp)) stats.get(tp).points = pts }
-  for (const [tp, hw] of holesWonByPlayer) { if (stats.has(tp)) stats.get(tp).holesWon = hw }
+  for (const [tp, v] of primaryByPlayer) { if (stats.has(tp)) stats.get(tp).primary = v }
 
   const bucket = (m, diff) => {
     if (diff <= -2) m.eagles++
@@ -281,9 +281,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   // Point Match Play tracks points earned. It's mode-independent (match-play
   // scoring is always net) so the Gross/Net toggle never changes it.
   const isStandard = trip?.format === 'standard_match_play'
-  const primaryCard = isStandard
-    ? { title: 'Holes Won', icon: '📊', key: 'holesWon' }
-    : { title: 'Points Won', icon: '📊', key: 'points' }
+  const primaryCard = { title: isStandard ? 'Holes Won' : 'Points Won', icon: '📊' }
 
   const canEditDrinks = p => !!isCommissioner || (!!currentUserId && (p.user_id === currentUserId || p.claimed_user_id === currentUserId))
 
@@ -358,7 +356,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
           key="primary"
           title={primaryCard.title} icon={primaryCard.icon} hi anyScore={anyScore}
           players={players}
-          valueOf={p => stats.get(p.id)?.[primaryCard.key] ?? 0}
+          valueOf={p => stats.get(p.id)?.primary ?? 0}
         />
         {TOGGLE_CARDS.map(c => (
           <StatCard
