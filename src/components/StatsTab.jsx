@@ -2,17 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import {
-  analyzeScoring, standardHolesWonByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName,
+  matchPlayPointsByPlayer, standardHolesWonByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName,
 } from '../lib/scoring'
 
 // ── Trip Stats ────────────────────────────────────────────────────
 // All scoring reuses src/lib/scoring.js — no duplicate/divergent logic:
-//   • Points: analyzeScoring().pointsByPlayer (per-player match-play points,
-//     best-ball hole wins across the multi-team pairing structure).
-//   • Net-relative-to-par stats (eagles/birdies/…/fire): each player's ABSOLUTE
-//     net (their own course handicap → strokesOnHole → gross − strokes), NOT the
-//     pairing-relative net analyzeScoring uses for match play.
-//   • Best/Worst round: gross 18-hole totals for complete 18-hole rounds only.
+//   • Card 1 (mode-independent): Standard Match Play → "Holes Won"
+//     (standardHolesWonByPlayer); Point Match Play → "Points Won"
+//     (matchPlayPointsByPlayer). Both are net-based by definition and never read
+//     the Gross/Net toggle.
+//   • Gross/Net cards (eagles/birdies/…/best-worst round): each player's diff vs
+//     par per hole, tracked INDEPENDENTLY for gross (raw − par) and net (own
+//     absolute net − par). The two sets of counts are separate running totals.
+//   • Best/Worst round: 18-hole totals for complete 18-hole rounds only, tracked
+//     independently per mode (best gross round ≠ best net round in general).
 
 // Absolute per-player playing handicap for a round: round(RAW course handicap ×
 // allowance) per the official WHS order (single rounding, from the unrounded
@@ -45,12 +48,12 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
     })
   }
 
-  // Points — reuse the existing per-player match-play point logic.
+  // Card 1 values (mode-independent). Both compute for every trip; the component
+  // shows only the one matching the tournament type. Points = per-hole best-ball
+  // points (Point Match Play); Holes Won = per-hole side wins (Standard Match
+  // Play). Both accrue hole-by-hole across all tournament rounds.
   const bundle = { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds }
-  const { pointsByPlayer } = analyzeScoring(bundle, null, allowance)
-  // Holes Won — per-player holes their side won (Standard Match Play card). Reuses
-  // standardMatchTally's hole-win detection; computed for all trips, shown only
-  // when the trip is Standard Match Play.
+  const pointsByPlayer = matchPlayPointsByPlayer(bundle, allowance)
   const holesWonByPlayer = standardHolesWonByPlayer(bundle, allowance)
 
   // Lookups.
@@ -69,14 +72,27 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
   const scoreMap = new Map()
   for (const s of scores) if (s.gross_score != null) scoreMap.set(`${s.round_id}:${s.trip_player_id}:${s.hole_number}`, s.gross_score)
 
-  const blank = () => ({
-    points: 0, holesWon: 0, eagles: 0, birdies: 0, pars: 0, parsOrBetter: 0,
-    bogeys: 0, doubles: 0, triples: 0, fireStreak: 0, fireHoles: 0,
-    bestRound: null, worstRound: null,
-  })
+  // Six vs-par categories + best/worst round, tracked separately for gross and
+  // net (never derived from each other).
+  const emptyMode = () => ({ eagles: 0, birdies: 0, pars: 0, parsOrBetter: 0, bogeys: 0, doubles: 0, triples: 0, bestRound: null, worstRound: null })
+  const blank = () => ({ points: 0, holesWon: 0, gross: emptyMode(), net: emptyMode() })
   const stats = new Map(tripPlayers.map(p => [p.id, blank()]))
   for (const [tp, pts] of pointsByPlayer) { if (stats.has(tp)) stats.get(tp).points = pts }
   for (const [tp, hw] of holesWonByPlayer) { if (stats.has(tp)) stats.get(tp).holesWon = hw }
+
+  const bucket = (m, diff) => {
+    if (diff <= -2) m.eagles++
+    else if (diff === -1) m.birdies++
+    else if (diff === 0) m.pars++
+    else if (diff === 1) m.bogeys++
+    else if (diff === 2) m.doubles++
+    else if (diff >= 3) m.triples++
+    if (diff <= 0) m.parsOrBetter++
+  }
+  const noteRound = (m, total) => {
+    if (m.bestRound == null || total < m.bestRound) m.bestRound = total
+    if (m.worstRound == null || total > m.worstRound) m.worstRound = total
+  }
 
   let anyScore = false
   for (const r of rounds) {
@@ -87,36 +103,25 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
     for (const tp of tripPlayers) {
       const st = stats.get(tp.id)
       const ph = absPlayingHandicap(round, teeRowByRP.get(`${r.id}:${tp.id}`), hcpById.get(tp.id), allowance)
-      let streak = 0
-      let scoredHoles = 0
-      let grossTotal = 0
+      let scoredHoles = 0, grossTotal = 0, netTotal = 0
       for (const hole of holes) {
         const gross = scoreMap.get(`${r.id}:${tp.id}:${hole}`)
-        const info = holeInfo.get(`${r.id}:${hole}`)
-        const par = info?.par
-        if (gross == null || par == null) { streak = 0; continue }
+        if (gross == null) continue
         anyScore = true
-        scoredHoles++; grossTotal += gross
-        const vsPar = (gross - strokesOnHole(ph, info?.stroke_index)) - par
-        if (vsPar <= -2) st.eagles++
-        else if (vsPar === -1) st.birdies++
-        else if (vsPar === 0) st.pars++
-        else if (vsPar === 1) st.bogeys++
-        else if (vsPar === 2) st.doubles++
-        else if (vsPar >= 3) st.triples++
-        if (vsPar <= 0) {
-          st.parsOrBetter++; st.fireHoles++
-          streak++
-          if (streak > st.fireStreak) st.fireStreak = streak
-        } else {
-          streak = 0
-        }
+        const info = holeInfo.get(`${r.id}:${hole}`)
+        const net = gross - strokesOnHole(ph, info?.stroke_index)
+        scoredHoles++; grossTotal += gross; netTotal += net
+        const par = info?.par
+        if (par == null) continue // can't bucket vs-par without a par (round totals still count)
+        bucket(st.gross, gross - par)
+        bucket(st.net, net - par)
       }
       // Best/Worst: complete 18-hole rounds only (round has 18 holes AND the
-      // player scored all 18).
+      // player scored all 18). Gross and net totals recorded independently, so a
+      // player's best gross round and best net round can be different rounds.
       if (is18 && scoredHoles === 18) {
-        if (st.bestRound == null || grossTotal < st.bestRound) st.bestRound = grossTotal
-        if (st.worstRound == null || grossTotal > st.worstRound) st.worstRound = grossTotal
+        noteRound(st.gross, grossTotal)
+        noteRound(st.net, netTotal)
       }
     }
   }
@@ -128,9 +133,10 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
   return { stats, drinkByPlayer, anyScore }
 }
 
-// 12 stat cards, in order. hi = sort high-first.
-const STAT_CARDS = [
-  { title: 'Points', icon: '🏆', key: 'points', hi: true },
+// Cards 2–10, re-rendered per Gross/Net mode. hi = sort high-first; dash = the
+// value is a round total (show "—" when the player has no qualifying 18-hole
+// round, and rank those "—" players last).
+const TOGGLE_CARDS = [
   { title: 'Eagles', icon: '🦅', key: 'eagles', hi: true },
   { title: 'Birdies', icon: '🐦', key: 'birdies', hi: true },
   { title: 'Pars', icon: '⛳', key: 'pars', hi: true },
@@ -138,42 +144,39 @@ const STAT_CARDS = [
   { title: 'Bogeys', icon: '😬', key: 'bogeys', hi: false },
   { title: 'Doubles', icon: '✌️', key: 'doubles', hi: false },
   { title: 'Triples+', icon: '💀', key: 'triples', hi: false },
-  { title: 'Fire Streak', icon: '🔥', key: 'fireStreak', hi: true },
-  { title: 'Fire Holes', icon: '🔥', key: 'fireHoles', hi: true },
   { title: 'Best Round', icon: '📉', key: 'bestRound', hi: false, dash: true },
   { title: 'Worst Round', icon: '📈', key: 'worstRound', hi: true, dash: true },
 ]
 
-function StatCard({ title, icon, players, stats, statKey, hi, dash }) {
+// `valueOf(player)` returns the ranked value (number, or null → "—"). `anyScore`
+// gates the whole card: with no scores entered anywhere, show "No data yet".
+function StatCard({ title, icon, players, valueOf, hi, anyScore }) {
   const nameOf = p => firstName(p.name) || p.name || ''
-  const rows = players.map(p => ({ p, v: stats.get(p.id)?.[statKey] ?? (dash ? null : 0) }))
-  if (dash) {
-    // Best/Worst Round are gross score TOTALS, not counts — a "0" would be
-    // misleading. List every player alphabetically, showing "—" for anyone
-    // without a complete 18-hole round yet.
-    rows.sort((a, b) => nameOf(a.p).localeCompare(nameOf(b.p)))
-  } else {
-    // Counting stats — every player always listed (even at 0), ordered by value
-    // (each card's natural direction via `hi`) with ties broken alphabetically,
-    // matching the Drink Leaderboard.
-    rows.sort((a, b) => {
-      if (a.v !== b.v) return hi ? b.v - a.v : a.v - b.v
-      return nameOf(a.p).localeCompare(nameOf(b.p))
-    })
-  }
+  const rows = players.map(p => ({ p, v: valueOf(p) }))
+  // Rank by value in the card's natural direction; null values ("—") sort last;
+  // ties broken alphabetically.
+  rows.sort((a, b) => {
+    if (a.v == null && b.v == null) return nameOf(a.p).localeCompare(nameOf(b.p))
+    if (a.v == null) return 1
+    if (b.v == null) return -1
+    if (a.v !== b.v) return hi ? b.v - a.v : a.v - b.v
+    return nameOf(a.p).localeCompare(nameOf(b.p))
+  })
   return (
     <div className="stat-card">
       <div className="stat-card-header">
         <span className="stat-card-icon">{icon}</span>
         <span className="stat-card-title">{title}</span>
       </div>
-      {rows.map((row, i) => (
-        <div className="stat-row-item" key={row.p.id}>
-          <span className="stat-rank">{i + 1}</span>
-          <span className="stat-player-name">{firstName(row.p.name) || row.p.name}</span>
-          <span className="stat-value">{row.v == null ? '—' : row.v}</span>
-        </div>
-      ))}
+      {!anyScore
+        ? <div className="stat-empty">No data yet</div>
+        : rows.map((row, i) => (
+          <div className={`stat-row-item${i === 0 && row.v != null ? ' rank-first' : ''}`} key={row.p.id}>
+            <span className="stat-rank">{i + 1}</span>
+            <span className="stat-player-name">{firstName(row.p.name) || row.p.name}</span>
+            <span className="stat-value">{row.v == null ? '—' : row.v}</span>
+          </div>
+        ))}
     </div>
   )
 }
@@ -182,6 +185,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   const [data, setData] = useState(null)
   const [openDrinkPopup, setOpenDrinkPopup] = useState(null) // trip_player_id
   const [refreshTick, setRefreshTick] = useState(0) // bumped by realtime score changes + resume to refetch
+  const [mode, setMode] = useState('gross') // Gross/Net toggle — cards 2–10 only
   const allowance = trip?.handicap_allowance ?? 100
 
   const roundIds = rounds.map(r => r.id)
@@ -263,7 +267,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   if (!data) return <div className="empty-state">Loading stats…</div>
 
   const players = data.tripPlayers.map(p => ({ ...p, name: playerName(p, data.profileMap) }))
-  const { stats, drinkByPlayer } = computed
+  const { stats, drinkByPlayer, anyScore } = computed
 
   const totalDrinks = p => (drinkByPlayer.get(p.id) || 0) + (p.manual_drinks || 0)
   // Drinks descending; ties broken alphabetically by first name.
@@ -273,12 +277,13 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     return (firstName(a.name) || a.name).localeCompare(firstName(b.name) || b.name)
   })
 
-  // Standard Match Play trips show "Holes Won" in place of the 🏆 Points card
-  // (same icon and first-slot position); every other card is unchanged.
+  // Card 1 adapts to the tournament type: Standard Match Play tracks holes won,
+  // Point Match Play tracks points earned. It's mode-independent (match-play
+  // scoring is always net) so the Gross/Net toggle never changes it.
   const isStandard = trip?.format === 'standard_match_play'
-  const statCards = isStandard
-    ? [{ title: 'Holes Won', icon: '🏆', key: 'holesWon', hi: true }, ...STAT_CARDS.slice(1)]
-    : STAT_CARDS
+  const primaryCard = isStandard
+    ? { title: 'Holes Won', icon: '📊', key: 'holesWon' }
+    : { title: 'Points Won', icon: '📊', key: 'points' }
 
   const canEditDrinks = p => !!isCommissioner || (!!currentUserId && (p.user_id === currentUserId || p.claimed_user_id === currentUserId))
 
@@ -336,14 +341,35 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
         })}
       </div>
 
-      {/* Stat grid — all 12 cards always render the full player list (even at 0),
-          like the Drink Leaderboard; Best/Worst Round show "—" instead of 0. */}
+      {/* Gross / Net toggle — controls cards 2–10 (not the primary card 1, and
+          not the Drink Leaderboard). Default Gross. */}
+      <div className="pill-row" role="tablist" aria-label="Gross or net stats">
+        <button role="tab" aria-selected={mode === 'gross'} className={`pill-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
+        <button role="tab" aria-selected={mode === 'net'} className={`pill-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
+      </div>
+
+      {/* Stat grid. Card 1 (Holes Won / Points Won) is mode-independent; cards
+          2–10 recompute from the active Gross/Net mode. Every player is listed
+          (even at 0); Best/Worst Round show "—" without a qualifying 18-hole
+          round; #1 is highlighted navy. All cards show "No data yet" until a
+          score is entered anywhere. */}
       <div className="stats-grid">
-        {statCards.map(c => (
+        <StatCard
+          key="primary"
+          title={primaryCard.title} icon={primaryCard.icon} hi anyScore={anyScore}
+          players={players}
+          valueOf={p => stats.get(p.id)?.[primaryCard.key] ?? 0}
+        />
+        {TOGGLE_CARDS.map(c => (
           <StatCard
             key={c.key}
-            title={c.title} icon={c.icon} statKey={c.key} hi={c.hi} dash={c.dash}
-            players={players} stats={stats}
+            title={c.title} icon={c.icon} hi={c.hi} anyScore={anyScore}
+            players={players}
+            valueOf={p => {
+              const m = stats.get(p.id)?.[mode]
+              if (!m) return c.dash ? null : 0
+              return c.dash ? m[c.key] : (m[c.key] ?? 0)
+            }}
           />
         ))}
       </div>

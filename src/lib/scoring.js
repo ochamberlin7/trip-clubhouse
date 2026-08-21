@@ -772,3 +772,99 @@ export function standardHolesWonByPlayer(
   }
   return holesWon
 }
+
+// Per-player Point Match Play points, computed hole-by-hole across every
+// tournament round (partial rounds count their decided holes — mirrors
+// standardHolesWonByPlayer, and unlike analyzeScoring it does NOT wait for a
+// full 18-hole round). Within each 2-vs-2 pairing, on each hole:
+//   • each side's best (lowest) net is taken over its players who have a score
+//     (net = gross − strokesOnHole(low-ball playing handicap, hole's SI));
+//   • the side with the strictly-lower best net wins the hole; an equal best net
+//     is a halve; a side with no score yet leaves the hole undecided;
+//   • a point is credited to each player on the winning side whose OWN net equals
+//     that side's best (so both teammates score when tied for low).
+// Practice / none rounds never count. Takes the same data bundle as
+// analyzeScoring. Returns Map(trip_player_id -> points).
+export function matchPlayPointsByPlayer(
+  { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds = [] },
+  allowance = 100
+) {
+  const hcpByPlayer = new Map(tripPlayers.map(p => [p.id, p.handicap_index]))
+  const roundById = new Map(rounds.map(r => [r.id, r]))
+  const teeRowByRoundPlayer = new Map()
+  for (const pr of playerRounds) teeRowByRoundPlayer.set(`${pr.round_id}:${pr.trip_player_id}`, pr)
+
+  // Holes per round (ordered), for stroke index per hole.
+  const holesByRound = new Map() // roundId -> [{ hole_number, stroke_index }]
+  for (const ch of courseHoles) {
+    if (!holesByRound.has(ch.round_id)) holesByRound.set(ch.round_id, [])
+    holesByRound.get(ch.round_id).push(ch)
+  }
+  for (const arr of holesByRound.values()) arr.sort((a, b) => a.hole_number - b.hole_number)
+
+  const scoreMap = {}
+  for (const s of scores) if (s.gross_score != null) scoreMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score
+
+  const pairingsByRound = new Map()
+  for (const pr of pairings) {
+    if (!pairingsByRound.has(pr.round_id)) pairingsByRound.set(pr.round_id, [])
+    pairingsByRound.get(pr.round_id).push(pr)
+  }
+  const ppByPairing = new Map()
+  for (const pp of pairingPlayers) {
+    if (!ppByPairing.has(pp.pairing_id)) ppByPairing.set(pp.pairing_id, [])
+    ppByPairing.get(pp.pairing_id).push(pp)
+  }
+
+  const points = new Map()
+  const credit = tp => points.set(tp, (points.get(tp) || 0) + 1)
+
+  for (const r of rounds) {
+    if (!isTournamentRound(r)) continue
+    const round = roundById.get(r.id)
+    const holes = holesByRound.get(r.id)
+      || (Array.isArray(round?.holes) ? round.holes.map((h, i) => ({ hole_number: i + 1, stroke_index: h?.stroke_index ?? h?.handicap })) : [])
+    if (!holes.length) continue
+
+    for (const pairing of (pairingsByRound.get(r.id) || [])) {
+      const slotMap = {}
+      for (const pp of (ppByPairing.get(pairing.id) || [])) slotMap[pp.team_slot] = pp.trip_player_id
+      const t1 = [slotMap[1], slotMap[2]].filter(Boolean)
+      const t2 = [slotMap[3], slotMap[4]].filter(Boolean)
+      if (!t1.length || !t2.length) continue // need both sides for a match
+
+      // Low-ball playing handicaps (per-player tee), identical to the scorecard.
+      const entries = [...t1, ...t2].map(id => {
+        const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
+        return { id, ch: rawCourseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
+      })
+      const playing = shotsGivenFromCourseHandicaps(entries, allowance)
+
+      // Best (lowest) net for a side + the players who own it; scored=false when
+      // nobody on the side has a score on this hole yet.
+      const sideBest = (side, hole, si) => {
+        let best = Infinity, winners = []
+        for (const id of side) {
+          const g = scoreMap[`${r.id}:${id}:${hole}`]
+          if (g == null) continue
+          const n = g - strokesOnHole(playing.get(id) ?? 0, si)
+          if (n < best) { best = n; winners = [id] }
+          else if (n === best) winners.push(id)
+        }
+        return { best, winners, scored: winners.length > 0 }
+      }
+
+      for (const h of holes) {
+        const hole = h.hole_number
+        const si = h.stroke_index ?? h.handicap
+        const a = sideBest(t1, hole, si)
+        const b = sideBest(t2, hole, si)
+        if (!a.scored || !b.scored) continue // hole not yet decided
+        if (a.best < b.best) a.winners.forEach(credit)
+        else if (b.best < a.best) b.winners.forEach(credit)
+        // equal best net → halved, no points
+      }
+    }
+  }
+  return points
+}
