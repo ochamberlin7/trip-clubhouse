@@ -389,17 +389,21 @@ select {
 .sc-th-opt:hover { background: #F5F8FA; }
 .sc-th-opt-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
 
-.sc-pts-chip { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; font-size: 12px; }
-.sc-pts-chip.t1 { background: var(--navy); color: #fff; }
-.sc-pts-chip.t2 { background: #0F6E56; color: #fff; }
-.sc-pts-chip.halve { background: var(--bg3); color: var(--cream2); }
-.sc-pts-chip.null { background: transparent; color: var(--bg3); }
-/* Standard Match Play running-status cell */
-.sc-match-chip { display: inline-flex; align-items: center; justify-content: center; justify-self: center; gap: 1px; font-size: 10px; font-weight: 800; line-height: 1; white-space: nowrap; }
-.sc-match-chip.t1 { color: var(--navy); }
-.sc-match-chip.t2 { color: #0F6E56; }
-.sc-match-chip.as { color: var(--muted); }
-.sc-match-halve { color: var(--bg3); font-size: 8px; }
+/* Point Match Play: filled 48px circular hole-winner badge (one per hole).
+   navy = Team 1 (Owen/Monty), green = Team 2 (Nicole/Robert), grey = halved. */
+.sc-pts-badge { width: 48px; height: 48px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; font-size: 18px; font-weight: 700; color: #fff; line-height: 1; }
+.sc-pts-badge.t1 { background: #1B3F6E; }
+.sc-pts-badge.t2 { background: #047857; }
+.sc-pts-badge.halve { background: #8a96a3; }
+.sc-pts-badge.empty { background: transparent; }
+/* Standard Match Play: filled 48px circular running-status badge (one per hole),
+   coloured by the leading team, with a chevron pointing to that team's side. */
+.sc-match-badge { width: 48px; height: 48px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; gap: 1px; font-size: 14px; font-weight: 700; color: #fff; line-height: 1; white-space: nowrap; }
+.sc-match-badge.t1 { background: #1B3F6E; }
+.sc-match-badge.t2 { background: #047857; }
+.sc-match-badge.as { background: #8a96a3; }
+.sc-match-badge.empty { background: transparent; }
+.sc-match-badge-txt { letter-spacing: -0.3px; }
 /* Standard Match Play: locked (unenterable) hole after the match is decided */
 .sc-score.locked { opacity: 0.3; cursor: not-allowed; color: var(--muted); }
 /* Standard Match Play: prominent final-result banner above the scorecard */

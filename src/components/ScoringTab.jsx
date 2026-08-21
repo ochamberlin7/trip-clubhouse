@@ -47,31 +47,49 @@ function initialsOf(p) {
     || (p?.name || '?').trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-function PointsChip({ result }) {
-  if (result === 'T1') return <span className="sc-pts-chip t1"><Chevron dir="left" /></span>
-  if (result === 'T2') return <span className="sc-pts-chip t2"><Chevron dir="right" /></span>
-  if (result === 'halve') return <span className="sc-pts-chip halve">◆</span>
-  return <span className="sc-pts-chip null">·</span>
-}
-function Chevron({ dir }) {
+// Chevron arrow. Team on the LEFT (T1 / navy) points right (»); team on the
+// RIGHT (T2 / green) points left («). Size defaults to the Point Match Play
+// badge; callers pass a smaller size for the Standard status badge.
+function Chevron({ dir, size = 18 }) {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
       {dir === 'left' ? <polyline points="15 18 9 12 15 6" /> : <polyline points="9 18 15 12 9 6" />}
     </svg>
   )
 }
-// Standard Match Play: running match status per hole. A small chevron (or ◆ for a
-// halve) marks who won the hole; the text is the running status (AS / 2UP /
-// Dormie 2 / 3&2), coloured by the leading team.
+
+// Point Match Play: one filled circular badge per hole showing the hole winner.
+//   • T1 (Owen/Monty, left)  → navy circle with » (right chevron)
+//   • T2 (Nicole/Robert, right) → green circle with « (left chevron)
+//   • halved → grey circle with an en-dash
+//   • unscored → transparent placeholder (keeps the column aligned)
+function PointsChip({ result }) {
+  if (result === 'T1') return <span className="sc-pts-badge t1"><Chevron dir="right" /></span>
+  if (result === 'T2') return <span className="sc-pts-badge t2"><Chevron dir="left" /></span>
+  if (result === 'halve') return <span className="sc-pts-badge halve">–</span>
+  return <span className="sc-pts-badge empty" aria-hidden="true" />
+}
+
+// Standard Match Play: one filled circular badge per hole showing the cumulative
+// match score, coloured by the leading team.
+//   • T1 (Owen/Monty) leading  → navy circle, "1UP »"
+//   • T2 (Nicole/Robert) leading → green circle, "« 1UP"
+//   • all square → grey circle, "AS" (no arrow)
+// Text is the running margin ("1UP" / "2UP", or the closeout margin like "3&2"
+// once decided); the chevron points toward the leading team's side.
 function MatchCell({ entry }) {
-  if (!entry || entry.statusShort == null) return <span className="sc-pts-chip null">·</span>
+  if (!entry || entry.statusShort == null) return <span className="sc-match-badge empty" aria-hidden="true" />
   const leaderClass = entry.leader === 'T1' ? 't1' : entry.leader === 'T2' ? 't2' : 'as'
+  const absLead = Math.abs(entry.lead || 0)
+  // Show the raw margin (or the closeout margin once decided); "Dormie N" is
+  // collapsed to "NUP" so the text always fits the circle. The banner/result
+  // still surface the full status elsewhere.
+  const text = entry.closed ? entry.statusShort : absLead === 0 ? 'AS' : `${absLead}UP`
   return (
-    <span className={`sc-match-chip ${leaderClass}`}>
-      {entry.winner === 'T1' && <Chevron dir="left" />}
-      {entry.winner === 'T2' && <Chevron dir="right" />}
-      {entry.winner === 'halve' && <span className="sc-match-halve">◆</span>}
-      <span className="sc-match-txt">{entry.statusShort}</span>
+    <span className={`sc-match-badge ${leaderClass}`}>
+      {entry.leader === 'T2' && <Chevron dir="left" size={12} />}
+      <span className="sc-match-badge-txt">{text}</span>
+      {entry.leader === 'T1' && <Chevron dir="right" size={12} />}
     </span>
   )
 }
@@ -356,9 +374,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const sideCount = team => team ? Math.min(2, Math.max(1, teamSize(team.id))) : 2
   const t1Slots = sideCount(pairTeam1) >= 2 ? [1, 2] : [1]
   const t2Slots = sideCount(pairTeam2) >= 2 ? [3, 4] : [3]
-  // Standard Match Play swaps the Pts column for a wider running-match-status column.
+  // Standard Match Play swaps the Pts column for a running-match-status column.
+  // Both formats now render a 48px circular badge per hole, so the middle column
+  // is sized to hold it (a touch wider for Standard's status text + chevron).
   const isStandard = trip?.format === 'standard_match_play'
-  const midColW = isStandard ? '58px' : '32px'
+  const midColW = isStandard ? '54px' : '50px'
   const scGridCols = `30px 24px 24px ${t1Slots.map(() => '1fr').join(' ')} ${midColW} ${t2Slots.map(() => '1fr').join(' ')}`
   // Whether the visible slots are all filled (for the "assign players" hint only).
   const visibleFilled = [...t1Slots, ...t2Slots].every(s => slotMap[s])
