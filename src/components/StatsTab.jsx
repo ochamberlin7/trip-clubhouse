@@ -343,9 +343,9 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
 
       {/* Gross / Net toggle — controls cards 2–10 (not the primary card 1, and
           not the Drink Leaderboard). Default Gross. */}
-      <div className="pill-row" role="tablist" aria-label="Gross or net stats">
-        <button role="tab" aria-selected={mode === 'gross'} className={`pill-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
-        <button role="tab" aria-selected={mode === 'net'} className={`pill-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
+      <div className="gross-net-toggle" role="tablist" aria-label="Gross or net stats">
+        <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
+        <button role="tab" aria-selected={mode === 'net'} className={`gn-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
       </div>
 
       {/* Stat grid. Card 1 (Holes Won / Points Won) is mode-independent; cards
