@@ -376,10 +376,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const t1Slots = sideCount(pairTeam1) >= 2 ? [1, 2] : [1]
   const t2Slots = sideCount(pairTeam2) >= 2 ? [3, 4] : [3]
   // Standard Match Play swaps the Pts column for a running-match-status column.
-  // Both formats now render a 48px circular badge per hole, so the middle column
-  // is sized to hold it (a touch wider for Standard's status text + chevron).
+  // Both formats render a circular badge per hole, so the middle column is sized
+  // to hold it (a touch wider for Standard's status text).
   const isStandard = trip?.format === 'standard_match_play'
-  const midColW = isStandard ? '54px' : '50px'
+  const midColW = isStandard ? '50px' : '46px'
   const scGridCols = `30px 24px 24px ${t1Slots.map(() => '1fr').join(' ')} ${midColW} ${t2Slots.map(() => '1fr').join(' ')}`
   // Whether the visible slots are all filled (for the "assign players" hint only).
   const visibleFilled = [...t1Slots, ...t2Slots].every(s => slotMap[s])

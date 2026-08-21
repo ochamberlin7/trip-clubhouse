@@ -43,7 +43,9 @@ function initials(name) {
 function TabIcon({ id }) {
   const svg = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
   if (id === 'dashboard')
-    return <svg {...svg}><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    // Symmetric house centred on x=12 (the previous path was visually lopsided,
+    // which made the gap to the Score tab look uneven).
+    return <svg {...svg}><path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M9.5 21v-7h5v7"/></svg>
   if (id === 'scores')
     return <svg {...svg}><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
   if (id === 'leaderboard')

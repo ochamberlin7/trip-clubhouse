@@ -391,14 +391,14 @@ select {
 
 /* Point Match Play: filled 48px circular hole-winner badge (one per hole).
    navy = Team 1 (Owen/Monty), green = Team 2 (Nicole/Robert), grey = halved. */
-.sc-pts-badge { width: 48px; height: 48px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; font-size: 18px; font-weight: 700; color: #fff; line-height: 1; }
+.sc-pts-badge { width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; font-size: 17px; font-weight: 700; color: #fff; line-height: 1; }
 .sc-pts-badge.t1 { background: #1B3F6E; }
 .sc-pts-badge.t2 { background: #047857; }
 .sc-pts-badge.halve { background: #8a96a3; }
 .sc-pts-badge.empty { background: transparent; }
 /* Standard Match Play: filled 52px circular running-status badge (one per hole),
    coloured by the leading team (Option 9 — large number + tiny inline "UP"). */
-.sc-match-badge { width: 52px; height: 52px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; color: #fff; line-height: 1; }
+.sc-match-badge { width: 46px; height: 46px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; color: #fff; line-height: 1; }
 .sc-match-badge.t1 { background: #1B3F6E; }
 .sc-match-badge.t2 { background: #047857; }
 .sc-match-badge.as { background: #8a96a3; }
