@@ -1,7 +1,5 @@
 // CTI Clubhouse countdown card — 3 states: pre-trip, during-trip, post-trip.
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
 // Parse an ISO date string to a local-midnight Date (date-level, ignores time).
 function parseDate(iso) {
   if (!iso) return null
@@ -14,16 +12,6 @@ function startOfToday() {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
   return d
-}
-
-// "Sep 29 – Oct 4, 2026" — both month abbreviations, year only on the end. Matches TripHeader.
-// A one-day trip (start === end) collapses to a single date, "Sep 29, 2026".
-function formatRange(s, e) {
-  if (!s && !e) return ''
-  if (s && !e) return `${MONTHS[s.getMonth()]} ${s.getDate()}, ${s.getFullYear()}`
-  if (!s && e) return `${MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`
-  if (sameDay(s, e)) return `${MONTHS[s.getMonth()]} ${s.getDate()}, ${s.getFullYear()}`
-  return `${MONTHS[s.getMonth()]} ${s.getDate()} – ${MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`
 }
 
 function sameDay(a, b) {
@@ -61,11 +49,6 @@ const styles = {
     lineHeight: 1.4,
     marginTop: 0,
   },
-  dateLine: {
-    fontSize: '13px',
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: '6px',
-  },
 }
 
 export default function CountdownWidget({ tripName, startDate, endDate, rounds = [] }) {
@@ -89,7 +72,6 @@ export default function CountdownWidget({ tripName, startDate, endDate, rounds =
       <div style={styles.container}>
         <div style={styles.number}>{days}</div>
         <div style={styles.label}>{days === 1 ? 'day until trip' : 'days until trip'}</div>
-        <div style={styles.dateLine}>{formatRange(start, end)}</div>
       </div>
     )
   }
