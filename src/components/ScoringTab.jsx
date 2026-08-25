@@ -860,11 +860,20 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         })}
       </div>
 
-      {/* Hide fire icons — instantly removes/restores the fire rings + 🔥. */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px', fontSize: 13, color: '#2C3E50', cursor: 'pointer', fontFamily: 'inherit' }}>
-        <input type="checkbox" checked={hideFire} onChange={e => setHideFire(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#1B3F6E', margin: 0 }} />
+      {/* Hide fire icons — instantly removes/restores the fire rings + 🔥. The
+          box turns blue with a check mark when enabled. */}
+      <button
+        type="button" role="checkbox" aria-checked={hideFire}
+        onClick={() => setHideFire(v => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: '#2C3E50' }}
+      >
+        <span style={{
+          width: 18, height: 18, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: hideFire ? '#1B3F6E' : '#fff', border: `1px solid ${hideFire ? '#1B3F6E' : '#C4CEDA'}`,
+          color: '#fff', fontSize: 12, fontWeight: 700, lineHeight: 1, transition: 'background 0.12s, border-color 0.12s',
+        }}>{hideFire ? '✓' : ''}</span>
         Hide fire icons
-      </label>
+      </button>
 
       {modal && (
         <ScoreModal
