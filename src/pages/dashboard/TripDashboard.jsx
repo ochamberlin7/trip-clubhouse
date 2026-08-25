@@ -400,7 +400,7 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenu
 
       {/* Daily MVPs — below the chat thread. Hidden behind a feature flag until
           stats/analytics are built out; component + data fetch are unchanged. */}
-      {FEATURES.dailyMvps && <DailyMVPCard tripId={trip.id} today={new Date()} />}
+      {FEATURES.dailyMvps && <DailyMVPCard tripId={trip.id} endDate={trip.end_date} />}
     </div>
   )
 }
