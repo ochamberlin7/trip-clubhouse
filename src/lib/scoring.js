@@ -883,3 +883,88 @@ export function matchPlayPointsByPlayer(
   }
   return points
 }
+
+// Per-player "on fire" stats across all rounds — matches the scorecard's fire
+// display: a hole is flagged once a player has 3+ CONSECUTIVE net par-or-better
+// holes (the 3rd hole onward is lit, never retroactively holes 1–2). Net uses the
+// pairing's low-ball shots given (same as the scorecard's dots/nets); a net
+// bogey-or-worse breaks the run, an unscored hole pauses it (not flagged, but the
+// underlying run isn't reset). Returns Map(tpId -> { maxStreak, fireHolesTotal }):
+//   • maxStreak       = longest consecutive run of FLAGGED holes in any single
+//                       round (streaks never carry between rounds)
+//   • fireHolesTotal  = total flagged holes summed across every round
+// Takes the same data bundle as analyzeScoring.
+export function fireStatsByPlayer(
+  { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds = [] },
+  allowance = 100
+) {
+  const hcpByPlayer = new Map(tripPlayers.map(p => [p.id, p.handicap_index]))
+  const roundById = new Map(rounds.map(r => [r.id, r]))
+  const teeRowByRoundPlayer = new Map()
+  for (const pr of playerRounds) teeRowByRoundPlayer.set(`${pr.round_id}:${pr.trip_player_id}`, pr)
+
+  const holesByRound = new Map() // roundId -> [{ hole_number, stroke_index, par }]
+  for (const ch of courseHoles) {
+    if (!holesByRound.has(ch.round_id)) holesByRound.set(ch.round_id, [])
+    holesByRound.get(ch.round_id).push(ch)
+  }
+  for (const arr of holesByRound.values()) arr.sort((a, b) => a.hole_number - b.hole_number)
+
+  const scoreMap = {}
+  for (const s of scores) if (s.gross_score != null) scoreMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score
+
+  const pairingsByRound = new Map()
+  for (const pr of pairings) {
+    if (!pairingsByRound.has(pr.round_id)) pairingsByRound.set(pr.round_id, [])
+    pairingsByRound.get(pr.round_id).push(pr)
+  }
+  const ppByPairing = new Map()
+  for (const pp of pairingPlayers) {
+    if (!ppByPairing.has(pp.pairing_id)) ppByPairing.set(pp.pairing_id, [])
+    ppByPairing.get(pp.pairing_id).push(pp)
+  }
+
+  const stats = new Map()
+  const ensure = tp => { let s = stats.get(tp); if (!s) { s = { maxStreak: 0, fireHolesTotal: 0 }; stats.set(tp, s) } return s }
+
+  for (const r of rounds) {
+    const round = roundById.get(r.id)
+    const holes = holesByRound.get(r.id)
+      || (Array.isArray(round?.holes) ? round.holes.map((h, i) => ({ hole_number: i + 1, stroke_index: h?.stroke_index ?? h?.handicap, par: h?.par })) : [])
+    if (!holes.length) continue
+
+    for (const pairing of (pairingsByRound.get(r.id) || [])) {
+      const ids = (ppByPairing.get(pairing.id) || []).map(pp => pp.trip_player_id).filter(Boolean)
+      if (!ids.length) continue
+      // Low-ball playing handicaps for this pairing (per-player tee), identical to the scorecard.
+      const entries = ids.map(id => {
+        const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
+        return { id, ch: rawCourseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
+      })
+      const playing = shotsGivenFromCourseHandicaps(entries, allowance)
+
+      for (const id of ids) {
+        // Build the fire boolean array for this player/round (scorecard logic).
+        const fire = new Array(holes.length).fill(false)
+        let streak = 0
+        for (let i = 0; i < holes.length; i++) {
+          const h = holes[i]
+          const g = scoreMap[`${r.id}:${id}:${h.hole_number}`]
+          if (g == null) continue // unscored → pause (not flagged; run not reset)
+          const par = h.par
+          if (par == null) continue
+          const net = g - strokesOnHole(playing.get(id) ?? 0, strokeIndexOfHole(h))
+          if (net <= par) { streak++; if (streak >= 3) fire[i] = true }
+          else streak = 0
+        }
+        // Aggregate: total flagged holes + longest consecutive flagged run this round.
+        const s = ensure(id)
+        let run = 0, best = 0, count = 0
+        for (const f of fire) { if (f) { count++; run++; if (run > best) best = run } else run = 0 }
+        s.fireHolesTotal += count
+        if (best > s.maxStreak) s.maxStreak = best
+      }
+    }
+  }
+  return stats
+}

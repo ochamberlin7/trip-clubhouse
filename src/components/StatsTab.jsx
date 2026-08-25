@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import {
-  matchPlayPointsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName,
+  matchPlayPointsByPlayer, fireStatsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName,
 } from '../lib/scoring'
 
 // ── Trip Stats ────────────────────────────────────────────────────
@@ -56,6 +56,8 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
   // decided hole the winning side's best-net player(s) score (both when tied).
   const bundle = { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds }
   const primaryByPlayer = matchPlayPointsByPlayer(bundle, allowance)
+  // Fire stats (mode-independent, net-based) — matches the scorecard's fire display.
+  const fireByPlayer = fireStatsByPlayer(bundle, allowance)
 
   // Lookups.
   const roundById = new Map(rounds.map(r => [r.id, r]))
@@ -76,9 +78,10 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
   // Six vs-par categories + best/worst round, tracked separately for gross and
   // net (never derived from each other).
   const emptyMode = () => ({ eagles: 0, birdies: 0, pars: 0, parsOrBetter: 0, bogeys: 0, doubles: 0, triples: 0, bestRound: null, worstRound: null })
-  const blank = () => ({ primary: 0, gross: emptyMode(), net: emptyMode() })
+  const blank = () => ({ primary: 0, fireStreak: 0, fireHolesTotal: 0, gross: emptyMode(), net: emptyMode() })
   const stats = new Map(tripPlayers.map(p => [p.id, blank()]))
   for (const [tp, v] of primaryByPlayer) { if (stats.has(tp)) stats.get(tp).primary = v }
+  for (const [tp, f] of fireByPlayer) { if (stats.has(tp)) { stats.get(tp).fireStreak = f.maxStreak; stats.get(tp).fireHolesTotal = f.fireHolesTotal } }
 
   const bucket = (m, diff) => {
     if (diff <= -2) m.eagles++
@@ -358,7 +361,34 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
           players={players}
           valueOf={p => stats.get(p.id)?.primary ?? 0}
         />
-        {TOGGLE_CARDS.map(c => (
+        {/* Counting cards (Eagles … Triples+) — Gross/Net mode-dependent. */}
+        {TOGGLE_CARDS.slice(0, 7).map(c => (
+          <StatCard
+            key={c.key}
+            title={c.title} icon={c.icon} hi={c.hi} anyScore={anyScore}
+            players={players}
+            valueOf={p => {
+              const m = stats.get(p.id)?.[mode]
+              if (!m) return c.dash ? null : 0
+              return c.dash ? m[c.key] : (m[c.key] ?? 0)
+            }}
+          />
+        ))}
+        {/* Fire stats — mode-independent (net-based, like the primary card). */}
+        <StatCard
+          key="fireStreak"
+          title="Fire Streak" icon="🔥" hi anyScore={anyScore}
+          players={players}
+          valueOf={p => stats.get(p.id)?.fireStreak ?? 0}
+        />
+        <StatCard
+          key="fireHoles"
+          title="Fire Holes" icon="🔥" hi anyScore={anyScore}
+          players={players}
+          valueOf={p => stats.get(p.id)?.fireHolesTotal ?? 0}
+        />
+        {/* Best / Worst Round — Gross/Net mode-dependent. */}
+        {TOGGLE_CARDS.slice(7).map(c => (
           <StatCard
             key={c.key}
             title={c.title} icon={c.icon} hi={c.hi} anyScore={anyScore}
