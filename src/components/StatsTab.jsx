@@ -174,7 +174,7 @@ function StatCard({ title, icon, players, valueOf, hi, anyScore }) {
       {!anyScore
         ? <div className="stat-empty">No data yet</div>
         : rows.map((row, i) => (
-          <div className={`stat-row-item${i === 0 && row.v != null ? ' rank-first' : ''}`} key={row.p.id}>
+          <div className="stat-row-item" key={row.p.id}>
             <span className="stat-rank">{i + 1}</span>
             <span className="stat-player-name">{firstName(row.p.name) || row.p.name}</span>
             <span className="stat-value">{row.v == null ? '—' : row.v}</span>

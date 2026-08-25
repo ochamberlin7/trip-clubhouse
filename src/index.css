@@ -459,9 +459,6 @@ select {
 .stat-player-name{font-size:12px;font-weight:600;color:var(--cream);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stat-value{font-size:13px;font-weight:800;color:var(--cream2);min-width:24px;text-align:right}
 .stat-value.highlight{color:var(--gold)}
-/* #1 rank highlighted navy */
-.stat-row-item.rank-first{background:rgba(27,63,110,0.08)}
-.stat-row-item.rank-first .stat-rank,.stat-row-item.rank-first .stat-value{color:var(--navy)}
 /* Empty stat card (no scores entered anywhere yet) */
 .stat-empty{padding:10px 8px;font-size:12px;font-style:italic;color:var(--muted)}
 /* Gross/Net toggle — full-width segmented control (two equal buttons, flush) */
