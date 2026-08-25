@@ -679,6 +679,7 @@ const lockToastStyle = { flexBasis: '100%', fontSize: 12, color: '#C0392B', padd
 // label), centered at the bottom of the card. Handicaps · Tournament · Edit.
 const toolbarRowStyle = { display: 'flex', gap: 8, marginTop: 12 }
 const toolbarPillStyle = { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, background: '#fff', border: '1px solid #1B3F6E', color: '#1B3F6E', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '7px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', width: '100%' }
+const nameEditBtnStyle = { background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: '#7A8FA6', display: 'inline-flex', alignItems: 'center', flexShrink: 0, fontFamily: 'inherit' }
 const toolbarPillDisabledStyle = { ...toolbarPillStyle, opacity: 0.4, cursor: 'not-allowed', borderColor: '#DDE3EA', color: '#7A8FA6' }
 const ICON = { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
 const IconHandicaps = () => <svg {...ICON}><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
@@ -835,14 +836,19 @@ const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: '#7A8FA6' }
 // One golf round: unchanged content (name, rating/slope, location, par) plus the
 // new bottom toolbar (Handicaps · Tournament · Edit). Own hcOpen state so the
 // Handicaps pill toggles the handicaps table below.
-function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, onEditCourse, onRoundTypeChange, onChangePlayerTee }) {
+function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, onEditCourse, onRoundTypeChange, onChangePlayerTee, onEditName }) {
   const [hcOpen, setHcOpen] = useState(false)
   const entryStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: roundIndex === roundCount - 1 ? 0 : 10 }
   return (
     <div style={entryStyle}>
       {roundCount > 1 && <div style={roundNumLabel}>Round {roundIndex + 1}</div>}
       <div>
-        <div style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B2A' }}>{r.club_name || r.course_name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B2A' }}>{r.club_name || r.course_name}</div>
+          {isCommissioner && !readOnly && (
+            <button style={nameEditBtnStyle} onClick={() => onEditName(r)} aria-label="Edit course name"><IconEdit /></button>
+          )}
+        </div>
         {r.club_name && r.course_name && r.course_name !== r.club_name && (
           <div style={{ fontSize: '12px', color: '#7A8FA6', marginTop: '1px' }}>{r.course_name}</div>
         )}
@@ -866,7 +872,30 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
   )
 }
 
-function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
+// Manual name editor (pencil next to the course name): rename the course's
+// primary display name and set an optional scorecard pill name (blank → auto).
+function NameEditModal({ round, saving, onSave, onClose }) {
+  const [name, setName] = useState(round.club_name || round.course_name || '')
+  const [scName, setScName] = useState(round.scorecard_name || '')
+  return (
+    <div style={s.modalOverlay} onClick={() => !saving && onClose()}>
+      <div style={s.modalSheet} onClick={e => e.stopPropagation()}>
+        <div style={s.modalTitle}>
+          <span>Edit Course Name</span>
+          <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div style={modalFieldLabel}>Course name</div>
+        <input style={modalInput} value={name} onChange={e => setName(e.target.value)} placeholder="Course name" />
+        <div style={modalFieldLabel}>Scorecard display name</div>
+        <input style={modalInput} value={scName} onChange={e => setScName(e.target.value)} placeholder="e.g. The Loop – Red" />
+        <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Shown on the round pill in the Scores tab. Leave blank to use the course sub-name automatically.</div>
+        <button style={{ ...pc.saveBtn, width: '100%', marginTop: 16 }} disabled={saving} onClick={() => onSave(name, scName)}>{saving ? 'Saving…' : 'Save'}</button>
+      </div>
+    </div>
+  )
+}
+
+function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onEditName, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const { days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, stays = [], mealsByDate = {} } = data
   if (!days || days.length === 0) {
@@ -902,7 +931,7 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, all
                     key={r.id} round={r} roundIndex={i} roundCount={arr.length}
                     isCommissioner={isCommissioner} readOnly={readOnly} allowance={allowance}
                     calcPlayers={calcPlayers} playerRounds={playerRounds} locked={locked}
-                    onEditCourse={onEditCourse} onRoundTypeChange={onRoundTypeChange} onChangePlayerTee={onChangePlayerTee}
+                    onEditCourse={onEditCourse} onEditName={onEditName} onRoundTypeChange={onRoundTypeChange} onChangePlayerTee={onChangePlayerTee}
                   />
                 )
               })}
@@ -1836,6 +1865,8 @@ export default function MenuDrawer({
   const [flightsData, setFlightsData] = useState(null)
   const [editRound, setEditRound] = useState(null)
   const [savingCourse, setSavingCourse] = useState(false)
+  const [editName, setEditName] = useState(null) // round whose name is being edited (pencil)
+  const [savingName, setSavingName] = useState(false)
   const [editMeal, setEditMeal] = useState(null) // meal row (edit) or { day, __new } (add)
   const [savingMeal, setSavingMeal] = useState(false)
   const [editStay, setEditStay] = useState(null) // stay row (edit) or { __new } (add)
@@ -2206,6 +2237,25 @@ export default function MenuDrawer({
     if (onRoundsChanged) onRoundsChanged() // propagate to scorecard / leaderboard / tee times / banner
   }
 
+  // Save a manual course-name edit (pencil next to the name). `name` overwrites
+  // the round's primary display name (club_name, or course_name when there's no
+  // club_name); `scName` is the optional scorecard pill override (blank → auto).
+  async function saveNameEdit(name, scName) {
+    const round = editName
+    if (!round) return
+    const primaryField = round.club_name ? 'club_name' : 'course_name'
+    const trimmed = (name || '').trim()
+    const patch = { scorecard_name: (scName || '').trim() || null }
+    if (trimmed) patch[primaryField] = trimmed
+    setSavingName(true)
+    const { error } = await supabase.from('rounds').update(patch).eq('id', round.id)
+    setSavingName(false)
+    if (error) { console.error('[MenuDrawer] saveNameEdit failed:', error); return }
+    setEditName(null)
+    setCoursesData(null)       // reload the Courses page
+    if (onRoundsChanged) onRoundsChanged() // update the Scores-tab pill + other widgets
+  }
+
   // Round-type selector now only sets the round type (Tournament/Practice/Not
   // Set). Converting a day to Travel/Non-Golf lives in the Edit Course modal.
   function handleRoundTypeSelect(round, val) {
@@ -2375,7 +2425,7 @@ export default function MenuDrawer({
         <SecondaryPage context={tripName} title="Schedule & Courses" onBack={backToDrawer}>
           <CoursesPage
             data={coursesData} isCommissioner={isCommissioner} readOnly={readOnly}
-            onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds}
+            onEditCourse={setEditRound} onEditName={setEditName} allowance={handicapAllowance} scoredRounds={scoredRounds}
             onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound}
             onEditStay={setEditStay} onAddStay={(date) => setEditStay({ __new: true, check_in: date })}
             onEditMeal={setEditMeal} onAddMeal={(date) => setEditMeal({ __new: true, day: date, meal_type: 'dinner' })}
@@ -2444,6 +2494,11 @@ export default function MenuDrawer({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Manual course-name + scorecard-pill-name editor (pencil next to name) */}
+      {editName && (
+        <NameEditModal round={editName} saving={savingName} onSave={saveNameEdit} onClose={() => setEditName(null)} />
       )}
 
       {/* Meal add/edit modal */}

@@ -42,6 +42,18 @@ function formatRoundPillName(clubName) {
   if (stripped.length <= 14) return stripped
   return stripped.split(' ').filter(Boolean).slice(0, 2).join(' ')
 }
+// Round-selection pill label. A commissioner-set scorecard_name wins (shown
+// verbatim). Otherwise, for a course with a distinct sub-name (e.g. "Arcadia
+// Bluffs" / "South", "Forest Dunes GC" / "The Loop - Red") use the sub-name;
+// else fall back to the club/course name. Auto values get the abbreviator.
+function roundPillName(r) {
+  const manual = (r.scorecard_name || '').trim()
+  if (manual) return manual
+  const club = (r.club_name || '').trim()
+  const course = (r.course_name || '').trim()
+  const source = course && course !== club ? course : (club || course)
+  return formatRoundPillName(source)
+}
 function initialsOf(p) {
   return `${(p?.first_name || '')[0] || ''}${(p?.last_name || '')[0] || ''}`.toUpperCase()
     || (p?.name || '?').trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -796,7 +808,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       <div className="pill-row">
         {visibleRounds.map(r => (
           <button key={r.id} className={`pill-btn ${round.id === r.id ? 'active' : ''}`} onClick={() => { setActiveRoundId(r.id); setActivePairingNum(1); setOpenSlot(null) }}>
-            <span className="round-pill-name">{formatRoundPillName(r.club_name || r.course_name)}</span>
+            <span className="round-pill-name">{roundPillName(r)}</span>
             {r.round_type === 'practice' && <span className="round-practice-badge">P</span>}
           </button>
         ))}
