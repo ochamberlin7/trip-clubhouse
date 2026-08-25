@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { loadPurseStandings, computePurse, formatMoney } from '../lib/purse'
 
-// Tournament Purse — Home-screen widget. Shows who owes the welcome-dinner bill
-// based on match-play standings. Only appears when the commissioner has toggled
+// Tournament Purse — Home-screen widget. Shows who owes the purse based on
+// match-play standings. Only appears when the commissioner has toggled
 // "Show on Home". Three states: a rule blurb before any round is complete;
 // standings-only when no amount is set; the full per-player breakdown once set.
 // After the trip ends it stays only if an amount was ever set.
@@ -78,7 +78,7 @@ export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }
   if (tripOver && !amountSet) return null
   if (!purse.valid) return null // needs the app's two-team setup
 
-  const headerAmount = amountSet ? `$${formatMoney(amount)}` : 'TBD'
+  const headerAmount = `$${formatMoney(amount)}` // defaults to "$0" when unset
 
   // State 1 — before any round is complete: static rule blurb.
   if (!hasStandings) {
@@ -86,30 +86,31 @@ export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }
       <div style={styles.card}>
         <div style={styles.header}>
           <span style={styles.headerTitle}>Tournament Purse</span>
-          {amountSet && <span style={styles.headerAmount}>{headerAmount}</span>}
+          <span style={styles.headerAmount}>{headerAmount}</span>
         </div>
         <div style={styles.body}>
-          <div style={styles.rule}>The losing team pays the welcome dinner bill — split evenly among the losing team.</div>
+          <div style={styles.rule}>The losing team pays the purse.</div>
         </div>
       </div>
     )
   }
 
-  const { tied, losingTeamName, splitCount, perShare, teamA, teamB } = purse
-  const statusText = tied
-    ? `Teams are tied — split ${splitCount} ways`
-    : `${losingTeamName} pays — split ${splitCount} ways`
+  const { tied, losingTeamName, perShare, teamA, teamB } = purse
+  const statusText = tied ? 'Teams are tied' : `${losingTeamName} pays`
   const holesLine = `${teamA.name} ${teamA.holesWon} · ${teamB.name} ${teamB.holesWon} holes`
 
   // State 2 — standings exist, no amount set yet.
   if (!amountSet) {
     return (
       <div style={styles.card}>
-        <div style={styles.header}><span style={styles.headerTitle}>Tournament Purse</span></div>
+        <div style={styles.header}>
+          <span style={styles.headerTitle}>Tournament Purse</span>
+          <span style={styles.headerAmount}>{headerAmount}</span>
+        </div>
         <div style={styles.body}>
           <div style={{ ...styles.status, color: tied ? GREY : RED }}>{statusText}</div>
           <div style={styles.holes}>{holesLine}</div>
-          <div style={styles.note}>Commissioner: set the dinner amount to show each player's share.</div>
+          <div style={styles.note}>Commissioner: set the purse amount to show each player's share.</div>
         </div>
       </div>
     )

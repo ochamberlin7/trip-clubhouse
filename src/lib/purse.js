@@ -2,7 +2,7 @@ import { analyzeScoring, playerName } from './scoring'
 import { getTeamDisplayName } from './teamColors'
 
 // Tournament purse: the losing team (fewer match-play holes won across completed
-// rounds) pays the welcome-dinner bill, split evenly among that team's players.
+// rounds) pays the purse, split evenly among that team's players.
 // A tie splits the bill across everyone. Standings reuse analyzeScoring's
 // holeWinsByTeam (the same best-ball, complete-tournament-round math the
 // leaderboard uses), so the purse always agrees with the standings shown
@@ -22,7 +22,7 @@ export function formatMoney(n) {
 //   teams:          [{ id, name, team_index, color_index }]
 //   tripPlayers:    [{ id, team_id, name }]   (name already resolved)
 //   holeWinsByTeam: Map(team_id -> holesWon)
-//   amount:         dinner amount (number; 0/empty = not set)
+//   amount:         purse amount (number; 0/empty = not set)
 export function computePurse({ teams = [], tripPlayers = [], holeWinsByTeam = new Map(), amount = 0 }) {
   if (teams.length !== 2) return { valid: false }
 

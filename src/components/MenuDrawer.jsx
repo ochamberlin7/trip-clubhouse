@@ -1552,8 +1552,8 @@ function AllowanceInputCard({ tripId, allowance, onUpdate }) {
   )
 }
 
-// Commissioner "Tournament Purse" section: set the welcome-dinner amount (with a
-// live per-player preview from current standings) and toggle the Home widget.
+// Commissioner "Tournament Purse" section: set the purse amount (with a live
+// per-player preview from current standings) and toggle the Home widget.
 const purseLabel = { fontSize: 12, fontWeight: 600, color: '#1B3F6E', display: 'block', marginBottom: 6 }
 function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, onUpdate }) {
   const [amount, setAmount] = useState(Number(purseAmount) > 0 ? String(purseAmount) : '')
@@ -1578,8 +1578,8 @@ function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, on
   if (invalid) preview = ''
   else if (num > 0 && purse?.valid && purse.splitCount > 0) {
     preview = purse.tied
-      ? `Split ${purse.splitCount} ways (tied) — $${formatMoney(purse.perShare)} each`
-      : `Each ${purse.losingTeamName} player owes $${formatMoney(purse.perShare)} (split ${purse.splitCount} ways)`
+      ? `Tied — $${formatMoney(purse.perShare)} each`
+      : `Each ${purse.losingTeamName} player owes $${formatMoney(purse.perShare)}`
   }
 
   async function save() {
@@ -1605,9 +1605,9 @@ function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, on
   return (
     <Card title="Tournament Purse">
       <div style={{ fontSize: 13, color: '#2C3E50', lineHeight: 1.5, marginBottom: 12 }}>
-        The losing team pays the welcome dinner bill, split evenly among its players (a tie splits it across everyone).
+        The losing team pays the purse.
       </div>
-      <label style={purseLabel}>Welcome Dinner Amount</label>
+      <label style={purseLabel}>Purse Amount</label>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#7A8FA6', fontSize: 14 }}>$</span>
