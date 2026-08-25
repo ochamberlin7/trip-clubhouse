@@ -442,9 +442,9 @@ function PointsLeaderboard({ trip, teams, rounds }) {
   const [teeRowMap, setTeeRowMap] = useState({})
 
   const allowance = trip?.handicap_allowance ?? 100
-  // 'none' rounds are placeholders ("not decided yet") — excluded from standings.
-  // "no scoring" rounds (tee times only) are excluded too.
-  const lbRounds = rounds.filter(r => r.round_type !== 'none' && !r.no_scoring)
+  // Leaderboard shows only counting rounds: exclude 'none' placeholders, practice
+  // rounds, and "no scoring" (tee-times-only) rounds.
+  const lbRounds = rounds.filter(r => r.round_type !== 'none' && r.round_type !== 'practice' && !r.no_scoring)
   const roundIds = lbRounds.map(r => r.id)
   const roundKey = roundIds.join(',')
 
@@ -570,7 +570,9 @@ function StandardLeaderboard({ trip, teams, rounds }) {
   const [teeRowMap, setTeeRowMap] = useState({})
 
   const allowance = trip?.handicap_allowance ?? 100
-  const lbRounds = rounds.filter(r => r.round_type !== 'none' && !r.no_scoring)
+  // Leaderboard shows only counting rounds: exclude 'none', practice, and
+  // "no scoring" (tee-times-only) rounds.
+  const lbRounds = rounds.filter(r => r.round_type !== 'none' && r.round_type !== 'practice' && !r.no_scoring)
   const roundIds = lbRounds.map(r => r.id)
   const roundKey = roundIds.join(',')
 
