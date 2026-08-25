@@ -1604,9 +1604,6 @@ function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, on
 
   return (
     <Card title="Tournament Purse">
-      <div style={{ fontSize: 13, color: '#2C3E50', lineHeight: 1.5, marginBottom: 12 }}>
-        The losing team pays the purse.
-      </div>
       <label style={purseLabel}>Purse Amount</label>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ position: 'relative', flex: 1 }}>
