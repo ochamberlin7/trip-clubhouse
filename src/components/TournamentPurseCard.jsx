@@ -15,7 +15,7 @@ function todayIsoLocal() {
 
 const NAVY = '#1B3F6E'
 const GREY = '#8a96a3'
-const RED = '#d97757'
+const RED = '#C0392B'
 const styles = {
   card: { background: '#fff', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '16px', overflow: 'hidden' },
   header: { background: NAVY, color: '#fff', padding: '12px 16px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
@@ -28,7 +28,7 @@ const styles = {
   note: { fontSize: '11px', color: '#b0b8c1', fontStyle: 'italic', marginTop: '10px' },
   playerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderTop: '1px solid #f0f3f7' },
   playerName: { fontSize: '13px', fontWeight: 600, color: NAVY },
-  playerShare: { fontSize: '13px', fontWeight: 600, color: NAVY },
+  playerShare: { fontSize: '13px', fontWeight: 600, color: RED },
   teamLabel: { fontSize: '11px', color: GREY, fontStyle: 'italic', padding: '10px 16px', borderTop: '1px solid #f0f3f7' },
 }
 
@@ -95,11 +95,9 @@ export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }
     )
   }
 
-  const { tied, losingTeamName, perShare, teamA, teamB } = purse
-  const statusText = tied ? 'Teams are tied' : `${losingTeamName} pays`
-  const holesLine = `${teamA.name} ${teamA.holesWon} · ${teamB.name} ${teamB.holesWon} holes`
+  const { perShare } = purse
 
-  // State 2 — standings exist, no amount set yet.
+  // State 2 — standings exist, no amount set yet: prompt the commissioner.
   if (!amountSet) {
     return (
       <div style={styles.card}>
@@ -108,31 +106,25 @@ export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }
           <span style={styles.headerAmount}>{headerAmount}</span>
         </div>
         <div style={styles.body}>
-          <div style={{ ...styles.status, color: tied ? GREY : RED }}>{statusText}</div>
-          <div style={styles.holes}>{holesLine}</div>
           <div style={styles.note}>Commissioner: set the purse amount to show each player's share.</div>
         </div>
       </div>
     )
   }
 
-  // State 3 — amount set: full per-player breakdown.
+  // State 3 — amount set: each owing player's share as a red negative amount.
   return (
     <div style={styles.card}>
       <div style={styles.header}>
         <span style={styles.headerTitle}>Tournament Purse</span>
         <span style={styles.headerAmount}>{headerAmount}</span>
       </div>
-      <div style={{ ...styles.body, paddingBottom: 8 }}>
-        <div style={{ ...styles.status, color: tied ? GREY : RED }}>{statusText}</div>
-      </div>
       {purse.splitPlayers.map(p => (
         <div key={p.id} style={styles.playerRow}>
           <span style={styles.playerName}>{p.name}</span>
-          <span style={styles.playerShare}>${formatMoney(perShare)}</span>
+          <span style={styles.playerShare}>-${formatMoney(perShare)}</span>
         </div>
       ))}
-      <div style={styles.teamLabel}>{tied ? 'Tied' : `${losingTeamName} trails`} • {holesLine}</div>
     </div>
   )
 }

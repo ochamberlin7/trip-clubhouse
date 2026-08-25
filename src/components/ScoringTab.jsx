@@ -111,6 +111,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const [assignError, setAssignError] = useState(null)
   const [saveError, setSaveError] = useState(null) // transient toast when an optimistic score save fails
   const [notice, setNotice] = useState(null) // guidance modal message (e.g. tapping a score cell before teams are set)
+  const [hideFire, setHideFire] = useState(false) // "Hide fire icons" toggle — instantly shows/removes fire rings + 🔥
   const [playerRoundsMap, setPlayerRoundsMap] = useState({}) // `${roundId}:${tpId}` -> player_rounds row (per-player tee)
   const [connStatus, setConnStatus] = useState('connecting') // connecting | connected | disconnected
   const [reconnectTick, setReconnectTick] = useState(0)
@@ -708,7 +709,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       return <span className="sc-score-wrap"><button className="sc-score locked" disabled tabIndex={-1} aria-label="Hole locked — match decided">·</button></span>
     }
     const par = holes?.[hole - 1]?.par
-    const onFire = fireByTp.get(tpId)?.has(hole)
+    const onFire = !hideFire && fireByTp.get(tpId)?.has(hole)
     const cls = `${scoreClass(gross, par)}${onFire ? ' fire-score' : ''}`
     // Dot count = shots given (playing HCP relative to the pairing's lowest).
     const st = strokesOnHole(sgOf(tpId), holes?.[hole - 1]?.handicap)
@@ -826,10 +827,6 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         <div style={{ textAlign: 'center', fontSize: 12, color: '#C0392B', padding: '0 0 8px' }}>Couldn’t assign: {assignError}</div>
       )}
 
-      {isStandard && matchActive && stdTally?.closed && (
-        <div className="sc-match-result">{stdTally.status}</div>
-      )}
-
       <div className="sc-card">
         <div className="sc-row sc-head" ref={headerRef} style={{ gridTemplateColumns: scGridCols }}>
           <div className="sc-h">Hole</div>
@@ -862,6 +859,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           )
         })}
       </div>
+
+      {/* Hide fire icons — instantly removes/restores the fire rings + 🔥. */}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px', fontSize: 13, color: '#2C3E50', cursor: 'pointer', fontFamily: 'inherit' }}>
+        <input type="checkbox" checked={hideFire} onChange={e => setHideFire(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#1B3F6E', margin: 0 }} />
+        Hide fire icons
+      </label>
 
       {modal && (
         <ScoreModal
