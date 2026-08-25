@@ -403,6 +403,37 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // identical math to liveMatchTally and standardMatchTally.
   const netOf = (tpId, hole) => netScore(getScore(tpId, hole), sgOf(tpId), holes?.[hole - 1]?.handicap)
 
+  // "On fire" streak: walk holes 1→18; a run of 3+ consecutive NET par-or-better
+  // holes lights the 3rd hole onward (never retroactively holes 1–2). A net
+  // bogey-or-worse breaks the streak immediately; an unscored hole pauses it
+  // (doesn't break). Net uses the same shots given (sgOf) as the on-screen
+  // dots/nets. A player can relight multiple times in a round. Returns
+  // Set(holeNumber) of holes to show the fire visual. Recomputed each render, so
+  // entering/editing/deleting a score updates it live.
+  const computeFireHoles = tpId => {
+    const fire = new Set()
+    let streak = 0
+    for (let hole = 1; hole <= 18; hole++) {
+      const gross = getScore(tpId, hole)
+      if (gross == null) continue // unscored → pause, not a break
+      const par = holes?.[hole - 1]?.par
+      if (par == null) continue
+      if (netOf(tpId, hole) <= par) {
+        streak++
+        if (streak >= 3) fire.add(hole)
+      } else {
+        streak = 0
+      }
+    }
+    return fire
+  }
+  // Precompute once per render for each filled slot (avoids re-walking per cell).
+  const fireByTp = new Map()
+  for (const s of [...t1Slots, ...t2Slots]) {
+    const id = slotMap[s]
+    if (id && !fireByTp.has(id)) fireByTp.set(id, computeFireHoles(id))
+  }
+
   // Standard Match Play running tally for the active pairing. Feeds the same
   // shots given (sgOf) and gross scores that drive the on-screen nets/dots, so
   // the match status is consistent with the displayed dots and net scores.
@@ -677,7 +708,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       return <span className="sc-score-wrap"><button className="sc-score locked" disabled tabIndex={-1} aria-label="Hole locked — match decided">·</button></span>
     }
     const par = holes?.[hole - 1]?.par
-    const cls = scoreClass(gross, par)
+    const onFire = fireByTp.get(tpId)?.has(hole)
+    const cls = `${scoreClass(gross, par)}${onFire ? ' fire-score' : ''}`
     // Dot count = shots given (playing HCP relative to the pairing's lowest).
     const st = strokesOnHole(sgOf(tpId), holes?.[hole - 1]?.handicap)
     const showDot = shownSet.has(tpId) && st >= 1

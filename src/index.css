@@ -375,6 +375,12 @@ select {
 .sc-score.bogey  { background: rgba(192,57,43,0.12); color: var(--red); }
 .sc-score.double { background: var(--red); color: #fff; outline: 3px solid var(--red); outline-offset: 3px; box-shadow: 0 0 0 6px rgba(192,57,43,0.15); }
 .sc-score.triple { background: repeating-linear-gradient(45deg,#C0392B,#C0392B 4px,#a02318 4px,#a02318 8px); color: #fff; outline: 3px solid var(--red); outline-offset: 3px; box-shadow: 0 0 0 6px rgba(192,57,43,0.15); }
+/* "On fire" — 3+ consecutive net par-or-better holes. Orange outline + 🔥 badge.
+   Placed after the gross-class rules so its outline wins the equal-specificity tie. */
+.sc-score.fire-score { outline: 2px solid #FF6B1A; outline-offset: 2px; }
+.sc-score.fire-score::after { content: '🔥'; position: absolute; top: -10px; right: -8px; font-size: 9px; pointer-events: none; z-index: 3; }
+/* Eagle while on fire: keep the orange fire outline + emoji, stack the eagle's navy glow on top. */
+.sc-score.eagle.fire-score { outline: 2px solid #FF6B1A; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(27,63,110,0.15); }
 
 .stroke-dots { position: absolute; bottom: -4px; left: -3px; display: flex; gap: 2px; align-items: center; pointer-events: none; z-index: 2; }
 .stroke-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--navy); border: 1px solid #fff; }
