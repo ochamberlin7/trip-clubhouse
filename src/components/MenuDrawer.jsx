@@ -2257,6 +2257,17 @@ export default function MenuDrawer({
     if (onRoundsChanged) onRoundsChanged() // update the Scores-tab pill + other widgets
   }
 
+  // "Keep score" toggle (Edit Course modal): when off, the round is hidden from
+  // the Scores tab + leaderboard but still shows in Tee Times / Schedule.
+  async function toggleRoundScoring(round, keepScore) {
+    const noScoring = !keepScore
+    const { error } = await supabase.from('rounds').update({ no_scoring: noScoring }).eq('id', round.id)
+    if (error) { console.error('[MenuDrawer] toggleRoundScoring failed:', error); return }
+    setEditRound(prev => (prev && prev.id === round.id ? { ...prev, no_scoring: noScoring } : prev))
+    setCoursesData(null)       // reload the Courses page
+    if (onRoundsChanged) onRoundsChanged() // update Scores tab / leaderboard
+  }
+
   // Round-type selector now only sets the round type (Tournament/Practice/Not
   // Set). Converting a day to Travel/Non-Golf lives in the Edit Course modal.
   function handleRoundTypeSelect(round, val) {
@@ -2479,6 +2490,22 @@ export default function MenuDrawer({
               onCourseSelected={saveCourseEdit}
             />
             {savingCourse && <div style={{ ...s.muted, textAlign: 'center', marginTop: '10px' }}>Saving…</div>}
+            {/* Keep score toggle — off = tee-times-only round (hidden from Scores). */}
+            <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ ...modalFieldLabel, margin: 0 }}>Keep score for this round</div>
+                  <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 4 }}>Off: shows in Tee Times and Schedule &amp; Courses, but not the Scores tab.</div>
+                </div>
+                <button
+                  role="switch" aria-checked={!editRound.no_scoring} aria-label="Keep score for this round"
+                  onClick={() => toggleRoundScoring(editRound, !!editRound.no_scoring)}
+                  style={{ width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0, position: 'relative', background: editRound.no_scoring ? '#cccccc' : '#1B3F6E', transition: 'background 0.15s' }}
+                >
+                  <span style={{ position: 'absolute', top: 3, left: editRound.no_scoring ? 3 : 21, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+                </button>
+              </div>
+            </div>
             {/* Convert this day to a non-golf day (moved here from the type pill). */}
             <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>
               <div style={modalFieldLabel}>Change day type</div>

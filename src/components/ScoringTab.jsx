@@ -333,7 +333,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
   if (loading) return <div className="empty-state">Loading scorecard…</div>
   // 'none' rounds are placeholders — never shown in the scoring round picker.
-  const visibleRounds = rounds.filter(r => r.round_type !== 'none')
+  // Exclude 'none' placeholders and rounds the commissioner marked "no scoring"
+  // (those show only in Tee Times / Schedule & Courses).
+  const visibleRounds = rounds.filter(r => r.round_type !== 'none' && !r.no_scoring)
   if (visibleRounds.length === 0) return <div className="empty-state"><span className="empty-state-icon">📊</span>No rounds to score yet.</div>
 
   const round = visibleRounds.find(r => r.id === activeRoundId) || visibleRounds[0]
