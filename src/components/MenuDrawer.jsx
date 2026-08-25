@@ -1588,7 +1588,7 @@ function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, on
     setSaving(true)
     const { error } = await supabase.from('trips').update({ purse_amount: num }).eq('id', tripId)
     setSaving(false)
-    if (error) { setErr('Failed to save purse amount'); return }
+    if (error) { setErr(`Save failed: ${error.message || 'unknown error'}`); return }
     setSaved(true); setTimeout(() => setSaved(false), 2000)
     onUpdate?.()
   }
@@ -1598,7 +1598,7 @@ function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, on
     setShowHome(next) // optimistic
     setErr('')
     const { error } = await supabase.from('trips').update({ show_purse_on_home: next }).eq('id', tripId)
-    if (error) { setShowHome(!next); setErr('Failed to update visibility'); return }
+    if (error) { setShowHome(!next); setErr(`Update failed: ${error.message || 'unknown error'}`); return }
     onUpdate?.()
   }
 
