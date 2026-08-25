@@ -10,6 +10,7 @@ import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../l
 import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes } from '../lib/scoring'
 import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
+import { loadPurseStandings, computePurse, formatMoney } from '../lib/purse'
 import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } from '../lib/meals'
 import { ProfileBadge } from './ProfileAvatar'
 import SupportForm from './SupportForm'
@@ -1551,11 +1552,94 @@ function AllowanceInputCard({ tripId, allowance, onUpdate }) {
   )
 }
 
-function CommissionerPage({ data, tripId, handicapAllowance, inviteToken, onTeamsSaved, onTripUpdate }) {
+// Commissioner "Tournament Purse" section: set the welcome-dinner amount (with a
+// live per-player preview from current standings) and toggle the Home widget.
+const purseLabel = { fontSize: 12, fontWeight: 600, color: '#1B3F6E', display: 'block', marginBottom: 6 }
+function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, onUpdate }) {
+  const [amount, setAmount] = useState(Number(purseAmount) > 0 ? String(purseAmount) : '')
+  const [standings, setStandings] = useState(null)
+  const [showHome, setShowHome] = useState(!!showPurseOnHome)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => { setShowHome(!!showPurseOnHome) }, [showPurseOnHome])
+  useEffect(() => {
+    let cancelled = false
+    loadPurseStandings(supabase, tripId, allowance).then(sd => { if (!cancelled) setStandings(sd) })
+    return () => { cancelled = true }
+  }, [tripId, allowance])
+
+  const num = amount === '' ? 0 : parseFloat(amount)
+  const invalid = amount !== '' && (!Number.isFinite(num) || num < 0)
+  const purse = standings ? computePurse({ ...standings, amount: num > 0 ? num : 0 }) : null
+
+  let preview = ''
+  if (invalid) preview = ''
+  else if (num > 0 && purse?.valid && purse.splitCount > 0) {
+    preview = purse.tied
+      ? `Split ${purse.splitCount} ways (tied) — $${formatMoney(purse.perShare)} each`
+      : `Each ${purse.losingTeamName} player owes $${formatMoney(purse.perShare)} (split ${purse.splitCount} ways)`
+  }
+
+  async function save() {
+    setErr('')
+    if (invalid) { setErr('Purse amount must be a positive number'); return }
+    setSaving(true)
+    const { error } = await supabase.from('trips').update({ purse_amount: num }).eq('id', tripId)
+    setSaving(false)
+    if (error) { setErr('Failed to save purse amount'); return }
+    setSaved(true); setTimeout(() => setSaved(false), 2000)
+    onUpdate?.()
+  }
+
+  async function toggle() {
+    const next = !showHome
+    setShowHome(next) // optimistic
+    setErr('')
+    const { error } = await supabase.from('trips').update({ show_purse_on_home: next }).eq('id', tripId)
+    if (error) { setShowHome(!next); setErr('Failed to update visibility'); return }
+    onUpdate?.()
+  }
+
+  return (
+    <Card title="Tournament Purse">
+      <div style={{ fontSize: 13, color: '#2C3E50', lineHeight: 1.5, marginBottom: 12 }}>
+        The losing team pays the welcome dinner bill, split evenly among its players (a tie splits it across everyone).
+      </div>
+      <label style={purseLabel}>Welcome Dinner Amount</label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ position: 'relative', flex: 1 }}>
+          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#7A8FA6', fontSize: 14 }}>$</span>
+          <input type="number" min="0" inputMode="decimal" placeholder="e.g., 640" value={amount}
+            onChange={e => setAmount(e.target.value)} style={{ ...pc.editInput, paddingLeft: 22 }} />
+        </div>
+        <button onClick={save} disabled={saving} style={pc.saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
+      </div>
+      {preview && <div style={{ fontSize: 12, color: '#8a96a3', marginTop: 8 }}>{preview}</div>}
+      {err && <div style={{ fontSize: 12, color: '#C0392B', marginTop: 8 }}>{err}</div>}
+      {saved && <div style={{ fontSize: 12, color: '#2E7D32', marginTop: 8 }}>Saved ✓</div>}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 18 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={purseLabel}>Show Purse on Home Screen</div>
+          <div style={{ fontSize: 12, color: '#8a96a3', marginTop: -2 }}>Display the purse widget on the Home tab.</div>
+        </div>
+        <button role="switch" aria-checked={showHome} onClick={toggle} aria-label="Show purse on Home screen"
+          style={{ width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0, position: 'relative', background: showHome ? '#1B3F6E' : '#cccccc', transition: 'background 0.15s' }}>
+          <span style={{ position: 'absolute', top: 3, left: showHome ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+        </button>
+      </div>
+    </Card>
+  )
+}
+
+function CommissionerPage({ data, tripId, handicapAllowance, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   return (
     <>
       <TeamNamesCard teams={data.teams} onSaved={onTeamsSaved} />
+      <PurseSettingsCard tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} allowance={handicapAllowance} onUpdate={onTripUpdate} />
       <AllowanceInputCard tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} />
       <InviteSection inviteToken={inviteToken} />
     </>
@@ -1741,7 +1825,7 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate }) {
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, onTripUpdate, onRoundsChanged, initialPage = null,
+  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
   const { activeTripId, switchTrip } = useGroup()
@@ -2247,6 +2331,8 @@ export default function MenuDrawer({
             data={commissionerData}
             tripId={tripId}
             handicapAllowance={handicapAllowance}
+            purseAmount={purseAmount}
+            showPurseOnHome={showPurseOnHome}
             inviteToken={inviteToken}
             onTripUpdate={onTripUpdate}
             onTeamsSaved={next => {

@@ -12,6 +12,7 @@ import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
 import ChatWidget from '../../components/ChatWidget'
 import DailyMVPCard from '../../components/DailyMVPCard'
+import TournamentPurseCard from '../../components/TournamentPurseCard'
 import GettingStartedCard from '../../components/GettingStartedCard'
 import MenuDrawer from '../../components/MenuDrawer'
 import ScoringTab from '../../components/ScoringTab'
@@ -401,6 +402,9 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenu
       {/* Daily MVPs — below the chat thread. Hidden behind a feature flag until
           stats/analytics are built out; component + data fetch are unchanged. */}
       {FEATURES.dailyMvps && <DailyMVPCard tripId={trip.id} endDate={trip.end_date} />}
+
+      {/* Tournament Purse — self-hides unless the commissioner enabled it. */}
+      <TournamentPurseCard tripId={trip.id} endDate={trip.end_date} allowance={trip.handicap_allowance ?? 100} />
     </div>
   )
 }
@@ -1365,6 +1369,8 @@ export default function TripDashboard() {
         currentUserId={user?.id}
         handicapAllowance={trip.handicap_allowance ?? 100}
         tournamentFormat={trip.format}
+        purseAmount={trip.purse_amount}
+        showPurseOnHome={trip.show_purse_on_home}
         onTripUpdate={refetchTrip}
         onRoundsChanged={refreshRounds}
       />
