@@ -835,7 +835,7 @@ const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: '#7A8FA6' }
 // One golf round: unchanged content (name, rating/slope, location, par) plus the
 // new bottom toolbar (Handicaps · Tournament · Edit). Own hcOpen state so the
 // Handicaps pill toggles the handicaps table below.
-function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, onEditCourse, onRoundTypeChange, onChangePlayerTee }) {
+function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, onEditCourse, onRoundTypeChange, onChangePlayerTee, onRemoveRound }) {
   const [hcOpen, setHcOpen] = useState(false)
   const entryStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: roundIndex === roundCount - 1 ? 0 : 10 }
   return (
@@ -862,11 +862,15 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
         {isCommissioner && <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />}
       </div>
       <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} readOnly={readOnly} open={hcOpen} />
+      {isCommissioner && !readOnly && (
+        <button style={removeRoundLinkStyle} onClick={() => onRemoveRound(r)}>Remove round</button>
+      )}
     </div>
   )
 }
+const removeRoundLinkStyle = { display: 'block', marginTop: 10, background: 'none', border: 'none', color: '#C0392B', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }
 
-function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
+function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, onRemoveRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const { days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, stays = [], mealsByDate = {} } = data
   if (!days || days.length === 0) {
@@ -903,6 +907,7 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, all
                     isCommissioner={isCommissioner} readOnly={readOnly} allowance={allowance}
                     calcPlayers={calcPlayers} playerRounds={playerRounds} locked={locked}
                     onEditCourse={onEditCourse} onRoundTypeChange={onRoundTypeChange} onChangePlayerTee={onChangePlayerTee}
+                    onRemoveRound={onRemoveRound}
                   />
                 )
               })}
@@ -2179,6 +2184,31 @@ export default function MenuDrawer({
     if (onRoundsChanged) onRoundsChanged()
   }
 
+  // Delete a round entirely (Schedule & Courses → "Remove round"). Clears its
+  // dependent rows first (FKs may not cascade), then the round. Warns harder when
+  // the round already has scores.
+  async function removeRound(round) {
+    const scored = scoredRounds?.has(round.id)
+    const msg = scored
+      ? 'Remove this round? This permanently deletes the round AND all scores entered for it.'
+      : 'Remove this round?'
+    if (!window.confirm(msg)) return
+
+    await supabase.from('scores').delete().eq('round_id', round.id)
+    await supabase.from('drinks').delete().eq('round_id', round.id)
+    const { data: prs } = await supabase.from('pairings').select('id').eq('round_id', round.id)
+    const pairIds = (prs || []).map(p => p.id)
+    if (pairIds.length) await supabase.from('pairing_players').delete().in('pairing_id', pairIds)
+    await supabase.from('pairings').delete().eq('round_id', round.id)
+    await supabase.from('player_rounds').delete().eq('round_id', round.id)
+    await supabase.from('course_holes').delete().eq('round_id', round.id)
+    const { error } = await supabase.from('rounds').delete().eq('id', round.id)
+    if (error) { console.error('[MenuDrawer] removeRound failed:', error); return }
+
+    setCoursesData(null)       // reload the Courses page
+    if (onRoundsChanged) onRoundsChanged() // propagate to scorecard / leaderboard / tee times / banner
+  }
+
   // Round-type selector now only sets the round type (Tournament/Practice/Not
   // Set). Converting a day to Travel/Non-Golf lives in the Edit Course modal.
   function handleRoundTypeSelect(round, val) {
@@ -2349,7 +2379,7 @@ export default function MenuDrawer({
           <CoursesPage
             data={coursesData} isCommissioner={isCommissioner} readOnly={readOnly}
             onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds}
-            onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound}
+            onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound} onRemoveRound={removeRound}
             onEditStay={setEditStay} onAddStay={(date) => setEditStay({ __new: true, check_in: date })}
             onEditMeal={setEditMeal} onAddMeal={(date) => setEditMeal({ __new: true, day: date, meal_type: 'dinner' })}
           />
