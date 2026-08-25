@@ -1213,7 +1213,7 @@ const fl = {
   // All four field types share this box — same height, padding, border; no focus underline.
   // appearance:none stops mobile from giving date/time inputs an intrinsic (thin) width,
   // so they fill 100% and match the text inputs even when empty.
-  input: { width: '100%', display: 'block', appearance: 'none', WebkitAppearance: 'none', border: '1px solid #DDE3EA', borderRadius: 5, background: '#F5F8FA', color: '#0D1B2A', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '5px 7px', minHeight: 30, boxSizing: 'border-box', minWidth: 0 },
+  input: { width: '100%', display: 'block', appearance: 'none', WebkitAppearance: 'none', border: '1px solid #DDE3EA', borderRadius: 5, background: '#F5F8FA', color: '#0D1B2A', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '5px 7px', minHeight: 30, boxSizing: 'border-box', minWidth: 0, textAlign: 'left' },
 }
 
 function FlightField({ label, type = 'text', placeholder, value, canEdit, onSave, isLast }) {
@@ -1224,6 +1224,7 @@ function FlightField({ label, type = 'text', placeholder, value, canEdit, onSave
       {canEdit
         ? <input
             type={type}
+            className="flight-field-input"
             defaultValue={value || ''} placeholder={placeholder}
             autoComplete="off" autoCorrect="off" autoCapitalize="characters" spellCheck={false}
             style={fl.input}
