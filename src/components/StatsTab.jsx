@@ -377,13 +377,13 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
         {/* Fire stats — mode-independent (net-based, like the primary card). */}
         <StatCard
           key="fireStreak"
-          title="Fire Streak" icon="🔥" hi anyScore={anyScore}
+          title="Longest Fire Streak" icon="🔥" hi anyScore={anyScore}
           players={players}
           valueOf={p => stats.get(p.id)?.fireStreak ?? 0}
         />
         <StatCard
           key="fireHoles"
-          title="Fire Holes" icon="🔥" hi anyScore={anyScore}
+          title="Total Fire Holes" icon="🔥" hi anyScore={anyScore}
           players={players}
           valueOf={p => stats.get(p.id)?.fireHolesTotal ?? 0}
         />
