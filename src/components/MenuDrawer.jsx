@@ -835,7 +835,7 @@ const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: '#7A8FA6' }
 // One golf round: unchanged content (name, rating/slope, location, par) plus the
 // new bottom toolbar (Handicaps · Tournament · Edit). Own hcOpen state so the
 // Handicaps pill toggles the handicaps table below.
-function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, onEditCourse, onRoundTypeChange, onChangePlayerTee, onRemoveRound }) {
+function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, onEditCourse, onRoundTypeChange, onChangePlayerTee }) {
   const [hcOpen, setHcOpen] = useState(false)
   const entryStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: roundIndex === roundCount - 1 ? 0 : 10 }
   return (
@@ -862,15 +862,11 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
         {isCommissioner && <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />}
       </div>
       <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} readOnly={readOnly} open={hcOpen} />
-      {isCommissioner && !readOnly && (
-        <button style={removeRoundLinkStyle} onClick={() => onRemoveRound(r)}>Remove round</button>
-      )}
     </div>
   )
 }
-const removeRoundLinkStyle = { display: 'block', marginTop: 10, background: 'none', border: 'none', color: '#C0392B', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }
 
-function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, onRemoveRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
+function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const { days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, stays = [], mealsByDate = {} } = data
   if (!days || days.length === 0) {
@@ -907,7 +903,6 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, all
                     isCommissioner={isCommissioner} readOnly={readOnly} allowance={allowance}
                     calcPlayers={calcPlayers} playerRounds={playerRounds} locked={locked}
                     onEditCourse={onEditCourse} onRoundTypeChange={onRoundTypeChange} onChangePlayerTee={onChangePlayerTee}
-                    onRemoveRound={onRemoveRound}
                   />
                 )
               })}
@@ -945,6 +940,7 @@ const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'upperca
 // inputs otherwise pick their own intrinsic height). Textareas override height:auto.
 const modalInput = { width: '100%', height: 40, padding: '9px 11px', borderRadius: 8, border: '1px solid #DDE3EA', fontSize: 14, lineHeight: '20px', fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box', background: '#fff', WebkitAppearance: 'none', appearance: 'none' }
 const convertDayBtnStyle = { flex: 1, padding: '9px', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
+const removeRoundBtnStyle = { width: '100%', padding: '9px', background: '#fff', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
 
 // "AUG 13 – 16" (same month collapses to one label; cross-month shows both).
 function fmtStayRange(ci, co) {
@@ -2205,6 +2201,7 @@ export default function MenuDrawer({
     const { error } = await supabase.from('rounds').delete().eq('id', round.id)
     if (error) { console.error('[MenuDrawer] removeRound failed:', error); return }
 
+    setEditRound(null)         // close the Edit Course modal
     setCoursesData(null)       // reload the Courses page
     if (onRoundsChanged) onRoundsChanged() // propagate to scorecard / leaderboard / tee times / banner
   }
@@ -2379,7 +2376,7 @@ export default function MenuDrawer({
           <CoursesPage
             data={coursesData} isCommissioner={isCommissioner} readOnly={readOnly}
             onEditCourse={setEditRound} allowance={handicapAllowance} scoredRounds={scoredRounds}
-            onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound} onRemoveRound={removeRound}
+            onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound}
             onEditStay={setEditStay} onAddStay={(date) => setEditStay({ __new: true, check_in: date })}
             onEditMeal={setEditMeal} onAddMeal={(date) => setEditMeal({ __new: true, day: date, meal_type: 'dinner' })}
           />
@@ -2439,6 +2436,11 @@ export default function MenuDrawer({
                 <button style={convertDayBtnStyle} onClick={() => revertRoundToDay(editRound, 'non_golf')}>Non-Golf Day</button>
               </div>
               <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Removes this round and any scores entered for it.</div>
+            </div>
+            {/* Delete the round entirely, leaving the day as a golf day. */}
+            <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>
+              <button style={removeRoundBtnStyle} onClick={() => removeRound(editRound)}>Remove round</button>
+              <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Deletes this round and any scores entered for it. The day stays a golf day.</div>
             </div>
           </div>
         </div>
