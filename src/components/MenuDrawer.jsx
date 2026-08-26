@@ -65,7 +65,10 @@ const s = {
 
   // z above the persistent bottom chrome (tab-bar 100, live banner 200, feedback
   // FAB 201) so a secondary page fully covers the scorecard — no leftover shows.
-  page: { position: 'fixed', inset: 0, zIndex: 250, background: '#F0F4F8', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
+  // Constrained to the same 430px column the main tabs use (#root max-width: 430),
+  // centered on desktop. On mobile the viewport is ≤430 so width:100% wins and it
+  // renders full-bleed exactly as before — desktop-only change.
+  page: { position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, zIndex: 250, background: '#F0F4F8', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
   pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: '16px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 16px)', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: '12px' },
   backBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1B3F6E', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 },
   pageContext: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 500 },
