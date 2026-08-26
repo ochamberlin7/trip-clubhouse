@@ -47,6 +47,32 @@ export function parseTeeTimeToMinutes(str) {
   return h * 60 + min
 }
 
+// A round's earliest tee time (min across its pairing tee times tee_time_1..5),
+// in minutes; Infinity when none are set (sorts to the end of its day).
+export function roundTeeMinutes(round) {
+  let min = Infinity
+  for (let i = 1; i <= 5; i++) {
+    const m = parseTeeTimeToMinutes(round?.[`tee_time_${i}`])
+    if (m > 0 && m < min) min = m
+  }
+  return min
+}
+
+// Order rounds by day, then earliest tee time (earliest first), then the stable
+// round_number as a tiebreak. Used everywhere a day's rounds/courses are listed
+// so entering a tee time reorders that day chronologically. round_number is left
+// untouched (it's the stable identifier for pairings/scoring); only display
+// order changes, and positional "Round N" labels follow it.
+export function sortRoundsByTee(rounds) {
+  return (rounds || []).slice().sort((a, b) => {
+    const da = String(a?.date || ''), db = String(b?.date || '')
+    if (da !== db) return da < db ? -1 : 1
+    const ta = roundTeeMinutes(a), tb = roundTeeMinutes(b)
+    if (ta !== tb) return ta - tb
+    return (a?.round_number || 0) - (b?.round_number || 0)
+  })
+}
+
 // A round is complete when every player assigned to a pairing for it has all
 // 18 holes scored. `assignedByRound`: roundId -> Set(trip_player_id);
 // `holesByRoundPlayer`: `${roundId}:${tpId}` -> Set(hole).

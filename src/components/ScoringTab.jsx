@@ -340,6 +340,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
   const round = visibleRounds.find(r => r.id === activeRoundId) || visibleRounds[0]
   const holes = Array.isArray(round.holes) ? round.holes : null
+  // Render from the round's actual hole count (e.g. 12-hole "The Dozen"), not a
+  // hardcoded 18. The Out/In front/back split only applies to a true 18.
+  const holeCount = holes?.length || round.number_of_holes || 18
+  const isEighteen = holeCount === 18
 
   // Pairing tabs: a pairing is a 2v2 foursome, so a trip needs ceil(players/4)
   // of them. Commissioners see every slot up to that count (to set each up);
@@ -428,7 +432,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const computeFireHoles = tpId => {
     const fire = new Set()
     let streak = 0
-    for (let hole = 1; hole <= 18; hole++) {
+    for (let hole = 1; hole <= holeCount; hole++) {
       const gross = getScore(tpId, hole)
       if (gross == null) continue // unscored → pause, not a break
       const par = holes?.[hole - 1]?.par
@@ -454,7 +458,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // the match status is consistent with the displayed dots and net scores.
   const buildGrossByHole = tpId => {
     const o = {}
-    for (let h = 1; h <= 18; h++) { const g = getScore(tpId, h); if (g != null) o[h] = g }
+    for (let h = 1; h <= holeCount; h++) { const g = getScore(tpId, h); if (g != null) o[h] = g }
     return o
   }
   const stdTally = (isStandard && matchActive)
@@ -784,12 +788,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       </div>
     )
   }
-  // Total drinks per player across all 18 holes of the active round ("—" for 0).
+  // Total drinks per player across all holes of the active round ("—" for 0).
   function DrinkRow() {
     const total = tpId => {
       if (!tpId) return '—'
       let s = 0
-      for (let h = 1; h <= 18; h++) s += getDrinks(tpId, h)
+      for (let h = 1; h <= holeCount; h++) s += getDrinks(tpId, h)
       return s > 0 ? s : '—'
     }
     return (
@@ -851,11 +855,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           {t2Slots.map(s => <HeaderCell key={s} slot={s} />)}
         </div>
 
-        {Array.from({ length: 18 }, (_, i) => i + 1).map(hole => {
+        {Array.from({ length: holeCount }, (_, i) => i + 1).map(hole => {
           const shownSet = strokesShown(hole)
           return (
             <div key={hole}>
-              <div className={`sc-row sc-hole-row ${hole === 10 ? 'nine-divider' : ''}`} style={{ gridTemplateColumns: scGridCols, paddingTop: 3, paddingBottom: 3 }}>
+              <div className={`sc-row sc-hole-row ${isEighteen && hole === 10 ? 'nine-divider' : ''}`} style={{ gridTemplateColumns: scGridCols, paddingTop: 3, paddingBottom: 3 }}>
                 <div className="sc-cell-hole">{hole}</div>
                 <div className="sc-cell-par">{holes?.[hole - 1]?.par ?? '—'}</div>
                 <div className="sc-cell-si">{holes?.[hole - 1]?.handicap ?? '—'}</div>
@@ -865,10 +869,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
                   : <PointsChip result={holeResult(hole)} />}
                 {t2Slots.map(s => <ScoreCell key={s} slot={s} hole={hole} shownSet={shownSet} />)}
               </div>
-              {hole === 9 && <SubRow label="Out" start={1} end={9} />}
-              {hole === 18 && <SubRow label="In" start={10} end={18} />}
-              {hole === 18 && <SubRow label="Tot" start={1} end={18} />}
-              {hole === 18 && <DrinkRow />}
+              {isEighteen && hole === 9 && <SubRow label="Out" start={1} end={9} />}
+              {isEighteen && hole === 18 && <SubRow label="In" start={10} end={18} />}
+              {hole === holeCount && <SubRow label="Tot" start={1} end={holeCount} />}
+              {hole === holeCount && <DrinkRow />}
             </div>
           )
         })}

@@ -9,7 +9,7 @@ import CourseScanFlow from './CourseScanFlow'
 import { roundToReview } from '../lib/scanCourse'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
-import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes } from '../lib/scoring'
+import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes, sortRoundsByTee } from '../lib/scoring'
 import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
 import { loadPurseStandings, computePurse, formatMoney } from '../lib/purse'
@@ -1991,7 +1991,7 @@ export default function MenuDrawer({
     if (page === 'courses' && !coursesData) {
       (async () => {
         const { data: roundData } = await supabase.from('rounds').select('*').eq('trip_id', tripId).order('date').order('round_number')
-        const roundList = roundData || []
+        const roundList = sortRoundsByTee(roundData || [])
         const roundIds = roundList.map(r => r.id)
         const [tpRes, pairRes, tripRes, staysRes, mealsRes] = await Promise.all([
           supabase.from('trip_players').select('id, first_name, last_name, guest_name, handicap_index').eq('trip_id', tripId),

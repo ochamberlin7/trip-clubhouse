@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getActiveRound, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes } from '../../lib/scoring'
+import { getActiveRound, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import { mealTypeLabel } from '../../lib/meals'
 import TripHeader from '../../components/TripHeader'
@@ -1146,7 +1146,7 @@ export default function TripDashboard() {
         if (profileRows) profileRows.forEach(pr => { profileMap[pr.id] = pr.display_name })
       }
 
-      const roundList = roundsRes.data || []
+      const roundList = sortRoundsByTee(roundsRes.data || [])
       setRounds(roundList)
       setPlayers(rawPlayers.map(p => ({
         ...p,
@@ -1237,7 +1237,7 @@ export default function TripDashboard() {
     if (!trip?.id) return
     // Calendar order (date asc); round_number only breaks ties within a day.
     const { data } = await supabase.from('rounds').select('*').eq('trip_id', trip.id).order('date').order('round_number')
-    if (data) setRounds(data)
+    if (data) setRounds(sortRoundsByTee(data))
     // Meals change via the Schedule page's onRoundsChanged too — keep Tee Times fresh.
     const { data: mealData } = await supabase.from('meals').select('*').eq('trip_id', trip.id).order('day')
     if (mealData) setMeals(mealData)
@@ -1343,7 +1343,7 @@ export default function TripDashboard() {
         {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} />}
-        {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} meals={meals} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))} />}
+        {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} meals={meals} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => sortRoundsByTee(rs.map(r => r.id === id ? { ...r, ...patch } : r)))} />}
       </div>
       </div>
 
