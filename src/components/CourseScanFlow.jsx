@@ -127,11 +127,12 @@ function Header({ back, title, onClose }) {
   )
 }
 
-export default function CourseScanFlow({ onBack, onClose, onSave }) {
-  const [step, setStep] = useState('choice')
+export default function CourseScanFlow({ onBack, onClose, onSave, initialReview = null }) {
+  const editMode = !!initialReview // reopened from Edit Course to correct saved data
+  const [step, setStep] = useState(editMode ? 'review' : 'choice')
   const [photos, setPhotos] = useState([]) // sparse array by slot index
   const [slots, setSlots] = useState(1)
-  const [rv, setRv] = useState(null)
+  const [rv, setRv] = useState(initialReview)
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState(0) // 0 = front, 1 = back (18-hole only)
@@ -264,8 +265,8 @@ export default function CourseScanFlow({ onBack, onClose, onSave }) {
   const tabOffset = is18 && tab === 1 ? 9 : 0
   return (
     <div>
-      <Header back={() => setStep('upload')} title="Review Course Data" onClose={onClose} />
-      <div style={st.sub}>Extracted from your photo — check anything flagged below.</div>
+      <Header back={() => editMode ? onBack() : setStep('upload')} title={editMode ? 'Edit Course Data' : 'Review Course Data'} onClose={onClose} />
+      <div style={st.sub}>{editMode ? 'Update the course details below — ratings, par and stroke index drive scoring and handicaps.' : 'Extracted from your photo — check anything flagged below.'}</div>
       <div style={st.legend}>
         <span style={st.legendItem}><span style={st.dot(AMBER)} />Double-check</span>
         <span style={st.legendItem}><span style={st.dot(MISS)} />Missing</span>

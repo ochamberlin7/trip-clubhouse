@@ -6,6 +6,7 @@ import { useGroup } from '../context/GroupContext'
 import { uniqueChannelName } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
 import CourseScanFlow from './CourseScanFlow'
+import { roundToReview } from '../lib/scanCourse'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes } from '../lib/scoring'
@@ -972,6 +973,7 @@ const modalInput = { width: '100%', height: 40, padding: '9px 11px', borderRadiu
 const convertDayBtnStyle = { flex: 1, padding: '9px', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
 const removeRoundBtnStyle = { width: '100%', padding: '9px', background: '#fff', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
 const manualAddLinkStyle = { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 13, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap' }
+const editDetailsBtnStyle = { display: 'block', width: '100%', marginTop: 12, padding: '10px', background: '#fff', border: '1px solid #1B3F6E', borderRadius: 8, color: '#1B3F6E', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
 
 // "AUG 13 – 16" (same month collapses to one label; cross-month shows both).
 function fmtStayRange(ci, co) {
@@ -1870,9 +1872,9 @@ export default function MenuDrawer({
   const [savingCourse, setSavingCourse] = useState(false)
   const [editName, setEditName] = useState(null) // round whose name is being edited (pencil)
   const [savingName, setSavingName] = useState(false)
-  const [scanActive, setScanActive] = useState(false) // "+ Manually add course" scan flow, inside the Edit Course modal
-  // Reset the scan flow whenever the Edit Course modal opens/closes/switches round.
-  useEffect(() => { setScanActive(false) }, [editRound])
+  const [courseFlow, setCourseFlow] = useState(null) // null | 'scan' (photo) | 'edit' (correct saved data) — inside the Edit Course modal
+  // Reset the flow whenever the Edit Course modal opens/closes/switches round.
+  useEffect(() => { setCourseFlow(null) }, [editRound])
   const [editMeal, setEditMeal] = useState(null) // meal row (edit) or { day, __new } (add)
   const [savingMeal, setSavingMeal] = useState(false)
   const [editStay, setEditStay] = useState(null) // stay row (edit) or { __new } (add)
@@ -2111,6 +2113,27 @@ export default function MenuDrawer({
           await supabase.from('player_rounds')
             .upsert(rows, { onConflict: 'trip_player_id,round_id', ignoreDuplicates: true })
         }
+      }
+      // Propagate corrected course data to EXISTING player_rounds rows so course
+      // handicaps recompute (e.g. fixing a bad scanned par). Par is course-wide
+      // (same across tees), so every row for this round must carry the new
+      // par_total; rating/slope refresh only where the row's tee matches an
+      // edited tee. Seeded rows above already match, so this is a no-op for a
+      // fresh course and the actual fix for an edit. (No-op on the fresh path.)
+      const teesByName = new Map((courseData.tees || []).map(t => [t.name, t]))
+      const { data: prs } = await supabase.from('player_rounds')
+        .select('trip_player_id, tee_name, rating, slope, par').eq('round_id', editRound.id)
+      if (prs && prs.length) {
+        const updates = prs.map(pr => {
+          const t = pr.tee_name ? teesByName.get(pr.tee_name) : null
+          return {
+            trip_player_id: pr.trip_player_id, round_id: editRound.id, tee_name: pr.tee_name,
+            par: courseData.par_total ?? pr.par,
+            rating: t ? t.rating : pr.rating,
+            slope: t ? t.slope : pr.slope,
+          }
+        })
+        await supabase.from('player_rounds').upsert(updates, { onConflict: 'trip_player_id,round_id' })
       }
     }
     setSavingCourse(false)
@@ -2484,12 +2507,13 @@ export default function MenuDrawer({
 
       {/* Commissioner course-edit modal */}
       {editRound && (
-        <div style={s.modalOverlay} onClick={() => !savingCourse && !scanActive && setEditRound(null)}>
+        <div style={s.modalOverlay} onClick={() => !savingCourse && !courseFlow && setEditRound(null)}>
           <div style={s.modalSheet} onClick={e => e.stopPropagation()}>
-            {scanActive ? (
+            {courseFlow ? (
             <CourseScanFlow
-              onBack={() => setScanActive(false)}
-              onClose={() => { setScanActive(false); setEditRound(null) }}
+              initialReview={courseFlow === 'edit' ? roundToReview(editRound) : null}
+              onBack={() => setCourseFlow(null)}
+              onClose={() => { setCourseFlow(null); setEditRound(null) }}
               onSave={saveCourseEdit}
             />
             ) : (
@@ -2497,7 +2521,7 @@ export default function MenuDrawer({
             <div style={s.modalTitle}>
               <span>Edit Course</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                <button style={manualAddLinkStyle} onClick={() => setScanActive(true)}>+ Manually add course</button>
+                <button style={manualAddLinkStyle} onClick={() => setCourseFlow('scan')}>+ Manually add course</button>
                 <button style={s.modalClose} onClick={() => setEditRound(null)} aria-label="Close">✕</button>
               </div>
             </div>
@@ -2505,6 +2529,11 @@ export default function MenuDrawer({
               initialValue={editRound.club_name || editRound.course_name || ''}
               onCourseSelected={saveCourseEdit}
             />
+            {Array.isArray(editRound.holes) && editRound.holes.length > 0 && (
+              <button style={editDetailsBtnStyle} onClick={() => setCourseFlow('edit')}>
+                Edit course details (par, ratings, stroke index)
+              </button>
+            )}
             {savingCourse && <div style={{ ...s.muted, textAlign: 'center', marginTop: '10px' }}>Saving…</div>}
             {/* Keep score toggle — off = tee-times-only round (hidden from Scores). */}
             <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>

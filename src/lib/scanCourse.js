@@ -86,6 +86,31 @@ export function toReview(result) {
   return { courseName: cleanStr(result?.course_name), location: cleanStr(result?.location), holes, tees }
 }
 
+// A saved round's inline course data → the review shape, so the Review screen can
+// reopen an already-saved course for correction (bad scan, typo, later update).
+// Inverse of buildCourseData: round.holes stores stroke index as `handicap`.
+export function roundToReview(round) {
+  const holes = (Array.isArray(round?.holes) ? round.holes : []).map((h, i) => ({
+    hole_number: i + 1,
+    par: numOrNull(h?.par),
+    stroke_index: numOrNull(h?.handicap ?? h?.stroke_index),
+    parLow: false, siLow: false,
+  }))
+  const tees = (Array.isArray(round?.tees) ? round.tees : []).map(t => ({
+    name: cleanStr(t?.name) || 'Tee',
+    rating: numOrNull(t?.rating),
+    slope: numOrNull(t?.slope),
+    ratingLow: false, slopeLow: false,
+  }))
+  // No cached tees array but a round-level default rating/slope exists → seed one.
+  if (tees.length === 0 && (round?.course_rating != null || round?.slope_rating != null)) {
+    tees.push({ name: cleanStr(round?.tee_name) || 'Default', rating: numOrNull(round?.course_rating), slope: numOrNull(round?.slope_rating), ratingLow: false, slopeLow: false })
+  }
+  const courseName = cleanStr(round?.club_name) || cleanStr(round?.course_name)
+  const location = [cleanStr(round?.location_city), cleanStr(round?.location_state)].filter(Boolean).join(', ')
+  return { courseName, location, holes, tees }
+}
+
 // Grow/shrink the holes list to `n` (Total Holes edit). Preserves existing rows.
 export function resizeHoles(holes, n) {
   const next = holes.slice(0, n)

@@ -80,6 +80,8 @@ const PROMPT = [
   '',
   '- Read every visible number carefully. Return null (never guess) for anything illegible, glared-out, cropped, or ambiguous.',
   '- Populate low_confidence_fields for anything you extracted but are not fully certain about (smudged ink, unusual layout, partially cropped). Use identifiers like "hole_7.stroke_index" or "tee_White.slope".',
+  "- Read each hole's par from its own column in the Par row (par is almost always 3, 4, or 5 — a 6 is rare and a 1, 2, 7+ is essentially never a hole par). Do not confuse the par row with the handicap/stroke-index row or a yardage row.",
+  '- If the card prints a total/out/in par, sum the hole pars you read and check they match that printed total; if they do not, re-read the par row before answering, and flag any par you are unsure of in low_confidence_fields (e.g. "hole_5.par").',
   '- Count holes from what is actually on the card — do NOT assume or default to 18. If the card shows 9 hole rows, return exactly 9 entries in holes.',
   '- If two images are provided, merge them into one combined hole list. If their combined hole numbers still total fewer than 18 (e.g. two 6-hole sections), that is fine — trust what is on the cards.',
   '- If course name or location are not visible, leave those fields null rather than inventing them.',
