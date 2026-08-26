@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useGroup } from '../context/GroupContext'
 import { uniqueChannelName } from '../lib/supabase'
 import CourseSearchInput from './CourseSearchInput'
+import CourseScanFlow from './CourseScanFlow'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes } from '../lib/scoring'
@@ -970,6 +971,7 @@ const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'upperca
 const modalInput = { width: '100%', height: 40, padding: '9px 11px', borderRadius: 8, border: '1px solid #DDE3EA', fontSize: 14, lineHeight: '20px', fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box', background: '#fff', WebkitAppearance: 'none', appearance: 'none' }
 const convertDayBtnStyle = { flex: 1, padding: '9px', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
 const removeRoundBtnStyle = { width: '100%', padding: '9px', background: '#fff', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
+const manualAddLinkStyle = { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 13, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap' }
 
 // "AUG 13 – 16" (same month collapses to one label; cross-month shows both).
 function fmtStayRange(ci, co) {
@@ -1868,6 +1870,9 @@ export default function MenuDrawer({
   const [savingCourse, setSavingCourse] = useState(false)
   const [editName, setEditName] = useState(null) // round whose name is being edited (pencil)
   const [savingName, setSavingName] = useState(false)
+  const [scanActive, setScanActive] = useState(false) // "+ Manually add course" scan flow, inside the Edit Course modal
+  // Reset the scan flow whenever the Edit Course modal opens/closes/switches round.
+  useEffect(() => { setScanActive(false) }, [editRound])
   const [editMeal, setEditMeal] = useState(null) // meal row (edit) or { day, __new } (add)
   const [savingMeal, setSavingMeal] = useState(false)
   const [editStay, setEditStay] = useState(null) // stay row (edit) or { __new } (add)
@@ -2479,11 +2484,22 @@ export default function MenuDrawer({
 
       {/* Commissioner course-edit modal */}
       {editRound && (
-        <div style={s.modalOverlay} onClick={() => !savingCourse && setEditRound(null)}>
+        <div style={s.modalOverlay} onClick={() => !savingCourse && !scanActive && setEditRound(null)}>
           <div style={s.modalSheet} onClick={e => e.stopPropagation()}>
+            {scanActive ? (
+            <CourseScanFlow
+              onBack={() => setScanActive(false)}
+              onClose={() => { setScanActive(false); setEditRound(null) }}
+              onSave={saveCourseEdit}
+            />
+            ) : (
+            <>
             <div style={s.modalTitle}>
               <span>Edit Course</span>
-              <button style={s.modalClose} onClick={() => setEditRound(null)} aria-label="Close">✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                <button style={manualAddLinkStyle} onClick={() => setScanActive(true)}>+ Manually add course</button>
+                <button style={s.modalClose} onClick={() => setEditRound(null)} aria-label="Close">✕</button>
+              </div>
             </div>
             <CourseSearchInput
               initialValue={editRound.club_name || editRound.course_name || ''}
@@ -2520,6 +2536,8 @@ export default function MenuDrawer({
               <button style={removeRoundBtnStyle} onClick={() => removeRound(editRound)}>Remove round</button>
               <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Deletes this round and any scores entered for it. The day stays a golf day.</div>
             </div>
+            </>
+            )}
           </div>
         </div>
       )}
