@@ -60,7 +60,7 @@ export function computePurse({ teams = [], tripPlayers = [], holeWinsByTeam = ne
 // tournament round is complete; `hasRounds` is true if any tournament round exists.
 export async function loadPurseStandings(supabase, tripId, allowance = 100) {
   const { data: rounds } = await supabase
-    .from('rounds').select('id, date, holes, round_type, course_name, club_name').eq('trip_id', tripId)
+    .from('rounds').select('id, date, holes, round_type, course_name, club_name, handicap_allowance').eq('trip_id', tripId)
   const roundIds = (rounds || []).map(r => r.id)
 
   const [teamsRes, tpRes] = await Promise.all([

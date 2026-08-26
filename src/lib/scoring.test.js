@@ -15,7 +15,7 @@
 // against USGA's own calculator).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { rawCourseHandicapForTee, courseHandicapForTee, shotsGivenFromCourseHandicaps } from './scoring.js'
+import { rawCourseHandicapForTee, courseHandicapForTee, shotsGivenFromCourseHandicaps, effectiveAllowance } from './scoring.js'
 
 const SL = 128, RT = 71.5, PAR = 72
 function group(players, allowance) {
@@ -62,6 +62,19 @@ test('95% allowance — consistent single-rounding from raw', () => {
   // ROUND(5.164×.95)=5, ROUND(7.429×.95)=ROUND(7.058)=7, ROUND(16.491×.95)=ROUND(15.667)=16
   assert.deepEqual([m.ph, o.ph, n.ph], [5, 7, 16])
   assert.deepEqual([m.shots, o.shots, n.shots], [0, 2, 11])
+})
+
+test('per-course allowance override wins over the trip default (The Dozen @65%)', () => {
+  // A course with its own handicap_allowance uses that; a round without one falls
+  // back to the trip default. Unset/blank/non-numeric all fall back.
+  assert.equal(effectiveAllowance({ handicap_allowance: 65 }, 90), 65)
+  assert.equal(effectiveAllowance({ handicap_allowance: null }, 90), 90)
+  assert.equal(effectiveAllowance({}, 90), 90)
+  assert.equal(effectiveAllowance(null, 90), 90)
+  assert.equal(effectiveAllowance({}, undefined), 100) // global default when unset
+  // Playing Handicap for Owen (raw 7.429) drops from 7 @90% to 5 @65% (ROUND(4.829)).
+  const raw = rawCourseHandicapForTee(7, SL, RT, PAR)
+  assert.equal(Math.round(raw * (effectiveAllowance({ handicap_allowance: 65 }, 90) / 100)), 5)
 })
 
 test('decimal Handicap Index carries full precision into the Playing Handicap', () => {

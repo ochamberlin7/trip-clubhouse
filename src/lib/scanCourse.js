@@ -72,8 +72,10 @@ const cleanStr = v => {
   return /^(null|none|n\/a|undefined|-)$/i.test(s) ? '' : s
 }
 
-// Extraction result → editable review state.
-export function toReview(result) {
+// Extraction result → editable review state. `globalAllowance` seeds the
+// Handicap Allowance % field (scans never read an allowance off the card, so it
+// always starts at the trip default until the user overrides it).
+export function toReview(result, globalAllowance = 100) {
   const low = new Set(result?.low_confidence_fields || [])
   const holes = (result?.holes || [])
     .slice()
@@ -99,13 +101,15 @@ export function toReview(result) {
     courseName: cleanStr(result?.course_name), location: cleanStr(result?.location), holes, tees,
     handicapPar: hp != null ? hp : actualPar,
     handicapParOverridden: hp != null && hp !== actualPar,
+    handicapAllowance: globalAllowance,
+    handicapAllowanceOverridden: false,
   }
 }
 
 // A saved round's inline course data → the review shape, so the Review screen can
 // reopen an already-saved course for correction (bad scan, typo, later update).
 // Inverse of buildCourseData: round.holes stores stroke index as `handicap`.
-export function roundToReview(round) {
+export function roundToReview(round, globalAllowance = 100) {
   const holes = (Array.isArray(round?.holes) ? round.holes : []).map((h, i) => ({
     hole_number: i + 1,
     par: numOrNull(h?.par),
@@ -125,10 +129,15 @@ export function roundToReview(round) {
   const location = [cleanStr(round?.location_city), cleanStr(round?.location_state)].filter(Boolean).join(', ')
   const actualPar = holes.reduce((a, h) => a + (h.par || 0), 0)
   const savedHcpPar = numOrNull(round?.handicap_par)
+  const savedAllowance = numOrNull(round?.handicap_allowance)
   return {
     courseName, location, holes, tees,
     handicapPar: savedHcpPar != null ? savedHcpPar : actualPar,
     handicapParOverridden: savedHcpPar != null && savedHcpPar !== actualPar,
+    // A saved override wins; otherwise the field shows the trip default and is
+    // treated as un-overridden (so it keeps tracking the global until changed).
+    handicapAllowance: savedAllowance != null ? savedAllowance : globalAllowance,
+    handicapAllowanceOverridden: savedAllowance != null,
   }
 }
 
@@ -175,6 +184,10 @@ export function buildCourseData(rv) {
   // actual-par fallback. When not overridden it tracks the live hole-par sum.
   const hp = (rv.handicapParOverridden && rv.handicapPar != null) ? Number(rv.handicapPar) : par_total
   const handicap_par = (Number.isFinite(hp) && hp !== par_total) ? hp : null
+  // Handicap allowance % is stored only when overridden — NULL keeps the round on
+  // the trip-wide default (resolved via effectiveAllowance at calc time).
+  const ha = rv.handicapAllowanceOverridden && rv.handicapAllowance != null ? Number(rv.handicapAllowance) : null
+  const handicap_allowance = Number.isFinite(ha) ? ha : null
   return {
     golfcourse_id: null,
     club_name: name,
@@ -186,6 +199,7 @@ export function buildCourseData(rv) {
     tees,
     par_total,
     handicap_par,
+    handicap_allowance,
     number_of_holes: holes.length,
     location_city: city,
     location_state: state,

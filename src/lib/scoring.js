@@ -180,6 +180,16 @@ export function resolvePlayerTee(round, playerRoundRow) {
   }
 }
 
+// The handicap allowance % that applies to a round. A course can override the
+// trip-wide default (rounds.handicap_allowance) — e.g. a short course where the
+// standard allowance over-concentrates strokes onto too few holes. When the round
+// carries a value it wins; otherwise the global trip allowance applies. Any
+// unset/blank/non-numeric value falls back to the global default.
+export function effectiveAllowance(round, globalAllowance = 100) {
+  const a = round?.handicap_allowance
+  return (a == null || a === '' || Number.isNaN(Number(a))) ? (globalAllowance ?? 100) : Number(a)
+}
+
 // WHS better-ball "shots given" for a group (pairing). Per the official USGA/R&A
 // rule, each player's PLAYING handicap = round(RAW unrounded course handicap ×
 // allowance/100) — the course handicap is rounded ONCE, HERE, from the full-
@@ -318,7 +328,7 @@ export function analyzeScoring(
         const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${tp}`))
         return { id: tp, ch: rawCourseHandicapForTee(hcpByPlayer.get(tp), tee.slope, tee.rating, tee.par) }
       })
-      const phMap = shotsGivenFromCourseHandicaps(entries, allowance)
+      const phMap = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
       for (const [tp, ph] of phMap) playing.set(tp, ph)
     }
     playingByRound.set(r.id, playing)
@@ -449,7 +459,7 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
         const tee = resolvePlayerTee(round, getTeeRow(id))
         return { id, ch: rawCourseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
       })
-      const playing = shotsGivenFromCourseHandicaps(entries, allowance)
+      const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
 
       const net = (tp, hole) =>
         netScore(scoresMap[`${round.id}:${tp}:${hole}`], playing.get(tp) ?? 0, holes?.[hole - 1]?.handicap)
@@ -670,7 +680,7 @@ export function liveStandardMatchTally(round, pairings, pairingPlayers, scoresMa
       const tee = resolvePlayerTee(round, getTeeRow(id))
       return { id, ch: rawCourseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
     })
-    const playing = shotsGivenFromCourseHandicaps(entries, allowance)
+    const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
 
     const grossFor = id => {
       const o = {}
@@ -784,7 +794,7 @@ export function standardHolesWonByPlayer(
         const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
         return { id, ch: rawCourseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
       })
-      const playing = shotsGivenFromCourseHandicaps(entries, allowance)
+      const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
       const grossFor = id => {
         const o = {}
         for (let h = 1; h <= totalHoles; h++) { const g = scoreMap[`${r.id}:${id}:${h}`]; if (g != null) o[h] = g }
@@ -884,7 +894,7 @@ export function matchPlayPointsByPlayer(
         const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
         return { id, ch: rawCourseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
       })
-      const playing = shotsGivenFromCourseHandicaps(entries, allowance)
+      const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
 
       // Best (lowest) net for a side + the players who own it; scored=false when
       // nobody on the side has a score on this hole yet.
@@ -972,7 +982,7 @@ export function fireStatsByPlayer(
         const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
         return { id, ch: rawCourseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
       })
-      const playing = shotsGivenFromCourseHandicaps(entries, allowance)
+      const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
 
       for (const id of ids) {
         // Build the fire boolean array for this player/round (scorecard logic).

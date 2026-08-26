@@ -129,7 +129,7 @@ function Header({ back, title, onClose }) {
   )
 }
 
-export default function CourseScanFlow({ onBack, onClose, onSave, initialReview = null }) {
+export default function CourseScanFlow({ onBack, onClose, onSave, initialReview = null, globalAllowance = 100 }) {
   const editMode = !!initialReview // reopened from Edit Course to correct saved data
   const [step, setStep] = useState(editMode ? 'review' : 'choice')
   const [photos, setPhotos] = useState([]) // sparse array by slot index
@@ -154,7 +154,7 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
     setStep('loading'); setErr('')
     try {
       const result = await extractScorecard(filledPhotos)
-      setRv(toReview(result))
+      setRv(toReview(result, globalAllowance))
       setStep('review')
     } catch (e) { setErr(e.message || 'Extraction failed'); setStep('error') }
   }
@@ -274,6 +274,7 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
   const tabOffset = is18 && tab === 1 ? 9 : 0
   const actualPar = rv.holes.reduce((a, h) => a + (h.par || 0), 0) // sum of hole pars (the displayed par)
   const effectiveHcpPar = rv.handicapParOverridden ? rv.handicapPar : actualPar
+  const effectiveAllow = rv.handicapAllowanceOverridden ? rv.handicapAllowance : globalAllowance
   return (
     <div>
       <Header back={() => editMode ? onBack() : setStep('upload')} title={editMode ? 'Edit Course Data' : 'Review Course Data'} onClose={onClose} />
@@ -320,6 +321,29 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
             setRv(cur => ({ ...cur, handicapPar: v, handicapParOverridden: v != null }))
           }}
           style={{ ...st.input, textAlign: 'center', borderColor: rv.handicapParOverridden ? NAVY : BORDER }}
+        />
+      </div>
+
+      {/* Handicap Allowance % — the share of Course Handicap each player receives
+          for rounds at this course. Defaults to the trip-wide allowance; override
+          for a short/shotgun course where the standard allowance over-concentrates
+          strokes (e.g. a 12-hole course at ~65%). Blank reverts to the default. */}
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 118px', gap: 8, alignItems: 'start' }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: INK }}>Handicap Allowance %</div>
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 2, lineHeight: 1.4 }}>
+            Share of Course Handicap used to set Playing Handicap for rounds here. Defaults to the trip setting ({globalAllowance}%); override for a shortened course. Clear to use the default.
+          </div>
+        </div>
+        <input
+          inputMode="numeric"
+          value={effectiveAllow == null ? '' : effectiveAllow}
+          onChange={e => {
+            const digits = e.target.value.replace(/[^\d]/g, '')
+            const v = digits === '' ? null : Number(digits)
+            setRv(cur => ({ ...cur, handicapAllowance: v, handicapAllowanceOverridden: v != null }))
+          }}
+          style={{ ...st.input, textAlign: 'center', borderColor: rv.handicapAllowanceOverridden ? NAVY : BORDER }}
         />
       </div>
 

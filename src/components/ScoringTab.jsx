@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
-import { strokesOnHole, netScore, rawCourseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally } from '../lib/scoring'
+import { strokesOnHole, netScore, rawCourseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally, effectiveAllowance } from '../lib/scoring'
 import { teamPillStyle, getTeamDisplayName, teamColor, colorIndexOf } from '../lib/teamColors'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import PullToRefresh from './PullToRefresh'
@@ -408,7 +408,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // is round(courseHCP × allowance/100); shots given = that minus the pairing's
   // LOWEST playing handicap, so the lowest player plays off scratch (0). The stroke
   // dots AND the net scores both use this, so dots and results always agree.
-  const allowance = trip.handicap_allowance ?? 100
+  // Per-course override wins over the trip-wide allowance for this round.
+  const allowance = effectiveAllowance(round, trip.handicap_allowance ?? 100)
   const chEntries = [1, 2, 3, 4].map(s => slotMap[s]).filter(Boolean).map(id => {
     const tee = resolvePlayerTee(round, playerRoundsMap[`${round.id}:${id}`])
     return { id, ch: rawCourseHandicapForTee(playersById[id]?.handicap_index, tee.slope, tee.rating, tee.par) }

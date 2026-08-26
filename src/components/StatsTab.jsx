@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import {
-  matchPlayPointsByPlayer, fireStatsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName,
+  matchPlayPointsByPlayer, fireStatsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName, effectiveAllowance,
 } from '../lib/scoring'
 
 // ── Trip Stats ────────────────────────────────────────────────────
@@ -26,7 +26,9 @@ function absPlayingHandicap(round, teeRow, handicapIndex, allowance) {
   const tee = resolvePlayerTee(round, teeRow)
   const rawCH = rawCourseHandicapForTee(handicapIndex, tee.slope, tee.rating, tee.par)
   if (rawCH == null) return 0
-  return Math.max(0, Math.round(rawCH * (allowance / 100)))
+  // A course-level allowance override wins over the trip default for this round.
+  const alw = effectiveAllowance(round, allowance)
+  return Math.max(0, Math.round(rawCH * (alw / 100)))
 }
 
 function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance) {

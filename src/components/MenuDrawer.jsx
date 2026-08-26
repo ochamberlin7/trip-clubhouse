@@ -9,7 +9,7 @@ import CourseScanFlow from './CourseScanFlow'
 import { roundToReview } from '../lib/scanCourse'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
-import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes, sortRoundsByTee } from '../lib/scoring'
+import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes, sortRoundsByTee, effectiveAllowance } from '../lib/scoring'
 import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
 import { loadPurseStandings, computePurse, formatMoney } from '../lib/purse'
@@ -477,7 +477,9 @@ function roundPrimaryTee(round) {
 // trip member may change any tee). Works on completed rounds too.
 function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChangeTee, readOnly = false, open = false }) {
   const [apiTees, setApiTees] = useState(null) // tees fetched from the API when rounds.tees is empty
-  const alw = allowance ?? 100
+  // A course-level allowance override (rounds.handicap_allowance) wins over the
+  // trip default for this round's Playing column.
+  const alw = effectiveAllowance(round, allowance)
   const cachedTees = Array.isArray(round.tees) ? round.tees.filter(t => t && t.name) : []
   // Tee options, best source first: cached rounds.tees → API-fetched tees → none.
   // Always include the round's own (synthesised) tee so the column is a real
@@ -664,7 +666,9 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                 </div>
               ))}
               <div style={{ background: '#F5F8FA', padding: '8px 10px', fontSize: 11, color: '#7A8FA6', fontStyle: 'italic' }}>
-                {allowance == null ? 'Allowance: 100% (default)' : `Allowance: ${alw}%`}
+                {round.handicap_allowance != null
+                  ? `Allowance: ${alw}% (course override)`
+                  : (allowance == null ? 'Allowance: 100% (default)' : `Allowance: ${alw}%`)}
               </div>
             </>
           )}
@@ -2094,6 +2098,7 @@ export default function MenuDrawer({
       location_lon: courseData.location_lon ?? null,
       par_total: courseData.par_total ?? null,
       handicap_par: courseData.handicap_par ?? null,
+      handicap_allowance: courseData.handicap_allowance ?? null,
       number_of_holes: courseData.number_of_holes ?? null,
       tees: courseData.tees ?? null,
     }).eq('id', editRound.id)
@@ -2515,7 +2520,8 @@ export default function MenuDrawer({
           <div style={s.modalSheet} onClick={e => e.stopPropagation()}>
             {courseFlow ? (
             <CourseScanFlow
-              initialReview={courseFlow === 'edit' ? roundToReview(editRound) : null}
+              initialReview={courseFlow === 'edit' ? roundToReview(editRound, handicapAllowance ?? 100) : null}
+              globalAllowance={handicapAllowance ?? 100}
               onBack={() => setCourseFlow(null)}
               onClose={() => { setCourseFlow(null); setEditRound(null) }}
               onSave={saveCourseEdit}
