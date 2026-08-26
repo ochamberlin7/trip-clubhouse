@@ -88,6 +88,10 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
   const [dismissed, setDismissed] = useState(false) // session-only; never persisted
   const [optOut, setOptOut] = useState(false) // "don't remind me again" checkbox
   const flippedRef = useRef(false) // flip onboarding_completed at most once
+  // Whether to show the modal is decided ONCE, the first time data is ready after
+  // mount (a fresh app load landing on Home). null = undecided; true/false latches
+  // the decision so the modal can never re-open in reaction to later data changes.
+  const [decidedShow, setDecidedShow] = useState(null)
 
   // Load the current user's player row + flights row, and (for commissioners)
   // whether every player has a handicap index.
@@ -209,9 +213,20 @@ export default function GettingStartedCard({ trip, rounds = [], userId, isCommis
     (isCommissioner ? (!allHandicaps ? 1 : 0) + (!coursesAssigned ? 1 : 0) + (!teeTimesSet ? 1 : 0) : 0)
   const hasToDo = commissionerRows.length > 0 || memberRows.length > 0
 
-  // Tracked items gate the modal on return visits; on first login it shows once
-  // regardless so the welcome tip appears.
-  if (!isFirstLogin && trackedIncomplete === 0) return null
+  // Decide ONCE whether to show, the first time data is ready after mount — i.e.
+  // a fresh app load that lands on Home (this card only mounts on the Home tab).
+  // On first login it shows regardless (so the welcome tip appears); otherwise it
+  // shows only if a tracked item is incomplete. Latching the decision means the
+  // modal never pops up as a side effect of actions taken elsewhere later in the
+  // session (e.g. adding a round on Schedule & Courses flips a course item
+  // incomplete) — it re-evaluates only on the next fresh load.
+  if (decidedShow === null) {
+    // Latch during render — React discards this render's output and immediately
+    // re-renders with the decision applied, so there's no flash.
+    setDecidedShow(isFirstLogin || trackedIncomplete > 0)
+    return null
+  }
+  if (!decidedShow) return null
 
   // Session-only dismissal — closing just hides it for now. It never persists,
   // so it reappears next login while the trigger conditions still hold —

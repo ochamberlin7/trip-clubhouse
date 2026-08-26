@@ -17,10 +17,10 @@ const st = {
   close: { width: 28, height: 28, borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
   title: { fontSize: 18, fontWeight: 700, color: INK },
   sub: { fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.5 },
-  row: { position: 'relative', display: 'flex', flexDirection: 'column', padding: '18px 4px', borderBottom: `1px solid ${BORDER}`, cursor: 'pointer', textAlign: 'left', background: 'none', border: 'none', width: '100%', fontFamily: 'inherit' },
+  row: { position: 'relative', display: 'flex', flexDirection: 'column', padding: '15px 14px', border: `1px solid ${NAVY}`, borderRadius: 10, background: '#E8EDF3', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit', marginBottom: 10 },
   rowTitle: { fontSize: 15, fontWeight: 700, color: INK, display: 'flex', alignItems: 'center', gap: 8 },
   rowSub: { fontSize: 13, color: MUTED, marginTop: 3, paddingRight: 44 },
-  betaBadge: { position: 'absolute', top: 12, right: 4, fontSize: 9, fontWeight: 800, color: '#fff', background: AMBER, borderRadius: 5, padding: '2px 6px', letterSpacing: '0.5px', textTransform: 'uppercase' },
+  betaBadge: { position: 'absolute', top: 12, right: 12, fontSize: 9, fontWeight: 800, color: '#fff', background: '#C0392B', borderRadius: 5, padding: '2px 6px', letterSpacing: '0.5px', textTransform: 'uppercase' },
   cta: { width: '100%', padding: 13, background: NAVY, border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 16 },
   ctaDisabled: { width: '100%', padding: 13, background: '#C4CEDA', border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 700, marginTop: 16, cursor: 'not-allowed', fontFamily: 'inherit' },
   slotLabel: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: MUTED, marginBottom: 6 },
@@ -205,7 +205,7 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
           <span style={st.rowTitle}>Scan Scorecard</span>
           <span style={st.rowSub}>Take a photo and we'll fill in the details for you</span>
         </button>
-        <button style={{ ...st.row, borderBottom: 'none' }} onClick={() => setStep('manual')}>
+        <button style={st.row} onClick={() => setStep('manual')}>
           <span style={st.rowTitle}>Type It In</span>
           <span style={st.rowSub}>Enter par, ratings and yardages yourself</span>
         </button>

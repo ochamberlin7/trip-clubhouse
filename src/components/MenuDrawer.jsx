@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1958,6 +1958,70 @@ export default function MenuDrawer({
     return () => { supabase.removeChannel(ch) }
   }, [tripId])
 
+  // Fetch (or re-fetch) everything the Schedule & Courses page needs and set it
+  // in one shot. Callers use this both for the initial lazy-load AND for
+  // post-mutation refreshes — swapping the data object in place (rather than
+  // nulling coursesData first) keeps the list mounted so the scroll position
+  // never jumps to the top after adding a round, saving a course, etc.
+  const loadCoursesData = useCallback(async () => {
+    const { data: roundData } = await supabase.from('rounds').select('*').eq('trip_id', tripId).order('date').order('round_number')
+    const roundList = sortRoundsByTee(roundData || [])
+    const roundIds = roundList.map(r => r.id)
+    const [tpRes, pairRes, tripRes, staysRes, mealsRes] = await Promise.all([
+      supabase.from('trip_players').select('id, first_name, last_name, guest_name, handicap_index').eq('trip_id', tripId),
+      roundIds.length ? supabase.from('pairings').select('id, round_id').in('round_id', roundIds) : Promise.resolve({ data: [] }),
+      supabase.from('trips').select('schedule').eq('id', tripId).maybeSingle(),
+      supabase.from('stays').select('*').eq('trip_id', tripId).order('check_in'),
+      supabase.from('meals').select('*').eq('trip_id', tripId).order('day'),
+    ])
+    const pairings = pairRes.data || []
+    const pairIds = pairings.map(p => p.id)
+    let pp = []
+    if (pairIds.length) {
+      const r = await supabase.from('pairing_players').select('pairing_id, trip_player_id').in('pairing_id', pairIds)
+      pp = r.data || []
+    }
+    const roundOfPairing = {}; pairings.forEach(p => { roundOfPairing[p.id] = p.round_id })
+    const playersByRound = {} // roundId -> Set(trip_player_id)
+    pp.forEach(x => { const rid = roundOfPairing[x.pairing_id]; if (rid) (playersByRound[rid] ??= new Set()).add(x.trip_player_id) })
+    // Per-player tee selections: `${roundId}:${tpId}` -> player_rounds row.
+    const playerRounds = {}
+    if (roundIds.length) {
+      const { data: prRows } = await supabase.from('player_rounds')
+        .select('trip_player_id, round_id, tee_name, slope, rating, par').in('round_id', roundIds)
+      ;(prRows || []).forEach(pr => { playerRounds[`${pr.round_id}:${pr.trip_player_id}`] = pr })
+    }
+    const players = (tpRes.data || []).map(tp => ({ ...tp, name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || 'Player' }))
+
+    // Rounds grouped by date, and the day-type for every empty day.
+    const roundsByDate = {}
+    roundList.forEach(r => { (roundsByDate[r.date] ??= []).push(r) })
+    const scheduleByDate = {}
+    ;(tripRes.data?.schedule || []).forEach(d => { if (d && d.date) scheduleByDate[d.date] = d.type })
+
+    // Meals grouped by day, each day's list sorted chronologically by time.
+    const stays = staysRes.data || []
+    const mealsByDate = {}
+    ;(mealsRes.data || []).forEach(m => { if (m.day) (mealsByDate[m.day] ??= []).push(m) })
+    Object.values(mealsByDate).forEach(list => list.sort((a, b) => parseTeeTimeToMinutes(a.meal_time) - parseTeeTimeToMinutes(b.meal_time)))
+
+    // Every day in the trip range, plus any round or meal date outside it.
+    let days = daysInRange(tripStartDate, tripEndDate)
+    const dateSet = new Set(days)
+    Object.keys(roundsByDate).forEach(d => { if (d) dateSet.add(d) })
+    Object.keys(mealsByDate).forEach(d => { if (d) dateSet.add(d) })
+    days = [...dateSet].sort()
+
+    // A round is locked if it has any score (else it locks once its date passes).
+    let scored = new Set()
+    if (roundIds.length) {
+      const { data: sc } = await supabase.from('scores').select('round_id').in('round_id', roundIds)
+      ;(sc || []).forEach(s => scored.add(s.round_id))
+    }
+    setScoredRounds(scored)
+    setCoursesData({ days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, roundIds, stays, mealsByDate })
+  }, [tripId, tripStartDate, tripEndDate])
+
   // Lazy-load data per page.
   useEffect(() => {
     let cancelled = false
@@ -1988,68 +2052,7 @@ export default function MenuDrawer({
         if (!cancelled) setCommissionerData({ teams: teams || [] })
       })()
     }
-    if (page === 'courses' && !coursesData) {
-      (async () => {
-        const { data: roundData } = await supabase.from('rounds').select('*').eq('trip_id', tripId).order('date').order('round_number')
-        const roundList = sortRoundsByTee(roundData || [])
-        const roundIds = roundList.map(r => r.id)
-        const [tpRes, pairRes, tripRes, staysRes, mealsRes] = await Promise.all([
-          supabase.from('trip_players').select('id, first_name, last_name, guest_name, handicap_index').eq('trip_id', tripId),
-          roundIds.length ? supabase.from('pairings').select('id, round_id').in('round_id', roundIds) : Promise.resolve({ data: [] }),
-          supabase.from('trips').select('schedule').eq('id', tripId).maybeSingle(),
-          supabase.from('stays').select('*').eq('trip_id', tripId).order('check_in'),
-          supabase.from('meals').select('*').eq('trip_id', tripId).order('day'),
-        ])
-        const pairings = pairRes.data || []
-        const pairIds = pairings.map(p => p.id)
-        let pp = []
-        if (pairIds.length) {
-          const r = await supabase.from('pairing_players').select('pairing_id, trip_player_id').in('pairing_id', pairIds)
-          pp = r.data || []
-        }
-        const roundOfPairing = {}; pairings.forEach(p => { roundOfPairing[p.id] = p.round_id })
-        const playersByRound = {} // roundId -> Set(trip_player_id)
-        pp.forEach(x => { const rid = roundOfPairing[x.pairing_id]; if (rid) (playersByRound[rid] ??= new Set()).add(x.trip_player_id) })
-        // Per-player tee selections: `${roundId}:${tpId}` -> player_rounds row.
-        const playerRounds = {}
-        if (roundIds.length) {
-          const { data: prRows } = await supabase.from('player_rounds')
-            .select('trip_player_id, round_id, tee_name, slope, rating, par').in('round_id', roundIds)
-          ;(prRows || []).forEach(pr => { playerRounds[`${pr.round_id}:${pr.trip_player_id}`] = pr })
-        }
-        const players = (tpRes.data || []).map(tp => ({ ...tp, name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || 'Player' }))
-
-        // Rounds grouped by date, and the day-type for every empty day.
-        const roundsByDate = {}
-        roundList.forEach(r => { (roundsByDate[r.date] ??= []).push(r) })
-        const scheduleByDate = {}
-        ;(tripRes.data?.schedule || []).forEach(d => { if (d && d.date) scheduleByDate[d.date] = d.type })
-
-        // Meals grouped by day, each day's list sorted chronologically by time.
-        const stays = staysRes.data || []
-        const mealsByDate = {}
-        ;(mealsRes.data || []).forEach(m => { if (m.day) (mealsByDate[m.day] ??= []).push(m) })
-        Object.values(mealsByDate).forEach(list => list.sort((a, b) => parseTeeTimeToMinutes(a.meal_time) - parseTeeTimeToMinutes(b.meal_time)))
-
-        // Every day in the trip range, plus any round or meal date outside it.
-        let days = daysInRange(tripStartDate, tripEndDate)
-        const dateSet = new Set(days)
-        Object.keys(roundsByDate).forEach(d => { if (d) dateSet.add(d) })
-        Object.keys(mealsByDate).forEach(d => { if (d) dateSet.add(d) })
-        days = [...dateSet].sort()
-
-        // A round is locked if it has any score (else it locks once its date passes).
-        let scored = new Set()
-        if (roundIds.length) {
-          const { data: sc } = await supabase.from('scores').select('round_id').in('round_id', roundIds)
-          ;(sc || []).forEach(s => scored.add(s.round_id))
-        }
-        if (!cancelled) {
-          setScoredRounds(scored)
-          setCoursesData({ days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, roundIds, stays, mealsByDate })
-        }
-      })()
-    }
+    if (page === 'courses' && !coursesData) { (async () => { await loadCoursesData() })() }
     if (page === 'archives' && !archivesData) {
       (async () => {
         const todayIso = new Date().toISOString().slice(0, 10)
@@ -2069,7 +2072,7 @@ export default function MenuDrawer({
       })()
     }
     return () => { cancelled = true }
-  }, [page, tripId, groupId, tripStartDate, tripEndDate, playersData, commissionerData, coursesData, archivesData, flightsData])
+  }, [page, tripId, groupId, tripStartDate, tripEndDate, playersData, commissionerData, coursesData, archivesData, flightsData, loadCoursesData])
 
   const drawerVisible = open && !page
   const backToDrawer = () => setPage(null)
@@ -2140,7 +2143,7 @@ export default function MenuDrawer({
     setSavingCourse(false)
     if (!error) {
       setEditRound(null)
-      setCoursesData(null)       // reload the courses page
+      loadCoursesData()          // refresh in place
       if (onRoundsChanged) onRoundsChanged() // update every other widget instantly
     }
   }
@@ -2162,7 +2165,7 @@ export default function MenuDrawer({
       console.error('[MenuDrawer] addRound failed:', error)
       return
     }
-    setCoursesData(null)       // reload the courses page (the day now has a round)
+    loadCoursesData()          // refresh in place (the day now has a round)
     if (onRoundsChanged) onRoundsChanged()
   }
 
@@ -2237,7 +2240,7 @@ export default function MenuDrawer({
 
     await setDayType(round.date, dayType)
     setEditRound(null)         // close the Edit modal
-    setCoursesData(null)       // reload — the day now shows the placeholder
+    loadCoursesData()          // refresh in place — the day now shows the placeholder
     if (onRoundsChanged) onRoundsChanged()
   }
 
@@ -2263,7 +2266,7 @@ export default function MenuDrawer({
     if (error) { console.error('[MenuDrawer] removeRound failed:', error); return }
 
     setEditRound(null)         // close the Edit Course modal
-    setCoursesData(null)       // reload the Courses page
+    loadCoursesData()          // refresh in place
     if (onRoundsChanged) onRoundsChanged() // propagate to scorecard / leaderboard / tee times / banner
   }
 
@@ -2282,7 +2285,7 @@ export default function MenuDrawer({
     setSavingName(false)
     if (error) { console.error('[MenuDrawer] saveNameEdit failed:', error); return }
     setEditName(null)
-    setCoursesData(null)       // reload the Courses page
+    loadCoursesData()          // refresh in place
     if (onRoundsChanged) onRoundsChanged() // update the Scores-tab pill + other widgets
   }
 
@@ -2293,7 +2296,7 @@ export default function MenuDrawer({
     const { error } = await supabase.from('rounds').update({ no_scoring: noScoring }).eq('id', round.id)
     if (error) { console.error('[MenuDrawer] toggleRoundScoring failed:', error); return }
     setEditRound(prev => (prev && prev.id === round.id ? { ...prev, no_scoring: noScoring } : prev))
-    setCoursesData(null)       // reload the Courses page
+    loadCoursesData()          // refresh in place
     if (onRoundsChanged) onRoundsChanged() // update Scores tab / leaderboard
   }
 
@@ -2309,7 +2312,7 @@ export default function MenuDrawer({
   async function patchMeal(meal, patch) {
     const { error } = await supabase.from('meals').update(patch).eq('id', meal.id)
     if (error) { console.error('[MenuDrawer] patchMeal failed:', error); return }
-    setCoursesData(null)
+    loadCoursesData()
     if (onRoundsChanged) onRoundsChanged()
   }
   const changeMealType = (meal, type) => patchMeal(meal, { meal_type: type, ...(type !== 'other' ? { custom_label: null } : {}) })
@@ -2325,7 +2328,7 @@ export default function MenuDrawer({
     setSavingMeal(false)
     if (error) { console.error('[MenuDrawer] saveMeal failed:', error); return }
     setEditMeal(null)
-    setCoursesData(null)
+    loadCoursesData()
     if (onRoundsChanged) onRoundsChanged()
   }
 
@@ -2336,7 +2339,7 @@ export default function MenuDrawer({
     setSavingMeal(false)
     if (error) { console.error('[MenuDrawer] deleteMeal failed:', error); return }
     setEditMeal(null)
-    setCoursesData(null)
+    loadCoursesData()
     if (onRoundsChanged) onRoundsChanged()
   }
 
@@ -2363,7 +2366,7 @@ export default function MenuDrawer({
       return
     }
     setEditStay(null)
-    setCoursesData(null)
+    loadCoursesData()
     if (onRoundsChanged) onRoundsChanged()
   }
 
@@ -2374,7 +2377,7 @@ export default function MenuDrawer({
     setSavingStay(false)
     if (error) { console.error('[MenuDrawer] deleteStay failed:', error); return }
     setEditStay(null)
-    setCoursesData(null)
+    loadCoursesData()
     if (onRoundsChanged) onRoundsChanged()
   }
 
