@@ -54,6 +54,14 @@ export async function extractScorecard(imageBlocks) {
 
 const numOrNull = v => (v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v))
 
+// Models sometimes write the literal string "null" / "none" / "n/a" into a
+// string field instead of JSON null — treat those (and blanks) as empty so they
+// never render or save as text.
+const cleanStr = v => {
+  const s = (v == null ? '' : String(v)).trim()
+  return /^(null|none|n\/a|undefined|-)$/i.test(s) ? '' : s
+}
+
 // Extraction result → editable review state.
 export function toReview(result) {
   const low = new Set(result?.low_confidence_fields || [])
@@ -69,13 +77,13 @@ export function toReview(result) {
     }))
   holes.forEach((h, i) => { h.hole_number = i + 1 })
   const tees = (result?.tees || []).map(t => ({
-    name: (t.name || '').trim() || 'Tee',
+    name: cleanStr(t.name) || 'Tee',
     rating: numOrNull(t.rating),
     slope: numOrNull(t.slope),
     ratingLow: low.has(`tee_${t.name}.rating`),
     slopeLow: low.has(`tee_${t.name}.slope`),
   }))
-  return { courseName: result?.course_name || '', location: result?.location || '', holes, tees }
+  return { courseName: cleanStr(result?.course_name), location: cleanStr(result?.location), holes, tees }
 }
 
 // Grow/shrink the holes list to `n` (Total Holes edit). Preserves existing rows.

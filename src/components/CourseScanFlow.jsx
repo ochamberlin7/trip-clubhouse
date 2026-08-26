@@ -50,14 +50,29 @@ const st = {
 
 // A number cell that flags missing (orange) / low-confidence (amber). Editing
 // clears the low flag and, once a value is entered, the missing state.
-function NumCell({ value, low, onChange, width }) {
+// `decimal` allows a decimal point (course ratings are e.g. 72.5) — integers
+// (par, stroke index, slope) strip to digits. A local text buffer lets a decimal
+// like "62." be typed without the trailing dot being parsed away mid-entry.
+function NumCell({ value, low, onChange, decimal, width }) {
+  const [text, setText] = useState(value == null ? '' : String(value))
   const missing = value == null
   const border = missing ? MISS : low ? AMBER : BORDER
   const bg = missing ? MISS_BG : low ? AMBER_BG : '#fff'
+  function handle(e) {
+    let v = e.target.value
+    if (decimal) {
+      v = v.replace(/[^\d.]/g, '')
+      const dot = v.indexOf('.')
+      if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '') // keep only the first dot
+    } else {
+      v = v.replace(/[^\d]/g, '')
+    }
+    setText(v)
+    onChange(v === '' || v === '.' ? null : Number(v))
+  }
   return (
     <input
-      inputMode="numeric" value={value == null ? '' : value}
-      onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value.replace(/[^\d]/g, '')))}
+      inputMode={decimal ? 'decimal' : 'numeric'} value={text} onChange={handle}
       style={{ ...st.input, width: width || '100%', textAlign: 'center', borderColor: border, background: bg, color: missing ? MISS_DK : NAVY, fontWeight: 600 }}
     />
   )
@@ -260,11 +275,11 @@ export default function CourseScanFlow({ onBack, onClose, onSave }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 118px', gap: 8 }}>
         <div>
           <div style={st.fieldLabel}>Course Name</div>
-          <input style={st.input} value={rv.courseName} onChange={e => setRv(v => ({ ...v, courseName: e.target.value }))} placeholder="Course name" />
+          <input style={st.input} value={rv.courseName} onChange={e => setRv(v => ({ ...v, courseName: e.target.value }))} placeholder="Not detected — enter manually" />
         </div>
         <div>
           <div style={st.fieldLabel}>Location</div>
-          <input style={st.input} value={rv.location} onChange={e => setRv(v => ({ ...v, location: e.target.value }))} placeholder="City, ST" />
+          <input style={st.input} value={rv.location} onChange={e => setRv(v => ({ ...v, location: e.target.value }))} placeholder="Not detected — enter manually" />
         </div>
         <div>
           <div style={st.fieldLabel}>Total Holes</div>
@@ -282,7 +297,7 @@ export default function CourseScanFlow({ onBack, onClose, onSave }) {
           <div key={i} style={st.teeCard}>
             <span style={st.dot(teeDot(t.name))} />
             <input style={st.input} value={t.name} onChange={e => patchTee(i, 'name', e.target.value)} placeholder="Tee" />
-            <div><div style={st.fieldLabel}>Rating</div><NumCell value={t.rating} low={t.ratingLow} onChange={v => patchTee(i, 'rating', v)} /></div>
+            <div><div style={st.fieldLabel}>Rating</div><NumCell value={t.rating} low={t.ratingLow} decimal onChange={v => patchTee(i, 'rating', v)} /></div>
             <div><div style={st.fieldLabel}>Slope</div><NumCell value={t.slope} low={t.slopeLow} onChange={v => patchTee(i, 'slope', v)} /></div>
           </div>
         ))}
