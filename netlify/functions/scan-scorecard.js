@@ -40,7 +40,7 @@ const extractionTool = {
           properties: {
             hole_number: { type: 'integer' },
             par: { type: 'integer' },
-            stroke_index: { type: 'integer', description: 'Null if not legible' },
+            stroke_index: { type: 'integer', description: "The MEN'S stroke index / handicap for this hole. If the card prints separate men's and women's handicap columns/rows, use the men's value only. Null if not legible." },
           },
           required: ['hole_number'],
         },
@@ -82,6 +82,7 @@ const PROMPT = [
   '- Read every visible number carefully. Return null (never guess) for anything illegible, glared-out, cropped, or ambiguous.',
   '- Populate low_confidence_fields for anything you extracted but are not fully certain about (smudged ink, unusual layout, partially cropped). Use identifiers like "hole_7.stroke_index" or "tee_White.slope".',
   "- Read each hole's par from its own column in the Par row (par is almost always 3, 4, or 5 — a 6 is rare and a 1, 2, 7+ is essentially never a hole par). Do not confuse the par row with the handicap/stroke-index row or a yardage row.",
+  "- Stroke index / handicap: many cards print SEPARATE men's and women's handicap columns or rows (often labelled \"Handicap\"/\"HCP\"/\"M\"/\"Mens\" vs \"Ladies\"/\"L\"/\"Womens\", side by side or as two rows). When both are present, read ONLY the men's stroke index for every hole and ignore the women's. If only one handicap row exists, use it. Stroke indexes run 1–18 (or 1–N for an N-hole course) with no repeats — if your values repeat or exceed the hole count you likely mixed the two columns, so re-read.",
   '- If the card prints a total/out/in par, sum the hole pars you read and check they match that printed total; if they do not, re-read the par row before answering, and flag any par you are unsure of in low_confidence_fields (e.g. "hole_5.par").',
   '- Count holes from what is actually on the card — do NOT assume or default to 18. If the card shows 9 hole rows, return exactly 9 entries in holes.',
   '- If two images are provided, merge them into one combined hole list. If their combined hole numbers still total fewer than 18 (e.g. two 6-hole sections), that is fine — trust what is on the cards.',
