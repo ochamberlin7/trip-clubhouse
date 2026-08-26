@@ -31,6 +31,7 @@ const extractionTool = {
     properties: {
       course_name: { type: 'string', description: 'Course name if visible, else null' },
       location: { type: 'string', description: 'City/state if visible, else null' },
+      handicap_par: { type: 'integer', description: 'A SEPARATE 18-hole-equivalent "handicap par" / "rating par" if the card prints one distinct from the sum of hole pars (common on short/novelty/non-18-hole courses, used in the course handicap formula). Null if the card only shows the normal par.' },
       holes: {
         type: 'array',
         description: 'One entry per hole actually present on the card — do not pad or assume 18. A 9-hole course returns 9 entries.',
@@ -84,6 +85,7 @@ const PROMPT = [
   '- If the card prints a total/out/in par, sum the hole pars you read and check they match that printed total; if they do not, re-read the par row before answering, and flag any par you are unsure of in low_confidence_fields (e.g. "hole_5.par").',
   '- Count holes from what is actually on the card — do NOT assume or default to 18. If the card shows 9 hole rows, return exactly 9 entries in holes.',
   '- If two images are provided, merge them into one combined hole list. If their combined hole numbers still total fewer than 18 (e.g. two 6-hole sections), that is fine — trust what is on the cards.',
+  '- Most cards have ONE par (the sum of the hole pars). Only if the card ALSO prints a separate, larger "handicap par" / "rating par" (an 18-hole-equivalent par for the course handicap formula, distinct from the total of the hole pars — common on short or non-18-hole courses) return it as handicap_par; otherwise leave handicap_par null.',
   '- If course name or location are not visible, leave those fields null rather than inventing them.',
 ].join('\n')
 

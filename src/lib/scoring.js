@@ -135,8 +135,13 @@ export function courseHandicapForTee(handicapIndex, slope, rating, par) {
 // tee) → the first cached tee in round.tees → neutral defaults. So with no
 // per-player tee set, the result matches the round's single round-level tee.
 export function resolvePlayerTee(round, playerRoundRow) {
+  // Course Handicap uses the "handicap par" (18-hole-equivalent) when a course
+  // publishes one — it's course-wide (same across tees), so it overrides the
+  // tee/row par used below. NULL → fall back to the actual par (par_total / hole
+  // sum), so normal 18-hole courses are unchanged.
+  const hcpPar = round?.handicap_par
   if (playerRoundRow && playerRoundRow.slope != null) {
-    return { slope: playerRoundRow.slope, rating: playerRoundRow.rating, par: playerRoundRow.par }
+    return { slope: playerRoundRow.slope, rating: playerRoundRow.rating, par: hcpPar ?? playerRoundRow.par }
   }
   const firstTee = Array.isArray(round?.tees) && round.tees.length ? round.tees[0] : null
   const holesPar = Array.isArray(round?.holes) && round.holes.length
@@ -145,7 +150,7 @@ export function resolvePlayerTee(round, playerRoundRow) {
   return {
     slope: round?.slope_rating ?? firstTee?.slope ?? 113,
     rating: round?.course_rating ?? firstTee?.rating ?? null,
-    par: round?.par_total ?? firstTee?.par ?? holesPar,
+    par: hcpPar ?? round?.par_total ?? firstTee?.par ?? holesPar,
   }
 }
 

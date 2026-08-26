@@ -83,7 +83,13 @@ export function toReview(result) {
     ratingLow: low.has(`tee_${t.name}.rating`),
     slopeLow: low.has(`tee_${t.name}.slope`),
   }))
-  return { courseName: cleanStr(result?.course_name), location: cleanStr(result?.location), holes, tees }
+  const actualPar = holes.reduce((a, h) => a + (h.par ?? 0), 0)
+  const hp = numOrNull(result?.handicap_par)
+  return {
+    courseName: cleanStr(result?.course_name), location: cleanStr(result?.location), holes, tees,
+    handicapPar: hp != null ? hp : actualPar,
+    handicapParOverridden: hp != null && hp !== actualPar,
+  }
 }
 
 // A saved round's inline course data → the review shape, so the Review screen can
@@ -108,7 +114,13 @@ export function roundToReview(round) {
   }
   const courseName = cleanStr(round?.club_name) || cleanStr(round?.course_name)
   const location = [cleanStr(round?.location_city), cleanStr(round?.location_state)].filter(Boolean).join(', ')
-  return { courseName, location, holes, tees }
+  const actualPar = holes.reduce((a, h) => a + (h.par || 0), 0)
+  const savedHcpPar = numOrNull(round?.handicap_par)
+  return {
+    courseName, location, holes, tees,
+    handicapPar: savedHcpPar != null ? savedHcpPar : actualPar,
+    handicapParOverridden: savedHcpPar != null && savedHcpPar !== actualPar,
+  }
 }
 
 // Grow/shrink the holes list to `n` (Total Holes edit). Preserves existing rows.
@@ -149,6 +161,11 @@ export function buildCourseData(rv) {
   const primary = rv.tees.find(t => t.rating != null && t.slope != null) || rv.tees[0] || null
   const [city, state] = splitLocation(rv.location)
   const name = (rv.courseName || '').trim() || 'Course'
+  // Handicap par (18-hole-equivalent) is stored only when the user overrode it to
+  // a value that differs from the actual par — NULL keeps normal courses on the
+  // actual-par fallback. When not overridden it tracks the live hole-par sum.
+  const hp = (rv.handicapParOverridden && rv.handicapPar != null) ? Number(rv.handicapPar) : par_total
+  const handicap_par = (Number.isFinite(hp) && hp !== par_total) ? hp : null
   return {
     golfcourse_id: null,
     club_name: name,
@@ -159,6 +176,7 @@ export function buildCourseData(rv) {
     holes,
     tees,
     par_total,
+    handicap_par,
     number_of_holes: holes.length,
     location_city: city,
     location_state: state,

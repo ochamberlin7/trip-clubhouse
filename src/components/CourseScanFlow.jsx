@@ -263,6 +263,8 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
   // ── review ──
   const holesForTab = is18 ? rv.holes.slice(tab === 0 ? 0 : 9, tab === 0 ? 9 : 18) : rv.holes
   const tabOffset = is18 && tab === 1 ? 9 : 0
+  const actualPar = rv.holes.reduce((a, h) => a + (h.par || 0), 0) // sum of hole pars (the displayed par)
+  const effectiveHcpPar = rv.handicapParOverridden ? rv.handicapPar : actualPar
   return (
     <div>
       <Header back={() => editMode ? onBack() : setStep('upload')} title={editMode ? 'Edit Course Data' : 'Review Course Data'} onClose={onClose} />
@@ -288,6 +290,28 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
             onChange={e => setTotal(e.target.value.replace(/[^\d]/g, ''))}
             style={{ ...st.input, textAlign: 'center', borderColor: is18 ? BORDER : AMBER, background: is18 ? '#fff' : AMBER_BG }} />
         </div>
+      </div>
+
+      {/* Par (for handicap) — 18-hole-equivalent par used only in the Course
+          Handicap formula. Defaults to the sum of hole pars; override for
+          short/novelty courses that publish a separate handicap par. */}
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 118px', gap: 8, alignItems: 'start' }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: INK }}>Par (for handicap)</div>
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 2, lineHeight: 1.4 }}>
+            Used only in the Course Handicap formula. Defaults to the sum of hole pars ({actualPar}); override only if this course publishes a separate handicap par.
+          </div>
+        </div>
+        <input
+          inputMode="numeric"
+          value={effectiveHcpPar == null ? '' : effectiveHcpPar}
+          onChange={e => {
+            const digits = e.target.value.replace(/[^\d]/g, '')
+            const v = digits === '' ? null : Number(digits)
+            setRv(cur => ({ ...cur, handicapPar: v, handicapParOverridden: v != null }))
+          }}
+          style={{ ...st.input, textAlign: 'center', borderColor: rv.handicapParOverridden ? NAVY : BORDER }}
+        />
       </div>
 
       {/* Tees */}

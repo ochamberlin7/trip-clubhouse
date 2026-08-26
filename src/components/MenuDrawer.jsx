@@ -2090,6 +2090,7 @@ export default function MenuDrawer({
       location_lat: courseData.location_lat ?? null,
       location_lon: courseData.location_lon ?? null,
       par_total: courseData.par_total ?? null,
+      handicap_par: courseData.handicap_par ?? null,
       number_of_holes: courseData.number_of_holes ?? null,
       tees: courseData.tees ?? null,
     }).eq('id', editRound.id)
