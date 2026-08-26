@@ -54,6 +54,16 @@ export async function extractScorecard(imageBlocks) {
 
 const numOrNull = v => (v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v))
 
+// Stable per-tee identity for React keys. Tees have no natural id and can be
+// removed/re-added on the review screen; keying by array index would let a
+// NumCell (which caches its text in local state) show a stale rating/slope after
+// a removal shifts indices. A monotonic uid keeps each card's state pinned to
+// its data. Exported so the review screen can mint one for a freshly added tee.
+let _teeUid = 0
+export const makeTee = (props = {}) => ({
+  _uid: `tee${_teeUid++}`, name: '', rating: null, slope: null, ratingLow: false, slopeLow: false, ...props,
+})
+
 // Models sometimes write the literal string "null" / "none" / "n/a" into a
 // string field instead of JSON null — treat those (and blanks) as empty so they
 // never render or save as text.
@@ -76,7 +86,7 @@ export function toReview(result) {
       siLow: low.has(`hole_${h.hole_number}.stroke_index`),
     }))
   holes.forEach((h, i) => { h.hole_number = i + 1 })
-  const tees = (result?.tees || []).map(t => ({
+  const tees = (result?.tees || []).map(t => makeTee({
     name: cleanStr(t.name) || 'Tee',
     rating: numOrNull(t.rating),
     slope: numOrNull(t.slope),
@@ -102,15 +112,14 @@ export function roundToReview(round) {
     stroke_index: numOrNull(h?.handicap ?? h?.stroke_index),
     parLow: false, siLow: false,
   }))
-  const tees = (Array.isArray(round?.tees) ? round.tees : []).map(t => ({
+  const tees = (Array.isArray(round?.tees) ? round.tees : []).map(t => makeTee({
     name: cleanStr(t?.name) || 'Tee',
     rating: numOrNull(t?.rating),
     slope: numOrNull(t?.slope),
-    ratingLow: false, slopeLow: false,
   }))
   // No cached tees array but a round-level default rating/slope exists → seed one.
   if (tees.length === 0 && (round?.course_rating != null || round?.slope_rating != null)) {
-    tees.push({ name: cleanStr(round?.tee_name) || 'Default', rating: numOrNull(round?.course_rating), slope: numOrNull(round?.slope_rating), ratingLow: false, slopeLow: false })
+    tees.push(makeTee({ name: cleanStr(round?.tee_name) || 'Default', rating: numOrNull(round?.course_rating), slope: numOrNull(round?.slope_rating) }))
   }
   const courseName = cleanStr(round?.club_name) || cleanStr(round?.course_name)
   const location = [cleanStr(round?.location_city), cleanStr(round?.location_state)].filter(Boolean).join(', ')

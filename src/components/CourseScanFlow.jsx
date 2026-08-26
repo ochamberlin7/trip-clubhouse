@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { fileToImageBlock, extractScorecard, toReview, resizeHoles, blockingIssues, buildCourseData } from '../lib/scanCourse'
+import { fileToImageBlock, extractScorecard, toReview, resizeHoles, blockingIssues, buildCourseData, makeTee } from '../lib/scanCourse'
 
 // "Scan a scorecard" flow — rendered inside the Edit Course modal shell. States:
 // choice → upload → loading → review. Extraction runs server-side; nothing is
@@ -17,10 +17,10 @@ const st = {
   close: { width: 28, height: 28, borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
   title: { fontSize: 18, fontWeight: 700, color: INK },
   sub: { fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.5 },
-  row: { display: 'flex', flexDirection: 'column', padding: '18px 4px', borderBottom: `1px solid ${BORDER}`, cursor: 'pointer', textAlign: 'left', background: 'none', border: 'none', width: '100%', fontFamily: 'inherit' },
+  row: { position: 'relative', display: 'flex', flexDirection: 'column', padding: '18px 4px', borderBottom: `1px solid ${BORDER}`, cursor: 'pointer', textAlign: 'left', background: 'none', border: 'none', width: '100%', fontFamily: 'inherit' },
   rowTitle: { fontSize: 15, fontWeight: 700, color: INK, display: 'flex', alignItems: 'center', gap: 8 },
-  rowSub: { fontSize: 13, color: MUTED, marginTop: 3 },
-  newBadge: { fontSize: 9, fontWeight: 800, color: '#fff', background: '#0F6E56', borderRadius: 5, padding: '2px 6px', letterSpacing: '0.5px' },
+  rowSub: { fontSize: 13, color: MUTED, marginTop: 3, paddingRight: 44 },
+  betaBadge: { position: 'absolute', top: 12, right: 4, fontSize: 9, fontWeight: 800, color: '#fff', background: AMBER, borderRadius: 5, padding: '2px 6px', letterSpacing: '0.5px', textTransform: 'uppercase' },
   cta: { width: '100%', padding: 13, background: NAVY, border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 16 },
   ctaDisabled: { width: '100%', padding: 13, background: '#C4CEDA', border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 700, marginTop: 16, cursor: 'not-allowed', fontFamily: 'inherit' },
   slotLabel: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: MUTED, marginBottom: 6 },
@@ -40,7 +40,9 @@ const st = {
   input: { width: '100%', border: `1px solid ${BORDER}`, borderRadius: 4, padding: '8px 10px', fontSize: 13, color: NAVY, fontFamily: 'inherit', boxSizing: 'border-box', background: '#fff' },
   section: { marginTop: 16 },
   sectionTitle: { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px', color: MUTED, margin: '0 0 8px' },
-  teeCard: { display: 'grid', gridTemplateColumns: '16px 1fr 1fr 1fr', gap: 8, alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '10px', marginBottom: 8 },
+  teeCard: { display: 'grid', gridTemplateColumns: '16px 1fr 1fr 1fr 24px', gap: 8, alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '10px', marginBottom: 8 },
+  teeX: { width: 24, height: 24, borderRadius: '50%', background: '#F0F2F5', border: 'none', color: MUTED, fontSize: 14, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'end', marginBottom: 1 },
+  addTee: { display: 'block', width: '100%', border: `2px dashed ${BORDER}`, borderRadius: 8, padding: '9px', background: 'none', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 2 },
   tabs: { display: 'flex', gap: 0, border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden', marginBottom: 10 },
   tab: on => ({ flex: 1, padding: 8, border: 'none', background: on ? NAVY : '#fff', color: on ? '#fff' : MUTED, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }),
   hcell: { fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: MUTED, padding: '2px 4px', textAlign: 'center' },
@@ -175,6 +177,12 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
       return { ...v, tees }
     })
   }
+  function removeTee(i) {
+    setRv(v => ({ ...v, tees: v.tees.filter((_, idx) => idx !== i) }))
+  }
+  function addTee() {
+    setRv(v => ({ ...v, tees: [...v.tees, makeTee({ name: '' })] }))
+  }
   function setTotal(n) {
     const total = Math.max(1, Math.min(36, Number(n) || 0))
     setRv(v => ({ ...v, holes: resizeHoles(v.holes, total) }))
@@ -193,7 +201,8 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
       <div>
         <Header back={onBack} title="Add Course" onClose={onClose} />
         <button style={st.row} onClick={() => setStep('upload')}>
-          <span style={st.rowTitle}>Scan Scorecard <span style={st.newBadge}>NEW</span></span>
+          <span style={st.betaBadge}>Beta</span>
+          <span style={st.rowTitle}>Scan Scorecard</span>
           <span style={st.rowSub}>Take a photo and we'll fill in the details for you</span>
         </button>
         <button style={{ ...st.row, borderBottom: 'none' }} onClick={() => setStep('manual')}>
@@ -317,15 +326,17 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
       {/* Tees */}
       <div style={st.section}>
         <div style={st.sectionTitle}>Tees</div>
-        {rv.tees.length === 0 && <div style={{ fontSize: 12, color: MUTED, fontStyle: 'italic' }}>No tees detected — add ratings after saving, or rescan.</div>}
+        {rv.tees.length === 0 && <div style={{ fontSize: 12, color: MUTED, fontStyle: 'italic', marginBottom: 8 }}>No tees — add the one(s) your group plays below.</div>}
         {rv.tees.map((t, i) => (
-          <div key={i} style={st.teeCard}>
+          <div key={t._uid ?? i} style={st.teeCard}>
             <span style={st.dot(teeDot(t.name))} />
             <input style={st.input} value={t.name} onChange={e => patchTee(i, 'name', e.target.value)} placeholder="Tee" />
             <div><div style={st.fieldLabel}>Rating</div><NumCell value={t.rating} low={t.ratingLow} decimal onChange={v => patchTee(i, 'rating', v)} /></div>
             <div><div style={st.fieldLabel}>Slope</div><NumCell value={t.slope} low={t.slopeLow} onChange={v => patchTee(i, 'slope', v)} /></div>
+            <button style={st.teeX} onClick={() => removeTee(i)} aria-label={`Remove ${t.name || 'tee'}`} title="Remove tee">✕</button>
           </div>
         ))}
+        <button style={st.addTee} onClick={addTee}>+ Add Tee</button>
       </div>
 
       {/* Holes */}
