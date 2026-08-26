@@ -274,7 +274,14 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
   const tabOffset = is18 && tab === 1 ? 9 : 0
   const actualPar = rv.holes.reduce((a, h) => a + (h.par || 0), 0) // sum of hole pars (the displayed par)
   const effectiveHcpPar = rv.handicapParOverridden ? rv.handicapPar : actualPar
-  const effectiveAllow = rv.handicapAllowanceOverridden ? rv.handicapAllowance : globalAllowance
+  // Allowance picker options: 100% → 50% in steps of 5, plus the current override
+  // value if a previously-saved course sits off the 5-step grid (so it stays selectable).
+  const allowOptions = []
+  for (let v = 100; v >= 50; v -= 5) allowOptions.push(v)
+  if (rv.handicapAllowanceOverridden && rv.handicapAllowance != null && !allowOptions.includes(Number(rv.handicapAllowance))) {
+    allowOptions.push(Number(rv.handicapAllowance))
+    allowOptions.sort((a, b) => b - a)
+  }
   return (
     <div>
       <Header back={() => editMode ? onBack() : setStep('upload')} title={editMode ? 'Edit Course Data' : 'Review Course Data'} onClose={onClose} />
@@ -332,19 +339,21 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: INK }}>Handicap Allowance %</div>
           <div style={{ fontSize: 11, color: MUTED, marginTop: 2, lineHeight: 1.4 }}>
-            Share of Course Handicap used to set Playing Handicap for rounds here. Defaults to the trip setting ({globalAllowance}%); override for a shortened course. Clear to use the default.
+            Share of Course Handicap used to set Playing Handicap for rounds here. Defaults to the trip setting ({globalAllowance}%); override for a shortened course. Pick “Default” to use the trip setting.
           </div>
         </div>
-        <input
-          inputMode="numeric"
-          value={effectiveAllow == null ? '' : effectiveAllow}
+        <select
+          value={rv.handicapAllowanceOverridden ? String(rv.handicapAllowance) : ''}
           onChange={e => {
-            const digits = e.target.value.replace(/[^\d]/g, '')
-            const v = digits === '' ? null : Number(digits)
-            setRv(cur => ({ ...cur, handicapAllowance: v, handicapAllowanceOverridden: v != null }))
+            const val = e.target.value
+            if (val === '') setRv(cur => ({ ...cur, handicapAllowance: globalAllowance, handicapAllowanceOverridden: false }))
+            else setRv(cur => ({ ...cur, handicapAllowance: Number(val), handicapAllowanceOverridden: true }))
           }}
-          style={{ ...st.input, textAlign: 'center', borderColor: rv.handicapAllowanceOverridden ? NAVY : BORDER }}
-        />
+          style={{ ...st.input, textAlign: 'center', borderColor: rv.handicapAllowanceOverridden ? NAVY : BORDER, appearance: 'auto', WebkitAppearance: 'auto', cursor: 'pointer' }}
+        >
+          <option value="">Default ({globalAllowance}%)</option>
+          {allowOptions.map(v => <option key={v} value={v}>{v}%</option>)}
+        </select>
       </div>
 
       {/* Tees */}
