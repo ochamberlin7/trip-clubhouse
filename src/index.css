@@ -152,9 +152,8 @@ select {
 /* ── Floating feedback pill — bottom-right, above the tab bar / banner ── */
 .feedback-fab {
   position: fixed;
-  /* Span the widget column with matching 16px side insets (= .dashboard-content
-     padding) so the button's left/right edges line up with the widgets above it. */
-  left: 16px;
+  /* 16px inset = .dashboard-content's side padding, so the pill's right edge lines
+     up with the widgets' right edge (and tucks fully behind the chat widget). */
   right: 16px;
   bottom: calc(max(var(--tab-bar-space), var(--live-banner-space, 0px)) + 10px);
   z-index: 201;
@@ -168,7 +167,6 @@ select {
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  text-align: center;
 }
 
 /* Wide viewports (> the 430px content column): the tab bar and feedback button
@@ -177,8 +175,8 @@ select {
    Below the breakpoint (real mobile/PWA), the existing full-bleed rules stand. */
 @media (min-width: 431px) {
   .tab-bar { left: 50%; right: auto; transform: translateX(-50%); width: 430px; }
-  /* Match the widget column: 430 − 16px insets each side = 398px, centered. */
-  .feedback-fab { left: 50%; right: auto; transform: translateX(-50%); width: 398px; }
+  /* 430/2 = 215; 16px inset from the column's right edge → 50% - 199px. */
+  .feedback-fab { right: calc(50% - 199px); }
 }
 .tab-btn {
   flex: 1;
