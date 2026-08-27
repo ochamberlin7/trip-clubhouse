@@ -114,7 +114,12 @@ select {
 /* Fixed-height app shell: the page itself never scrolls (so the fixed bottom tab
    bar can't drift on iOS during body scroll); .dashboard-scroll scrolls inside. */
 .dashboard-page { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; background: var(--bg0); position: relative; }
-.dashboard-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+/* NOTE: no -webkit-overflow-scrolling: touch here. On WebKit/Safari that property
+   promotes this scroll container to its own stacking context, which would trap
+   descendants (e.g. the Trash Talk widget) beneath the fixed feedback FAB no matter
+   how high their z-index — so the widget could never sit above the FAB. Momentum
+   scrolling is the default on modern iOS anyway. */
+.dashboard-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 /* Bottom space so the last rows (scorecard holes 17–18 + totals, leaderboard tail,
    etc.) scroll clear of the fixed bottom tab bar, the live-score banner, AND the
    floating feedback button.
