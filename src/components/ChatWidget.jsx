@@ -8,11 +8,20 @@ import { supabase, uniqueChannelName } from '../lib/supabase'
 // re-render when `messages` changes, so the <input> element is never unmounted
 // and the soft keyboard stays open when new messages arrive.
 
+// Fixed overall widget height: the card never grows. The message area (flex:1)
+// gives up its space as the composer grows, so bubbles scroll up and out of view
+// rather than the widget getting taller. COMPOSER_MIN is one row; COMPOSER_MAX is
+// the tallest the composer can get before it would reach the header — beyond it
+// the textarea scrolls internally instead of growing.
+const CARD_HEIGHT = 360
+const COMPOSER_MIN = 36
+const COMPOSER_MAX = 290
+
 const styles = {
-  card: { background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '10px' },
-  header: { background: '#1B3F6E', padding: '10px 14px' },
+  card: { background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '10px', height: CARD_HEIGHT, display: 'flex', flexDirection: 'column' },
+  header: { background: '#1B3F6E', padding: '10px 14px', flexShrink: 0 },
   headerText: { fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#fff' },
-  area: { padding: '12px', maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' },
+  area: { padding: '12px', flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' },
   msgRow: { display: 'flex', flexDirection: 'column', gap: '2px' },
   meta: { fontSize: '10px', color: '#7A8FA6', padding: '0 4px' },
   senderName: { fontWeight: 700, color: '#1B3F6E' },
@@ -21,8 +30,8 @@ const styles = {
   bubbleOther: { background: '#ffffff', color: '#1B3F6E', border: '2px solid #1B3F6E', borderRadius: '12px 12px 12px 2px' },
   empty: { textAlign: 'center', color: '#7A8FA6', fontSize: '13px', padding: '20px 0', fontStyle: 'italic' },
   error: { color: '#C0392B', fontSize: '11px', padding: '6px 14px 0', textAlign: 'center' },
-  inputRow: { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #DDE3EA', background: '#FFFFFF' },
-  input: { flex: 1, background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: '20px', padding: '8px 14px', fontSize: '16px', color: '#0D1B2A', outline: 'none', fontFamily: 'inherit' },
+  inputRow: { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #DDE3EA', background: '#FFFFFF', flexShrink: 0, alignItems: 'flex-end' },
+  input: { flex: 1, background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: '20px', padding: '8px 14px', fontSize: '16px', lineHeight: '20px', color: '#0D1B2A', outline: 'none', fontFamily: 'inherit', resize: 'none', overflowY: 'hidden', maxHeight: COMPOSER_MAX, boxSizing: 'border-box', display: 'block' },
   sendBtn: { width: '38px', height: '38px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 }
 
@@ -46,10 +55,36 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   const [pressed, setPressed] = useState(false)
   const [sendError, setSendError] = useState(null)
   const areaRef = useRef(null)
+  const taRef = useRef(null)
   const nameMapRef = useRef({})
   const mountedRef = useRef(true)
 
   useEffect(() => () => { mountedRef.current = false }, [])
+
+  // Auto-grow the composer like iMessage: reset to measure, then set height to fit
+  // the content up to COMPOSER_MAX. Past that the textarea scrolls internally
+  // (overflow auto) so the newest lines stay visible while the top scrolls away.
+  // The message list is kept pinned to the bottom as the composer eats its space.
+  function autoGrow() {
+    const el = taRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const next = Math.min(el.scrollHeight, COMPOSER_MAX)
+    el.style.height = next + 'px'
+    el.style.overflowY = el.scrollHeight > COMPOSER_MAX ? 'auto' : 'hidden'
+    const area = areaRef.current
+    if (area) area.scrollTop = area.scrollHeight
+  }
+
+  function resetComposerHeight() {
+    const el = taRef.current
+    if (!el) return
+    el.style.height = COMPOSER_MIN + 'px'
+    el.style.overflowY = 'hidden'
+  }
+
+  // Start at a single row.
+  useEffect(() => { resetComposerHeight() }, [])
 
   // Resolve sender display names from profiles by user_id — the authoritative
   // source — rather than each message's stored sender_name (which can be stale
@@ -130,6 +165,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
     if (!content) return
 
     setText('') // clear immediately
+    resetComposerHeight() // shrink the composer back to one row
     setSendError(null)
 
     const optimistic = {
@@ -153,6 +189,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
       // Roll back the optimistic message and surface why it failed.
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
       setText(content) // restore the text so it isn't lost
+      requestAnimationFrame(autoGrow) // regrow the composer to fit the restored text
       setSendError(error.message || 'Message failed to send')
       // eslint-disable-next-line no-console
       console.error('[ChatWidget] insert failed:', error)
@@ -169,7 +206,8 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   }
 
   function handleKeyDown(e) {
-    if (e.key === 'Enter') {
+    // Enter sends; Shift+Enter inserts a newline (which the composer grows to fit).
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
@@ -213,13 +251,14 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
       {sendError && <div style={styles.error}>Couldn’t send: {sendError}</div>}
 
       <div style={styles.inputRow}>
-        <input
-          type="text"
+        <textarea
+          ref={taRef}
+          rows={1}
           style={styles.input}
           placeholder="Say something…"
           value={text}
           maxLength={300}
-          onChange={e => setText(e.target.value)}
+          onChange={e => { setText(e.target.value); autoGrow() }}
           onKeyDown={handleKeyDown}
           onFocus={e => { e.target.style.borderColor = '#1B3F6E' }}
           onBlur={e => { e.target.style.borderColor = '#DDE3EA' }}
