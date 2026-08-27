@@ -15,7 +15,7 @@
 // against USGA's own calculator).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { rawCourseHandicapForTee, courseHandicapForTee, shotsGivenFromCourseHandicaps, effectiveAllowance } from './scoring.js'
+import { rawCourseHandicapForTee, courseHandicapForTee, shotsGivenFromCourseHandicaps, effectiveAllowance, princeOfWalesComposites } from './scoring.js'
 
 const SL = 128, RT = 71.5, PAR = 72
 function group(players, allowance) {
@@ -83,4 +83,49 @@ test('decimal Handicap Index carries full precision into the Playing Handicap', 
   assert.ok(Math.abs(raw - 7.882301) < 1e-4)
   assert.equal(courseHandicapForTee(7.4, SL, RT, PAR), 8)   // displayed
   assert.equal(Math.round(raw * 0.90), 7)                   // Playing @90% = ROUND(7.094)
+})
+
+test('Prince of Wales composite: lowest per hole-slot across rounds+teammates, gross & net independent', () => {
+  // One team (A, B) over two 18-hole rounds; holes stroke-index 1..18.
+  // A plays off scratch (HI 0 → ph 0); B off 9 (ph 9 → a stroke on SI 1..9).
+  const holes = Array.from({ length: 18 }, (_, i) => ({ par: 4, handicap: i + 1 }))
+  const rounds = [
+    { id: 'R1', round_type: 'tournament', holes, number_of_holes: 18 },
+    { id: 'R2', round_type: 'tournament', holes, number_of_holes: 18 },
+  ]
+  const teams = [{ id: 'T1' }]
+  const playersByTeam = { T1: ['A', 'B'] }
+  const hcpByPlayer = { A: 0, B: 9 }
+  const teeRowMap = { // neutral tee (slope 113, no rating adj) → raw CH == HI
+    'R1:A': { slope: 113, rating: null, par: null }, 'R1:B': { slope: 113, rating: null, par: null },
+    'R2:A': { slope: 113, rating: null, par: null }, 'R2:B': { slope: 113, rating: null, par: null },
+  }
+  const scoresMap = {
+    'R1:A:1': 5, 'R1:B:1': 5,   // slot 1: gross 5; B nets 4 (stroke on SI1)
+    'R1:A:2': 4, 'R1:B:2': 4,   // slot 2: gross 4; B nets 3 (stroke on SI2)
+    'R2:A:1': 3,                // slot 1 again, lower gross across rounds
+  }
+  const comp = princeOfWalesComposites(
+    { rounds, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer }, 100,
+  ).get('T1')
+
+  assert.equal(comp.gross[0], 3, 'slot 1 gross = lowest across both rounds')
+  assert.equal(comp.gross[1], 4, 'slot 2 gross')
+  assert.equal(comp.net[1], 3, 'slot 2 net is below gross (B got a stroke)')
+  assert.equal(comp.gross[17], null, 'unscored slot stays blank (null)')
+  assert.equal(comp.net[17], null, 'unscored slot stays blank (null)')
+  assert.equal(comp.grossTotal, 7, 'total sums only scored cells (3 + 4)')
+  assert.equal(comp.netTotal, 6, 'net total (3 + 3)')
+  assert.equal(comp.anyScored, true)
+})
+
+test('Prince of Wales: a team with no scores has blank cells and a zero/dash total', () => {
+  const comp = princeOfWalesComposites(
+    { rounds: [{ id: 'R1', round_type: 'tournament', holes: [], number_of_holes: 18 }],
+      teams: [{ id: 'T1' }], playersByTeam: { T1: ['A'] }, scoresMap: {}, teeRowMap: {}, hcpByPlayer: { A: 0 } },
+    100,
+  ).get('T1')
+  assert.equal(comp.anyScored, false)
+  assert.equal(comp.grossTotal, 0)
+  assert.equal(comp.gross.every(v => v === null), true)
 })

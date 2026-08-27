@@ -209,6 +209,78 @@ export function shotsGivenFromCourseHandicaps(entries, allowance = 100) {
   return map
 }
 
+// A player's ABSOLUTE playing handicap for a round (not pairing-relative): the raw
+// course handicap for their tee × the round's allowance, rounded once, floored at 0.
+// This is the individual figure used to allocate strokes to holes for that player
+// in that round (same math as the Stats page's per-player net).
+export function playingHandicapForRound(round, playerRoundRow, handicapIndex, globalAllowance = 100) {
+  const tee = resolvePlayerTee(round, playerRoundRow)
+  const raw = rawCourseHandicapForTee(handicapIndex, tee.slope, tee.rating, tee.par)
+  if (raw == null) return 0
+  return Math.max(0, Math.round(raw * (effectiveAllowance(round, globalAllowance) / 100)))
+}
+
+// Prince of Wales composite scorecards. A trip-long TEAM game: for each team, for
+// each hole slot 1..18, take the single LOWEST score any teammate posted in that
+// slot across every included (tournament) round. Two parallel composites are built
+// — one from gross scores, one from net — independently (the low gross and low net
+// for a slot can come from different players/rounds). Hole slots are matched by
+// POSITION/index, never re-mapped across courses; a round with fewer than 18 holes
+// simply never contributes past its own hole count. An unscored slot stays null and
+// is not counted in the total.
+//
+// ctx: {
+//   rounds:        already filtered to the included (tournament) rounds; each needs
+//                  holes[] (for stroke index) + tee/par fields resolvePlayerTee reads,
+//   teams:         [{ id, ... }],
+//   playersByTeam: { [teamId]: [tripPlayerId, ...] },
+//   scoresMap:     { `${roundId}:${tpId}:${hole}`: gross },
+//   teeRowMap:     { `${roundId}:${tpId}`: player_rounds row } (for per-player tees),
+//   hcpByPlayer:   { [tpId]: handicap_index },
+// }
+// Returns Map teamId -> { gross:[18], net:[18], grossTotal, netTotal, anyScored }
+// where each cell is a number or null.
+export function princeOfWalesComposites(ctx, globalAllowance = 100) {
+  const { rounds = [], teams = [], playersByTeam = {}, scoresMap = {}, teeRowMap = {}, hcpByPlayer = {} } = ctx || {}
+  const SLOTS = 18
+  const phCache = new Map() // `${roundId}:${tpId}` -> playing handicap (computed once)
+  const out = new Map()
+
+  for (const team of teams) {
+    const gross = Array(SLOTS).fill(null)
+    const net = Array(SLOTS).fill(null)
+    const members = playersByTeam[team.id] || []
+
+    for (const r of rounds) {
+      const holeCount = Array.isArray(r?.holes) && r.holes.length ? r.holes.length : (r?.number_of_holes || SLOTS)
+      const upto = Math.min(SLOTS, holeCount)
+      for (const tpId of members) {
+        const key = `${r.id}:${tpId}`
+        let ph = phCache.get(key)
+        if (ph === undefined) {
+          ph = playingHandicapForRound(r, teeRowMap[key], hcpByPlayer[tpId], globalAllowance)
+          phCache.set(key, ph)
+        }
+        for (let h = 1; h <= upto; h++) {
+          const g = scoresMap[`${r.id}:${tpId}:${h}`]
+          if (g == null) continue
+          const idx = h - 1
+          if (gross[idx] == null || g < gross[idx]) gross[idx] = g
+          const si = r?.holes?.[idx]?.handicap
+          const n = netScore(g, ph, si)
+          if (n != null && (net[idx] == null || n < net[idx])) net[idx] = n
+        }
+      }
+    }
+
+    const grossTotal = gross.reduce((a, v) => a + (v == null ? 0 : v), 0)
+    const netTotal = net.reduce((a, v) => a + (v == null ? 0 : v), 0)
+    const anyScored = gross.some(v => v != null)
+    out.set(team.id, { gross, net, grossTotal, netTotal, anyScored })
+  }
+  return out
+}
+
 // Display name for a trip player (guest name, else profile display name).
 // Canonical display name for a trip player. The trip_players first_name/last_name
 // are the source of truth (what the Players page edits); guest_name covers players

@@ -4,8 +4,9 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getActiveRound, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee } from '../../lib/scoring'
+import { getActiveRound, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
+import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
@@ -412,6 +413,9 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenu
 // ── Tab: Leaderboard ─────────────────────────────────────────────
 
 function TabLeaderboard({ trip, teams, rounds }) {
+  const powEnabled = hasBonusGame(trip, 'prince_of_wales')
+  const [sub, setSub] = useState('tournament') // 'tournament' | 'pow'
+
   if (!trip.team_mode) {
     return (
       <div className="empty-state">
@@ -421,13 +425,25 @@ function TabLeaderboard({ trip, teams, rounds }) {
     )
   }
 
-  // Standard Match Play: each round is a match worth 1 / 0.5 / 0 points per team.
-  if (trip.format === 'standard_match_play') {
-    return <StandardLeaderboard trip={trip} teams={teams} rounds={rounds} />
-  }
+  // Main tournament standings (the existing view), by format. Standard Match Play:
+  // each round is a match worth 1 / 0.5 / 0 per team. Points Match Play (and legacy
+  // 'match_play'): running hole-point standings.
+  const tournamentView = trip.format === 'standard_match_play'
+    ? <StandardLeaderboard trip={trip} teams={teams} rounds={rounds} />
+    : <PointsLeaderboard trip={trip} teams={teams} rounds={rounds} />
 
-  // Points Match Play (and legacy 'match_play') — running hole-point standings.
-  return <PointsLeaderboard trip={trip} teams={teams} rounds={rounds} />
+  // Without the Prince of Wales bonus game there are no tabs — just the tournament.
+  if (!powEnabled) return tournamentView
+
+  return (
+    <div>
+      <div className="gross-net-toggle" role="tablist" aria-label="Leaderboard view" style={{ marginBottom: 12 }}>
+        <button role="tab" aria-selected={sub === 'tournament'} className={`gn-btn ${sub === 'tournament' ? 'active' : ''}`} onClick={() => setSub('tournament')}>Tournament</button>
+        <button role="tab" aria-selected={sub === 'pow'} className={`gn-btn ${sub === 'pow' ? 'active' : ''}`} onClick={() => setSub('pow')}>Prince of Wales</button>
+      </div>
+      {sub === 'tournament' ? tournamentView : <PrinceOfWalesLeaderboard trip={trip} teams={teams} rounds={rounds} />}
+    </div>
+  )
 }
 
 // Points Match Play standings: every hole won is worth 1 point (halved holes
@@ -662,6 +678,148 @@ function StandardLeaderboard({ trip, teams, rounds }) {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+// ── Prince of Wales (bonus game) ─────────────────────────────────
+// Per-team composite scorecard: for each hole slot 1..18, the lowest score any
+// teammate posted in that slot across all tournament rounds. Gross + net composites
+// are computed live from the same score/tee/handicap data the leaderboard uses; a
+// Gross/Net toggle (default Net) switches the display. No winner/leader UI mid-trip.
+const powCard = {
+  card: { borderRadius: 10, overflow: 'hidden', marginBottom: 10, border: '1px solid #DDE3EA' },
+  header: { padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  name: { fontSize: 16, fontWeight: 800, color: '#fff' },
+  total: { fontSize: 28, fontWeight: 900, color: '#fff' },
+  body: { background: '#fff', padding: '10px 12px' },
+  divider: { height: 1, background: '#E8EDF3', margin: '8px 0' },
+}
+
+function PowHoleGrid({ cells, start }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 2 }}>
+      {cells.map((v, i) => (
+        <div key={i} style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 9, color: '#7A8FA6', fontWeight: 700 }}>{start + i}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: v == null ? '#C4CEDA' : '#0D1B2A' }}>{v == null ? '·' : v}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PrinceOfWalesLeaderboard({ trip, teams, rounds }) {
+  const [scoresMap, setScoresMap] = useState({})
+  const [teeRowMap, setTeeRowMap] = useState({})
+  const [playersByTeam, setPlayersByTeam] = useState({})
+  const [hcpByPlayer, setHcpByPlayer] = useState({})
+  const [mode, setMode] = useState('net') // Gross/Net toggle — defaults to Net
+
+  const allowance = trip?.handicap_allowance ?? 100
+  // Same filter the tournament leaderboard uses: tournament rounds only (exclude
+  // 'none' placeholders, practice rounds, and tee-times-only rounds).
+  const powRounds = rounds.filter(r => r.round_type !== 'none' && r.round_type !== 'practice' && !r.no_scoring)
+  const roundIds = powRounds.map(r => r.id)
+  const roundKey = roundIds.join(',')
+
+  useEffect(() => {
+    if (!trip?.id) return
+    let cancelled = false
+
+    async function loadScores() {
+      if (!roundIds.length) { setScoresMap({}); return }
+      const { data } = await supabase.from('scores')
+        .select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds)
+      if (cancelled) return
+      const m = {}; (data || []).forEach(s => { if (s.gross_score != null) m[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score })
+      setScoresMap(m)
+    }
+    async function loadTees() {
+      if (!roundIds.length) { setTeeRowMap({}); return }
+      const { data } = await supabase.from('player_rounds')
+        .select('trip_player_id, round_id, slope, rating, par').in('round_id', roundIds)
+      if (cancelled) return
+      const m = {}; (data || []).forEach(pr => { m[`${pr.round_id}:${pr.trip_player_id}`] = pr })
+      setTeeRowMap(m)
+    }
+    async function loadPlayers() {
+      const { data } = await supabase.from('trip_players').select('id, team_id, handicap_index').eq('trip_id', trip.id)
+      if (cancelled) return
+      const byTeam = {}; const hcp = {}
+      ;(data || []).forEach(tp => { hcp[tp.id] = tp.handicap_index; if (tp.team_id) (byTeam[tp.team_id] ??= []).push(tp.id) })
+      setPlayersByTeam(byTeam); setHcpByPlayer(hcp)
+    }
+
+    loadPlayers(); loadScores(); loadTees()
+
+    // Live: recompute as scores are entered/edited, tees change, or players move teams.
+    const ch = supabase.channel(uniqueChannelName(`pow-lb:${roundKey}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, payload => {
+        const rid = payload.new?.round_id ?? payload.old?.round_id
+        if (rid && roundIds.includes(rid)) loadScores()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_rounds' }, payload => {
+        const rid = payload.new?.round_id ?? payload.old?.round_id
+        if (rid && roundIds.includes(rid)) loadTees()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${trip.id}` }, () => loadPlayers())
+      .subscribe()
+
+    return () => { cancelled = true; supabase.removeChannel(ch) }
+  }, [trip?.id, roundKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const composites = useMemo(
+    () => princeOfWalesComposites({ rounds: powRounds, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer }, allowance),
+    [roundKey, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer, allowance] // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  // Persist the latest composite per team for later reference (archives). Best-
+  // effort only — the live display never reads it back, and a failure (e.g. the
+  // migration not yet applied) is swallowed. Skips writes when nothing changed.
+  const persistedRef = useRef('')
+  useEffect(() => {
+    if (!trip?.id || teams.length === 0) return
+    const rows = teams.map(t => {
+      const c = composites.get(t.id) || { gross: [], net: [], grossTotal: 0, netTotal: 0 }
+      return { trip_id: trip.id, team_id: t.id, gross: c.gross, net: c.net, gross_total: c.grossTotal, net_total: c.netTotal }
+    })
+    const sig = JSON.stringify(rows)
+    if (sig === persistedRef.current) return
+    persistedRef.current = sig
+    supabase.from('prince_of_wales_composites').upsert(rows, { onConflict: 'trip_id,team_id' }).then(() => {}, () => {})
+  }, [composites, teams, trip?.id])
+
+  return (
+    <div>
+      <div className="gross-net-toggle" role="tablist" aria-label="Gross or net composite">
+        <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
+        <button role="tab" aria-selected={mode === 'net'} className={`gn-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
+      </div>
+
+      {teams.length === 0 && (
+        <div className="empty-state"><span className="empty-state-icon">👑</span>No teams yet</div>
+      )}
+
+      {teams.map(team => {
+        const c = composites.get(team.id) || { gross: Array(18).fill(null), net: Array(18).fill(null), grossTotal: 0, netTotal: 0, anyScored: false }
+        const cells = mode === 'net' ? c.net : c.gross
+        const total = mode === 'net' ? c.netTotal : c.grossTotal
+        return (
+          <div key={team.id} style={powCard.card}>
+            {/* Colour by stable team index, never by name — same as the tournament cards. */}
+            <div style={{ ...powCard.header, background: teamColor(colorIndexOf(team)).solid }}>
+              <span style={powCard.name}>{getTeamDisplayName(team)}</span>
+              <span style={powCard.total}>{c.anyScored ? total : '—'}</span>
+            </div>
+            <div style={powCard.body}>
+              <PowHoleGrid cells={cells.slice(0, 9)} start={1} />
+              <div style={powCard.divider} />
+              <PowHoleGrid cells={cells.slice(9, 18)} start={10} />
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -1372,6 +1530,7 @@ export default function TripDashboard() {
         currentUserId={user?.id}
         handicapAllowance={trip.handicap_allowance ?? 100}
         tournamentFormat={trip.format}
+        bonusGames={trip.bonus_games}
         purseAmount={trip.purse_amount}
         showPurseOnHome={trip.show_purse_on_home}
         onTripUpdate={refetchTrip}

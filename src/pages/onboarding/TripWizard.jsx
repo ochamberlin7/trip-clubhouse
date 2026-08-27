@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import CourseSearchInput from '../../components/CourseSearchInput'
+import { BONUS_GAMES } from '../../lib/bonusGames'
 import { formatPhone } from '../../lib/formatPhone'
 
 // ── helpers ──────────────────────────────────────────────────────
@@ -444,11 +445,14 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 
 // ── Step 3: Tournament Setup ──────────────────────────────────────
 
-function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams, setNumTeams, tournamentFormat, setTournamentFormat, onBack, onFinish, loading, submitError }) {
+function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams, setNumTeams, tournamentFormat, setTournamentFormat, bonusGames, setBonusGames, onBack, onFinish, loading, submitError }) {
   const validCounts = getValidTeamCounts(playerCount)
   // Create Trip is always available once a tournament choice is made — when there
   // aren't enough players for teams yet, they can be assigned later.
   const canFinish = hasTournament !== null
+  const [bonusOpen, setBonusOpen] = useState(false)
+  const toggleBonus = id =>
+    setBonusGames(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -463,7 +467,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
           </button>
           <button
             className={`yes-no-btn ${hasTournament === false ? 'selected' : ''}`}
-            onClick={() => { setHasTournament(false); setNumTeams(2) }}
+            onClick={() => { setHasTournament(false); setNumTeams(2); setBonusGames([]) }}
           >
             No
           </button>
@@ -521,6 +525,52 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
               You can assign teams later in Commissioner Tools once more players join.
             </p>
           )}
+
+          {/* Bonus games — optional trip-long team games, chosen once here (no way
+              to change after the trip is created). Data-driven from BONUS_GAMES. */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setBonusOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+                background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit',
+                color: '#1B3F6E', fontSize: 14, fontWeight: 800, letterSpacing: 0.3,
+              }}
+            >
+              <span>Add a bonus game{bonusGames.length ? ` (${bonusGames.length})` : ''}</span>
+              <span style={{ color: '#7A8FA6', fontSize: 12 }}>{bonusOpen ? '▲' : '▼'}</span>
+            </button>
+            {bonusOpen && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                {BONUS_GAMES.map(g => {
+                  const on = bonusGames.includes(g.id)
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => toggleBonus(g.id)}
+                      style={{
+                        display: 'flex', alignItems: 'flex-start', gap: 10, textAlign: 'left', width: '100%',
+                        background: on ? 'rgba(27,63,110,0.06)' : '#fff', cursor: 'pointer', fontFamily: 'inherit',
+                        border: `1px solid ${on ? '#1B3F6E' : '#DDE3EA'}`, borderRadius: 10, padding: '12px 14px',
+                      }}
+                    >
+                      <span style={{
+                        flexShrink: 0, width: 20, height: 20, borderRadius: 6, marginTop: 1,
+                        border: `2px solid ${on ? '#1B3F6E' : '#C4CEDA'}`, background: on ? '#1B3F6E' : '#fff',
+                        color: '#fff', fontSize: 13, fontWeight: 900, lineHeight: '16px', textAlign: 'center',
+                      }}>{on ? '✓' : ''}</span>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 14, fontWeight: 800, color: '#0D1B2A' }}>{g.name}</span>
+                        <span style={{ display: 'block', fontSize: 12, color: '#7A8FA6', marginTop: 2, lineHeight: 1.4 }}>{g.blurb}</span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </>
       )}
 
@@ -573,6 +623,7 @@ export default function TripWizard() {
   const [hasTournament, setHasTournament] = useState(null)
   const [numTeams, setNumTeams] = useState(2) // 2 teams is the default
   const [tournamentFormat, setTournamentFormat] = useState('standard_match_play') // default (pre-selected)
+  const [bonusGames, setBonusGames] = useState([]) // enabled bonus-game ids (one-time, set-up only)
 
   // Seed the player list: commissioner (locked, from profile) + one blank row.
   useEffect(() => {
@@ -645,20 +696,27 @@ export default function TripWizard() {
       if (memberErr) throw memberErr
 
       // 3. Create trip
-      const { data: trip, error: tripErr } = await supabase
-        .from('trips')
-        .insert({
-          group_id: group.id,
-          name: tripName.trim(),
-          format: hasTournament ? tournamentFormat : 'stroke_play',
-          team_mode: !!hasTournament,
-          created_by: user.id,
-          status: 'active',
-          start_date: startDate,
-          end_date: endDate,
-        })
-        .select()
-        .single()
+      const tripPayload = {
+        group_id: group.id,
+        name: tripName.trim(),
+        format: hasTournament ? tournamentFormat : 'stroke_play',
+        team_mode: !!hasTournament,
+        // Bonus games are team games — only kept when a tournament (teams) exists.
+        // One-time choice: there's no way to change this after the trip is created.
+        bonus_games: hasTournament ? bonusGames : [],
+        created_by: user.id,
+        status: 'active',
+        start_date: startDate,
+        end_date: endDate,
+      }
+      let { data: trip, error: tripErr } = await supabase.from('trips').insert(tripPayload).select().single()
+      // The bonus_games column exists only after migration 20260661. If it hasn't
+      // been applied yet, retry without it so trip creation still works (bonus
+      // games just can't be enabled until the migration runs).
+      if (tripErr && /bonus_games/i.test(tripErr.message || '')) {
+        const { bonus_games, ...rest } = tripPayload // eslint-disable-line no-unused-vars
+        ;({ data: trip, error: tripErr } = await supabase.from('trips').insert(rest).select().single())
+      }
       if (tripErr) throw tripErr
 
       // Persist each day's type so the Courses page can show every day in the
@@ -822,6 +880,7 @@ export default function TripWizard() {
             hasTournament={hasTournament} setHasTournament={setHasTournament}
             numTeams={numTeams} setNumTeams={setNumTeams}
             tournamentFormat={tournamentFormat} setTournamentFormat={setTournamentFormat}
+            bonusGames={bonusGames} setBonusGames={setBonusGames}
             onBack={() => setStep(2)}
             onFinish={handleFinish}
             loading={loading}

@@ -10,6 +10,7 @@ import { roundToReview } from '../lib/scanCourse'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes, sortRoundsByTee, effectiveAllowance } from '../lib/scoring'
+import { hasBonusGame } from '../lib/bonusGames'
 import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
 import { loadPurseStandings, computePurse, formatMoney } from '../lib/purse'
@@ -1458,18 +1459,32 @@ const POINTS_MATCH_RULES = [
   'Points accumulate across every tournament round — most total points at the end of the trip wins',
 ]
 
-function RulesPage({ tripId, isCommissioner, tournamentFormat }) {
+const PRINCE_OF_WALES_RULES = [
+  'A trip-long team game, separate from the main tournament (tournament rounds only — practice rounds don’t count)',
+  'Each team builds one composite scorecard: for every hole, take the best (lowest) score any teammate posted on that hole across the whole trip',
+  'Holes are matched by position (hole 1, hole 2, …) across all rounds, whatever course was played',
+  'Lowest 18-hole composite total wins; ties are possible',
+  'A Gross and a Net composite are both kept — toggle between them on the Prince of Wales tab',
+]
+
+function RulesPage({ tripId, isCommissioner, tournamentFormat, bonusGames }) {
   // Show ONLY the rules for the trip's actual format — hide the other entirely.
   // Legacy 'match_play' and 'stroke_play' fall through to Points Match Play.
   const isStandard = tournamentFormat === 'standard_match_play'
   const label = tournamentFormatLabel(isStandard ? 'standard_match_play' : 'points_match_play')
   const rules = isStandard ? STANDARD_MATCH_RULES : POINTS_MATCH_RULES
+  const showPow = hasBonusGame({ bonus_games: bonusGames }, 'prince_of_wales')
   return (
     <>
       <LocalRulesCard tripId={tripId} isCommissioner={isCommissioner} />
       <Card title={`${label} Format`}>
         <RuleList rules={rules} />
       </Card>
+      {showPow && (
+        <Card title="Prince of Wales">
+          <RuleList rules={PRINCE_OF_WALES_RULES} />
+        </Card>
+      )}
     </>
   )
 }
@@ -1864,7 +1879,7 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate }) {
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
+  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
   const { activeTripId, switchTrip } = useGroup()
@@ -2498,7 +2513,7 @@ export default function MenuDrawer({
       )}
       {page === 'rules' && (
         <SecondaryPage context={tripName} title="Rules" onBack={backToDrawer}>
-          <RulesPage tripId={tripId} isCommissioner={isCommissioner} tournamentFormat={tournamentFormat} />
+          <RulesPage tripId={tripId} isCommissioner={isCommissioner} tournamentFormat={tournamentFormat} bonusGames={bonusGames} />
         </SecondaryPage>
       )}
       {page === 'archives' && (
