@@ -389,15 +389,15 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenu
         today={new Date()}
       />
 
-      {/* Weather */}
-      <WeatherWidget rounds={rounds} tripName={trip.name} />
-
       {/* Chat */}
       <ChatWidget
         tripId={trip.id}
         currentUserId={userId}
         currentUserName={(displayName || '').split(' ')[0] || displayName}
       />
+
+      {/* Weather */}
+      <WeatherWidget rounds={rounds} tripName={trip.name} />
 
       {/* Daily MVPs — below the chat thread. Hidden behind a feature flag until
           stats/analytics are built out; component + data fetch are unchanged. */}
