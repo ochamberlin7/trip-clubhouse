@@ -18,7 +18,10 @@ const COMPOSER_MIN = 36
 const COMPOSER_MAX = 290
 
 const styles = {
-  card: { background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '10px', height: CARD_HEIGHT, display: 'flex', flexDirection: 'column' },
+  // position/z-index so the widget (esp. its send button) sits ABOVE the floating
+  // feedback FAB (.feedback-fab, z-index 201) where they overlap near the bottom of
+  // the Home screen — the FAB stays clickable everywhere outside the widget.
+  card: { background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '10px', height: CARD_HEIGHT, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 202 },
   header: { background: '#1B3F6E', padding: '10px 14px', flexShrink: 0 },
   headerText: { fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#fff' },
   area: { padding: '12px', flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' },
@@ -205,14 +208,6 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
     })
   }
 
-  function handleKeyDown(e) {
-    // Enter sends; Shift+Enter inserts a newline (which the composer grows to fit).
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
-
   return (
     <div style={styles.card}>
       <div style={styles.header}>
@@ -258,8 +253,9 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
           placeholder="Say something…"
           value={text}
           maxLength={300}
+          // Return inserts a newline (native textarea behaviour); the message only
+          // sends via the blue send button. No keyboard send shortcut.
           onChange={e => { setText(e.target.value); autoGrow() }}
-          onKeyDown={handleKeyDown}
           onFocus={e => { e.target.style.borderColor = '#1B3F6E' }}
           onBlur={e => { e.target.style.borderColor = '#DDE3EA' }}
         />
