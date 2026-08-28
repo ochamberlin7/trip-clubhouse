@@ -615,12 +615,15 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       <div style={{ position: 'relative' }}>
         <button className="sc-th-name sc-th-btn" style={fillStyle} onClick={() => openAssign(slot)}>{label}</button>
         {openSlot === slot && (
-          <div className="sc-th-dropdown">
+          // Anchor to the button's near edge so the picker opens INTO the screen,
+          // never off it: left-side slots open rightward (left:0), right-side slots
+          // open leftward (right:0). Text wraps, so full names/HCP are always shown.
+          <div className="sc-th-dropdown" style={{ [SLOT_TEAM[slot] === 1 ? 'right' : 'left']: 0 }}>
             <button className="sc-th-opt" onClick={() => assignSlot(slot, null)} style={{ color: 'var(--muted)', fontWeight: 700 }}>Clear</button>
             {availableForSlot(slot).map(p => (
               <button key={p.id} className="sc-th-opt" onClick={() => assignSlot(slot, p.id)}>
                 <span className="sc-th-opt-avatar">{initialsOf(p)}</span>
-                <span>
+                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', display: 'block' }}>{p.name}</span>
                   <span style={{ fontSize: 11, color: '#7A8FA6' }}>HCP: {p.handicap_index ?? 'TBD'}</span>
                 </span>

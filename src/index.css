@@ -396,7 +396,10 @@ select {
 
 /* Commissioner pairing header pickers */
 .sc-th-btn { width: 100%; border: none; cursor: pointer; font-family: inherit; padding: 12px 2px; min-height: 38px; font-size: 14px; line-height: 1; }
-.sc-th-dropdown { position: absolute; z-index: 50; background: #fff; border: 1px solid var(--bg3); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); min-width: 160px; max-height: 220px; overflow-y: auto; }
+/* Anchored right/left per slot side (inline style) so it opens into the screen,
+   never off it. Capped so it can't overflow the content column/viewport; text
+   wraps inside instead of being clipped, so full names + HCP always show. */
+.sc-th-dropdown { position: absolute; z-index: 50; top: 100%; background: #fff; border: 1px solid var(--bg3); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); min-width: 160px; max-width: min(260px, calc(100vw - 24px)); max-height: 220px; overflow-y: auto; }
 .sc-th-opt { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--bg2); cursor: pointer; background: #fff; width: 100%; border: none; text-align: left; font-family: inherit; }
 .sc-th-opt:last-child { border-bottom: none; }
 .sc-th-opt:hover { background: #F5F8FA; }
