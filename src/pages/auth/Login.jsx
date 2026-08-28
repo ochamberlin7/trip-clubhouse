@@ -12,6 +12,9 @@ export default function Login() {
   const [searchParams] = useSearchParams()
   const { user, loading: authLoading } = useAuth()
 
+  // One-time notice shown after a flow that bounces back to login (e.g. a completed
+  // password reset: "Password updated — please log in.").
+  const message = searchParams.get('message')
   // Honor ?redirect= (e.g. /join/:token from an invite), internal paths only.
   const redirect = searchParams.get('redirect')
   const target = redirect && redirect.startsWith('/') ? redirect : '/groups'
@@ -47,6 +50,11 @@ export default function Login() {
           <p className="auth-brand">Trip Clubhouse</p>
           <h2>Sign In</h2>
         </div>
+        {message && (
+          <div style={{ color: '#0F6E56', fontSize: 14, background: 'rgba(15,110,86,0.08)', border: '1px solid rgba(15,110,86,0.25)', borderRadius: 8, padding: '12px 14px', lineHeight: 1.5 }}>
+            {message}
+          </div>
+        )}
         <form className="auth-form" onSubmit={handleLogin}>
           <div>
             <label className="field-label">Email</label>
@@ -54,7 +62,12 @@ export default function Login() {
               onChange={e => setEmail(e.target.value)} required />
           </div>
           <div>
-            <label className="field-label">Password</label>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <label className="field-label">Password</label>
+              <Link to="/forgot-password" style={{ fontSize: 12, color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>
+                Forgot password?
+              </Link>
+            </div>
             <input type="password" placeholder="••••••••" value={password}
               onChange={e => setPassword(e.target.value)} required />
           </div>
