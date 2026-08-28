@@ -293,12 +293,17 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
                         >Change</button>
                       </div>
                     ) : (
-                      <CourseSearchInput
-                        placeholder={`Search course${day.rounds.length > 1 ? ` (Round ${rIdx + 1})` : ''}...`}
-                        initialValue={round.courseName}
-                        onQueryChange={text => updateCourseName(idx, rIdx, text)}
-                        onCourseSelected={data => setRoundCourse(idx, rIdx, data)}
-                      />
+                      <>
+                        <CourseSearchInput
+                          placeholder={`Search course${day.rounds.length > 1 ? ` (Round ${rIdx + 1})` : ''}...`}
+                          initialValue={round.courseName}
+                          onQueryChange={text => updateCourseName(idx, rIdx, text)}
+                          onCourseSelected={data => setRoundCourse(idx, rIdx, data)}
+                        />
+                        <p style={{ fontSize: 11, color: '#7A8FA6', fontStyle: 'italic', margin: '5px 2px 0', lineHeight: 1.4 }}>
+                          If you can’t find your course, you can add it manually later.
+                        </p>
+                      </>
                     )}
                   </div>
                   <button
