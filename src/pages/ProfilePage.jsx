@@ -35,6 +35,7 @@ export default function ProfilePage() {
   const [profileMsg, setProfileMsg] = useState(null)
   const [profileErr, setProfileErr] = useState(null)
   const [savingProfile, setSavingProfile] = useState(false)
+  const [savedProfile, setSavedProfile] = useState(false) // brief "✓ Saved" button state
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -47,6 +48,7 @@ export default function ProfilePage() {
     e.preventDefault()
     setProfileMsg(null)
     setProfileErr(null)
+    setSavedProfile(false)
     if (!firstName.trim() || !lastName.trim()) { setProfileErr('First and last name are required.'); return }
     if (!emailLooksValid(email)) { setProfileErr('Enter a valid email address.'); return }
 
@@ -76,10 +78,12 @@ export default function ProfilePage() {
       if (emailChanged) {
         const { error: emailErr } = await supabase.auth.updateUser({ email: email.trim() })
         if (emailErr) throw emailErr
-        setProfileMsg(`Profile saved. Check your new email (${email.trim()}) to confirm the address change — until then your login email stays the same.`)
-      } else {
-        setProfileMsg('Profile saved.')
+        // Email changes need the "confirm your new address" note — keep that banner.
+        setProfileMsg(`Check your new email (${email.trim()}) to confirm the address change — until then your login email stays the same.`)
       }
+      // Success is signalled by the Save button flipping to a green "✓ Saved" (see
+      // the button below); it reverts to "Save Changes" as soon as a field is edited.
+      setSavedProfile(true)
     } catch (err) {
       setProfileErr(err?.message || String(err))
     } finally {
@@ -138,27 +142,39 @@ export default function ProfilePage() {
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1 }}>
               <label className="field-label">First Name</label>
-              <input type="text" placeholder="First" value={firstName} onChange={e => setFirstName(e.target.value)} required />
+              <input type="text" placeholder="First" value={firstName} onChange={e => { setFirstName(e.target.value); setSavedProfile(false) }} required />
             </div>
             <div style={{ flex: 1 }}>
               <label className="field-label">Last Name</label>
-              <input type="text" placeholder="Last" value={lastName} onChange={e => setLastName(e.target.value)} required />
+              <input type="text" placeholder="Last" value={lastName} onChange={e => { setLastName(e.target.value); setSavedProfile(false) }} required />
             </div>
           </div>
           <div>
             <label className="field-label">Phone Number</label>
             <input type="tel" placeholder="(555) 000-0000" value={phone}
-              onChange={e => setPhone(e.target.value)}
+              onChange={e => { setPhone(e.target.value); setSavedProfile(false) }}
               onBlur={() => setPhone(formatPhone(phone))} />
           </div>
           <div>
             <label className="field-label">Email</label>
-            <input type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
+            <input type="email" placeholder="you@example.com" value={email} onChange={e => { setEmail(e.target.value); setSavedProfile(false) }} required />
           </div>
           {profileErr && <p className="error-msg">{profileErr}</p>}
           {profileMsg && <div className="info-banner">{profileMsg}</div>}
-          <button type="submit" className="btn btn-primary" disabled={savingProfile}>
-            {savingProfile ? 'Saving…' : 'Save Changes'}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={savingProfile}
+            style={savedProfile ? { background: '#0F6E56' } : undefined}
+          >
+            {savingProfile ? 'Saving…' : savedProfile ? (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Saved
+              </>
+            ) : 'Save Changes'}
           </button>
         </form>
 
