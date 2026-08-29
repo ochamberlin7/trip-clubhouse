@@ -635,7 +635,11 @@ export default function TripWizard() {
     if (!user || players.length > 0) return
     let cancelled = false
     ;(async () => {
-      const { data } = await supabase.from('profiles').select('display_name, phone').eq('id', user.id).maybeSingle()
+      // profiles.phone comes from migration 20260639; if it hasn't been applied the
+      // select errors on the missing column, so retry name-only rather than losing
+      // the display-name prefill (phone then falls back to auth metadata below).
+      let { data, error } = await supabase.from('profiles').select('display_name, phone').eq('id', user.id).maybeSingle()
+      if (error) { ({ data } = await supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle()) }
       if (cancelled) return
       // Prefer the profile's display name, then the auth metadata's (set at signup
       // with the full "First Last" — reliable even before the profile row syncs),

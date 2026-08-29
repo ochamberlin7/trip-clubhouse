@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import Fuse from 'fuse.js'
+import { findNameMatch } from '../lib/nameMatch'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroup } from '../context/GroupContext'
@@ -102,12 +102,9 @@ export default function JoinTrip() {
       const byExactName = myNameNorm ? named.find(x => norm(x.name) === myNameNorm) : null
       if (byExactName) { await claimSlot(byExactName.id, tripRow); return }
 
-      // No exact match — try fuzzy; a hit needs the user to confirm it's them.
-      let hit = null
-      if (myName && named.length) {
-        const fuse = new Fuse(named, { keys: ['name'], threshold: 0.3, includeScore: true })
-        hit = fuse.search(myName)[0] || null
-      }
+      // No exact match — try nickname/fuzzy matching (Jon↔Jonathan, Bob↔Robert,
+      // typos). A hit needs the user to confirm it's them; see src/lib/nameMatch.js.
+      const hit = findNameMatch(myName, named) // { id, name } | null
       // N: '✓' exact (auto-claimed above, so unreachable on no-match), '~' fuzzy
       // shown for confirmation, '1' name(s) on file but below threshold, '0' none.
       const nResult = byExactName ? '✓' : (hit ? '~' : (named.length ? '1' : '0'))
@@ -117,7 +114,7 @@ export default function JoinTrip() {
 
       if (hit) {
         if (cancelled) return
-        setCandidate({ slotId: hit.item.id, name: hit.item.name })
+        setCandidate({ slotId: hit.id, name: hit.name })
         setStatus('confirm')
         return
       }

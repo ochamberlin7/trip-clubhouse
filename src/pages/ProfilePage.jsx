@@ -59,7 +59,15 @@ export default function ProfilePage() {
       // Name + phone update immediately in both auth metadata and the shared profile row.
       const { error: metaErr } = await supabase.auth.updateUser({ data: { display_name: displayName, phone: phoneDigits } })
       if (metaErr) throw metaErr
-      const { error: profErr } = await supabase.from('profiles').update({ display_name: displayName, phone: phoneDigits }).eq('id', user.id)
+      // profiles.phone is added by migration 20260639. If that migration hasn't been
+      // applied yet (or PostgREST's schema cache is stale), the write fails with a
+      // "phone column not found" error — retry name-only so the NAME still saves to
+      // the profile row (which is what the app joins on for display names). Phone
+      // still round-trips via auth metadata above. Same pattern as saveStay.
+      let { error: profErr } = await supabase.from('profiles').update({ display_name: displayName, phone: phoneDigits }).eq('id', user.id)
+      if (profErr && /phone/i.test(profErr.message || '')) {
+        ;({ error: profErr } = await supabase.from('profiles').update({ display_name: displayName }).eq('id', user.id))
+      }
       if (profErr) throw profErr
 
       // Email change goes through Supabase Auth, which requires confirming the
