@@ -59,9 +59,10 @@ function initialsOf(p) {
     || (p?.name || '?').trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-// Chevron arrow. Team on the LEFT (T1 / navy) points right (»); team on the
-// RIGHT (T2 / green) points left («). Size defaults to the Point Match Play
-// badge; callers pass a smaller size for the Standard status badge.
+// Chevron arrow. The arrow points AT the team that won the hole: a T1 (navy,
+// left) win points left («); a T2 (green, right) win points right (»). Size
+// defaults to the Point Match Play badge; callers pass a smaller size for the
+// Standard status badge.
 function Chevron({ dir, size = 18 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -71,13 +72,14 @@ function Chevron({ dir, size = 18 }) {
 }
 
 // Point Match Play: one filled circular badge per hole showing the hole winner.
-//   • T1 (Owen/Monty, left)  → navy circle with » (right chevron)
-//   • T2 (Nicole/Robert, right) → green circle with « (left chevron)
+// The chevron points AT the winning team (toward its scores on the card).
+//   • T1 (Owen/Monty, left)  → navy circle with « (left chevron, points at T1)
+//   • T2 (Nicole/Robert, right) → green circle with » (right chevron, points at T2)
 //   • halved → grey circle with an en-dash
 //   • unscored → transparent placeholder (keeps the column aligned)
 function PointsChip({ result }) {
-  if (result === 'T1') return <span className="sc-pts-badge t1"><Chevron dir="right" size={14} /></span>
-  if (result === 'T2') return <span className="sc-pts-badge t2"><Chevron dir="left" size={14} /></span>
+  if (result === 'T1') return <span className="sc-pts-badge t1"><Chevron dir="left" size={14} /></span>
+  if (result === 'T2') return <span className="sc-pts-badge t2"><Chevron dir="right" size={14} /></span>
   if (result === 'halve') return <span className="sc-pts-badge halve">–</span>
   return <span className="sc-pts-badge empty" aria-hidden="true" />
 }

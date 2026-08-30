@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 
 // Trash Talk Thread — trip chat for the dashboard home tab.
@@ -32,6 +32,7 @@ const styles = {
   bubbleMine: { background: '#4472A8', color: '#fff', borderRadius: '12px 12px 2px 12px' },
   bubbleOther: { background: '#ffffff', color: '#1B3F6E', border: '2px solid #1B3F6E', borderRadius: '12px 12px 12px 2px' },
   empty: { textAlign: 'center', color: '#7A8FA6', fontSize: '13px', padding: '20px 0', fontStyle: 'italic' },
+  divider: { alignSelf: 'center', color: '#9AA7B4', fontSize: '10px', letterSpacing: '0.3px', padding: '6px 0 2px', textAlign: 'center' },
   error: { color: '#C0392B', fontSize: '11px', padding: '6px 14px 0', textAlign: 'center' },
   inputRow: { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #DDE3EA', background: '#FFFFFF', flexShrink: 0, alignItems: 'flex-end' },
   input: { flex: 1, background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: '20px', padding: '8px 14px', fontSize: '16px', lineHeight: '20px', color: '#0D1B2A', outline: 'none', fontFamily: 'inherit', resize: 'none', overflowY: 'hidden', maxHeight: COMPOSER_MAX, boxSizing: 'border-box', display: 'block' },
@@ -49,6 +50,21 @@ function SendIcon() {
 
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+function startOfDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
+function isSameDay(a, b) {
+  return startOfDay(a).getTime() === startOfDay(b).getTime()
+}
+// iMessage-style day divider. Within the last 7 days → weekday name in a light
+// font (Monday, Tuesday…); anything older → the date as m/dd/yyyy.
+function dividerInfo(ts) {
+  const d = new Date(ts)
+  const diffDays = Math.round((startOfDay(new Date()) - startOfDay(d)) / 86400000)
+  if (diffDays < 7) return { label: d.toLocaleDateString('en-US', { weekday: 'long' }), recent: true }
+  return { label: d.toLocaleDateString('en-US', { month: 'numeric', day: '2-digit', year: 'numeric' }), recent: false }
 }
 
 export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
@@ -218,26 +234,36 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
         {messages.length === 0 ? (
           <div style={styles.empty}>No messages yet — start the trash talk.</div>
         ) : (
-          messages.map(m => {
+          messages.map((m, i) => {
             const mine = m.user_id === currentUserId
             // Always resolve the name from profiles by user_id; fall back to the
             // stored sender_name only until the profile lookup lands.
             const resolved = nameMap[m.user_id] || m.sender_name || 'Player'
             const firstName = resolved.split(' ')[0] || resolved
+            // Insert a centered day divider whenever the day changes from the
+            // previous message. The first message (no previous) never gets one.
+            const prev = messages[i - 1]
+            const divider = prev && !isSameDay(new Date(prev.created_at), new Date(m.created_at))
+              ? dividerInfo(m.created_at)
+              : null
             return (
-              <div
-                key={m.id}
-                style={{ ...styles.msgRow, alignItems: mine ? 'flex-end' : 'flex-start' }}
-              >
-                <div style={{ ...styles.meta, textAlign: mine ? 'right' : 'left' }}>
-                  {!mine && <span style={styles.senderName}>{firstName} </span>}
-                  {fmtTime(m.created_at)}
+              <Fragment key={m.id}>
+                {divider && (
+                  <div style={{ ...styles.divider, fontWeight: divider.recent ? 400 : 600 }}>
+                    {divider.label}
+                  </div>
+                )}
+                <div style={{ ...styles.msgRow, alignItems: mine ? 'flex-end' : 'flex-start' }}>
+                  <div style={{ ...styles.meta, textAlign: mine ? 'right' : 'left' }}>
+                    {!mine && <span style={styles.senderName}>{firstName} </span>}
+                    {fmtTime(m.created_at)}
+                  </div>
+                  {/* React escapes text children, so message content is rendered safely. */}
+                  <div style={{ ...styles.bubble, ...(mine ? styles.bubbleMine : styles.bubbleOther) }}>
+                    {m.content}
+                  </div>
                 </div>
-                {/* React escapes text children, so message content is rendered safely. */}
-                <div style={{ ...styles.bubble, ...(mine ? styles.bubbleMine : styles.bubbleOther) }}>
-                  {m.content}
-                </div>
-              </div>
+              </Fragment>
             )
           })
         )}

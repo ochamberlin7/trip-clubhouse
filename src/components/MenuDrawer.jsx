@@ -697,7 +697,7 @@ const IconTournament = () => <svg {...ICON}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H
 const IconEdit = () => <svg {...ICON}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z"/></svg>
 const IconChevronDown = () => <svg {...ICON} width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg>
 
-function EditCourseButton({ round, locked, onEditCourse }) {
+function EditCourseButton({ round, locked, lockReason, onEditCourse }) {
   const [toast, setToast] = useState(false) // tap-to-show message (mobile-safe)
   const timer = useRef(null)
 
@@ -709,10 +709,15 @@ function EditCourseButton({ round, locked, onEditCourse }) {
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 
   if (locked) {
+    // A score-lock can be undone by clearing scores; a date-lock (past round)
+    // cannot, so each explains itself differently.
+    const message = lockReason === 'scored'
+      ? 'Locked — scores have been entered. Delete all scores to change the course.'
+      : 'Scoring has started — course cannot be changed'
     return (
       <>
         <button style={toolbarPillDisabledStyle} onClick={showToast}><IconEdit />Edit</button>
-        {toast && createPortal(<div style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 1000, ...lockToastStyle, flexBasis: 'auto', maxWidth: '90%' }}>Scoring has started — course cannot be changed</div>, document.body)}
+        {toast && createPortal(<div style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 1000, ...lockToastStyle, flexBasis: 'auto', maxWidth: '90%' }}>{message}</div>, document.body)}
       </>
     )
   }
@@ -846,7 +851,7 @@ const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: '#7A8FA6' }
 // One golf round: unchanged content (name, rating/slope, location, par) plus the
 // new bottom toolbar (Handicaps · Tournament · Edit). Own hcOpen state so the
 // Handicaps pill toggles the handicaps table below.
-function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, onEditCourse, onRoundTypeChange, onChangePlayerTee, onEditName }) {
+function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, lockReason, onEditCourse, onRoundTypeChange, onChangePlayerTee, onEditName }) {
   const [hcOpen, setHcOpen] = useState(false)
   const entryStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: roundIndex === roundCount - 1 ? 0 : 10 }
   return (
@@ -875,7 +880,7 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
       <div style={toolbarRowStyle}>
         <button style={{ ...toolbarPillStyle, ...(hcOpen ? { background: '#1B3F6E', color: '#fff' } : null) }} onClick={() => setHcOpen(o => !o)}><IconHandicaps />Handicaps</button>
         {isCommissioner && <RoundTypeBadge round={r} isCommissioner onChange={onRoundTypeChange} />}
-        {isCommissioner && <EditCourseButton round={r} locked={locked} onEditCourse={onEditCourse} />}
+        {isCommissioner && <EditCourseButton round={r} locked={locked} lockReason={lockReason} onEditCourse={onEditCourse} />}
       </div>
       <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} readOnly={readOnly} open={hcOpen} />
     </div>
@@ -935,12 +940,14 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
               {dayRounds.map((r, i, arr) => {
                 const assigned = playersByRound[r.id]
                 const calcPlayers = (assigned && assigned.size) ? players.filter(p => assigned.has(p.id)) : players
-                const locked = scoredRounds?.has(r.id) || (r.date != null && r.date < todayIso)
+                const scoreLocked = scoredRounds?.has(r.id)
+                const locked = scoreLocked || (r.date != null && r.date < todayIso)
+                const lockReason = scoreLocked ? 'scored' : 'past'
                 return (
                   <GolfRoundEntry
                     key={r.id} round={r} roundIndex={i} roundCount={arr.length}
                     isCommissioner={isCommissioner} readOnly={readOnly} allowance={allowance}
-                    calcPlayers={calcPlayers} playerRounds={playerRounds} locked={locked}
+                    calcPlayers={calcPlayers} playerRounds={playerRounds} locked={locked} lockReason={lockReason}
                     onEditCourse={onEditCourse} onEditName={onEditName} onRoundTypeChange={onRoundTypeChange} onChangePlayerTee={onChangePlayerTee}
                   />
                 )
