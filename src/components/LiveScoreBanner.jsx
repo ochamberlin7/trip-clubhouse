@@ -36,19 +36,28 @@ function statusColor(side, teams) {
 }
 
 // Points Match Play status text + leading side (0/1/null) + "thru" text.
-// Tied → "All Square"; otherwise "{leading team name} lead {hi}–{lo}".
-// No holes scored → "Match not started".
+// In progress: tied → "All Square"; else "{leading team} lead {hi}–{lo}" + Thru N.
+// Complete (all holes scored): winner → "{team} win {hi}–{lo}"; tie → "Match tied
+// {n}–{n}". No holes scored → "Match not started".
 function pointsSummary(row, n1, n2) {
   if (row.thru === 0) return { text: 'Match not started', side: null, thru: '' }
-  if (row.t1pts === row.t2pts) return { text: 'All Square', side: null, thru: `Thru ${row.thru}` }
+  const done = !!row.complete
+  // A finished match drops the "Thru N" trailer; an in-progress one keeps it.
+  const thru = done ? '' : `Thru ${row.thru}`
+  if (row.t1pts === row.t2pts) {
+    return { text: done ? `Match tied ${row.t1pts}–${row.t2pts}` : 'All Square', side: null, thru }
+  }
   const side = row.t1pts > row.t2pts ? 0 : 1
   const leadName = side === 0 ? n1 : n2
   const hi = Math.max(row.t1pts, row.t2pts)
   const lo = Math.min(row.t1pts, row.t2pts)
-  // Default "Team N" is a singular subject → "leads"; a custom name is treated as
-  // a plural collective noun per sports convention → "lead" ("Grandmas lead 6–5").
-  const verb = isDefaultTeamName(leadName) ? 'leads' : 'lead'
-  return { text: `${leadName} ${verb} ${hi}–${lo}`, side, thru: `Thru ${row.thru}` }
+  // Default "Team N" is a singular subject → "leads/wins"; a custom name is treated
+  // as a plural collective noun per sports convention → "lead/win" ("Grandmas win
+  // 6–5"). In progress uses lead(s); a finished match uses win(s).
+  const verb = done
+    ? (isDefaultTeamName(leadName) ? 'wins' : 'win')
+    : (isDefaultTeamName(leadName) ? 'leads' : 'lead')
+  return { text: `${leadName} ${verb} ${hi}–${lo}`, side, thru }
 }
 
 // Standard Match Play status text + leading side (0/1/null) + "thru" text.
