@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import {
-  matchPlayPointsByPlayer, fireStatsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName, effectiveAllowance,
+  matchPlayPointsByPlayer, fireStatsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName, effectiveAllowance, shotsGivenFromCourseHandicaps,
 } from '../lib/scoring'
 
 // ── Trip Stats ────────────────────────────────────────────────────
@@ -14,21 +14,43 @@ import {
 //     (both when tied for low); it's net-based by definition and never reads the
 //     Gross/Net toggle.
 //   • Gross/Net cards (eagles/birdies/…/best-worst round): each player's diff vs
-//     par per hole, tracked INDEPENDENTLY for gross (raw − par) and net (own
-//     absolute net − par). The two sets of counts are separate running totals.
+//     par per hole, tracked INDEPENDENTLY for gross (raw − par) and net (net −
+//     par). Net uses the SAME match-play shots as the scorecard dots — strokes
+//     off the pairing's low player — so "net birdies" here agree with the dots
+//     shown on the card (not each player's full playing handicap).
 //   • Best/Worst round: 18-hole totals for complete 18-hole rounds only, tracked
 //     independently per mode (best gross round ≠ best net round in general).
 
-// Absolute per-player playing handicap for a round: round(RAW course handicap ×
-// allowance) per the official WHS order (single rounding, from the unrounded
-// course handicap). Individual stat, not pairing-relative match play.
-function absPlayingHandicap(round, teeRow, handicapIndex, allowance) {
-  const tee = resolvePlayerTee(round, teeRow)
-  const rawCH = rawCourseHandicapForTee(handicapIndex, tee.slope, tee.rating, tee.par)
-  if (rawCH == null) return 0
-  // A course-level allowance override wins over the trip default for this round.
-  const alw = effectiveAllowance(round, allowance)
-  return Math.max(0, Math.round(rawCH * (alw / 100)))
+// Off-low (match-play) shots per player per round, grouped by pairing — identical
+// to the scorecard/match logic (shotsGivenFromCourseHandicaps): each player's
+// playing handicap MINUS the pairing group's lowest, so the low player plays off
+// scratch (0). Falls back to a single group of everyone who scored the round when
+// no pairings exist. Returns Map(roundId -> Map(tripPlayerId -> shots)).
+function offLowShotsByRound(rounds, { roundById, pairingsByRound, playersByPairing, scores, teeRowByRP, hcpById }, allowance) {
+  const byRound = new Map()
+  for (const r of rounds) {
+    const round = roundById.get(r.id)
+    const prs = pairingsByRound.get(r.id) || []
+    let groups
+    if (prs.length) {
+      groups = prs.map(pr => playersByPairing.get(pr.id) || [])
+    } else {
+      const set = new Set()
+      for (const s of scores) if (s.round_id === r.id && s.gross_score != null) set.add(s.trip_player_id)
+      groups = [[...set]]
+    }
+    const shots = new Map()
+    for (const group of groups) {
+      const entries = group.map(tp => {
+        const tee = resolvePlayerTee(round, teeRowByRP.get(`${r.id}:${tp}`))
+        return { id: tp, ch: rawCourseHandicapForTee(hcpById.get(tp), tee.slope, tee.rating, tee.par) }
+      })
+      const m = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
+      for (const [tp, v] of m) shots.set(tp, v)
+    }
+    byRound.set(r.id, shots)
+  }
+  return byRound
 }
 
 function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance) {
@@ -77,6 +99,21 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
   const scoreMap = new Map()
   for (const s of scores) if (s.gross_score != null) scoreMap.set(`${s.round_id}:${s.trip_player_id}:${s.hole_number}`, s.gross_score)
 
+  // Pairing lookups → off-low match shots per round (same basis as the scorecard
+  // dots), so the Net cards below strike Ben on SI 1-7 (off the low man), not on
+  // his full 90% playing handicap.
+  const playersByPairing = new Map()
+  for (const pp of pairingPlayers) {
+    if (!playersByPairing.has(pp.pairing_id)) playersByPairing.set(pp.pairing_id, [])
+    playersByPairing.get(pp.pairing_id).push(pp.trip_player_id)
+  }
+  const pairingsByRound = new Map()
+  for (const pr of pairings) {
+    if (!pairingsByRound.has(pr.round_id)) pairingsByRound.set(pr.round_id, [])
+    pairingsByRound.get(pr.round_id).push(pr)
+  }
+  const shotsByRound = offLowShotsByRound(rounds, { roundById, pairingsByRound, playersByPairing, scores, teeRowByRP, hcpById }, allowance)
+
   // Six vs-par categories + best/worst round, tracked separately for gross and
   // net (never derived from each other).
   const emptyMode = () => ({ eagles: 0, birdies: 0, pars: 0, parsOrBetter: 0, bogeys: 0, doubles: 0, triples: 0, bestRound: null, worstRound: null })
@@ -103,11 +140,10 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
   for (const r of rounds) {
     const holes = holesByRound.get(r.id)
     if (!holes || holes.length === 0) continue
-    const round = roundById.get(r.id)
     const is18 = holes.length === 18
     for (const tp of tripPlayers) {
       const st = stats.get(tp.id)
-      const ph = absPlayingHandicap(round, teeRowByRP.get(`${r.id}:${tp.id}`), hcpById.get(tp.id), allowance)
+      const ph = shotsByRound.get(r.id)?.get(tp.id) ?? 0
       let scoredHoles = 0, grossTotal = 0, netTotal = 0
       for (const hole of holes) {
         const gross = scoreMap.get(`${r.id}:${tp.id}:${hole}`)
