@@ -225,13 +225,18 @@ function formatPhone(raw) {
 
 const pc = {
   card: { background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: 10, padding: 14, marginBottom: 10 },
-  header: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 },
+  // Top-aligned 3-column header: avatar (with role badge) · name+joined · team pill
+  // over pencil. The name gets its own flexing column so it never fights the pill.
+  header: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
+  avatarWrap: { position: 'relative', flexShrink: 0 },
   avatar: { width: 40, height: 40, borderRadius: '50%', background: '#1B3F6E', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
-  name: { fontSize: 16, fontWeight: 700, color: '#0D1B2A', flex: 1, minWidth: 0 },
-  joined: { color: '#2E7D32', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 8, fontWeight: 600 },
-  joinedDot: { width: 8, height: 8, borderRadius: '50%', background: '#2E7D32', display: 'inline-block' },
-  badge: { background: 'rgba(192,57,43,0.08)', color: '#C0392B', border: '1px solid rgba(192,57,43,0.25)', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, letterSpacing: '0.5px', flexShrink: 0, whiteSpace: 'nowrap' },
-  teamPill: { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis' },
+  roleBadge: { position: 'absolute', right: -3, bottom: -3, width: 18, height: 18, borderRadius: '50%', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' },
+  headerMain: { flex: 1, minWidth: 0, paddingTop: 1 },
+  name: { fontSize: 16, fontWeight: 700, color: '#0D1B2A', lineHeight: 1.25, overflowWrap: 'anywhere' },
+  joined: { color: '#2E7D32', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 3, fontWeight: 600 },
+  joinedDot: { width: 6, height: 6, borderRadius: '50%', background: '#2E7D32', display: 'inline-block' },
+  headerRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 },
+  teamPill: { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' },
   pencil: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#7A8FA6', flexShrink: 0, display: 'flex', alignItems: 'center' },
   detailRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #E8EDF3', fontSize: 13, color: '#2C3E50' },
   detailLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', minWidth: 72 },
@@ -250,6 +255,22 @@ function PencilIcon() {
   )
 }
 
+// Small white glyphs for the avatar role badge (11px, filled).
+function CrownIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+      <path d="M3 7l4.5 4L12 4l4.5 7L21 7l-1.8 12H4.8L3 7z" />
+    </svg>
+  )
+}
+function StarIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+      <path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.8 5.9 21.4l1.4-6.8L2.2 9.9l6.9-.8L12 2z" />
+    </svg>
+  )
+}
+
 function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner, editing, onStartEdit, onCloseEdit, onSaved }) {
   // Who can edit what:
   //   • Commissioner → first name, last name, email, phone, handicap, team.
@@ -257,22 +278,19 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
   //   • Everyone else → view only.
   const isOwnCard = !!currentUserId && (player.user_id === currentUserId || player.claimed_user_id === currentUserId)
   const canEdit = isCommissioner || isOwnCard
-  const [form, setForm] = useState({
+  const initialForm = () => ({
     first_name: player.first_name || '', last_name: player.last_name || '',
     email: player.email || '',
     handicap_index: player.handicap_index ?? '', team_id: player.team_id || '', phone: player.phone || '',
+    is_captain: !!player.is_captain,
   })
+  const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
 
   // Reset the form to the player's values each time edit mode opens.
   useEffect(() => {
-    if (editing) {
-      setForm({
-        first_name: player.first_name || '', last_name: player.last_name || '',
-        email: player.email || '',
-        handicap_index: player.handicap_index ?? '', team_id: player.team_id || '', phone: player.phone || '',
-      })
-    }
+    if (editing) setForm(initialForm())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, player])
 
   // Colour the team pill by the team's stable index (1 navy, 2 teal, …), never by name.
@@ -291,32 +309,54 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           handicap_index: form.handicap_index === '' ? null : Number(form.handicap_index),
           team_id: form.team_id || null,
           phone: form.phone.trim() ? formatPhone(form.phone) : null,
+          is_captain: !!form.is_captain,
         }
       : {
           email: form.email.trim() || null,
           phone: form.phone.trim() ? formatPhone(form.phone) : null,
         }
     const { error } = await supabase.from('trip_players').update(payload).eq('id', player.id)
+    // Enforce one captain per team: when this player becomes their team's captain,
+    // clear the flag on teammates (team_id is a trip-unique uuid, so no trip filter
+    // is needed). Best-effort — a failure here doesn't block the primary save.
+    if (!error && isCommissioner && form.is_captain && form.team_id) {
+      await supabase.from('trip_players').update({ is_captain: false })
+        .eq('team_id', form.team_id).neq('id', player.id)
+    }
     setSaving(false)
     if (!error) onSaved()
   }
 
+  // Avatar corner badge: crown (commissioner) takes precedence over star (captain)
+  // in the rare both-true case; only rendered when the player holds that role.
+  const roleBadge = commissioner
+    ? { bg: '#C2410C', icon: <CrownIcon /> }
+    : player.is_captain
+      ? { bg: '#92600A', icon: <StarIcon /> }
+      : null
+
   return (
     <div style={pc.card}>
-      {/* Header */}
+      {/* Header: avatar (+role badge) · name/joined · team pill over pencil */}
       <div style={pc.header}>
-        <div style={pc.avatar}>{playerInitials(player)}</div>
-        <div style={pc.name}>
-          {player.name}
-          {player.is_claimed && (
-            <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>
+        <div style={pc.avatarWrap}>
+          <div style={pc.avatar}>{playerInitials(player)}</div>
+          {roleBadge && (
+            <span style={{ ...pc.roleBadge, background: roleBadge.bg }}>{roleBadge.icon}</span>
           )}
         </div>
-        {commissioner && <span style={pc.badge}>Commissioner</span>}
-        {team && <span style={{ ...pc.teamPill, ...teamPillColor }}>{getTeamDisplayName(team)}</span>}
-        {canEdit && !editing && (
-          <button style={pc.pencil} onClick={onStartEdit} aria-label="Edit player"><PencilIcon /></button>
-        )}
+        <div style={pc.headerMain}>
+          <div style={pc.name}>{player.name}</div>
+          {player.is_claimed && (
+            <div style={pc.joined}><span style={pc.joinedDot} />Joined</div>
+          )}
+        </div>
+        <div style={pc.headerRight}>
+          {team && <span style={{ ...pc.teamPill, ...teamPillColor }}>{getTeamDisplayName(team)}</span>}
+          {canEdit && !editing && (
+            <button style={pc.pencil} onClick={onStartEdit} aria-label="Edit player"><PencilIcon /></button>
+          )}
+        </div>
       </div>
 
       {/* View-mode details */}
@@ -380,6 +420,16 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               </label>
             </div>
           )}
+          {/* Captain reads the player's existing team — no team picker needed. */}
+          {isCommissioner && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '2px 0' }}>
+              <input type="checkbox" checked={!!form.is_captain} onChange={e => setForm({ ...form, is_captain: e.target.checked })} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>Team Captain</span>
+              {!form.team_id && form.is_captain && (
+                <span style={{ fontSize: 11, color: '#C0392B' }}>— assign a team for this to show in the summary</span>
+              )}
+            </label>
+          )}
           <label style={{ display: 'block' }}>
             <span style={pc.editLabel}>Phone</span>
             <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
@@ -423,11 +473,16 @@ function InviteSection({ inviteToken }) {
 // Quick-glance roster: a 2-column wrapping grid of team cards, each listing its
 // players + handicaps. Colours come from the SAME palette as the scorecard
 // pairing headers (teamColor/colorIndexOf) so a team looks identical everywhere.
-// Empty teams are skipped; an odd final team spans the full width.
+// The team's captain (is_captain) sorts first with a "C" tag; the rest follow
+// alphabetically. Empty teams are skipped; an odd final team spans full width.
 function TeamRosterSummary({ players, teams }) {
   const byFirstName = (a, b) => (a.first_name || a.name || '').localeCompare(b.first_name || b.name || '')
+  // Captain(s) first, then alphabetical. Multiple captains on one team (shouldn't
+  // happen — the edit form clears teammates) sort alphabetically among themselves.
+  const byCaptainThenName = (a, b) =>
+    (a.is_captain ? 0 : 1) - (b.is_captain ? 0 : 1) || byFirstName(a, b)
   const withPlayers = (teams || [])
-    .map(t => ({ team: t, roster: players.filter(p => p.team_id === t.id).sort(byFirstName) }))
+    .map(t => ({ team: t, roster: players.filter(p => p.team_id === t.id).sort(byCaptainThenName) }))
     .filter(g => g.roster.length > 0)
   if (withPlayers.length === 0) return null
   const oddLast = withPlayers.length % 2 === 1
@@ -440,11 +495,13 @@ function TeamRosterSummary({ players, teams }) {
           <div key={team.id} style={{ ...trs.card, ...(isLoneLast ? trs.span : null) }}>
             <div style={{ ...trs.band, background: solid }}>
               <div style={trs.teamName}>{getTeamDisplayName(team)}</div>
-              <div style={trs.count}>{roster.length} player{roster.length === 1 ? '' : 's'}</div>
             </div>
             {roster.map((p, j) => (
               <div key={p.id} style={{ ...trs.row, ...(j === roster.length - 1 ? trs.rowLast : null) }}>
-                <span style={trs.name}>{p.name}</span>
+                <span style={trs.nameWrap}>
+                  <span style={{ ...trs.name, fontWeight: p.is_captain ? 700 : 600 }}>{p.name}</span>
+                  {p.is_captain && <span style={trs.capTag}>C</span>}
+                </span>
                 <span style={{ ...trs.hcp, color: solid }}>{p.handicap_index != null ? p.handicap_index : 'TBD'}</span>
               </div>
             ))}
@@ -457,14 +514,15 @@ function TeamRosterSummary({ players, teams }) {
 
 const trs = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 16 },
-  card: { background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, overflow: 'hidden', alignSelf: 'start' },
+  card: { background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden', alignSelf: 'start' },
   span: { gridColumn: '1 / -1' },
   band: { padding: '7px 10px' },
-  teamName: { fontSize: 12.5, fontWeight: 800, color: '#fff', lineHeight: 1.2 },
-  count: { fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.72)', marginTop: 1 },
+  teamName: { fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.2 },
   row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: '1px solid #EEF1F4' },
   rowLast: { borderBottom: 'none' },
-  name: { fontSize: 12, fontWeight: 600, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  nameWrap: { display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 },
+  name: { fontSize: 12, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  capTag: { flexShrink: 0, marginLeft: 6, background: '#92600A', color: '#fff', fontSize: 9, fontWeight: 800, lineHeight: 1.4, padding: '1px 5px', borderRadius: 3 },
   hcp: { fontSize: 11, fontWeight: 700, flexShrink: 0 },
 }
 
@@ -2107,7 +2165,7 @@ export default function MenuDrawer({
       (async () => {
         const [tpRes, teamsRes, adminRes] = await Promise.all([
           supabase.from('trip_players')
-            .select('id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed')
+            .select('id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed, is_captain')
             .eq('trip_id', tripId).order('last_name'),
           // Ordered by team_index; includes color_index for the team-pill colours.
           supabase.from('teams').select('id, name, team_index, color_index').eq('trip_id', tripId).order('team_index'),
