@@ -420,6 +420,54 @@ function InviteSection({ inviteToken }) {
   )
 }
 
+// Quick-glance roster: a 2-column wrapping grid of team cards, each listing its
+// players + handicaps. Colours come from the SAME palette as the scorecard
+// pairing headers (teamColor/colorIndexOf) so a team looks identical everywhere.
+// Empty teams are skipped; an odd final team spans the full width.
+function TeamRosterSummary({ players, teams }) {
+  const byFirstName = (a, b) => (a.first_name || a.name || '').localeCompare(b.first_name || b.name || '')
+  const withPlayers = (teams || [])
+    .map(t => ({ team: t, roster: players.filter(p => p.team_id === t.id).sort(byFirstName) }))
+    .filter(g => g.roster.length > 0)
+  if (withPlayers.length === 0) return null
+  const oddLast = withPlayers.length % 2 === 1
+  return (
+    <div style={trs.grid}>
+      {withPlayers.map(({ team, roster }, i) => {
+        const solid = teamColor(colorIndexOf(team)).solid
+        const isLoneLast = oddLast && i === withPlayers.length - 1
+        return (
+          <div key={team.id} style={{ ...trs.card, ...(isLoneLast ? trs.span : null) }}>
+            <div style={{ ...trs.band, background: solid }}>
+              <div style={trs.teamName}>{getTeamDisplayName(team)}</div>
+              <div style={trs.count}>{roster.length} player{roster.length === 1 ? '' : 's'}</div>
+            </div>
+            {roster.map((p, j) => (
+              <div key={p.id} style={{ ...trs.row, ...(j === roster.length - 1 ? trs.rowLast : null) }}>
+                <span style={trs.name}>{p.name}</span>
+                <span style={{ ...trs.hcp, color: solid }}>{p.handicap_index != null ? p.handicap_index : 'TBD'}</span>
+              </div>
+            ))}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+const trs = {
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 16 },
+  card: { background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, overflow: 'hidden', alignSelf: 'start' },
+  span: { gridColumn: '1 / -1' },
+  band: { padding: '7px 10px' },
+  teamName: { fontSize: 12.5, fontWeight: 800, color: '#fff', lineHeight: 1.2 },
+  count: { fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.72)', marginTop: 1 },
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: '1px solid #EEF1F4' },
+  rowLast: { borderBottom: 'none' },
+  name: { fontSize: 12, fontWeight: 600, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  hcp: { fontSize: 11, fontWeight: 700, flexShrink: 0 },
+}
+
 function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
   const [editingId, setEditingId] = useState(null)
   if (!data) return <div style={s.muted}>Loading…</div>
@@ -447,6 +495,7 @@ function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
 
   return (
     <>
+      <TeamRosterSummary players={players} teams={teams} />
       {commissioner && renderCard(commissioner)}
       {rest.map(renderCard)}
     </>
