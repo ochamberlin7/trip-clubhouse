@@ -63,6 +63,7 @@ function pointsSummary(row, n1, n2) {
 // Standard Match Play status text + leading side (0/1/null) + "thru" text.
 //   • closed out early (not played to 18) → "{winner} wins {margin} & {holesLeft}"
 //   • closed on the 18th (ran the full round) → "{winner} win {margin}"
+//   • complete but never closed (halved on 18) → "Match halved"
 //   • in progress, tied → "All Square"
 //   • in progress, otherwise → "{leading team name} {N} Up"
 //   • no scores → "Match not started"
@@ -84,6 +85,9 @@ function standardStatus(row, n1, n2) {
     return { text: `${name} win ${row.finalMargin}`, side, thru: '' }
   }
   if (row.thru === 0) return { text: 'Match not started', side: null, thru: '' }
+  // Ran all 18 without a closeout → the match is halved. Show the final result
+  // instead of a live "All Square / Thru 18" (mirrors the points "Match tied").
+  if (row.complete && row.result === 'halve') return { text: 'Match halved', side: null, thru: '' }
   if (row.leader == null) return { text: 'All Square', side: null, thru: `Thru ${row.thru}` }
   const side = row.leader === 'T1' ? 0 : 1
   const name = side === 0 ? n1 : n2
