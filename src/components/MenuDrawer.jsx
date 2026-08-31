@@ -225,16 +225,19 @@ function formatPhone(raw) {
 
 const pc = {
   card: { background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: 10, padding: 14, marginBottom: 10 },
-  // Top-aligned 3-column header: avatar (with role badge) · name+joined · team pill
-  // over pencil. The name gets its own flexing column so it never fights the pill.
+  // Top-aligned 3-column header: avatar · name + role meta · team pill over pencil.
+  // The name gets its own flexing column so it never fights the pill.
   header: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
-  avatarWrap: { position: 'relative', flexShrink: 0 },
   avatar: { width: 40, height: 40, borderRadius: '50%', background: '#1B3F6E', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
-  roleBadge: { position: 'absolute', right: -3, bottom: -3, width: 18, height: 18, borderRadius: '50%', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' },
   headerMain: { flex: 1, minWidth: 0, paddingTop: 1 },
   name: { fontSize: 16, fontWeight: 700, color: '#0D1B2A', lineHeight: 1.25, overflowWrap: 'anywhere' },
-  joined: { color: '#2E7D32', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 3, fontWeight: 600 },
+  // Role/status line under the name: plain coloured text, no pills. Joined (green),
+  // Commissioner (red), Captain (amber) — same subtle 11px/600 treatment.
+  metaRow: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 3, flexWrap: 'wrap' },
+  joined: { color: '#2E7D32', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 },
   joinedDot: { width: 6, height: 6, borderRadius: '50%', background: '#2E7D32', display: 'inline-block' },
+  commish: { color: '#C0392B', fontSize: 11, fontWeight: 600 },
+  captainTag: { color: '#92600A', fontSize: 11, fontWeight: 600 },
   headerRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 },
   teamPill: { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' },
   pencil: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#7A8FA6', flexShrink: 0, display: 'flex', alignItems: 'center' },
@@ -255,18 +258,11 @@ function PencilIcon() {
   )
 }
 
-// Small white glyphs for the avatar role badge (11px, filled).
-function CrownIcon() {
+// Small white check for the subtle Captain toggle in the edit panel.
+function CheckIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-      <path d="M3 7l4.5 4L12 4l4.5 7L21 7l-1.8 12H4.8L3 7z" />
-    </svg>
-  )
-}
-function StarIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-      <path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.8 5.9 21.4l1.4-6.8L2.2 9.9l6.9-.8L12 2z" />
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   )
 }
@@ -327,28 +323,19 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
     if (!error) onSaved()
   }
 
-  // Avatar corner badge: crown (commissioner) takes precedence over star (captain)
-  // in the rare both-true case; only rendered when the player holds that role.
-  const roleBadge = commissioner
-    ? { bg: '#C2410C', icon: <CrownIcon /> }
-    : player.is_captain
-      ? { bg: '#92600A', icon: <StarIcon /> }
-      : null
-
   return (
     <div style={pc.card}>
-      {/* Header: avatar (+role badge) · name/joined · team pill over pencil */}
+      {/* Header: avatar · name + role meta line · team pill over pencil */}
       <div style={pc.header}>
-        <div style={pc.avatarWrap}>
-          <div style={pc.avatar}>{playerInitials(player)}</div>
-          {roleBadge && (
-            <span style={{ ...pc.roleBadge, background: roleBadge.bg }}>{roleBadge.icon}</span>
-          )}
-        </div>
+        <div style={pc.avatar}>{playerInitials(player)}</div>
         <div style={pc.headerMain}>
           <div style={pc.name}>{player.name}</div>
-          {player.is_claimed && (
-            <div style={pc.joined}><span style={pc.joinedDot} />Joined</div>
+          {(player.is_claimed || commissioner || player.is_captain) && (
+            <div style={pc.metaRow}>
+              {player.is_claimed && <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>}
+              {commissioner && <span style={pc.commish}>Commissioner</span>}
+              {player.is_captain && <span style={pc.captainTag}>Captain</span>}
+            </div>
           )}
         </div>
         <div style={pc.headerRight}>
@@ -420,13 +407,18 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               </label>
             </div>
           )}
-          {/* Captain reads the player's existing team — no team picker needed. */}
+          {/* Subtle Captain checkmark (the global input rule would balloon a native
+              checkbox to a full-width bar, so the box is a custom span). Captain
+              reads the player's existing team — no team picker needed. */}
           {isCommissioner && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '2px 0' }}>
-              <input type="checkbox" checked={!!form.is_captain} onChange={e => setForm({ ...form, is_captain: e.target.checked })} />
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content', padding: '2px 0' }}>
+              <input type="checkbox" checked={!!form.is_captain} onChange={e => setForm({ ...form, is_captain: e.target.checked })} style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }} />
+              <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${form.is_captain ? '#1B3F6E' : '#C4CEDA'}`, background: form.is_captain ? '#1B3F6E' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+                {form.is_captain && <CheckIcon />}
+              </span>
               <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>Team Captain</span>
               {!form.team_id && form.is_captain && (
-                <span style={{ fontSize: 11, color: '#C0392B' }}>— assign a team for this to show in the summary</span>
+                <span style={{ fontSize: 11, color: '#C0392B' }}>— assign a team to show in the summary</span>
               )}
             </label>
           )}
