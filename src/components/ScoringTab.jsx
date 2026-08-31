@@ -804,17 +804,18 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       </div>
     )
   }
-  // Total drinks per player across all holes of the active round ("—" for 0).
-  function DrinkRow() {
+  // Drinks per player summed over a hole range ("—" for 0). Defaults to the whole
+  // round; passed start/end for the front-9 subtotal under the "Out" row.
+  function DrinkRow({ label = 'Drinks', start = 1, end = holeCount }) {
     const total = tpId => {
       if (!tpId) return '—'
       let s = 0
-      for (let h = 1; h <= holeCount; h++) s += getDrinks(tpId, h)
+      for (let h = start; h <= end; h++) s += getDrinks(tpId, h)
       return s > 0 ? s : '—'
     }
     return (
       <div className="sc-row sc-sub-row" style={{ gridTemplateColumns: scGridCols }}>
-        <div className="sc-sub-label">Drinks</div>
+        <div className="sc-sub-label">{label}</div>
         <div className="sc-sub-par" /><div />
         {t1Slots.map(s => <div key={s} className="sc-sub-score t1">{total(slotMap[s])}</div>)}
         <div className="sc-sub-pts" />
@@ -886,6 +887,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
                 {t2Slots.map(s => <ScoreCell key={s} slot={s} hole={hole} shownSet={shownSet} />)}
               </div>
               {isEighteen && hole === 9 && <SubRow label="Out" start={1} end={9} />}
+              {isEighteen && hole === 9 && <DrinkRow label="Drinks" start={1} end={9} />}
               {isEighteen && hole === 18 && <SubRow label="In" start={10} end={18} />}
               {hole === holeCount && <SubRow label="Tot" start={1} end={holeCount} />}
               {hole === holeCount && <DrinkRow />}
