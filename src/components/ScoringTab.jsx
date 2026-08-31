@@ -72,14 +72,16 @@ function Chevron({ dir, size = 18 }) {
 }
 
 // Point Match Play: one filled circular badge per hole showing the hole winner.
-// The chevron points AT the winning team (toward its scores on the card).
-//   • T1 (Owen/Monty, left)  → navy circle with « (left chevron, points at T1)
-//   • T2 (Nicole/Robert, right) → green circle with » (right chevron, points at T2)
+// The chevron points AT the winning side (T1 = left, T2 = right) and the circle
+// is painted in that team's REAL colour (t1Color/t2Color, passed from the
+// pairing) so the badge always matches the coloured team headers above it.
+//   • T1 (left side)  → team-1 circle with « (left chevron, points at T1)
+//   • T2 (right side) → team-2 circle with » (right chevron, points at T2)
 //   • halved → grey circle with an en-dash
 //   • unscored → transparent placeholder (keeps the column aligned)
-function PointsChip({ result }) {
-  if (result === 'T1') return <span className="sc-pts-badge t1"><Chevron dir="left" size={14} /></span>
-  if (result === 'T2') return <span className="sc-pts-badge t2"><Chevron dir="right" size={14} /></span>
+function PointsChip({ result, t1Color, t2Color }) {
+  if (result === 'T1') return <span className="sc-pts-badge t1" style={{ background: t1Color }}><Chevron dir="left" size={14} /></span>
+  if (result === 'T2') return <span className="sc-pts-badge t2" style={{ background: t2Color }}><Chevron dir="right" size={14} /></span>
   if (result === 'halve') return <span className="sc-pts-badge halve">–</span>
   return <span className="sc-pts-badge empty" aria-hidden="true" />
 }
@@ -94,14 +96,17 @@ function PointsChip({ result }) {
 // into number + "UP"; an early closeout like "3&2" is shown centred as-is).
 // "Dormie N" collapses to "NUP" so it always fits the circle; the result banner
 // still surfaces the full status.
-function MatchCell({ entry }) {
+function MatchCell({ entry, t1Color, t2Color }) {
   if (!entry || entry.statusShort == null) return <span className="sc-match-badge empty" aria-hidden="true" />
   const leaderClass = entry.leader === 'T1' ? 't1' : entry.leader === 'T2' ? 't2' : 'as'
+  // Paint the badge in the leading team's REAL colour so it matches the coloured
+  // team headers (grey "AS" when all square keeps its CSS colour).
+  const leadColor = entry.leader === 'T1' ? t1Color : entry.leader === 'T2' ? t2Color : null
   const absLead = Math.abs(entry.lead || 0)
   const text = entry.closed ? entry.statusShort : absLead === 0 ? 'AS' : `${absLead}UP`
   const upMatch = /^(\d+)UP$/.exec(text) // "2UP" → big "2" + tiny "UP"
   return (
-    <span className={`sc-match-badge ${leaderClass}`}>
+    <span className={`sc-match-badge ${leaderClass}`} style={leadColor ? { background: leadColor } : undefined}>
       {upMatch
         ? <span className="sc-match-inner"><span className="sc-match-num">{upMatch[1]}</span><span className="sc-match-up">UP</span></span>
         : <span className="sc-match-as">{text}</span>}
@@ -400,6 +405,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // Both formats render a circular badge per hole, so the middle column is sized
   // to hold it (a touch wider for Standard's status text).
   const isStandard = trip?.format === 'standard_match_play'
+  // Real team colours for the middle result badge, so the win indicator matches
+  // the coloured team headers (T1 = left, T2 = right). Falls back to the classic
+  // navy/green when a side's team isn't assigned yet (keeps the two distinct).
+  const t1Color = pairTeam1 ? teamColor(colorIndexOf(pairTeam1)).solid : '#1B3F6E'
+  const t2Color = pairTeam2 ? teamColor(colorIndexOf(pairTeam2)).solid : '#047857'
   const midColW = isStandard ? '38px' : '36px'
   const scGridCols = `30px 24px 24px ${t1Slots.map(() => '1fr').join(' ')} ${midColW} ${t2Slots.map(() => '1fr').join(' ')}`
   // Whether the visible slots are all filled (for the "assign players" hint only).
@@ -871,8 +881,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
                 <div className="sc-cell-si">{holes?.[hole - 1]?.handicap ?? '—'}</div>
                 {t1Slots.map(s => <ScoreCell key={s} slot={s} hole={hole} shownSet={shownSet} />)}
                 {isStandard
-                  ? <MatchCell entry={stdTally?.results?.[hole - 1]} />
-                  : <PointsChip result={holeResult(hole)} />}
+                  ? <MatchCell entry={stdTally?.results?.[hole - 1]} t1Color={t1Color} t2Color={t2Color} />
+                  : <PointsChip result={holeResult(hole)} t1Color={t1Color} t2Color={t2Color} />}
                 {t2Slots.map(s => <ScoreCell key={s} slot={s} hole={hole} shownSet={shownSet} />)}
               </div>
               {isEighteen && hole === 9 && <SubRow label="Out" start={1} end={9} />}
