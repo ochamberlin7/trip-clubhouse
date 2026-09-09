@@ -1,5 +1,6 @@
 // Home banner — "Trip Clubhouse" small-caps wordmark, auto-fit trip name, date range.
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -66,6 +67,53 @@ const styles = {
     color: '#5A7290',
     marginTop: '7px',
   },
+  // Commissioner-only pencil, pinned to the header's upper-right (aligned with the
+  // wordmark row so it never overlaps the centered trip name).
+  editBtn: {
+    position: 'absolute',
+    top: 'max(env(safe-area-inset-top), 20px)',
+    right: 14,
+    background: 'none',
+    border: 'none',
+    padding: 4,
+    cursor: 'pointer',
+    color: '#7A8FA6',
+    display: 'flex',
+    alignItems: 'center',
+    lineHeight: 0,
+  },
+  // Inline editor (shown in place of the name while renaming).
+  editRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, margin: '2px auto 0', maxWidth: 420 },
+  editInput: {
+    flex: 1, minWidth: 0, textAlign: 'center',
+    fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 24, color: '#000',
+    border: 'none', borderBottom: '2px solid #1B3F6E', background: 'transparent',
+    padding: '2px 4px', outline: 'none',
+  },
+  iconBtn: { background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', lineHeight: 0, flexShrink: 0 },
+  editErr: { fontSize: 11, color: '#C0392B', marginTop: 4 },
+}
+
+function PencilIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+function CheckIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}
+function CloseIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C0392B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  )
 }
 
 // Shrink-to-fit trip name: measure the rendered text (nowrap) against the
@@ -114,13 +162,60 @@ function TripNameFit({ text }) {
   )
 }
 
-export default function TripHeader({ tripName, startDate, endDate }) {
+export default function TripHeader({ tripName, startDate, endDate, tripId, canEdit = false, onRenamed }) {
   const range = formatRange(startDate, endDate)
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(tripName || '')
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  const inputRef = useRef(null)
+
+  // Keep the draft in sync when not actively editing (e.g. after a refetch).
+  useEffect(() => { if (!editing) setName(tripName || '') }, [tripName, editing])
+  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
+
+  function startEdit() { setErr(''); setName(tripName || ''); setEditing(true) }
+  function cancel() { setEditing(false); setErr(''); setName(tripName || '') }
+
+  async function save() {
+    const trimmed = name.trim()
+    if (!trimmed) { setErr('Name can’t be empty'); return }
+    if (trimmed === (tripName || '').trim()) { setEditing(false); return }
+    setSaving(true)
+    const { error } = await supabase.from('trips').update({ name: trimmed }).eq('id', tripId)
+    setSaving(false)
+    if (error) { setErr('Couldn’t save — try again'); return }
+    setEditing(false)
+    onRenamed?.()
+  }
+
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, position: 'relative' }}>
       <div style={styles.wordmark}>Trip Clubhouse</div>
-      {tripName && <TripNameFit text={tripName} />}
+
+      {editing ? (
+        <>
+          <div style={styles.editRow}>
+            <input
+              ref={inputRef} style={styles.editInput} value={name} maxLength={80}
+              placeholder="Trip name"
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') save(); else if (e.key === 'Escape') cancel() }}
+            />
+            <button style={styles.iconBtn} onClick={save} disabled={saving} aria-label="Save trip name"><CheckIcon /></button>
+            <button style={styles.iconBtn} onClick={cancel} disabled={saving} aria-label="Cancel"><CloseIcon /></button>
+          </div>
+          {err && <div style={styles.editErr}>{err}</div>}
+        </>
+      ) : (
+        tripName && <TripNameFit text={tripName} />
+      )}
+
       {range && <div style={styles.subtitle}>{range}</div>}
+
+      {canEdit && !editing && (
+        <button style={styles.editBtn} onClick={startEdit} aria-label="Edit trip name"><PencilIcon /></button>
+      )}
     </div>
   )
 }

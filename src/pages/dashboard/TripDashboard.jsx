@@ -1460,7 +1460,7 @@ export default function TripDashboard() {
       <div className="dashboard-scroll">
       {/* ── Page header ── */}
       {activeTab === 'dashboard' && (
-        <TripHeader tripName={trip.name} startDate={trip.start_date} endDate={trip.end_date} />
+        <TripHeader tripName={trip.name} startDate={trip.start_date} endDate={trip.end_date} tripId={trip.id} canEdit={canManage} onRenamed={refetchTrip} />
       )}
       {hdr && (
         <div className="page-header">

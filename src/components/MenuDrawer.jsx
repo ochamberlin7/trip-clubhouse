@@ -1794,56 +1794,15 @@ function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, on
   )
 }
 
-function CommissionerPage({ data, tripId, tripName, handicapAllowance, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate }) {
+function CommissionerPage({ data, tripId, handicapAllowance, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   return (
     <>
-      <TripNameCard tripId={tripId} tripName={tripName} onUpdate={onTripUpdate} />
       <TeamNamesCard teams={data.teams} onSaved={onTeamsSaved} />
       <PurseSettingsCard tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} allowance={handicapAllowance} onUpdate={onTripUpdate} />
       <AllowanceInputCard tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} />
       <InviteSection inviteToken={inviteToken} />
     </>
-  )
-}
-
-// Commissioner edits the trip's display name. Mirrors the purse/allowance cards:
-// local input, Save writes trips.name and calls onUpdate() so the header + page
-// titles refresh live. Blank names are rejected (the name is shown everywhere).
-function TripNameCard({ tripId, tripName, onUpdate }) {
-  const [name, setName] = useState(tripName || '')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [err, setErr] = useState('')
-
-  // Resync if the trip (or its name) changes underneath us.
-  useEffect(() => { setName(tripName || '') }, [tripName])
-
-  const trimmed = name.trim()
-  const dirty = trimmed !== (tripName || '').trim()
-
-  async function save() {
-    setErr('')
-    if (!trimmed) { setErr('Trip name can’t be empty'); return }
-    setSaving(true)
-    const { error } = await supabase.from('trips').update({ name: trimmed }).eq('id', tripId)
-    setSaving(false)
-    if (error) { setErr(`Save failed: ${error.message || 'unknown error'}`); return }
-    setSaved(true); setTimeout(() => setSaved(false), 2000)
-    onUpdate?.()
-  }
-
-  return (
-    <Card title="Trip Name">
-      <label style={purseLabel}>Name</label>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input value={name} placeholder="e.g., CTI Michigan" maxLength={80}
-          onChange={e => setName(e.target.value)} style={{ ...pc.editInput, flex: 1 }} />
-        <button onClick={save} disabled={saving || !dirty} style={{ ...pc.saveBtn, opacity: (saving || !dirty) ? 0.5 : 1 }}>{saving ? 'Saving…' : 'Save'}</button>
-      </div>
-      {err && <div style={{ fontSize: 12, color: '#C0392B', marginTop: 8 }}>{err}</div>}
-      {saved && <div style={{ fontSize: 12, color: '#2E7D32', marginTop: 8 }}>Saved ✓</div>}
-    </Card>
   )
 }
 
@@ -2618,7 +2577,6 @@ export default function MenuDrawer({
           <CommissionerPage
             data={commissionerData}
             tripId={tripId}
-            tripName={tripName}
             handicapAllowance={handicapAllowance}
             purseAmount={purseAmount}
             showPurseOnHome={showPurseOnHome}
