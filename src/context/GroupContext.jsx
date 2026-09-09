@@ -4,50 +4,46 @@ import { useAuth } from './AuthContext'
 
 const GroupContext = createContext({})
 
-const STORAGE_KEY = 'tc-active-trip'
-
 // Local (not UTC) YYYY-MM-DD so date comparisons match the user's calendar day.
 function localTodayIso() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function readStoredTripId() {
-  try { return localStorage.getItem(STORAGE_KEY) || null } catch { return null }
+// Whole-day count between two ISO 'YYYY-MM-DD' dates (order-independent). Parsed
+// as UTC midnight so DST never shifts the result.
+function isoToUtc(iso) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return Date.UTC(y, m - 1, d)
 }
-function writeStoredTripId(id) {
-  try { if (id) localStorage.setItem(STORAGE_KEY, id); else localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
+function daysBetweenIso(a, b) {
+  return Math.round(Math.abs(isoToUtc(b) - isoToUtc(a)) / 86400000)
 }
 
-// Pick the trip to auto-load, in priority order:
-//   0. a stored (manually-chosen) trip that still exists
-//   1. a trip whose dates include today (active)
-//   2. the nearest upcoming trip (soonest future start)
-//   3. the most recently completed trip (latest past end)
-// Dates are ISO 'YYYY-MM-DD' strings, so lexical compare == chronological compare.
-export function pickBestTrip(trips, storedId) {
+// How far a trip's date window is from today: 0 while the trip is ongoing (today
+// within [start,end]); otherwise the gap to the nearest edge — days until it
+// starts (future) or days since it ended (past). Trips missing dates sort last.
+function tripDistanceFromToday(trip, today) {
+  const { start_date: s, end_date: e } = trip
+  if (!s || !e) return Number.POSITIVE_INFINITY
+  if (s <= today && e >= today) return 0
+  return today < s ? daysBetweenIso(today, s) : daysBetweenIso(e, today)
+}
+
+// The trip to auto-load: always the one CLOSEST to today (an ongoing trip wins at
+// distance 0, else the nearest upcoming or most-recently-finished by day count).
+// Chosen fresh on every load — a manual switch lasts only for the session, so
+// reopening the app always lands on the date-relevant trip. Ties (equal distance,
+// e.g. one ending yesterday vs one starting tomorrow) break to the earlier start.
+export function pickBestTrip(trips) {
   if (!trips || trips.length === 0) return null
-  if (storedId) {
-    const stored = trips.find(t => t.id === storedId)
-    if (stored) return stored
-  }
   const today = localTodayIso()
-  const active = trips
-    .filter(t => t.start_date && t.end_date && t.start_date <= today && t.end_date >= today)
-    .sort((a, b) => a.start_date.localeCompare(b.start_date))
-  if (active.length) return active[0]
-
-  const upcoming = trips
-    .filter(t => t.start_date && t.start_date > today)
-    .sort((a, b) => a.start_date.localeCompare(b.start_date))
-  if (upcoming.length) return upcoming[0]
-
-  const past = trips
-    .filter(t => t.end_date && t.end_date < today)
-    .sort((a, b) => b.end_date.localeCompare(a.end_date))
-  if (past.length) return past[0]
-
-  return trips[0]
+  return trips.slice().sort((a, b) => {
+    const da = tripDistanceFromToday(a, today)
+    const db = tripDistanceFromToday(b, today)
+    if (da !== db) return da - db
+    return (a.start_date || '').localeCompare(b.start_date || '')
+  })[0]
 }
 
 export function GroupProvider({ children }) {
@@ -91,10 +87,11 @@ export function GroupProvider({ children }) {
     }
     setAllTrips(trips)
 
-    // Keep the current selection if it's still valid; otherwise stored → priority.
+    // Keep a still-valid in-session selection across refetches; on a fresh load
+    // (prev == null) default to the trip closest to today.
     setActiveTripId(prev => {
       if (prev && trips.some(t => t.id === prev)) return prev
-      const best = pickBestTrip(trips, readStoredTripId())
+      const best = pickBestTrip(trips)
       return best?.id ?? null
     })
 
@@ -103,10 +100,10 @@ export function GroupProvider({ children }) {
     return { groups, trips }
   }
 
-  // Manually switch the active trip (persisted so it survives a refresh).
+  // Manually switch the active trip for THIS session only. Not persisted — a
+  // reload intentionally returns to the trip closest to today (see pickBestTrip).
   function switchTrip(tripId) {
     if (!tripId) return
-    writeStoredTripId(tripId)
     setActiveTripId(tripId)
   }
 
