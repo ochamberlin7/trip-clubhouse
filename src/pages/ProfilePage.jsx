@@ -2,10 +2,15 @@
 // (Supabase auth user + the shared `profiles` row), NOT any per-trip
 // `trip_players` slot. Editing here does not touch a user's per-trip player
 // rows across their trips.
+//
+// Flat disclosure rows on a plain background (matching Commissioner Tools): each
+// field is its own tap-to-expand row with an inline Save; Sign Out is a plain red
+// text action under a heavier divider.
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { rowUI, Disclosure, SaveLink } from '../components/DisclosureRow'
 
 // Display-only phone formatting — matches Signup.jsx. Stored value is raw digits.
 function formatPhone(raw) {
@@ -21,6 +26,15 @@ function splitName(displayName) {
 
 const emailLooksValid = (e) => /^\S+@\S+\.\S+$/.test((e || '').trim())
 
+const hdr = {
+  page: { minHeight: '100vh', background: '#F0F4F8' },
+  bar: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: 'max(env(safe-area-inset-top), 16px) 16px 12px', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: 12 },
+  back: { width: 34, height: 34, flexShrink: 0, borderRadius: 8, border: '1px solid #E1E7EE', background: '#fff', color: '#1B3F6E', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 },
+  eyebrow: { fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#7A8FA6' },
+  title: { fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: '#0D1B2A', lineHeight: 1.1 },
+  body: { padding: 16 },
+}
+
 export default function ProfilePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -32,197 +46,154 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState(formatPhone(user?.user_metadata?.phone || ''))
   const [email, setEmail] = useState(user?.email || '')
 
-  const [profileMsg, setProfileMsg] = useState(null)
-  const [profileErr, setProfileErr] = useState(null)
-  const [savingProfile, setSavingProfile] = useState(false)
-  const [savedProfile, setSavedProfile] = useState(false) // brief "✓ Saved" button state
+  const [nameState, setNameState] = useState({ saving: false, saved: false, err: '' })
+  const [phoneState, setPhoneState] = useState({ saving: false, saved: false, err: '' })
+  const [emailState, setEmailState] = useState({ saving: false, saved: false, err: '', note: '' })
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [pwMsg, setPwMsg] = useState(null)
-  const [pwErr, setPwErr] = useState(null)
-  const [savingPw, setSavingPw] = useState(false)
+  const [pwState, setPwState] = useState({ saving: false, ok: '', err: '' })
 
-  async function saveProfile(e) {
-    e.preventDefault()
-    setProfileMsg(null)
-    setProfileErr(null)
-    setSavedProfile(false)
-    if (!firstName.trim() || !lastName.trim()) { setProfileErr('First and last name are required.'); return }
-    if (!emailLooksValid(email)) { setProfileErr('Enter a valid email address.'); return }
-
-    setSavingProfile(true)
+  async function saveName() {
+    if (!firstName.trim() || !lastName.trim()) { setNameState({ saving: false, saved: false, err: 'First and last name are required.' }); return }
+    setNameState({ saving: true, saved: false, err: '' })
     const displayName = `${firstName.trim()} ${lastName.trim()}`.trim()
-    const phoneDigits = phone.replace(/\D/g, '') || null
-    const emailChanged = email.trim().toLowerCase() !== (user.email || '').toLowerCase()
-
     try {
-      // Name + phone update immediately in both auth metadata and the shared profile row.
-      const { error: metaErr } = await supabase.auth.updateUser({ data: { display_name: displayName, phone: phoneDigits } })
+      const { error: metaErr } = await supabase.auth.updateUser({ data: { display_name: displayName } })
       if (metaErr) throw metaErr
-      // profiles.phone is added by migration 20260639. If that migration hasn't been
-      // applied yet (or PostgREST's schema cache is stale), the write fails with a
-      // "phone column not found" error — retry name-only so the NAME still saves to
-      // the profile row (which is what the app joins on for display names). Phone
-      // still round-trips via auth metadata above. Same pattern as saveStay.
-      let { error: profErr } = await supabase.from('profiles').update({ display_name: displayName, phone: phoneDigits }).eq('id', user.id)
-      if (profErr && /phone/i.test(profErr.message || '')) {
-        ;({ error: profErr } = await supabase.from('profiles').update({ display_name: displayName }).eq('id', user.id))
-      }
+      const { error: profErr } = await supabase.from('profiles').update({ display_name: displayName }).eq('id', user.id)
       if (profErr) throw profErr
-
-      // Email change goes through Supabase Auth, which requires confirming the
-      // new address before it takes effect — surface that instead of implying
-      // it's already changed.
-      if (emailChanged) {
-        const { error: emailErr } = await supabase.auth.updateUser({ email: email.trim() })
-        if (emailErr) throw emailErr
-        // Email changes need the "confirm your new address" note — keep that banner.
-        setProfileMsg(`Check your new email (${email.trim()}) to confirm the address change — until then your login email stays the same.`)
-      }
-      // Success is signalled by the Save button flipping to a green "✓ Saved" (see
-      // the button below); it reverts to "Save Changes" as soon as a field is edited.
-      setSavedProfile(true)
+      setNameState({ saving: false, saved: true, err: '' })
+      setTimeout(() => setNameState(s => ({ ...s, saved: false })), 2000)
     } catch (err) {
-      setProfileErr(err?.message || String(err))
-    } finally {
-      setSavingProfile(false)
+      setNameState({ saving: false, saved: false, err: err?.message || String(err) })
     }
   }
 
-  async function changePassword(e) {
-    e.preventDefault()
-    setPwMsg(null)
-    setPwErr(null)
-    if (!currentPassword) { setPwErr('Enter your current password.'); return }
-    if (newPassword.length < 6) { setPwErr('New password must be at least 6 characters.'); return }
-    if (newPassword !== confirmPassword) { setPwErr('New passwords do not match.'); return }
-    if (newPassword === currentPassword) { setPwErr('New password must be different from the current one.'); return }
-
-    setSavingPw(true)
+  async function savePhone() {
+    setPhoneState({ saving: true, saved: false, err: '' })
+    const phoneDigits = phone.replace(/\D/g, '') || null
     try {
-      // Re-authenticate to confirm the current password before allowing a change —
-      // no silent/unconfirmed password updates.
-      const { error: reauthErr } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword })
-      if (reauthErr) { setPwErr('Current password is incorrect.'); setSavingPw(false); return }
+      const { error: metaErr } = await supabase.auth.updateUser({ data: { phone: phoneDigits } })
+      if (metaErr) throw metaErr
+      // profiles.phone was added by migration 20260639; if the column/schema cache
+      // isn't ready the write fails on "phone" — the value still round-trips via
+      // auth metadata above, so that's non-fatal here.
+      const { error: profErr } = await supabase.from('profiles').update({ phone: phoneDigits }).eq('id', user.id)
+      if (profErr && !/phone/i.test(profErr.message || '')) throw profErr
+      setPhone(formatPhone(phone))
+      setPhoneState({ saving: false, saved: true, err: '' })
+      setTimeout(() => setPhoneState(s => ({ ...s, saved: false })), 2000)
+    } catch (err) {
+      setPhoneState({ saving: false, saved: false, err: err?.message || String(err) })
+    }
+  }
 
+  async function saveEmail() {
+    if (!emailLooksValid(email)) { setEmailState({ saving: false, saved: false, err: 'Enter a valid email address.', note: '' }); return }
+    if (email.trim().toLowerCase() === (user.email || '').toLowerCase()) { setEmailState({ saving: false, saved: true, err: '', note: '' }); setTimeout(() => setEmailState(s => ({ ...s, saved: false })), 2000); return }
+    setEmailState({ saving: true, saved: false, err: '', note: '' })
+    try {
+      const { error } = await supabase.auth.updateUser({ email: email.trim() })
+      if (error) throw error
+      // Email changes require confirming the new address before they take effect.
+      setEmailState({ saving: false, saved: false, err: '', note: `Check your new email (${email.trim()}) to confirm the change — until then your login email stays the same.` })
+    } catch (err) {
+      setEmailState({ saving: false, saved: false, err: err?.message || String(err), note: '' })
+    }
+  }
+
+  async function changePassword() {
+    if (!currentPassword) { setPwState({ saving: false, ok: '', err: 'Enter your current password.' }); return }
+    if (newPassword.length < 6) { setPwState({ saving: false, ok: '', err: 'New password must be at least 6 characters.' }); return }
+    if (newPassword !== confirmPassword) { setPwState({ saving: false, ok: '', err: 'New passwords do not match.' }); return }
+    if (newPassword === currentPassword) { setPwState({ saving: false, ok: '', err: 'New password must be different from the current one.' }); return }
+    setPwState({ saving: true, ok: '', err: '' })
+    try {
+      // Re-authenticate to confirm the current password — no silent updates.
+      const { error: reauthErr } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword })
+      if (reauthErr) { setPwState({ saving: false, ok: '', err: 'Current password is incorrect.' }); return }
       const { error: updErr } = await supabase.auth.updateUser({ password: newPassword })
       if (updErr) throw updErr
-
-      setPwMsg('Password updated.')
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
+      setPwState({ saving: false, ok: 'Password updated.', err: '' })
     } catch (err) {
-      setPwErr(err?.message || String(err))
-    } finally {
-      setSavingPw(false)
+      setPwState({ saving: false, ok: '', err: err?.message || String(err) })
     }
   }
 
-  // Same sign-out logic previously used by the drawer.
   async function handleSignOut() {
     await supabase.auth.signOut()
     navigate('/login', { replace: true })
   }
 
-  return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="btn-ghost" style={{ paddingLeft: 0 }} onClick={() => navigate(-1)}>← Back</button>
-        </div>
-        <div>
-          <p className="auth-brand">Your Account</p>
-          <h2>Profile</h2>
-        </div>
+  const nameValue = `${firstName} ${lastName}`.trim() || '—'
+  const phoneValue = phone.trim() ? formatPhone(phone) : '—'
+  const emailValue = email || '—'
 
-        <form className="auth-form" onSubmit={saveProfile}>
+  return (
+    <div style={hdr.page}>
+      <div style={hdr.bar}>
+        <button style={hdr.back} onClick={() => navigate(-1)} aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+        <div>
+          <div style={hdr.eyebrow}>Your Account</div>
+          <div style={hdr.title}>Profile</div>
+        </div>
+      </div>
+
+      <div style={hdr.body}>
+        <Disclosure label="Name" value={nameValue}>
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <label className="field-label">First Name</label>
-              <input type="text" placeholder="First" value={firstName} onChange={e => { setFirstName(e.target.value); setSavedProfile(false) }} required />
+              <div style={rowUI.fieldLabel}>First Name</div>
+              <input style={rowUI.input} type="text" placeholder="First" value={firstName}
+                onChange={e => { setFirstName(e.target.value); setNameState(s => ({ ...s, saved: false })) }} />
             </div>
             <div style={{ flex: 1 }}>
-              <label className="field-label">Last Name</label>
-              <input type="text" placeholder="Last" value={lastName} onChange={e => { setLastName(e.target.value); setSavedProfile(false) }} required />
+              <div style={rowUI.fieldLabel}>Last Name</div>
+              <input style={rowUI.input} type="text" placeholder="Last" value={lastName}
+                onChange={e => { setLastName(e.target.value); setNameState(s => ({ ...s, saved: false })) }} />
             </div>
           </div>
-          <div>
-            <label className="field-label">Phone Number</label>
-            <input type="tel" placeholder="(555) 000-0000" value={phone}
-              onChange={e => { setPhone(e.target.value); setSavedProfile(false) }}
-              onBlur={() => setPhone(formatPhone(phone))} />
-          </div>
-          <div>
-            <label className="field-label">Email</label>
-            <input type="email" placeholder="you@example.com" value={email} onChange={e => { setEmail(e.target.value); setSavedProfile(false) }} required />
-          </div>
-          {profileErr && <p className="error-msg">{profileErr}</p>}
-          {profileMsg && <div className="info-banner">{profileMsg}</div>}
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={savingProfile}
-            style={savedProfile ? { background: '#0F6E56' } : undefined}
-          >
-            {savingProfile ? 'Saving…' : savedProfile ? (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                Saved
-              </>
-            ) : 'Save Changes'}
-          </button>
-        </form>
+          <SaveLink onClick={saveName} saving={nameState.saving} saved={nameState.saved} error={nameState.err} />
+        </Disclosure>
 
-        <div>
-          <p className="auth-brand">Security</p>
-          <h2>Change Password</h2>
+        <Disclosure label="Phone Number" value={phoneValue}>
+          <div style={rowUI.fieldLabel}>Phone</div>
+          <input style={rowUI.input} type="tel" inputMode="tel" placeholder="(555) 000-0000" value={phone}
+            onChange={e => { setPhone(e.target.value); setPhoneState(s => ({ ...s, saved: false })) }}
+            onBlur={() => setPhone(formatPhone(phone))} />
+          <SaveLink onClick={savePhone} saving={phoneState.saving} saved={phoneState.saved} error={phoneState.err} />
+        </Disclosure>
+
+        <Disclosure label="Email" value={emailValue}>
+          <div style={rowUI.fieldLabel}>Email</div>
+          <input style={rowUI.input} type="email" placeholder="you@example.com" value={email}
+            onChange={e => { setEmail(e.target.value); setEmailState(s => ({ ...s, saved: false, note: '' })) }} />
+          {emailState.note && <div style={rowUI.info}>{emailState.note}</div>}
+          <SaveLink onClick={saveEmail} saving={emailState.saving} saved={emailState.saved} error={emailState.err} />
+        </Disclosure>
+
+        <Disclosure label="Change Password" value="">
+          <div style={rowUI.fieldLabel}>Current Password</div>
+          <input style={rowUI.input} type="password" placeholder="Current password" value={currentPassword}
+            onChange={e => setCurrentPassword(e.target.value)} autoComplete="current-password" />
+          <div style={rowUI.fieldLabel}>New Password</div>
+          <input style={rowUI.input} type="password" placeholder="Min 6 characters" value={newPassword}
+            onChange={e => setNewPassword(e.target.value)} minLength={6} autoComplete="new-password" />
+          <div style={rowUI.fieldLabel}>Confirm New Password</div>
+          <input style={rowUI.input} type="password" placeholder="Re-enter new password" value={confirmPassword}
+            onChange={e => setConfirmPassword(e.target.value)} minLength={6} autoComplete="new-password" />
+          {pwState.ok && <div style={{ ...rowUI.ok, marginTop: 8 }}>{pwState.ok}</div>}
+          <SaveLink onClick={changePassword} saving={pwState.saving} saved={false} error={pwState.err} label="Update password" />
+        </Disclosure>
+
+        <div style={rowUI.dangerWrap}>
+          <button style={rowUI.dangerBtn} onClick={handleSignOut}>Sign Out</button>
         </div>
-        <form className="auth-form" onSubmit={changePassword}>
-          <div>
-            <label className="field-label">Current Password</label>
-            <input type="password" placeholder="Current password" value={currentPassword}
-              onChange={e => setCurrentPassword(e.target.value)} autoComplete="current-password" />
-          </div>
-          <div>
-            <label className="field-label">New Password</label>
-            <input type="password" placeholder="Min 6 characters" value={newPassword}
-              onChange={e => setNewPassword(e.target.value)} minLength={6} autoComplete="new-password" />
-          </div>
-          <div>
-            <label className="field-label">Confirm New Password</label>
-            <input type="password" placeholder="Re-enter new password" value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)} minLength={6} autoComplete="new-password" />
-          </div>
-          {pwErr && <p className="error-msg">{pwErr}</p>}
-          {pwMsg && <div className="info-banner">{pwMsg}</div>}
-          <button type="submit" className="btn btn-primary" disabled={savingPw}>
-            {savingPw ? 'Updating…' : 'Update Password'}
-          </button>
-        </form>
-
-        <button
-          type="button"
-          onClick={handleSignOut}
-          style={{
-            width: '100%',
-            background: 'transparent',
-            border: '1px solid #E8EDF3',
-            color: '#C0392B',
-            fontWeight: 600,
-            fontSize: 15,
-            padding: '12px',
-            borderRadius: 8,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-          }}
-        >
-          Sign Out
-        </button>
       </div>
     </div>
   )

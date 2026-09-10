@@ -13,9 +13,10 @@ import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parse
 import { hasBonusGame } from '../lib/bonusGames'
 import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
-import { loadPurseStandings, computePurse, formatMoney } from '../lib/purse'
+import { formatMoney } from '../lib/purse'
 import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } from '../lib/meals'
 import { ProfileBadge } from './ProfileAvatar'
+import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import SupportForm from './SupportForm'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -440,27 +441,6 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
   )
 }
 
-function InviteSection({ inviteToken }) {
-  const [copied, setCopied] = useState(false)
-  const url = `https://thetripclubhouse.com/join/${inviteToken || ''}`
-  async function copy() {
-    try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-  return (
-    <Card title="Invite Players">
-      <div style={{ fontSize: 13, color: '#2C3E50', lineHeight: 1.5 }}>
-        Share this link with your group. Anyone who joins via this link will be added to the trip.
-      </div>
-      <div style={{ background: '#E8EDF3', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#7A8FA6', wordBreak: 'break-all', marginTop: 8 }}>{url}</div>
-      <button onClick={copy} className="btn btn-outline" style={{ marginTop: 8 }}>{copied ? 'Copied!' : 'Copy Link'}</button>
-      <div style={{ fontSize: 11, color: '#7A8FA6', fontStyle: 'italic', marginTop: 8 }}>
-        Players who join via this link will appear here once they sign in and accept the invite.
-      </div>
-    </Card>
-  )
-}
 
 // Quick-glance roster: a 2-column wrapping grid of team cards, each listing its
 // players + handicaps. Colours come from the SAME palette as the scorecard
@@ -1600,18 +1580,12 @@ function RulesPage({ tripId, isCommissioner, tournamentFormat, bonusGames }) {
 // Read-only display (one row per team, coloured by index) with an Edit toggle; Save
 // does a direct UPDATE by team id (blank clears the name back to null → "Team N") and
 // returns to read-only.
-function teamsAllNamed(teams) {
-  return teams.length > 0 && teams.every(t => !!t.name)
-}
-
-function TeamNamesCard({ teams, onSaved }) {
-  // First load: read-only if every team already has a name, else start editable.
-  const [editing, setEditing] = useState(() => !teamsAllNamed(teams))
+// Expanded body of the "Team Names" disclosure: a name input per team + Save.
+function TeamNamesBody({ teams, onSaved }) {
   const [names, setNames] = useState(() => teams.map(t => t.name || ''))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  // Re-sync the inputs if the underlying teams change (e.g. after a reload).
   useEffect(() => { setNames(teams.map(t => t.name || '')) }, [teams])
 
   async function save() {
@@ -1625,57 +1599,33 @@ function TeamNamesCard({ teams, onSaved }) {
     if (results.some(r => r.error)) return
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
-    setEditing(false)
     onSaved(next)
   }
 
-  if (teams.length === 0) {
-    return <Card title="Team Names"><div style={s.muted}>No teams for this trip.</div></Card>
-  }
+  if (teams.length === 0) return <div style={s.muted}>No teams for this trip.</div>
 
   return (
-    <Card title="Team Names">
-      {editing ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {teams.map((t, i) => (
-            <div key={t.id}>
-              <div style={pc.detailLabel}>Team {t.team_index ?? i + 1} Name</div>
-              <input
-                style={{ ...pc.editInput, marginTop: 4 }}
-                value={names[i] ?? ''}
-                placeholder={`Team ${t.team_index ?? i + 1}`}
-                onChange={e => setNames(n => n.map((v, j) => (j === i ? e.target.value : v)))}
-              />
-            </div>
-          ))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
-            <button onClick={save} disabled={saving} style={pc.saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
-          </div>
+    <>
+      {teams.map((t, i) => (
+        <div key={t.id}>
+          <div style={rowUI.fieldLabel}>Team {t.team_index ?? i + 1} Name</div>
+          <input
+            style={rowUI.input}
+            value={names[i] ?? ''}
+            placeholder={`Team ${t.team_index ?? i + 1}`}
+            onChange={e => setNames(n => n.map((v, j) => (j === i ? e.target.value : v)))}
+          />
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {teams.map((t, i) => (
-            <div key={t.id}>
-              <div style={pc.detailLabel}>Team {t.team_index ?? i + 1}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: teamColor(colorIndexOf(t)).solid, flexShrink: 0 }} />
-                <span style={{ fontSize: 16, fontWeight: 700, color: '#0D1B2A' }}>{getTeamDisplayName(t)}</span>
-              </div>
-            </div>
-          ))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
-            <button onClick={() => setEditing(true)} style={s.editCourseBtn}>Edit</button>
-            {saved && <span style={{ fontSize: 12, color: '#2E7D32' }}>Saved ✓</span>}
-          </div>
-        </div>
-      )}
-    </Card>
+      ))}
+      <SaveLink onClick={save} saving={saving} saved={saved} />
+    </>
   )
 }
 
 const ALLOWANCE_OPTIONS = [100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50] // descending
 
-function AllowanceInputCard({ tripId, allowance, onUpdate }) {
+// Expanded body of the "Handicap Allowance" disclosure.
+function AllowanceBody({ tripId, allowance, onUpdate }) {
   const [value, setValue] = useState(allowance ?? 100)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -1683,9 +1633,8 @@ function AllowanceInputCard({ tripId, allowance, onUpdate }) {
   useEffect(() => { setValue(allowance ?? 100) }, [allowance])
 
   async function save() {
-    const v = Number(value)
     setSaving(true)
-    const { error } = await supabase.from('trips').update({ handicap_allowance: v }).eq('id', tripId)
+    const { error } = await supabase.from('trips').update({ handicap_allowance: Number(value) }).eq('id', tripId)
     setSaving(false)
     if (!error) {
       setSaved(true)
@@ -1695,55 +1644,30 @@ function AllowanceInputCard({ tripId, allowance, onUpdate }) {
   }
 
   return (
-    <Card title="Handicap Allowance">
-      <div style={{ fontSize: 13, color: '#2C3E50', lineHeight: 1.5, marginBottom: 10 }}>
+    <>
+      <div style={rowUI.fieldLabel}>Allowance</div>
+      <select style={rowUI.input} value={String(value)} onChange={e => setValue(Number(e.target.value))}>
+        {ALLOWANCE_OPTIONS.map(v => <option key={v} value={v}>{v}%</option>)}
+      </select>
+      <div style={rowUI.note}>
         The percentage of the handicap difference players receive. 100% is full allowance.
         Strokes are calculated on the fly from this setting.
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <select
-          style={{ ...pc.editInput, width: 110, flex: 'none' }}
-          value={String(value)}
-          onChange={e => setValue(Number(e.target.value))}
-        >
-          {ALLOWANCE_OPTIONS.map(v => <option key={v} value={v}>{v}%</option>)}
-        </select>
-        <button onClick={save} disabled={saving} style={{ ...pc.saveBtn, marginLeft: 'auto' }}>{saving ? 'Saving…' : 'Save'}</button>
-      </div>
-      {saved && <div style={{ fontSize: 12, color: '#2E7D32', marginTop: 8 }}>Saved ✓</div>}
-    </Card>
+      <SaveLink onClick={save} saving={saving} saved={saved} />
+    </>
   )
 }
 
-// Commissioner "Tournament Purse" section: set the purse amount (with a live
-// per-player preview from current standings) and toggle the Home widget.
-const purseLabel = { fontSize: 12, fontWeight: 600, color: '#1B3F6E', display: 'block', marginBottom: 6 }
-function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, onUpdate }) {
+// Expanded body of the "Tournament Purse" disclosure: amount + Home-tab toggle.
+function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate }) {
   const [amount, setAmount] = useState(Number(purseAmount) > 0 ? String(purseAmount) : '')
-  const [standings, setStandings] = useState(null)
   const [showHome, setShowHome] = useState(!!showPurseOnHome)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState('')
 
-  useEffect(() => { setShowHome(!!showPurseOnHome) }, [showPurseOnHome])
-  useEffect(() => {
-    let cancelled = false
-    loadPurseStandings(supabase, tripId, allowance).then(sd => { if (!cancelled) setStandings(sd) })
-    return () => { cancelled = true }
-  }, [tripId, allowance])
-
   const num = amount === '' ? 0 : parseFloat(amount)
   const invalid = amount !== '' && (!Number.isFinite(num) || num < 0)
-  const purse = standings ? computePurse({ ...standings, amount: num > 0 ? num : 0 }) : null
-
-  let preview = ''
-  if (invalid) preview = ''
-  else if (num > 0 && purse?.valid && purse.splitCount > 0) {
-    preview = purse.tied
-      ? `Tied — $${formatMoney(purse.perShare)} each`
-      : `Each ${purse.losingTeamName} player owes $${formatMoney(purse.perShare)}`
-  }
 
   async function save() {
     setErr('')
@@ -1766,70 +1690,81 @@ function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, on
   }
 
   return (
-    <Card title="Tournament Purse">
-      <label style={purseLabel}>Purse Amount</label>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#7A8FA6', fontSize: 14 }}>$</span>
-          <input type="number" min="0" inputMode="decimal" placeholder="e.g., 640" value={amount}
-            onChange={e => setAmount(e.target.value)} style={{ ...pc.editInput, paddingLeft: 22 }} />
-        </div>
-        <button onClick={save} disabled={saving} style={pc.saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
-      </div>
-      {preview && <div style={{ fontSize: 12, color: '#8a96a3', marginTop: 8 }}>{preview}</div>}
-      {err && <div style={{ fontSize: 12, color: '#C0392B', marginTop: 8 }}>{err}</div>}
-      {saved && <div style={{ fontSize: 12, color: '#2E7D32', marginTop: 8 }}>Saved ✓</div>}
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 18 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={purseLabel}>Show Purse on Home Screen</div>
-          <div style={{ fontSize: 12, color: '#8a96a3', marginTop: -2 }}>Display the purse widget on the Home tab.</div>
-        </div>
-        <button role="switch" aria-checked={showHome} onClick={toggle} aria-label="Show purse on Home screen"
-          style={{ width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0, position: 'relative', background: showHome ? '#1B3F6E' : '#cccccc', transition: 'background 0.15s' }}>
-          <span style={{ position: 'absolute', top: 3, left: showHome ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
-        </button>
-      </div>
-    </Card>
-  )
-}
-
-function CommissionerPage({ data, tripId, tripName, handicapAllowance, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
-  if (!data) return <div style={s.muted}>Loading…</div>
-  return (
     <>
-      <TeamNamesCard teams={data.teams} onSaved={onTeamsSaved} />
-      <PurseSettingsCard tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} allowance={handicapAllowance} onUpdate={onTripUpdate} />
-      <AllowanceInputCard tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} />
-      <InviteSection inviteToken={inviteToken} />
-      <DeleteTripCard tripName={tripName} onDelete={onDeleteTrip} />
+      <div style={rowUI.fieldLabel}>Purse Amount</div>
+      <div style={{ position: 'relative' }}>
+        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#7A8FA6', fontSize: 14 }}>$</span>
+        <input type="number" min="0" inputMode="decimal" placeholder="e.g., 640" value={amount}
+          onChange={e => setAmount(e.target.value)} style={{ ...rowUI.input, paddingLeft: 24 }} />
+      </div>
+      <Toggle on={showHome} onClick={toggle} label="Show purse on Home tab" />
+      <SaveLink onClick={save} saving={saving} saved={saved} error={err} />
     </>
   )
 }
 
-// Soft-delete this trip. It moves to "Recently Deleted" in the Switch Trip screen
-// and can be restored for 30 days before it's purged — so the copy reassures
-// rather than warning of permanence.
-function DeleteTripCard({ tripName, onDelete }) {
+// Copy the invite link straight to the clipboard (no disclosure, no chevron).
+function InvitePlayersRow({ inviteToken }) {
+  const [copied, setCopied] = useState(false)
+  const url = `https://thetripclubhouse.com/join/${inviteToken || ''}`
+  async function copy() {
+    try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div style={{ ...rowUI.rowStatic, ...rowUI.divider }}>
+      <span style={rowUI.label}>Invite Players</span>
+      <button style={{ ...rowUI.linkBtn, marginLeft: 'auto' }} onClick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
+    </div>
+  )
+}
+
+// Bottom danger action: soft-delete this trip (stays in Recently Deleted 30 days).
+function DeleteTripAction({ tripName, onDelete }) {
   const [busy, setBusy] = useState(false)
   async function handle() {
     if (busy) return
     if (!window.confirm(`Delete "${tripName || 'this trip'}"? It moves to Recently Deleted and can be restored for 30 days.`)) return
     setBusy(true)
     await onDelete?.()
-    // On success the drawer closes + routes away; only reached again on failure.
-    setBusy(false)
+    setBusy(false) // on success the drawer closes + routes away
   }
   return (
-    <Card title="Delete Trip">
-      <div style={{ fontSize: 13, color: '#2C3E50', lineHeight: 1.5 }}>
-        Removes this trip from the trip list. It stays in <strong>Recently Deleted</strong> and can be restored for 30 days.
+    <div style={rowUI.dangerWrap}>
+      <div style={rowUI.note}>Removes this trip from the trip list. It stays in Recently Deleted and can be restored for 30 days.</div>
+      <button style={{ ...rowUI.dangerBtn, marginTop: 10 }} onClick={handle} disabled={busy}>{busy ? 'Deleting…' : 'Delete Trip'}</button>
+    </div>
+  )
+}
+
+function CommissionerPage({ data, tripId, tripName, handicapAllowance, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
+  if (!data) return <div style={s.muted}>Loading…</div>
+  const teams = data.teams || []
+  const teamsValue = teams.length ? teams.map(getTeamDisplayName).join(' vs ') : '—'
+  const purseValue = Number(purseAmount) > 0
+    ? `$${formatMoney(Number(purseAmount))}`
+    : (showPurseOnHome ? 'Not set' : 'Not set · hidden')
+  const allowanceValue = `${handicapAllowance ?? 100}%`
+  const joined = data.joinedCount ?? 0
+  return (
+    <div>
+      <Disclosure label="Team Names" value={teamsValue}>
+        <TeamNamesBody teams={teams} onSaved={onTeamsSaved} />
+      </Disclosure>
+      <Disclosure label="Tournament Purse" value={purseValue}>
+        <PurseBody tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} onUpdate={onTripUpdate} />
+      </Disclosure>
+      <Disclosure label="Handicap Allowance" value={allowanceValue}>
+        <AllowanceBody tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} />
+      </Disclosure>
+      <InvitePlayersRow inviteToken={inviteToken} />
+      <div style={{ ...rowUI.rowStatic, ...rowUI.divider }}>
+        <span style={rowUI.label}>Players Joined</span>
+        <span style={rowUI.value}>{joined} of open invite</span>
       </div>
-      <button onClick={handle} disabled={busy}
-        style={{ marginTop: 12, width: '100%', padding: '11px', borderRadius: 8, border: '1px solid #E3B4AE', background: '#FCEEEC', color: '#C0392B', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
-        {busy ? 'Deleting…' : 'Delete Trip'}
-      </button>
-    </Card>
+      <DeleteTripAction tripName={tripName} onDelete={onDeleteTrip} />
+    </div>
   )
 }
 
@@ -2494,8 +2429,13 @@ export default function MenuDrawer({
     if (page === 'commissioner' && !commissionerData) {
       (async () => {
         // Ordered by team_index; includes color_index for display/colour helpers.
-        const { data: teams } = await supabase.from('teams').select('id, name, team_index, color_index').eq('trip_id', tripId).order('team_index')
-        if (!cancelled) setCommissionerData({ teams: teams || [] })
+        // Also count players who've actually joined (claimed their slot) for the
+        // read-only "Players Joined" row.
+        const [{ data: teams }, { count: joinedCount }] = await Promise.all([
+          supabase.from('teams').select('id, name, team_index, color_index').eq('trip_id', tripId).order('team_index'),
+          supabase.from('trip_players').select('id', { count: 'exact', head: true }).eq('trip_id', tripId).eq('is_claimed', true),
+        ])
+        if (!cancelled) setCommissionerData({ teams: teams || [], joinedCount: joinedCount ?? 0 })
       })()
     }
     if (page === 'courses' && !coursesData) { (async () => { await loadCoursesData() })() }
