@@ -2025,7 +2025,9 @@ function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
 
   return (
     <div style={{ ...sw.swipeOuter, ...(divider ? sw.rowDivider : null) }}>
-      <button style={sw.swipeDelete} onClick={onDelete} aria-label="Delete trip" tabIndex={dx !== 0 ? 0 : -1}><TrashIcon /></button>
+      {/* Only mount the red action while the row is actually swiped — otherwise a
+          1px sliver of its left edge shows as a vertical line at rest. */}
+      {dx !== 0 && <button style={sw.swipeDelete} onClick={onDelete} aria-label="Delete trip"><TrashIcon /></button>}
       <button
         style={{ ...rowStyle, borderBottom: 'none',
           // Opaque page-coloured background so the row blends into the screen yet
