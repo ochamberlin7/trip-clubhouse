@@ -82,7 +82,9 @@ export function GroupProvider({ children }) {
     const groupIds = groups.map(g => g.id)
     let trips = []
     if (groupIds.length) {
-      const { data: tripRows } = await supabase.from('trips').select('*').in('group_id', groupIds)
+      // Soft-deleted trips (deleted_at set) are excluded everywhere except the
+      // Switch Trip screen's "Recently Deleted" section.
+      const { data: tripRows } = await supabase.from('trips').select('*').in('group_id', groupIds).is('deleted_at', null)
       trips = tripRows || []
     }
     setAllTrips(trips)
@@ -107,6 +109,27 @@ export function GroupProvider({ children }) {
     setActiveTripId(tripId)
   }
 
+  // Soft-delete a trip: flag deleted_at, keep every child row so it stays
+  // restorable for 30 days. Refetches so it drops out of the active lists (and
+  // the active selection re-defaults if it was the current trip).
+  async function softDeleteTrip(tripId) {
+    if (!tripId) return { error: 'no trip' }
+    const { error } = await supabase.from('trips').update({ deleted_at: new Date().toISOString() }).eq('id', tripId)
+    if (!error) {
+      setActiveTripId(prev => (prev === tripId ? null : prev))
+      await fetchUserGroups()
+    }
+    return { error }
+  }
+
+  // Restore a soft-deleted trip (clear deleted_at) and refetch so it reappears.
+  async function restoreTrip(tripId) {
+    if (!tripId) return { error: 'no trip' }
+    const { error } = await supabase.from('trips').update({ deleted_at: null }).eq('id', tripId)
+    if (!error) await fetchUserGroups()
+    return { error }
+  }
+
   const activeTrip = allTrips.find(t => t.id === activeTripId) || null
   const activeGroup = activeTrip
     ? (userGroups.find(g => g.id === activeTrip.group_id) || null)
@@ -117,7 +140,7 @@ export function GroupProvider({ children }) {
     <GroupContext.Provider value={{
       userGroups, allTrips, activeGroup, activeTrip, activeTripId,
       loading, tripsLoaded, isAdmin,
-      fetchUserGroups, switchTrip,
+      fetchUserGroups, switchTrip, softDeleteTrip, restoreTrip,
     }}>
       {children}
     </GroupContext.Provider>

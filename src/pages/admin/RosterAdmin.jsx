@@ -53,6 +53,7 @@ export default function RosterAdmin() {
       .select('id, name')
       .eq('group_id', activeGroup.id)
       .eq('status', 'active')
+      .is('deleted_at', null)
       .maybeSingle()
 
     if (!trip) return

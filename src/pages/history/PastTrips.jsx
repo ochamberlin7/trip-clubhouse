@@ -15,6 +15,7 @@ export default function PastTrips() {
       .select('*')
       .eq('group_id', activeGroup.id)
       .eq('status', 'archived')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .then(({ data }) => { setTrips(data || []); setLoading(false) })
   }, [activeGroup])

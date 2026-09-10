@@ -1794,7 +1794,7 @@ function PurseSettingsCard({ tripId, purseAmount, showPurseOnHome, allowance, on
   )
 }
 
-function CommissionerPage({ data, tripId, handicapAllowance, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate }) {
+function CommissionerPage({ data, tripId, tripName, handicapAllowance, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   return (
     <>
@@ -1802,7 +1802,34 @@ function CommissionerPage({ data, tripId, handicapAllowance, purseAmount, showPu
       <PurseSettingsCard tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} allowance={handicapAllowance} onUpdate={onTripUpdate} />
       <AllowanceInputCard tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} />
       <InviteSection inviteToken={inviteToken} />
+      <DeleteTripCard tripName={tripName} onDelete={onDeleteTrip} />
     </>
+  )
+}
+
+// Soft-delete this trip. It moves to "Recently Deleted" in the Switch Trip screen
+// and can be restored for 30 days before it's purged — so the copy reassures
+// rather than warning of permanence.
+function DeleteTripCard({ tripName, onDelete }) {
+  const [busy, setBusy] = useState(false)
+  async function handle() {
+    if (busy) return
+    if (!window.confirm(`Delete "${tripName || 'this trip'}"? It moves to Recently Deleted and can be restored for 30 days.`)) return
+    setBusy(true)
+    await onDelete?.()
+    // On success the drawer closes + routes away; only reached again on failure.
+    setBusy(false)
+  }
+  return (
+    <Card title="Delete Trip">
+      <div style={{ fontSize: 13, color: '#2C3E50', lineHeight: 1.5 }}>
+        Removes this trip from the trip list. It stays in <strong>Recently Deleted</strong> and can be restored for 30 days.
+      </div>
+      <button onClick={handle} disabled={busy}
+        style={{ marginTop: 12, width: '100%', padding: '11px', borderRadius: 8, border: '1px solid #E3B4AE', background: '#FCEEEC', color: '#C0392B', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+        {busy ? 'Deleting…' : 'Delete Trip'}
+      </button>
+    </Card>
   )
 }
 
@@ -1876,93 +1903,211 @@ function mdParseIso(iso) {
   const d = new Date(iso + 'T00:00:00')
   return isNaN(d) ? null : d
 }
-// "Sep 29 – Oct 4, 2026"
-function fmtTripRange(startIso, endIso) {
+// Short right-column date, e.g. "Sep 8–11", "Apr 14–17, '27" (year only when not
+// the current year), "Mar '26" when only a month is meaningful.
+function fmtLedgerDate(startIso, endIso) {
   const s = mdParseIso(startIso), e = mdParseIso(endIso)
-  if (s && e) return `${MD_MONTHS[s.getMonth()]} ${s.getDate()} – ${MD_MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`
-  if (s) return `${MD_MONTHS[s.getMonth()]} ${s.getDate()}, ${s.getFullYear()}`
-  if (e) return `${MD_MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`
-  return 'Dates TBD'
+  const thisYear = new Date().getFullYear()
+  const yr = y => `'${String(y).slice(-2)}`
+  if (s && e) {
+    const sameMonth = s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()
+    const head = sameMonth
+      ? `${MD_MONTHS[s.getMonth()]} ${s.getDate()}–${e.getDate()}`
+      : `${MD_MONTHS[s.getMonth()]} ${s.getDate()}–${MD_MONTHS[e.getMonth()]} ${e.getDate()}`
+    return e.getFullYear() === thisYear ? head : `${head}, ${yr(e.getFullYear())}`
+  }
+  const d = s || e
+  if (!d) return 'Dates TBD'
+  return d.getFullYear() === thisYear ? `${MD_MONTHS[d.getMonth()]} ${d.getDate()}` : `${MD_MONTHS[d.getMonth()]} ${yr(d.getFullYear())}`
 }
 
 const sw = {
-  sectionHeader: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#7A8FA6', padding: '16px 16px 6px' },
-  row: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none', border: 'none', borderBottom: '1px solid #E8EDF3', cursor: 'pointer', fontFamily: 'inherit' },
+  // The SecondaryPage frame already shows the "Switch Trip" title; this is just
+  // the ledger's "N trips · viewing X" subtitle beneath it.
+  subtitle: { fontSize: 13, color: '#7A8FA6', padding: '2px 16px 10px' },
+  sectionHeader: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#8A98A8', padding: '14px 16px 4px' },
+  deletedLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#8A98A8' },
+  row: { display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' },
+  rowDivider: { borderBottom: '1px solid #EAEEF3' },
   rowActive: { background: '#EEF3F9' },
-  name: { display: 'block', fontSize: 15, fontWeight: 700, color: '#0D1B2A' },
-  meta: { display: 'block', fontSize: 12, color: '#7A8FA6', marginTop: 1 },
-  dates: { display: 'block', fontSize: 12, color: '#7A8FA6', marginTop: 1 },
-  check: { marginLeft: 'auto', color: '#1B3F6E', fontWeight: 900, fontSize: 16, flexShrink: 0 },
-  empty: { padding: '8px 16px 12px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
+  dot: { width: 9, height: 9, borderRadius: '50%', flexShrink: 0, marginTop: 5 },
+  dotCurrent: { background: '#22A559' },
+  dotNeutral: { background: '#C4CEDA' },
+  left: { minWidth: 0, flex: 1 },
+  name: { display: 'block', fontSize: 15, fontWeight: 700, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  loc: { display: 'block', fontSize: 12.5, color: '#8A98A8', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  right: { textAlign: 'right', flexShrink: 0, paddingLeft: 8 },
+  dates: { display: 'block', fontSize: 12.5, fontWeight: 600, color: '#5A7290', fontVariantNumeric: 'tabular-nums' },
+  golfers: { display: 'block', fontSize: 12, color: '#8A98A8', marginTop: 1, fontVariantNumeric: 'tabular-nums' },
+  empty: { padding: '6px 16px 10px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
   loading: { padding: '16px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
-  createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '20px 16px', padding: '13px', borderRadius: 8, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '18px 16px', padding: '13px', borderRadius: 8, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  // Recently Deleted — set off from the trip groups by a heavier top border.
+  deletedWrap: { borderTop: '3px solid #E1E7EE', marginTop: 14 },
+  deletedHeaderBtn: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '14px 16px 4px' },
+  caret: { transition: 'transform 0.2s ease', color: '#8A98A8', display: 'flex', flexShrink: 0 },
+  deletedInner: { overflow: 'hidden', transition: 'height 0.24s ease' },
+  deletedRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 16px' },
+  deletedName: { fontSize: 14.5, color: '#A6B0BC', textDecoration: 'line-through', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
+  restoreBtn: { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, padding: '2px 4px' },
+  deletedNote: { fontSize: 12, color: '#8A98A8', padding: '4px 16px 14px' },
 }
 
-// Flat list of EVERY trip the user belongs to (via trip_players) across ALL of
-// their groups, each tagged with its group name + the user's role in that group.
-function TripSwitcherPage({ userId, currentTripId, onPick, onCreate }) {
-  const [rows, setRows] = useState(null) // null = loading
+function CaretIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  )
+}
+
+// Collapsible "Recently Deleted" block. Renders NOTHING when there are no deleted
+// trips. Collapsed by default; animates its height open/closed and rotates the
+// caret. The toggle is a real button (aria-expanded, keyboard-operable).
+function RecentlyDeleted({ trips, onRestore }) {
+  const [open, setOpen] = useState(false)
+  const [height, setHeight] = useState(0)
+  const innerRef = useRef(null)
+
+  // Measure content so height animates to an explicit px value (auto can't tween).
+  useEffect(() => {
+    if (!open) { setHeight(0); return }
+    const el = innerRef.current
+    if (el) setHeight(el.scrollHeight)
+  }, [open, trips])
+
+  if (!trips || trips.length === 0) return null // empty ≠ collapsed: show nothing at all
+
+  return (
+    <div style={sw.deletedWrap}>
+      <button style={sw.deletedHeaderBtn} onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span style={sw.deletedLabel}>Recently Deleted</span>
+        <span style={{ ...sw.caret, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}><CaretIcon /></span>
+      </button>
+      <div style={{ ...sw.deletedInner, height }} aria-hidden={!open}>
+        <div ref={innerRef}>
+          {trips.map(t => (
+            <div key={t.id} style={sw.deletedRow}>
+              <span style={sw.deletedName}>{t.name || 'Untitled Trip'}</span>
+              <button style={sw.restoreBtn} onClick={() => onRestore(t.id)}>Restore</button>
+            </div>
+          ))}
+          <div style={sw.deletedNote}>Removed for good after 30 days.</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Season-ledger Switch Trip screen: the user's trips grouped into This Trip /
+// Upcoming / Past (name + location left, date + golfer count right), plus a
+// collapsible Recently Deleted section for soft-deleted trips restorable within
+// 30 days. Trip names/dates/locations/counts all come from the live trip data.
+function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore }) {
+  const [rows, setRows] = useState(null)       // active trips — null = loading
+  const [deleted, setDeleted] = useState([])   // soft-deleted, restorable (<30d)
 
   useEffect(() => {
-    if (!userId) { setRows([]); return }
+    if (!userId) { setRows([]); setDeleted([]); return }
     let cancelled = false
     ;(async () => {
-      // 1. Every group the user belongs to, with their role in it.
+      // 1. Groups the user belongs to.
       const { data: gm } = await supabase
         .from('group_members')
         .select('role, group_id, groups(id, name)')
         .eq('user_id', userId)
-      const groupInfo = new Map() // group_id -> { name, role }
-      ;(gm || []).forEach(m => {
-        const gid = m.group_id ?? m.groups?.id
-        if (gid) groupInfo.set(gid, { name: m.groups?.name ?? 'Group', role: m.role })
-      })
-      const groupIds = [...groupInfo.keys()]
-      if (!groupIds.length) { if (!cancelled) setRows([]); return }
+      const groupIds = [...new Set((gm || []).map(m => m.group_id ?? m.groups?.id).filter(Boolean))]
+      if (!groupIds.length) { if (!cancelled) { setRows([]); setDeleted([]) } return }
 
-      // 2. Trips in those groups + the trips the user actually belongs to (trip_players).
-      const [tripsRes, tpRes] = await Promise.all([
-        supabase.from('trips').select('id, group_id, name, start_date, end_date').in('group_id', groupIds),
+      // 2. Active + soft-deleted trips in those groups, and the trips the user
+      //    actually belongs to (membership).
+      const cutoff = new Date(Date.now() - 30 * 86400000).toISOString()
+      const [activeRes, deletedRes, tpRes] = await Promise.all([
+        supabase.from('trips').select('id, group_id, name, start_date, end_date').in('group_id', groupIds).is('deleted_at', null),
+        supabase.from('trips').select('id, group_id, name, deleted_at').in('group_id', groupIds).not('deleted_at', 'is', null).gte('deleted_at', cutoff).order('deleted_at', { ascending: false }),
         supabase.from('trip_players').select('trip_id').or(`user_id.eq.${userId},claimed_user_id.eq.${userId}`),
       ])
+      if (cancelled) return
       const myTripIds = new Set((tpRes.data || []).map(r => r.trip_id))
+
+      // 3. Location (from rounds) + golfer counts (from trip_players), keyed by
+      //    trip_id, for the active trips we'll show.
+      const tripIds = (activeRes.data || []).map(t => t.id)
+      const [roundRes, countRes] = tripIds.length
+        ? await Promise.all([
+            supabase.from('rounds').select('trip_id, date, location_city, location_state').in('trip_id', tripIds),
+            supabase.from('trip_players').select('trip_id').in('trip_id', tripIds),
+          ])
+        : [{ data: [] }, { data: [] }]
       if (cancelled) return
 
-      const list = (tripsRes.data || [])
-        // Trips the user belongs to (always keep the currently-active one too).
-        .filter(t => myTripIds.has(t.id) || t.id === currentTripId)
-        .map(t => {
-          const g = groupInfo.get(t.group_id) || {}
-          return {
-            id: t.id, name: t.name, start_date: t.start_date, end_date: t.end_date,
-            groupName: g.name || 'Group',
-            role: g.role === 'admin' ? 'Commissioner' : 'Member',
-          }
+      // Earliest located round per trip → "City, ST".
+      const locByTrip = new Map()
+      ;(roundRes.data || [])
+        .filter(r => r.location_city || r.location_state)
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+        .forEach(r => {
+          if (locByTrip.has(r.trip_id)) return
+          locByTrip.set(r.trip_id, [r.location_city, r.location_state].filter(Boolean).join(', '))
         })
+
+      // Golfer count per trip.
+      const countByTrip = new Map()
+      ;(countRes.data || []).forEach(r => countByTrip.set(r.trip_id, (countByTrip.get(r.trip_id) || 0) + 1))
+
+      const list = (activeRes.data || [])
+        .filter(t => myTripIds.has(t.id) || t.id === currentTripId)
+        .map(t => ({
+          id: t.id, name: t.name, start_date: t.start_date, end_date: t.end_date,
+          location: locByTrip.get(t.id) || '',
+          golfers: countByTrip.get(t.id) || 0,
+        }))
       setRows(list)
+      setDeleted((deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name })))
     })()
     return () => { cancelled = true }
   }, [userId, currentTripId])
 
   const today = mdTodayIso()
   const all = rows || []
+  const current = all.find(t => t.id === currentTripId) || null
   const upcoming = all
-    .filter(t => !t.end_date || t.end_date >= today)
+    .filter(t => t.id !== currentTripId && (!t.end_date || t.end_date >= today))
     .sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''))
   const past = all
-    .filter(t => t.end_date && t.end_date < today)
+    .filter(t => t.id !== currentTripId && t.end_date && t.end_date < today)
     .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
 
-  const Row = t => (
-    <button key={t.id} style={{ ...sw.row, ...(t.id === currentTripId ? sw.rowActive : null) }} onClick={() => onPick(t.id)}>
-      <span style={{ minWidth: 0, flex: 1 }}>
-        <span style={sw.name}>{t.name || 'Untitled Trip'}</span>
-        <span style={sw.meta}>{t.groupName} · {t.role}</span>
-        <span style={sw.dates}>{fmtTripRange(t.start_date, t.end_date)}</span>
-      </span>
-      {t.id === currentTripId && <span style={sw.check}>✓</span>}
-    </button>
-  )
+  // A group's rows share a hairline divider between them, but not after the last.
+  const Group = (label, list) => {
+    if (!list.length) return null
+    return (
+      <>
+        <div style={sw.sectionHeader}>{label}</div>
+        {list.map((t, i) => {
+          const isCurrent = t.id === currentTripId
+          return (
+            <button key={t.id}
+              style={{ ...sw.row, ...(i < list.length - 1 ? sw.rowDivider : null), ...(isCurrent ? sw.rowActive : null) }}
+              onClick={() => onPick(t.id)}>
+              <span style={{ ...sw.dot, ...(isCurrent ? sw.dotCurrent : sw.dotNeutral) }} />
+              <span style={sw.left}>
+                <span style={sw.name}>{t.name || 'Untitled Trip'}</span>
+                {t.location && <span style={sw.loc}>{t.location}</span>}
+              </span>
+              <span style={sw.right}>
+                <span style={sw.dates}>{fmtLedgerDate(t.start_date, t.end_date)}</span>
+                <span style={sw.golfers}>{t.golfers} golfer{t.golfers === 1 ? '' : 's'}</span>
+              </span>
+            </button>
+          )
+        })}
+      </>
+    )
+  }
+
+  const tripCount = all.length
+  const viewing = current?.name || null
 
   return (
     <div style={{ paddingBottom: 8 }}>
@@ -1970,10 +2115,14 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate }) {
         <div style={sw.loading}>Loading trips…</div>
       ) : (
         <>
-          <div style={sw.sectionHeader}>Active &amp; Upcoming</div>
-          {upcoming.length ? upcoming.map(Row) : <div style={sw.empty}>No active or upcoming trips</div>}
-          <div style={sw.sectionHeader}>Past Trips</div>
-          {past.length ? past.map(Row) : <div style={sw.empty}>No past trips</div>}
+          <div style={sw.subtitle}>
+            {tripCount} trip{tripCount === 1 ? '' : 's'}{viewing ? ` · viewing ${viewing}` : ''}
+          </div>
+          {Group('This Trip', current ? [current] : [])}
+          {Group('Upcoming', upcoming)}
+          {Group('Past', past)}
+          {!tripCount && <div style={sw.empty}>No trips yet</div>}
+          <RecentlyDeleted trips={deleted} onRestore={id => { setDeleted(d => d.filter(t => t.id !== id)); onRestore?.(id) }} />
         </>
       )}
       <button style={sw.createBtn} onClick={onCreate}>+ Create New Trip</button>
@@ -1988,7 +2137,7 @@ export default function MenuDrawer({
   inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
-  const { activeTripId, switchTrip } = useGroup()
+  const { activeTripId, switchTrip, restoreTrip, softDeleteTrip } = useGroup()
   const [page, setPage] = useState(null)
   const [playersData, setPlayersData] = useState(null)
   const [commissionerData, setCommissionerData] = useState(null)
@@ -2184,7 +2333,7 @@ export default function MenuDrawer({
     if (page === 'archives' && !archivesData) {
       (async () => {
         const todayIso = new Date().toISOString().slice(0, 10)
-        const { data } = await supabase.from('trips').select('*').eq('group_id', groupId).lt('end_date', todayIso).order('start_date', { ascending: false })
+        const { data } = await supabase.from('trips').select('*').eq('group_id', groupId).is('deleted_at', null).lt('end_date', todayIso).order('start_date', { ascending: false })
         if (!cancelled) setArchivesData(data || [])
       })()
     }
@@ -2569,6 +2718,7 @@ export default function MenuDrawer({
             currentTripId={activeTripId}
             onPick={id => { onClose(); switchTrip(id) }}
             onCreate={() => { onClose(); navigate('/onboarding/trip') }}
+            onRestore={id => restoreTrip(id)}
           />
         </SecondaryPage>
       )}
@@ -2577,11 +2727,17 @@ export default function MenuDrawer({
           <CommissionerPage
             data={commissionerData}
             tripId={tripId}
+            tripName={tripName}
             handicapAllowance={handicapAllowance}
             purseAmount={purseAmount}
             showPurseOnHome={showPurseOnHome}
             inviteToken={inviteToken}
             onTripUpdate={onTripUpdate}
+            onDeleteTrip={async () => {
+              const { error } = await softDeleteTrip(tripId)
+              if (error) { window.alert('Delete failed — please try again.'); return }
+              onClose(); navigate('/groups')
+            }}
             onTeamsSaved={next => {
               setCommissionerData(prev => (prev ? { ...prev, teams: next } : prev))
               setPlayersData(null)   // refresh team names on the Players tab
