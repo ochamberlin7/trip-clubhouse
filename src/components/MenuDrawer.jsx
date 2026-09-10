@@ -1992,15 +1992,19 @@ function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
     return <button style={rowStyle} onClick={onPick}>{children}</button>
   }
 
+  // The drag-active guard lives in the ref, NOT the `dragging` state: setDragging
+  // is async, so a mouse (which fires pointermove immediately, unlike touch) would
+  // have its first moves dropped by a stale state closure — that's why the swipe
+  // worked on mobile but not desktop. The state only toggles the CSS transition.
   function down(e) {
-    st.current = { x0: e.clientX, y0: e.clientY, base: dx, axis: null, drag: false }
+    st.current = { x0: e.clientX, y0: e.clientY, base: dx, axis: null, drag: false, active: true }
     setDragging(true)
   }
   function move(e) {
-    if (!dragging) return
     const s = st.current
+    if (!s.active) return
     const ddx = e.clientX - s.x0, ddy = e.clientY - s.y0
-    if (!s.axis && (Math.abs(ddx) > 8 || Math.abs(ddy) > 8)) {
+    if (!s.axis && (Math.abs(ddx) > 6 || Math.abs(ddy) > 6)) {
       s.axis = Math.abs(ddx) > Math.abs(ddy) ? 'x' : 'y'
       // Capture only once we've committed to a horizontal swipe, so vertical
       // drags keep scrolling the list normally.
@@ -2011,9 +2015,11 @@ function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
     setDx(Math.max(-SWIPE_OPEN, Math.min(0, s.base + ddx)))
   }
   function end() {
-    if (!dragging) return
+    const s = st.current
+    if (!s.active) return
+    s.active = false
     setDragging(false)
-    if (st.current.axis === 'x') setDx(prev => (prev < -SWIPE_OPEN / 2 ? -SWIPE_OPEN : 0))
+    if (s.axis === 'x') setDx(prev => (prev < -SWIPE_OPEN / 2 ? -SWIPE_OPEN : 0))
   }
   function click(e) {
     // Suppress the click that follows a horizontal drag; otherwise tap = select
@@ -2034,8 +2040,10 @@ function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
           // fully hides the red delete action until swiped left (base sw.row bg is
           // transparent, which would let the red show through at rest).
           background: '#F0F4F8',
-          transform: `translateX(${dx}px)`, transition: dragging ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y', willChange: 'transform' }}
+          transform: `translateX(${dx}px)`, transition: dragging ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y', willChange: 'transform',
+          userSelect: 'none', WebkitUserSelect: 'none' }}
         onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onClick={click}
+        onDragStart={e => e.preventDefault()}
       >
         {children}
       </button>
@@ -2074,7 +2082,7 @@ function RecentlyDeleted({ trips, onRestore }) {
               <button style={sw.restoreBtn} onClick={() => onRestore(t.id)}>Restore</button>
             </div>
           ))}
-          <div style={sw.deletedNote}>Removed for good after 30 days.</div>
+          <div style={sw.deletedNote}>Permanently deleted after 30 days.</div>
         </div>
       </div>
     </div>
@@ -2088,6 +2096,7 @@ function RecentlyDeleted({ trips, onRestore }) {
 function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, onDelete }) {
   const [rows, setRows] = useState(null)       // active trips — null = loading
   const [deleted, setDeleted] = useState([])   // soft-deleted, restorable (<30d)
+  const [pendingDelete, setPendingDelete] = useState(null) // trip awaiting delete confirm
   const mountedRef = useRef(true)
   useEffect(() => () => { mountedRef.current = false }, [])
 
@@ -2167,18 +2176,18 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, 
     .filter(t => t.id !== currentTripId && t.end_date && t.end_date < today)
     .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
 
-  // Confirm + soft-delete a trip (commissioner-only rows). Optimistically moves it
-  // from the active list into Recently Deleted, then runs the real soft-delete and
-  // reloads so both lists reconcile with the server.
-  async function handleDelete(t) {
-    const msg = 'Deleting this trip will remove its history and data.\n\n'
-      + 'You will have 30 days to restore the trip before it is permanently deleted.\n\n'
-      + 'Delete this trip?'
-    if (!window.confirm(msg)) return
+  // Soft-delete uses an in-app confirm modal (below) rather than window.confirm —
+  // the native dialog repaints the page white behind it on mobile. The trash tap
+  // opens the modal; confirming runs the delete.
+  async function confirmDelete() {
+    const t = pendingDelete
+    setPendingDelete(null)
+    if (!t) return
+    // Optimistically move it into Recently Deleted, then reconcile with the server.
     setRows(rs => (rs || []).filter(x => x.id !== t.id))
     setDeleted(d => [{ id: t.id, name: t.name }, ...d])
     await onDelete?.(t.id)
-    load() // reconcile (proper ordering; handles the current-trip case)
+    load() // proper ordering; handles the current-trip case
   }
 
   // Restore a soft-deleted trip: drop it from Recently Deleted immediately, run the
@@ -2200,7 +2209,7 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, 
           const isCurrent = t.id === currentTripId
           return (
             <SwipeRow key={t.id} canDelete={t.canDelete} divider={i < list.length - 1}
-              onPick={() => onPick(t.id)} onDelete={() => handleDelete(t)}>
+              onPick={() => onPick(t.id)} onDelete={() => setPendingDelete(t)}>
               {isCurrent && <span style={{ ...sw.dot, ...sw.dotCurrent }} />}
               <span style={sw.left}>
                 <span style={sw.name}>{t.name || 'Untitled Trip'}</span>
@@ -2237,6 +2246,21 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, 
         </>
       )}
       <button style={sw.createBtn} onClick={onCreate}>+ Create New Trip</button>
+
+      {pendingDelete && (
+        <div style={s.modalOverlay} onClick={() => setPendingDelete(null)}>
+          <div style={{ ...s.modalSheet, maxWidth: 360 }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#0D1B2A', marginBottom: 8 }}>Delete this trip?</div>
+            <div style={{ fontSize: 13.5, color: '#2C3E50', lineHeight: 1.5 }}>
+              Deleting <strong>{pendingDelete.name || 'this trip'}</strong> will remove its history and data. You’ll have 30 days to restore it before it’s permanently deleted.
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={confirmDelete} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#C0392B', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Delete Trip</button>
+              <button onClick={() => setPendingDelete(null)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #DDE3EA', background: '#fff', color: '#2C3E50', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
