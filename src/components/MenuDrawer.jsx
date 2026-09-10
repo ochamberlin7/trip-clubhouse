@@ -1942,9 +1942,9 @@ const sw = {
   empty: { padding: '6px 16px 10px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
   loading: { padding: '16px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
   // Swipe-to-delete: the red action sits behind the row; the row slides left to
-  // reveal it. Outer clips the slide; the foreground row carries its own bg so it
-  // covers the red when closed.
-  swipeOuter: { position: 'relative', overflow: 'hidden', background: '#fff' },
+  // reveal it. Outer clips the slide; the foreground row carries the PAGE bg (not
+  // white) so rows blend into the screen and only cover the red until swiped.
+  swipeOuter: { position: 'relative', overflow: 'hidden', background: '#F0F4F8' },
   swipeDelete: { position: 'absolute', top: 0, right: 0, bottom: 0, width: SWIPE_OPEN, background: '#C0392B', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 },
   createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '18px 16px', padding: '13px', borderRadius: 8, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   // Recently Deleted — set off from the trip groups by a heavier top border.
@@ -2028,9 +2028,10 @@ function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
       <button style={sw.swipeDelete} onClick={onDelete} aria-label="Delete trip" tabIndex={dx !== 0 ? 0 : -1}><TrashIcon /></button>
       <button
         style={{ ...rowStyle, borderBottom: 'none',
-          // Solid white background so the row fully hides the red delete action
-          // until swiped left (the base sw.row background is transparent).
-          background: '#fff',
+          // Opaque page-coloured background so the row blends into the screen yet
+          // fully hides the red delete action until swiped left (base sw.row bg is
+          // transparent, which would let the red show through at rest).
+          background: '#F0F4F8',
           transform: `translateX(${dx}px)`, transition: dragging ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y', willChange: 'transform' }}
         onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onClick={click}
       >
@@ -2085,71 +2086,74 @@ function RecentlyDeleted({ trips, onRestore }) {
 function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, onDelete }) {
   const [rows, setRows] = useState(null)       // active trips — null = loading
   const [deleted, setDeleted] = useState([])   // soft-deleted, restorable (<30d)
+  const mountedRef = useRef(true)
+  useEffect(() => () => { mountedRef.current = false }, [])
 
-  useEffect(() => {
+  // Fetch + build the whole list (active groups + Recently Deleted). Reused for
+  // the initial load AND after a restore/delete so the This Trip/Upcoming/Past
+  // list reflects the change immediately, without a page refresh.
+  const load = useCallback(async () => {
     if (!userId) { setRows([]); setDeleted([]); return }
-    let cancelled = false
-    ;(async () => {
-      // 1. Groups the user belongs to.
-      const { data: gm } = await supabase
-        .from('group_members')
-        .select('role, group_id, groups(id, name)')
-        .eq('user_id', userId)
-      const groupIds = [...new Set((gm || []).map(m => m.group_id ?? m.groups?.id).filter(Boolean))]
-      // Groups where the user is the commissioner (admin) — only these trips can be
-      // deleted (matches the trips RLS), so swipe-to-delete is gated on them.
-      const adminGroupIds = new Set((gm || []).filter(m => m.role === 'admin').map(m => m.group_id ?? m.groups?.id).filter(Boolean))
-      if (!groupIds.length) { if (!cancelled) { setRows([]); setDeleted([]) } return }
+    // 1. Groups the user belongs to.
+    const { data: gm } = await supabase
+      .from('group_members')
+      .select('role, group_id, groups(id, name)')
+      .eq('user_id', userId)
+    const groupIds = [...new Set((gm || []).map(m => m.group_id ?? m.groups?.id).filter(Boolean))]
+    // Groups where the user is the commissioner (admin) — only these trips can be
+    // deleted (matches the trips RLS), so swipe-to-delete is gated on them.
+    const adminGroupIds = new Set((gm || []).filter(m => m.role === 'admin').map(m => m.group_id ?? m.groups?.id).filter(Boolean))
+    if (!groupIds.length) { if (mountedRef.current) { setRows([]); setDeleted([]) } return }
 
-      // 2. Active + soft-deleted trips in those groups, and the trips the user
-      //    actually belongs to (membership).
-      const cutoff = new Date(Date.now() - 30 * 86400000).toISOString()
-      const [activeRes, deletedRes, tpRes] = await Promise.all([
-        supabase.from('trips').select('id, group_id, name, start_date, end_date').in('group_id', groupIds).is('deleted_at', null),
-        supabase.from('trips').select('id, group_id, name, deleted_at').in('group_id', groupIds).not('deleted_at', 'is', null).gte('deleted_at', cutoff).order('deleted_at', { ascending: false }),
-        supabase.from('trip_players').select('trip_id').or(`user_id.eq.${userId},claimed_user_id.eq.${userId}`),
-      ])
-      if (cancelled) return
-      const myTripIds = new Set((tpRes.data || []).map(r => r.trip_id))
+    // 2. Active + soft-deleted trips in those groups, and the trips the user
+    //    actually belongs to (membership).
+    const cutoff = new Date(Date.now() - 30 * 86400000).toISOString()
+    const [activeRes, deletedRes, tpRes] = await Promise.all([
+      supabase.from('trips').select('id, group_id, name, start_date, end_date').in('group_id', groupIds).is('deleted_at', null),
+      supabase.from('trips').select('id, group_id, name, deleted_at').in('group_id', groupIds).not('deleted_at', 'is', null).gte('deleted_at', cutoff).order('deleted_at', { ascending: false }),
+      supabase.from('trip_players').select('trip_id').or(`user_id.eq.${userId},claimed_user_id.eq.${userId}`),
+    ])
+    if (!mountedRef.current) return
+    const myTripIds = new Set((tpRes.data || []).map(r => r.trip_id))
 
-      // 3. Location (from rounds) + golfer counts (from trip_players), keyed by
-      //    trip_id, for the active trips we'll show.
-      const tripIds = (activeRes.data || []).map(t => t.id)
-      const [roundRes, countRes] = tripIds.length
-        ? await Promise.all([
-            supabase.from('rounds').select('trip_id, date, location_city, location_state').in('trip_id', tripIds),
-            supabase.from('trip_players').select('trip_id').in('trip_id', tripIds),
-          ])
-        : [{ data: [] }, { data: [] }]
-      if (cancelled) return
+    // 3. Location (from rounds) + golfer counts (from trip_players), keyed by
+    //    trip_id, for the active trips we'll show.
+    const tripIds = (activeRes.data || []).map(t => t.id)
+    const [roundRes, countRes] = tripIds.length
+      ? await Promise.all([
+          supabase.from('rounds').select('trip_id, date, location_city, location_state').in('trip_id', tripIds),
+          supabase.from('trip_players').select('trip_id').in('trip_id', tripIds),
+        ])
+      : [{ data: [] }, { data: [] }]
+    if (!mountedRef.current) return
 
-      // Earliest located round per trip → "City, ST".
-      const locByTrip = new Map()
-      ;(roundRes.data || [])
-        .filter(r => r.location_city || r.location_state)
-        .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-        .forEach(r => {
-          if (locByTrip.has(r.trip_id)) return
-          locByTrip.set(r.trip_id, [r.location_city, r.location_state].filter(Boolean).join(', '))
-        })
+    // Earliest located round per trip → "City, ST".
+    const locByTrip = new Map()
+    ;(roundRes.data || [])
+      .filter(r => r.location_city || r.location_state)
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      .forEach(r => {
+        if (locByTrip.has(r.trip_id)) return
+        locByTrip.set(r.trip_id, [r.location_city, r.location_state].filter(Boolean).join(', '))
+      })
 
-      // Golfer count per trip.
-      const countByTrip = new Map()
-      ;(countRes.data || []).forEach(r => countByTrip.set(r.trip_id, (countByTrip.get(r.trip_id) || 0) + 1))
+    // Golfer count per trip.
+    const countByTrip = new Map()
+    ;(countRes.data || []).forEach(r => countByTrip.set(r.trip_id, (countByTrip.get(r.trip_id) || 0) + 1))
 
-      const list = (activeRes.data || [])
-        .filter(t => myTripIds.has(t.id) || t.id === currentTripId)
-        .map(t => ({
-          id: t.id, name: t.name, start_date: t.start_date, end_date: t.end_date,
-          location: locByTrip.get(t.id) || '',
-          golfers: countByTrip.get(t.id) || 0,
-          canDelete: adminGroupIds.has(t.group_id),
-        }))
-      setRows(list)
-      setDeleted((deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name })))
-    })()
-    return () => { cancelled = true }
+    const list = (activeRes.data || [])
+      .filter(t => myTripIds.has(t.id) || t.id === currentTripId)
+      .map(t => ({
+        id: t.id, name: t.name, start_date: t.start_date, end_date: t.end_date,
+        location: locByTrip.get(t.id) || '',
+        golfers: countByTrip.get(t.id) || 0,
+        canDelete: adminGroupIds.has(t.group_id),
+      }))
+    setRows(list)
+    setDeleted((deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name })))
   }, [userId, currentTripId])
+
+  useEffect(() => { load() }, [load])
 
   const today = mdTodayIso()
   const all = rows || []
@@ -2162,15 +2166,26 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, 
     .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
 
   // Confirm + soft-delete a trip (commissioner-only rows). Optimistically moves it
-  // from the active list into Recently Deleted, then calls the real soft-delete.
-  function handleDelete(t) {
+  // from the active list into Recently Deleted, then runs the real soft-delete and
+  // reloads so both lists reconcile with the server.
+  async function handleDelete(t) {
     const msg = 'Deleting this trip will remove its history and data.\n\n'
       + 'You will have 30 days to restore the trip before it is permanently deleted.\n\n'
       + 'Delete this trip?'
     if (!window.confirm(msg)) return
     setRows(rs => (rs || []).filter(x => x.id !== t.id))
     setDeleted(d => [{ id: t.id, name: t.name }, ...d])
-    onDelete?.(t.id)
+    await onDelete?.(t.id)
+    load() // reconcile (proper ordering; handles the current-trip case)
+  }
+
+  // Restore a soft-deleted trip: drop it from Recently Deleted immediately, run the
+  // real restore, then reload so it reappears in This Trip/Upcoming/Past — with its
+  // full dates/location/golfers — without needing a page refresh.
+  async function handleRestore(id) {
+    setDeleted(d => d.filter(t => t.id !== id))
+    await onRestore?.(id)
+    load()
   }
 
   // A group's rows share a hairline divider between them, but not after the last.
@@ -2216,7 +2231,7 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, 
           {Group('Upcoming', upcoming)}
           {Group('Past', past)}
           {!tripCount && <div style={sw.empty}>No trips yet</div>}
-          <RecentlyDeleted trips={deleted} onRestore={id => { setDeleted(d => d.filter(t => t.id !== id)); onRestore?.(id) }} />
+          <RecentlyDeleted trips={deleted} onRestore={handleRestore} />
         </>
       )}
       <button style={sw.createBtn} onClick={onCreate}>+ Create New Trip</button>
