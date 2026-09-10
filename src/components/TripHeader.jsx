@@ -68,18 +68,14 @@ const styles = {
     marginTop: '7px',
   },
   // Commissioner-only pencil, pinned to the header's upper-right (aligned with the
-  // wordmark row so it never overlaps the centered trip name). Subtle rounded
-  // button with a faint tint so it reads as tappable without shouting.
+  // wordmark row so it never overlaps the centered trip name).
   editBtn: {
     position: 'absolute',
     top: 'max(env(safe-area-inset-top), 20px)',
-    right: 12,
-    width: 30,
-    height: 30,
-    background: '#F1F4F8',
-    border: '1px solid #E1E7EE',
-    borderRadius: '50%',
-    padding: 0,
+    right: 14,
+    background: 'none',
+    border: 'none',
+    padding: 4,
     cursor: 'pointer',
     color: '#5A7290',
     display: 'flex',
