@@ -1921,6 +1921,8 @@ function fmtLedgerDate(startIso, endIso) {
   return d.getFullYear() === thisYear ? `${MD_MONTHS[d.getMonth()]} ${d.getDate()}` : `${MD_MONTHS[d.getMonth()]} ${yr(d.getFullYear())}`
 }
 
+const SWIPE_OPEN = 76 // px of red delete action revealed when a row is swiped left
+
 const sw = {
   // The SecondaryPage frame already shows the "Switch Trip" title; this is just
   // the ledger's "N trips · viewing X" subtitle beneath it.
@@ -1941,6 +1943,11 @@ const sw = {
   golfers: { display: 'block', fontSize: 12, color: '#8A98A8', marginTop: 1, fontVariantNumeric: 'tabular-nums' },
   empty: { padding: '6px 16px 10px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
   loading: { padding: '16px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
+  // Swipe-to-delete: the red action sits behind the row; the row slides left to
+  // reveal it. Outer clips the slide; the foreground row carries its own bg so it
+  // covers the red when closed.
+  swipeOuter: { position: 'relative', overflow: 'hidden', background: '#fff' },
+  swipeDelete: { position: 'absolute', top: 0, right: 0, bottom: 0, width: SWIPE_OPEN, background: '#C0392B', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 },
   createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '18px 16px', padding: '13px', borderRadius: 8, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   // Recently Deleted — set off from the trip groups by a heavier top border.
   deletedWrap: { borderTop: '3px solid #E1E7EE', marginTop: 14 },
@@ -1958,6 +1965,74 @@ function CaretIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="6 9 12 15 18 9" />
     </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  )
+}
+
+// iMessage-style swipe-to-delete row. Drag left to reveal a red trash button;
+// tapping it deletes. A tap (no drag) selects the trip; keyboard Enter/Space also
+// selects (it's a real <button>). Vertical drags fall through to page scroll
+// (touch-action: pan-y). When the trip can't be deleted, renders a plain button.
+function SwipeRow({ canDelete, active, divider, onPick, onDelete, children }) {
+  const [dx, setDx] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const st = useRef({ x0: 0, y0: 0, base: 0, axis: null, drag: false })
+
+  const rowStyle = { ...sw.row, ...(divider ? sw.rowDivider : null), ...(active ? sw.rowActive : null) }
+
+  if (!canDelete) {
+    return <button style={rowStyle} onClick={onPick}>{children}</button>
+  }
+
+  function down(e) {
+    st.current = { x0: e.clientX, y0: e.clientY, base: dx, axis: null, drag: false }
+    setDragging(true)
+  }
+  function move(e) {
+    if (!dragging) return
+    const s = st.current
+    const ddx = e.clientX - s.x0, ddy = e.clientY - s.y0
+    if (!s.axis && (Math.abs(ddx) > 8 || Math.abs(ddy) > 8)) {
+      s.axis = Math.abs(ddx) > Math.abs(ddy) ? 'x' : 'y'
+      // Capture only once we've committed to a horizontal swipe, so vertical
+      // drags keep scrolling the list normally.
+      if (s.axis === 'x') e.currentTarget.setPointerCapture?.(e.pointerId)
+    }
+    if (s.axis !== 'x') return // vertical → let the list scroll
+    s.drag = true
+    setDx(Math.max(-SWIPE_OPEN, Math.min(0, s.base + ddx)))
+  }
+  function end() {
+    if (!dragging) return
+    setDragging(false)
+    if (st.current.axis === 'x') setDx(prev => (prev < -SWIPE_OPEN / 2 ? -SWIPE_OPEN : 0))
+  }
+  function click(e) {
+    // Suppress the click that follows a horizontal drag; otherwise tap = select
+    // (when closed) or close (when open).
+    if (st.current.drag) { e.preventDefault(); st.current.drag = false; return }
+    if (dx !== 0) { setDx(0); return }
+    onPick()
+  }
+
+  return (
+    <div style={{ ...sw.swipeOuter, ...(divider ? sw.rowDivider : null) }}>
+      <button style={sw.swipeDelete} onClick={onDelete} aria-label="Delete trip" tabIndex={dx !== 0 ? 0 : -1}><TrashIcon /></button>
+      <button
+        style={{ ...rowStyle, borderBottom: 'none', transform: `translateX(${dx}px)`, transition: dragging ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y', willChange: 'transform' }}
+        onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onClick={click}
+      >
+        {children}
+      </button>
+    </div>
   )
 }
 
@@ -2003,7 +2078,7 @@ function RecentlyDeleted({ trips, onRestore }) {
 // Upcoming / Past (name + location left, date + golfer count right), plus a
 // collapsible Recently Deleted section for soft-deleted trips restorable within
 // 30 days. Trip names/dates/locations/counts all come from the live trip data.
-function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore }) {
+function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, onDelete }) {
   const [rows, setRows] = useState(null)       // active trips — null = loading
   const [deleted, setDeleted] = useState([])   // soft-deleted, restorable (<30d)
 
@@ -2017,6 +2092,9 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore }
         .select('role, group_id, groups(id, name)')
         .eq('user_id', userId)
       const groupIds = [...new Set((gm || []).map(m => m.group_id ?? m.groups?.id).filter(Boolean))]
+      // Groups where the user is the commissioner (admin) — only these trips can be
+      // deleted (matches the trips RLS), so swipe-to-delete is gated on them.
+      const adminGroupIds = new Set((gm || []).filter(m => m.role === 'admin').map(m => m.group_id ?? m.groups?.id).filter(Boolean))
       if (!groupIds.length) { if (!cancelled) { setRows([]); setDeleted([]) } return }
 
       // 2. Active + soft-deleted trips in those groups, and the trips the user
@@ -2061,6 +2139,7 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore }
           id: t.id, name: t.name, start_date: t.start_date, end_date: t.end_date,
           location: locByTrip.get(t.id) || '',
           golfers: countByTrip.get(t.id) || 0,
+          canDelete: adminGroupIds.has(t.group_id),
         }))
       setRows(list)
       setDeleted((deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name })))
@@ -2078,6 +2157,18 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore }
     .filter(t => t.id !== currentTripId && t.end_date && t.end_date < today)
     .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
 
+  // Confirm + soft-delete a trip (commissioner-only rows). Optimistically moves it
+  // from the active list into Recently Deleted, then calls the real soft-delete.
+  function handleDelete(t) {
+    const msg = 'Deleting this trip will remove its history and data.\n\n'
+      + 'You will have 30 days to restore the trip before it is permanently deleted.\n\n'
+      + 'Delete this trip?'
+    if (!window.confirm(msg)) return
+    setRows(rs => (rs || []).filter(x => x.id !== t.id))
+    setDeleted(d => [{ id: t.id, name: t.name }, ...d])
+    onDelete?.(t.id)
+  }
+
   // A group's rows share a hairline divider between them, but not after the last.
   const Group = (label, list) => {
     if (!list.length) return null
@@ -2087,9 +2178,8 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore }
         {list.map((t, i) => {
           const isCurrent = t.id === currentTripId
           return (
-            <button key={t.id}
-              style={{ ...sw.row, ...(i < list.length - 1 ? sw.rowDivider : null), ...(isCurrent ? sw.rowActive : null) }}
-              onClick={() => onPick(t.id)}>
+            <SwipeRow key={t.id} canDelete={t.canDelete} active={isCurrent} divider={i < list.length - 1}
+              onPick={() => onPick(t.id)} onDelete={() => handleDelete(t)}>
               <span style={{ ...sw.dot, ...(isCurrent ? sw.dotCurrent : sw.dotNeutral) }} />
               <span style={sw.left}>
                 <span style={sw.name}>{t.name || 'Untitled Trip'}</span>
@@ -2099,7 +2189,7 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore }
                 <span style={sw.dates}>{fmtLedgerDate(t.start_date, t.end_date)}</span>
                 <span style={sw.golfers}>{t.golfers} golfer{t.golfers === 1 ? '' : 's'}</span>
               </span>
-            </button>
+            </SwipeRow>
           )
         })}
       </>
@@ -2719,6 +2809,10 @@ export default function MenuDrawer({
             onPick={id => { onClose(); switchTrip(id) }}
             onCreate={() => { onClose(); navigate('/onboarding/trip') }}
             onRestore={id => restoreTrip(id)}
+            onDelete={async id => {
+              const { error } = await softDeleteTrip(id)
+              if (error) window.alert('Delete failed — please try again.')
+            }}
           />
         </SecondaryPage>
       )}
