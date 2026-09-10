@@ -1931,10 +1931,8 @@ const sw = {
   deletedLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#8A98A8' },
   row: { display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' },
   rowDivider: { borderBottom: '1px solid #EAEEF3' },
-  rowActive: { background: '#EEF3F9' },
   dot: { width: 9, height: 9, borderRadius: '50%', flexShrink: 0, marginTop: 5 },
   dotCurrent: { background: '#22A559' },
-  dotNeutral: { background: '#C4CEDA' },
   left: { minWidth: 0, flex: 1 },
   name: { display: 'block', fontSize: 15, fontWeight: 700, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   loc: { display: 'block', fontSize: 12.5, color: '#8A98A8', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -1955,7 +1953,7 @@ const sw = {
   caret: { transition: 'transform 0.2s ease', color: '#8A98A8', display: 'flex', flexShrink: 0 },
   deletedInner: { overflow: 'hidden', transition: 'height 0.24s ease' },
   deletedRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 16px' },
-  deletedName: { fontSize: 14.5, color: '#A6B0BC', textDecoration: 'line-through', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
+  deletedName: { fontSize: 14.5, color: '#A6B0BC', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
   restoreBtn: { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, padding: '2px 4px' },
   deletedNote: { fontSize: 12, color: '#8A98A8', padding: '4px 16px 14px' },
 }
@@ -1981,12 +1979,14 @@ function TrashIcon() {
 // tapping it deletes. A tap (no drag) selects the trip; keyboard Enter/Space also
 // selects (it's a real <button>). Vertical drags fall through to page scroll
 // (touch-action: pan-y). When the trip can't be deleted, renders a plain button.
-function SwipeRow({ canDelete, active, divider, onPick, onDelete, children }) {
+function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
   const [dx, setDx] = useState(0)
   const [dragging, setDragging] = useState(false)
   const st = useRef({ x0: 0, y0: 0, base: 0, axis: null, drag: false })
 
-  const rowStyle = { ...sw.row, ...(divider ? sw.rowDivider : null), ...(active ? sw.rowActive : null) }
+  // Every row sits on the same plain background — the current trip is marked only
+  // by its green dot and its "This Trip" group, not a row highlight.
+  const rowStyle = { ...sw.row, ...(divider ? sw.rowDivider : null) }
 
   if (!canDelete) {
     return <button style={rowStyle} onClick={onPick}>{children}</button>
@@ -2028,9 +2028,9 @@ function SwipeRow({ canDelete, active, divider, onPick, onDelete, children }) {
       <button style={sw.swipeDelete} onClick={onDelete} aria-label="Delete trip" tabIndex={dx !== 0 ? 0 : -1}><TrashIcon /></button>
       <button
         style={{ ...rowStyle, borderBottom: 'none',
-          // Solid background so the row fully hides the red delete action until
-          // swiped left (the base sw.row background is transparent).
-          background: active ? '#EEF3F9' : '#fff',
+          // Solid white background so the row fully hides the red delete action
+          // until swiped left (the base sw.row background is transparent).
+          background: '#fff',
           transform: `translateX(${dx}px)`, transition: dragging ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y', willChange: 'transform' }}
         onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onClick={click}
       >
@@ -2182,9 +2182,9 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, 
         {list.map((t, i) => {
           const isCurrent = t.id === currentTripId
           return (
-            <SwipeRow key={t.id} canDelete={t.canDelete} active={isCurrent} divider={i < list.length - 1}
+            <SwipeRow key={t.id} canDelete={t.canDelete} divider={i < list.length - 1}
               onPick={() => onPick(t.id)} onDelete={() => handleDelete(t)}>
-              <span style={{ ...sw.dot, ...(isCurrent ? sw.dotCurrent : sw.dotNeutral) }} />
+              {isCurrent && <span style={{ ...sw.dot, ...sw.dotCurrent }} />}
               <span style={sw.left}>
                 <span style={sw.name}>{t.name || 'Untitled Trip'}</span>
                 {t.location && <span style={sw.loc}>{t.location}</span>}
