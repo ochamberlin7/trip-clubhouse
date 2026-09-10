@@ -1703,8 +1703,10 @@ function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate }) {
   )
 }
 
-// "Invite Link" disclosure: the caret reveals the full join URL, with a Copy link.
+// "Invite Link" row: a "Copy link" button is always visible; the caret beside it
+// expands the full join URL below.
 function InvitePlayersRow({ inviteToken }) {
+  const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const url = `https://thetripclubhouse.com/join/${inviteToken || ''}`
   async function copy() {
@@ -1713,12 +1715,24 @@ function InvitePlayersRow({ inviteToken }) {
     setTimeout(() => setCopied(false), 2000)
   }
   return (
-    <Disclosure label="Invite Link">
-      <div style={{ background: '#EEF2F6', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: '#5A7290', wordBreak: 'break-all', marginTop: 10 }}>{url}</div>
-      <div style={rowUI.saveRow}>
-        <button style={rowUI.linkBtn} onClick={copy}>{copied ? 'Copied!' : 'Copy link'}</button>
+    <div style={rowUI.divider}>
+      <div style={rowUI.rowStatic}>
+        <span style={rowUI.label}>Invite Link</span>
+        <button style={{ ...rowUI.linkBtn, marginLeft: 'auto' }} onClick={copy}>{copied ? 'Copied!' : 'Copy link'}</button>
+        <button onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label="Show invite link"
+          style={{ ...rowUI.chevronBox, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
       </div>
-    </Disclosure>
+      {open && (
+        <div style={{ padding: '0 2px 16px' }}>
+          <div style={{ background: '#EEF2F6', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: '#5A7290', wordBreak: 'break-all' }}>{url}</div>
+        </div>
+      )}
+    </div>
   )
 }
 
