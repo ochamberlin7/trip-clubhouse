@@ -2027,7 +2027,11 @@ function SwipeRow({ canDelete, active, divider, onPick, onDelete, children }) {
     <div style={{ ...sw.swipeOuter, ...(divider ? sw.rowDivider : null) }}>
       <button style={sw.swipeDelete} onClick={onDelete} aria-label="Delete trip" tabIndex={dx !== 0 ? 0 : -1}><TrashIcon /></button>
       <button
-        style={{ ...rowStyle, borderBottom: 'none', transform: `translateX(${dx}px)`, transition: dragging ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y', willChange: 'transform' }}
+        style={{ ...rowStyle, borderBottom: 'none',
+          // Solid background so the row fully hides the red delete action until
+          // swiped left (the base sw.row background is transparent).
+          background: active ? '#EEF3F9' : '#fff',
+          transform: `translateX(${dx}px)`, transition: dragging ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y', willChange: 'transform' }}
         onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onClick={click}
       >
         {children}
