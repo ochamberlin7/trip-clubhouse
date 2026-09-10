@@ -1975,14 +1975,47 @@ function TrashIcon() {
   )
 }
 
-// iMessage-style swipe-to-delete row. Drag left to reveal a red trash button;
-// tapping it deletes. A tap (no drag) selects the trip; keyboard Enter/Space also
-// selects (it's a real <button>). Vertical drags fall through to page scroll
-// (touch-action: pan-y). When the trip can't be deleted, renders a plain button.
+// iMessage-style swipe-to-delete row. Drag left (touch or mouse) OR two-finger
+// swipe left on a trackpad to reveal a red trash button; tapping it deletes. A tap
+// (no drag) selects the trip; keyboard Enter/Space also selects (it's a real
+// <button>). Vertical gestures fall through to page scroll. When the trip can't be
+// deleted, renders a plain button.
 function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
   const [dx, setDx] = useState(0)
   const [dragging, setDragging] = useState(false)
   const st = useRef({ x0: 0, y0: 0, base: 0, axis: null, drag: false })
+  const dxRef = useRef(0)              // current dx, readable in the native wheel handler
+  const fgRef = useRef(null)          // foreground row element (wheel target)
+
+  useEffect(() => { dxRef.current = dx }, [dx])
+
+  // Two-finger trackpad swipe: horizontal wheel events (deltaX). A native,
+  // non-passive listener is required so preventDefault() can stop the browser's
+  // back/forward swipe-navigation; React's synthetic onWheel is passive. Only
+  // horizontal-dominant gestures are hijacked, so vertical scroll still works;
+  // the row snaps open/closed ~140ms after the gesture settles.
+  useEffect(() => {
+    const el = fgRef.current
+    if (!el) return
+    let settle
+    function onWheel(e) {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return // vertical → scroll
+      e.preventDefault()
+      setDragging(true)
+      const next = Math.max(-SWIPE_OPEN, Math.min(0, dxRef.current - e.deltaX))
+      dxRef.current = next
+      setDx(next)
+      clearTimeout(settle)
+      settle = setTimeout(() => {
+        const snapped = dxRef.current < -SWIPE_OPEN / 2 ? -SWIPE_OPEN : 0
+        dxRef.current = snapped
+        setDragging(false)
+        setDx(snapped)
+      }, 140)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => { el.removeEventListener('wheel', onWheel); clearTimeout(settle) }
+  }, [canDelete])
 
   // Every row sits on the same plain background — the current trip is marked only
   // by its green dot and its "This Trip" group, not a row highlight.
@@ -2035,6 +2068,7 @@ function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
           1px sliver of its left edge shows as a vertical line at rest. */}
       {dx !== 0 && <button style={sw.swipeDelete} onClick={onDelete} aria-label="Delete trip"><TrashIcon /></button>}
       <button
+        ref={fgRef}
         style={{ ...rowStyle, borderBottom: 'none',
           // Opaque page-coloured background so the row blends into the screen yet
           // fully hides the red delete action until swiped left (base sw.row bg is
