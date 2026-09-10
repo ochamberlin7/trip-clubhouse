@@ -1703,7 +1703,7 @@ function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate }) {
   )
 }
 
-// Copy the invite link straight to the clipboard (no disclosure, no chevron).
+// "Invite Link" disclosure: the caret reveals the full join URL, with a Copy link.
 function InvitePlayersRow({ inviteToken }) {
   const [copied, setCopied] = useState(false)
   const url = `https://thetripclubhouse.com/join/${inviteToken || ''}`
@@ -1713,10 +1713,12 @@ function InvitePlayersRow({ inviteToken }) {
     setTimeout(() => setCopied(false), 2000)
   }
   return (
-    <div style={{ ...rowUI.rowStatic, ...rowUI.divider }}>
-      <span style={rowUI.label}>Invite Players</span>
-      <button style={{ ...rowUI.linkBtn, marginLeft: 'auto' }} onClick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
-    </div>
+    <Disclosure label="Invite Link">
+      <div style={{ background: '#EEF2F6', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: '#5A7290', wordBreak: 'break-all', marginTop: 10 }}>{url}</div>
+      <div style={rowUI.saveRow}>
+        <button style={rowUI.linkBtn} onClick={copy}>{copied ? 'Copied!' : 'Copy link'}</button>
+      </div>
+    </Disclosure>
   )
 }
 
