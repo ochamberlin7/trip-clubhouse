@@ -68,30 +68,44 @@ const styles = {
     marginTop: '7px',
   },
   // Commissioner-only pencil, pinned to the header's upper-right (aligned with the
-  // wordmark row so it never overlaps the centered trip name).
+  // wordmark row so it never overlaps the centered trip name). Subtle rounded
+  // button with a faint tint so it reads as tappable without shouting.
   editBtn: {
     position: 'absolute',
     top: 'max(env(safe-area-inset-top), 20px)',
-    right: 14,
-    background: 'none',
-    border: 'none',
-    padding: 4,
+    right: 12,
+    width: 30,
+    height: 30,
+    background: '#F1F4F8',
+    border: '1px solid #E1E7EE',
+    borderRadius: '50%',
+    padding: 0,
     cursor: 'pointer',
-    color: '#7A8FA6',
+    color: '#5A7290',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
     lineHeight: 0,
   },
-  // Inline editor (shown in place of the name while renaming).
-  editRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, margin: '2px auto 0', maxWidth: 420 },
+  // Inline editor (shown in place of the name while renaming): a soft rounded
+  // field in the header's serif type, with Save / Cancel beneath it.
+  editWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, margin: '4px auto 2px', width: 'min(92%, 380px)' },
   editInput: {
-    flex: 1, minWidth: 0, textAlign: 'center',
-    fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 24, color: '#000',
-    border: 'none', borderBottom: '2px solid #1B3F6E', background: 'transparent',
-    padding: '2px 4px', outline: 'none',
+    width: '100%', boxSizing: 'border-box', textAlign: 'center',
+    fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 22, color: '#0D1B2A',
+    border: '1px solid #CBD5E1', borderRadius: 12, background: '#F7F9FB',
+    padding: '9px 14px', outline: 'none',
   },
-  iconBtn: { background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', lineHeight: 0, flexShrink: 0 },
-  editErr: { fontSize: 11, color: '#C0392B', marginTop: 4 },
+  editActions: { display: 'flex', alignItems: 'center', gap: 8 },
+  saveBtn: {
+    background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 8,
+    padding: '7px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  cancelBtn: {
+    background: 'transparent', color: '#7A8FA6', border: 'none',
+    padding: '7px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  editErr: { fontSize: 11, color: '#C0392B', marginTop: -2 },
 }
 
 function PencilIcon() {
@@ -101,21 +115,6 @@ function PencilIcon() {
     </svg>
   )
 }
-function CheckIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  )
-}
-function CloseIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C0392B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  )
-}
-
 // Shrink-to-fit trip name: measure the rendered text (nowrap) against the
 // container width and step the font-size down from MAX until it fits on one
 // line, floored at MIN. Below the floor it wraps rather than shrinking further.
@@ -194,19 +193,19 @@ export default function TripHeader({ tripName, startDate, endDate, tripId, canEd
       <div style={styles.wordmark}>Trip Clubhouse</div>
 
       {editing ? (
-        <>
-          <div style={styles.editRow}>
-            <input
-              ref={inputRef} style={styles.editInput} value={name} maxLength={80}
-              placeholder="Trip name"
-              onChange={e => setName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') save(); else if (e.key === 'Escape') cancel() }}
-            />
-            <button style={styles.iconBtn} onClick={save} disabled={saving} aria-label="Save trip name"><CheckIcon /></button>
-            <button style={styles.iconBtn} onClick={cancel} disabled={saving} aria-label="Cancel"><CloseIcon /></button>
-          </div>
+        <div style={styles.editWrap}>
+          <input
+            ref={inputRef} style={styles.editInput} value={name} maxLength={80}
+            placeholder="Trip name"
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') save(); else if (e.key === 'Escape') cancel() }}
+          />
           {err && <div style={styles.editErr}>{err}</div>}
-        </>
+          <div style={styles.editActions}>
+            <button style={styles.saveBtn} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <button style={styles.cancelBtn} onClick={cancel} disabled={saving}>Cancel</button>
+          </div>
+        </div>
       ) : (
         tripName && <TripNameFit text={tripName} />
       )}
