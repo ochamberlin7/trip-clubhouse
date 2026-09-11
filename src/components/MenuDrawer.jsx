@@ -17,6 +17,7 @@ import { formatMoney } from '../lib/purse'
 import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } from '../lib/meals'
 import { ProfileBadge } from './ProfileAvatar'
 import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
+import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import SupportForm from './SupportForm'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -134,7 +135,21 @@ function Chevron({ open }) {
   )
 }
 
+// Section card — routed through the shared HOME_CARD shell (20px radius, soft
+// shadow, navy header bar with a white bold uppercase label). Used by Rules,
+// App Info, and the Schedule/Courses empty state.
 function Card({ title, children }) {
+  return (
+    <div style={HOME_CARD}>
+      <div style={HOME_CARD_HEADER}><span style={HOME_CARD_LABEL}>{title}</span></div>
+      <div style={s.cardBody}>{children}</div>
+    </div>
+  )
+}
+
+// The pre-redesign card shell, kept ONLY for Archives (on hold) so it's visually
+// unchanged while the shared Card adopts the new system.
+function LegacyCard({ title, children }) {
   return (
     <div style={s.card}>
       <div style={s.cardHeader}>{title}</div>
@@ -225,7 +240,10 @@ function formatPhone(raw) {
 }
 
 const pc = {
-  card: { background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: 10, padding: 14, marginBottom: 10 },
+  // Entity card — HOME_CARD shell (20px radius + soft shadow, no border) but keeps
+  // its padded, headerless layout (avatar + name), no navy bar. overflow:visible so
+  // the inline team-pill / edit fields never clip.
+  card: { ...HOME_CARD, overflow: 'visible', padding: 14, marginBottom: 12 },
   // Top-aligned 3-column header: avatar · name + role meta · team pill over pencil.
   // The name gets its own flexing column so it never fights the pill.
   header: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
@@ -485,8 +503,9 @@ function TeamRosterSummary({ players, teams }) {
 }
 
 const trs = {
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 16 },
-  card: { background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden', alignSelf: 'start' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14, marginBottom: 16 },
+  // HOME_CARD shell; keeps the team-COLOURED header band (set inline per team).
+  card: { ...HOME_CARD, marginBottom: 0, alignSelf: 'start' },
   span: { gridColumn: '1 / -1' },
   band: { padding: '7px 10px' },
   teamName: { fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.2 },
@@ -1010,7 +1029,7 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
         const typeLabel = dayRounds.length === 0 && dayType && dayType !== 'unknown' ? DAY_PLACEHOLDER_META[dayType]?.label : null
         return (
           // Past days render as one dimmed, non-interactive unit (recomputed each render).
-          <div key={date} style={{ ...s.card, ...(isPast ? { opacity: 0.5, pointerEvents: 'none' } : null) }}>
+          <div key={date} style={{ ...HOME_CARD, ...(isPast ? { opacity: 0.5, pointerEvents: 'none' } : null) }}>
             <div style={{ ...s.cardHeader, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>{fmtDayLong(date)}</span>
               {isToday && <span style={todayBadgeStyle}>Today</span>}
@@ -1288,7 +1307,8 @@ const DEPART_FIELDS = [
 ]
 
 const fl = {
-  card: { border: '1px solid #DDE3EA', borderRadius: 6, overflow: 'hidden', marginBottom: 14, background: '#fff' },
+  // HOME_CARD shell; keeps its navy header (player name + Driving toggle).
+  card: { ...HOME_CARD, marginBottom: 14 },
   header: { background: '#1B3F6E', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   name: { fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px' },
   // Prominent bold label shown in the header when a person is driving.
@@ -1790,11 +1810,11 @@ function ArchivesPage({ data }) {
     return <div style={{ ...s.muted, textAlign: 'center', padding: '24px 12px' }}>No past trips yet. Check back after your first trip wraps up.</div>
   }
   return data.map(t => (
-    <Card key={t.id} title={t.name}>
+    <LegacyCard key={t.id} title={t.name}>
       <InfoRow label="Dates" value={fmtRange(t.start_date, t.end_date)} />
       <InfoRow label="Location" value={t.location || '—'} />
       <InfoRow label="Winner" value={t.winner_name || '—'} last />
-    </Card>
+    </LegacyCard>
   ))
 }
 
