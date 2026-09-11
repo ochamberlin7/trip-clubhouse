@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
-import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCard'
+import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 
 // Trash Talk Thread — trip chat for the dashboard home tab.
 //
@@ -31,7 +31,7 @@ const styles = {
   senderName: { fontWeight: 700, color: '#1B3F6E' },
   bubble: { maxWidth: '75%', padding: '7px 10px', fontSize: '13px', lineHeight: 1.4, wordBreak: 'break-word' },
   bubbleMine: { background: '#4472A8', color: '#fff', borderRadius: '12px 12px 2px 12px' },
-  bubbleOther: { background: '#ffffff', color: '#1B3F6E', border: '2px solid #1B3F6E', borderRadius: '12px 12px 12px 2px' },
+  bubbleOther: { background: '#E8EDF3', color: '#0F1E33', borderRadius: '12px 12px 12px 2px' },
   empty: { textAlign: 'center', color: '#7A8FA6', fontSize: '13px', padding: '20px 0', fontStyle: 'italic' },
   divider: { alignSelf: 'center', color: '#9AA7B4', fontSize: '10px', letterSpacing: '0.3px', padding: '6px 0 2px', textAlign: 'center' },
   error: { color: '#C0392B', fontSize: '11px', padding: '6px 14px 0', textAlign: 'center' },

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { analyzeScoring, playerName, initialsOf, formatVsPar, isTournamentRound } from '../lib/scoring'
+import HomeCard from './homeCard'
 
 // Daily MVPs — the day's best performer in three categories: Most Points, Best
 // Net, and Most Drinks. Appears once a tournament round scheduled today is
@@ -21,8 +22,6 @@ function golfDayIso(now) {
 const NAVY = '#1B3F6E'
 const GREY = '#8a96a3'
 const styles = {
-  card: { background: '#fff', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '16px', overflow: 'hidden' },
-  header: { background: NAVY, color: '#fff', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', padding: '12px 16px' },
   row: { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', borderBottom: '1px solid #e5e7eb' },
   rowLast: { borderBottom: 'none' },
   label: { fontSize: '10px', color: GREY, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700, minWidth: '72px', flexShrink: 0 },
@@ -164,10 +163,9 @@ export default function DailyMVPCard({ tripId, endDate }) {
 
   if (state.status !== 'ready') {
     return (
-      <div style={styles.card}>
-        <div style={styles.header}>Daily MVPs</div>
+      <HomeCard title="Daily MVPs">
         <div style={styles.placeholder}>MVPs will appear after the first round is complete</div>
-      </div>
+      </HomeCard>
     )
   }
 
@@ -176,11 +174,10 @@ export default function DailyMVPCard({ tripId, endDate }) {
     : `Daily MVPs — ${state.roundName || 'Today'}`
 
   return (
-    <div style={styles.card}>
-      <div style={styles.header}>{headerText}</div>
+    <HomeCard title={headerText}>
       <MvpRow label="Most Points" mvp={state.mostPoints} emptyText="No scores yet" value={state.mostPoints ? `${state.mostPoints.pts} pts` : ''} />
       <MvpRow label="Best Net" mvp={state.bestNet} emptyText="No net scores yet" value={state.bestNet ? formatVsPar(state.bestNet.val) : ''} />
       <MvpRow label="Most Drinks" mvp={state.mostDrinks} emptyText="No drinks yet" value={state.mostDrinks ? `🍺 ${state.mostDrinks.n}` : ''} last />
-    </div>
+    </HomeCard>
   )
 }

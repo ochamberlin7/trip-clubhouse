@@ -21,7 +21,7 @@ import ScoringTab from '../../components/ScoringTab'
 import StatsTab from '../../components/StatsTab'
 import LiveScoreBanner from '../../components/LiveScoreBanner'
 import FeedbackButton from '../../components/FeedbackButton'
-import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL, HOME_CARD_TAIL } from '../../components/homeCard'
+import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL, HOME_CARD_TAIL } from '../../components/homeCardTokens'
 import { FEATURES } from '../../lib/features'
 
 // ── Helpers ──────────────────────────────────────────────────────

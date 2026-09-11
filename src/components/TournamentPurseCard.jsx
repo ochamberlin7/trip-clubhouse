@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { loadPurseStandings, computePurse, formatMoney } from '../lib/purse'
+import HomeCard from './homeCard'
 
 // Tournament Purse — Home-screen widget. Shows who owes the purse based on
 // match-play standings. Only appears when the commissioner has toggled
@@ -17,10 +18,6 @@ const NAVY = '#1B3F6E'
 const GREY = '#8a96a3'
 const RED = '#C0392B'
 const styles = {
-  card: { background: '#fff', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '16px', overflow: 'hidden' },
-  header: { background: NAVY, color: '#fff', padding: '12px 16px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
-  headerTitle: { fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
-  headerAmount: { fontSize: '14px', fontWeight: 800 },
   body: { padding: '16px' },
   rule: { fontSize: '13px', color: GREY, lineHeight: 1.5 },
   status: { fontSize: '13px', fontWeight: 600 },
@@ -83,15 +80,11 @@ export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }
   // State 1 — before any round is complete: static rule blurb.
   if (!hasStandings) {
     return (
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <span style={styles.headerTitle}>Tournament Purse</span>
-          <span style={styles.headerAmount}>{headerAmount}</span>
-        </div>
+      <HomeCard title="Tournament Purse" tail={headerAmount}>
         <div style={styles.body}>
           <div style={styles.rule}>The losing team pays the purse.</div>
         </div>
-      </div>
+      </HomeCard>
     )
   }
 
@@ -100,31 +93,23 @@ export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }
   // State 2 — standings exist, no amount set yet: prompt the commissioner.
   if (!amountSet) {
     return (
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <span style={styles.headerTitle}>Tournament Purse</span>
-          <span style={styles.headerAmount}>{headerAmount}</span>
-        </div>
+      <HomeCard title="Tournament Purse" tail={headerAmount}>
         <div style={styles.body}>
           <div style={styles.note}>Commissioner: set the purse amount to show each player's share.</div>
         </div>
-      </div>
+      </HomeCard>
     )
   }
 
   // State 3 — amount set: each owing player's share as a red negative amount.
   return (
-    <div style={styles.card}>
-      <div style={styles.header}>
-        <span style={styles.headerTitle}>Tournament Purse</span>
-        <span style={styles.headerAmount}>{headerAmount}</span>
-      </div>
+    <HomeCard title="Tournament Purse" tail={headerAmount}>
       {purse.splitPlayers.map(p => (
         <div key={p.id} style={styles.playerRow}>
           <span style={styles.playerName}>{p.name}</span>
           <span style={styles.playerShare}>-${formatMoney(perShare)}</span>
         </div>
       ))}
-    </div>
+    </HomeCard>
   )
 }

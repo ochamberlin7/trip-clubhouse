@@ -1,6 +1,7 @@
-// "Classic, Softened" Home card shell — shared by the Home widgets (Next Tee
-// Times, Trash Talk Thread, Weather). White card with a soft deep shadow and a
-// solid navy header bar: white bold uppercase label left, soft-navy tail right.
+// "Classic, Softened" Home card style tokens — the shared shell used by every
+// Home widget. Widgets with a plain header should prefer the <HomeCard> component
+// (homeCard.jsx); these raw objects are for the few that need a bespoke header
+// (an icon in the label, a fixed height, flex-start alignment, etc.).
 export const HOME_CARD = {
   background: '#FFFFFF',
   borderRadius: 20,
