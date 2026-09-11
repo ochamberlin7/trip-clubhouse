@@ -21,23 +21,25 @@ function sameDay(a, b) {
 const styles = {
   container: {
     background: '#1B3F6E',
-    borderRadius: '12px',
-    padding: '16px',
+    borderRadius: '20px',
+    boxShadow: '0 18px 32px -12px rgba(15,30,51,.42), 0 4px 10px rgba(15,30,51,.18)',
+    padding: '18px 16px',
     textAlign: 'center',
-    marginBottom: '10px',
+    marginBottom: '14px',
   },
   number: {
-    fontSize: '52px',
-    fontWeight: 900,
+    fontSize: '44px',
+    fontWeight: 700,
     color: '#fff',
     lineHeight: 1,
   },
   label: {
     fontSize: '12px',
-    color: 'rgba(255,255,255,0.65)',
+    color: '#C7D6EA',
     textTransform: 'uppercase',
     letterSpacing: '1px',
-    marginTop: '4px',
+    marginTop: '6px',
+    fontWeight: 600,
   },
   // Override style used for during-trip / post-trip messages.
   message: {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL, HOME_CARD_TAIL } from './homeCard'
 
 // Tee Times card for the dashboard home tab — shows today's tee times if any
 // round today is still incomplete, otherwise the next upcoming day's tee times.
@@ -20,33 +21,10 @@ function formatDate(iso) {
 }
 
 const styles = {
-  card: {
-    background: '#FFFFFF',
-    border: '1px solid #DDE3EA',
-    borderRadius: '10px',
-    padding: 0,
-    overflow: 'hidden',
-    marginBottom: '10px',
-  },
-  header: {
-    background: '#1B3F6E',
-    padding: '10px 14px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerLeft: {
-    color: '#fff',
-    fontSize: '12px',
-    fontWeight: 800,
-    textTransform: 'uppercase',
-    letterSpacing: '1px',
-  },
-  headerRight: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: '11px',
-    fontWeight: 600,
-  },
+  card: { ...HOME_CARD },
+  header: { ...HOME_CARD_HEADER },
+  headerLeft: { ...HOME_CARD_LABEL },
+  headerRight: { ...HOME_CARD_TAIL },
   row: {
     display: 'flex',
     justifyContent: 'space-between',

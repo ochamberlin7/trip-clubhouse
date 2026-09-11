@@ -20,9 +20,24 @@
   /* Serif display face — the "Clubhouse" identity. Used for major page titles
      (not body/labels/chrome). Loaded at 700 in index.html. */
   --font-serif: 'Playfair Display', Georgia, serif;
+
+  /* ── "Classic, Softened" design tokens (Part 2 rollout) ──
+     Single navy accent + a cool neutral ink/slate ramp. Added now for Home; will
+     be adopted app-wide as later screens are restyled. */
+  --navy-soft-text:  #C7D6EA;   /* secondary text on navy fills (lighter option) */
+  --navy-soft-text-2:#AFC2DE;   /* dimmer secondary-on-navy */
+  --accent-bg:       #E7EDF5;   /* light navy tint — active nav circle, pills */
+  --ink:             #0F1E33;
+  --ink-soft:        #33455E;
+  --slate:           #5B6B84;
+  --mist:            #94A3B8;
+  --hairline:        #E5E7EB;
+  --hairline-soft:   #F1F5F9;
+  /* Card / nav elevation shared by the Home cards and the floating bottom nav. */
+  --shadow-card: 0 16px 28px -12px rgba(15,30,51,.30), 0 3px 8px rgba(15,30,51,.14);
   /* Occupied height of the fixed bottom tab bar (content + home-indicator inset).
      The live-score banner floats just above this; scroll views pad by it. */
-  --tab-bar-space: calc(54px + env(safe-area-inset-bottom));
+  --tab-bar-space: calc(72px + env(safe-area-inset-bottom));
   /* Bottom padding any scroll container needs so its last rows clear the fixed
      chrome: 16px base + whichever of the tab bar / live-score banner is taller,
      + the feedback pill (floats 10px above that, --feedback-btn-height measured
@@ -198,6 +213,20 @@ select {
 .tab-btn.active { color: var(--navy); }
 .tab-btn svg { display: block; }
 .tab-label { font-size: 8px; font-weight: 600; letter-spacing: 0.2px; text-transform: uppercase; margin-top: 1px; }
+
+/* ── Floating bottom nav (BottomNav.jsx) — shared global chrome ──
+   A white pill inset from the screen edges, sharing the Home card elevation.
+   The wrapper is click-through (pointer-events:none) so its transparent padding
+   never blocks taps on content behind; the pill itself re-enables events. */
+.bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; display: flex; justify-content: center; padding: 0 14px calc(env(safe-area-inset-bottom) + 12px); pointer-events: none; }
+.bnav-pill { pointer-events: auto; display: flex; gap: 2px; width: 100%; max-width: 402px; background: #fff; border-radius: 999px; box-shadow: var(--shadow-card); padding: 7px 8px; }
+.bnav-btn { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; font-family: inherit; padding: 2px 0; color: #AEB4CE; transition: color 0.15s; }
+.bnav-btn svg { display: block; }
+.bnav-icon { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; transition: background 0.15s; }
+.bnav-btn.active { color: var(--navy); }
+.bnav-btn.active .bnav-icon { background: var(--accent-bg); }
+.bnav-btn.active .bnav-label { font-weight: 700; }
+.bnav-label { font-size: 8px; font-weight: 600; letter-spacing: 0.2px; text-transform: uppercase; }
 
 /* ── Countdown card — CTI .countdown-wrap ── */
 .countdown-card { background: var(--navy); border-radius: var(--radius); padding: 20px 16px; text-align: center; margin-bottom: 10px; }

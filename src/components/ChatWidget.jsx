@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
+import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCard'
 
 // Trash Talk Thread — trip chat for the dashboard home tab.
 //
@@ -21,9 +22,9 @@ const styles = {
   // position/z-index so the widget (esp. its send button) sits ABOVE the floating
   // feedback FAB (.feedback-fab, z-index 201) where they overlap near the bottom of
   // the Home screen — the FAB stays clickable everywhere outside the widget.
-  card: { background: '#FFFFFF', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '10px', height: CARD_HEIGHT, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 202 },
-  header: { background: '#1B3F6E', padding: '10px 14px', flexShrink: 0 },
-  headerText: { fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#fff' },
+  card: { ...HOME_CARD, height: CARD_HEIGHT, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 202 },
+  header: { ...HOME_CARD_HEADER, justifyContent: 'flex-start', flexShrink: 0 },
+  headerText: { ...HOME_CARD_LABEL },
   area: { padding: '12px', flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' },
   msgRow: { display: 'flex', flexDirection: 'column', gap: '2px' },
   meta: { fontSize: '10px', color: '#7A8FA6', padding: '0 4px' },
