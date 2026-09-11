@@ -974,7 +974,7 @@ function MealTeeRow({ meal }) {
   )
 }
 
-const teeRoundCardStyle = { background: 'var(--bg2)', border: '1px solid var(--bg3)', borderRadius: 10, margin: '10px 12px', overflow: 'hidden' }
+const teeRoundCardStyle = { background: 'var(--bg2)', border: '1px solid var(--bg3)', borderRadius: 14, margin: '10px 12px', overflow: 'hidden' }
 const teeRoundHeaderStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '10px 12px', borderBottom: '1px solid var(--bg3)' }
 const teePairingLabelStyle = { fontSize: 13, fontWeight: 600, color: '#2C3E50' }
 const teeTodayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: 'var(--navy)', background: '#fff', borderRadius: 10, padding: '1px 8px' }

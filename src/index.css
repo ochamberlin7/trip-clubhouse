@@ -33,8 +33,11 @@
   --mist:            #94A3B8;
   --hairline:        #E5E7EB;
   --hairline-soft:   #F1F5F9;
-  /* Card / nav elevation shared by the Home cards and the floating bottom nav. */
+  /* Card / nav elevation + radius shared by the Home cards, the floating bottom
+     nav, and the reskinned Score/Leaderboard/Stats/Tee Times cards. Single source
+     of truth so the shell isn't hand-rolled per page (mirrors HOME_CARD). */
   --shadow-card: 0 16px 28px -12px rgba(15,30,51,.30), 0 3px 8px rgba(15,30,51,.14);
+  --card-radius: 20px;
   /* Occupied height of the fixed bottom tab bar (content + home-indicator inset).
      The live-score banner floats just above this; scroll views pad by it. */
   --tab-bar-space: calc(72px + env(safe-area-inset-bottom));
@@ -238,7 +241,7 @@ select {
 .countdown-date-str { font-size: 13px; color: rgba(255,255,255,0.8); margin-top: 6px; }
 
 /* ── Tee group (rounds grouped by date) — CTI .schedule-day ── */
-.tee-group { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--bg3); margin-bottom: 10px; }
+.tee-group { border-radius: var(--card-radius); overflow: hidden; box-shadow: var(--shadow-card); margin-bottom: 14px; }
 .tee-group-header { background: var(--navy); padding: 8px 14px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: #fff; }
 .tee-group-row { background: var(--bg1); padding: 12px 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .tee-group-row + .tee-group-row { border-top: 1px solid var(--bg2); }
@@ -263,7 +266,7 @@ select {
 .round-practice-badge { position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; border-radius: 50%; background: #7A8FA6; color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; pointer-events: none; border: 1.5px solid #fff; z-index: 2; }
 
 /* ── Pairing tabs — CTI .pair-tabs ── */
-.pair-tabs { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--bg3); border-radius: var(--radius); overflow: hidden; margin-bottom: 14px; }
+.pair-tabs { display: grid; grid-template-columns: 1fr 1fr; border-radius: var(--card-radius); overflow: hidden; box-shadow: var(--shadow-card); margin-bottom: 14px; }
 .pair-tab { padding: 10px; background: var(--bg1); color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; text-align: center; border: none; font-family: inherit; transition: all 0.15s; }
 .pair-tab + .pair-tab { border-left: 1px solid var(--bg3); }
 .pair-tab.active { background: var(--navy); color: #fff; }
@@ -274,13 +277,13 @@ select {
 .lb-toggle-btn.active { background: var(--bg1); color: var(--cream); border: 1px solid var(--bg3); }
 
 /* ── Leaderboard team cards — CTI .lb-team-card ── */
-.lb-team-card { border-radius: var(--radius); overflow: hidden; margin-bottom: 10px; }
+.lb-team-card { border-radius: var(--card-radius); overflow: hidden; box-shadow: var(--shadow-card); margin-bottom: 14px; }
 .lb-team-header { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; }
 .lb-team-header.t1 { background: var(--navy); }
 .lb-team-header.t2 { background: var(--teal); }
 .lb-team-name { font-size: 16px; font-weight: 800; color: #fff; }
 .lb-team-pts  { font-size: 28px; font-weight: 900; color: #fff; }
-.lb-rounds { background: var(--bg1); border: 1px solid var(--bg3); border-top: none; border-radius: 0 0 var(--radius) var(--radius); }
+.lb-rounds { background: var(--bg1); border-radius: 0 0 var(--card-radius) var(--card-radius); }
 .lb-round-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--bg2); font-size: 13px; }
 .lb-round-row:last-child { border-bottom: none; }
 .lb-round-name  { color: var(--cream2); font-weight: 600; }
@@ -392,7 +395,7 @@ select {
 .chat-send-btn:not(:disabled):active { background: #163460; }
 
 /* ── Scorecard (Scoring tab) ── */
-.sc-card { background: var(--bg1); border: 1px solid var(--bg3); border-radius: var(--radius); padding: 8px 8px 12px; }
+.sc-card { background: var(--bg1); border-radius: var(--card-radius); box-shadow: var(--shadow-card); padding: 8px 8px 12px; }
 .sc-row { display: grid; grid-template-columns: 30px 24px 24px 1fr 1fr 32px 1fr 1fr; align-items: center; column-gap: 2px; }
 .sc-head { margin-bottom: 4px; }
 .sc-head .sc-h { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; text-align: center; padding-bottom: 4px; }
@@ -490,11 +493,11 @@ select {
 .match-banner-thru{font-size:11px;color:var(--muted);text-align:right;min-width:38px}
 
 /* ── Stats tab — --gold is the neutral accent (NOT a team colour) ── */
-.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0}
-.stat-card{background:var(--bg1);border:1px solid var(--bg3);border-radius:var(--radius);overflow:hidden}
-.stat-card-header{background:var(--bg2);padding:7px 10px;display:flex;align-items:center;gap:6px}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.stat-card{background:var(--bg1);border-radius:var(--card-radius);box-shadow:var(--shadow-card);overflow:hidden}
+.stat-card-header{background:var(--navy);padding:9px 12px;display:flex;align-items:center;gap:6px}
 .stat-card-icon{font-size:13px}
-.stat-card-title{font-size:10px;font-weight:700;color:var(--cream);text-transform:uppercase;letter-spacing:0.5px}
+.stat-card-title{font-size:10px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:0.5px}
 .stat-row-item{display:flex;align-items:center;padding:5px 8px}
 .stat-rank{font-size:11px;font-weight:700;color:var(--muted);width:16px;flex-shrink:0}
 .stat-rank.gold{color:var(--gold)}
@@ -509,7 +512,7 @@ select {
 .gn-btn + .gn-btn{border-left:1px solid var(--bg3)}
 .gn-btn.active{background:var(--navy);color:#fff}
 .stat-empty{padding:8px 10px;font-size:11px;font-style:italic;color:var(--muted)}
-.drink-lb-card{background:var(--bg1);border:1px solid var(--bg3);border-radius:var(--radius);overflow:hidden;margin-bottom:10px}
+.drink-lb-card{background:var(--bg1);border-radius:var(--card-radius);box-shadow:var(--shadow-card);overflow:hidden;margin-bottom:14px}
 .drink-lb-header{background:var(--navy);padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
 .drink-lb-title{font-size:14px;font-weight:800;color:#FFFFFF}
 .drink-lb-subtitle{font-size:11px;color:rgba(255,255,255,0.75);margin-top:2px}
