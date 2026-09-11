@@ -473,7 +473,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   }
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <StatSymbols />
 
       {/* Category tabs — ABOVE the Gross/Net selector; horizontal scroll, Drinks last. */}
@@ -483,19 +483,20 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
         ))}
       </div>
 
-      {/* Gross / Net toggle — controls the Scoring counting tiles + Best/Worst
-          Round (not Points Won, Fire, or Drinks). Default Gross. */}
-      {showToggle && (
-        <div className="gross-net-toggle" role="tablist" aria-label="Gross or net stats">
-          <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
-          <button role="tab" aria-selected={mode === 'net'} className={`gn-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
-        </div>
-      )}
-
-      {/* Tiles for the active tab. Horizontal drag / two-finger swipe pages between
-          category tabs. Drinks is a full-width tile with inline +/- editing. */}
-      <div ref={tilesRef} style={{ touchAction: 'pan-y' }} onPointerDown={onTilesPointerDown} onPointerUp={onTilesPointerUp} onClickCapture={onTilesClickCapture}>
-      <div className="stat-tiles-grid">
+      {/* Everything below the tabs is one swipe surface: a horizontal drag / two-finger
+          swipe ANYWHERE here (the toggle, the tiles, or the empty space below them)
+          pages between category tabs. flex:1 so it fills the page height, not just the
+          tiles. */}
+      <div ref={tilesRef} style={{ flex: 1, touchAction: 'pan-y' }} onPointerDown={onTilesPointerDown} onPointerUp={onTilesPointerUp} onClickCapture={onTilesClickCapture}>
+        {/* Gross / Net toggle — controls the Scoring counting tiles + Best/Worst
+            Round (not Points Won, Fire, or Drinks). Default Gross. */}
+        {showToggle && (
+          <div className="gross-net-toggle" role="tablist" aria-label="Gross or net stats">
+            <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
+            <button role="tab" aria-selected={mode === 'net'} className={`gn-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
+          </div>
+        )}
+        <div className="stat-tiles-grid">
         {tilesForTab.map(t => (
           <StatTile key={t.key} title={t.title} icon={t.icon} hi={t.hi} anyScore={anyScore} players={players} valueOf={t.valueOf} />
         ))}
