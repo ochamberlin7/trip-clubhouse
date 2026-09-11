@@ -22,6 +22,7 @@ import StatsTab from '../../components/StatsTab'
 import LiveScoreBanner from '../../components/LiveScoreBanner'
 import FeedbackButton from '../../components/FeedbackButton'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL, HOME_CARD_TAIL } from '../../components/homeCardTokens'
+import { buildWeatherLocations, defaultWeatherIndex } from '../../lib/weatherLocations'
 import { FEATURES } from '../../lib/features'
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -80,6 +81,10 @@ const wxStyles = {
   detailValue: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#2C3E50' },
   loading: { padding: '14px', fontSize: '13px', color: '#7A8FA6', textAlign: 'center' },
   forecastHint: { marginLeft: 'auto', alignSelf: 'center', fontSize: '12px', fontWeight: 700, color: '#1B3F6E' },
+  // Location pager dots — muted gray, active filled navy (widget accent).
+  dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '2px 0 12px' },
+  dot: { width: 7, height: 7, borderRadius: '50%', background: '#C4CEDA', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
+  dotActive: { background: '#1B3F6E' },
   // 10-day forecast modal (portal + centered overlay, matching the app pattern).
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   modalCard: { position: 'relative', background: '#fff', borderRadius: '14px', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
@@ -114,12 +119,6 @@ function todayIsoLocal() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-function roundLocationLabel(r) {
-  if (r.location_city && r.location_state) return `${r.location_city}, ${r.location_state}`
-  if (r.location_city) return r.location_city
-  if (r.club_name) return r.club_name.slice(0, 20)
-  return null
-}
 
 // Open-Meteo geocoding matches on place NAME only — appending a state
 // abbreviation (e.g. "Cathedral City CA") returns zero results. So we query the
@@ -149,54 +148,57 @@ function stateMatches(admin1, state) {
   return a === full || a === s.toLowerCase()
 }
 
-// eslint-disable-next-line no-unused-vars -- tripStartDate/tripEndDate kept in the interface
-// `rounds` comes from shared dashboard state; the effect re-runs (and re-fetches
-// weather) whenever rounds change — e.g. after a commissioner edits a course.
+
+// `rounds` comes from shared dashboard state; the location list + weather re-fetch
+// whenever rounds change — e.g. after a commissioner edits a course.
 function WeatherWidget({ rounds = [], tripName }) {
-  const [wx, setWx] = useState(null)
-  const [status, setStatus] = useState('loading') // 'loading' | 'ok' | 'error'
-  const [locationLabel, setLocationLabel] = useState('Weather')
+  const [wxByKey, setWxByKey] = useState({}) // locKey -> { status:'ok'|'error', wx, label }
+  const [userIndex, setUserIndex] = useState(null) // session-only swipe; null = follow default
   const [showForecast, setShowForecast] = useState(false) // 10-day forecast modal
+  const mountedRef = useRef(true)
+  const cardRef = useRef(null)
+  const swipeRef = useRef({ x0: 0, y0: 0, did: false })
+  useEffect(() => () => { mountedRef.current = false }, [])
 
-  // Stable dependency: only the locations that affect which weather we show.
-  const locationKey = rounds.map(r => `${r.date}|${r.location_lat}|${r.location_lon}|${r.location_city}|${r.location_state}|${r.club_name}`).join(';')
+  // Distinct locations across every round with location data, deduped + ordered
+  // by earliest date (pure logic in lib/weatherLocations, unit-tested).
+  const locations = useMemo(() => buildWeatherLocations(rounds, tripName), [rounds, tripName])
+  const locationsKey = locations.map(l => l.key).join(';')
 
+  // Default = the location of the next upcoming round with data (else the last).
+  // Recomputed each load, so a reload always lands here regardless of prior swipe.
+  const defaultIndex = useMemo(() => defaultWeatherIndex(rounds, locations, todayIsoLocal()), [rounds, locations])
+
+  // Reset the session swipe whenever the location set changes (incl. every mount /
+  // Home reload) → fresh default; swipe state never persists across reloads.
+  useEffect(() => { setUserIndex(null) }, [locationsKey])
+
+  const activeIndex = (userIndex != null && userIndex >= 0 && userIndex < locations.length) ? userIndex : defaultIndex
+  const active = locations[activeIndex] || null
+
+  // Fetch + geocode weather for ALL distinct locations up front, cached per key so
+  // swiping between them is instant (a brief per-location loading state only shows
+  // while that location's first fetch is still in flight).
   useEffect(() => {
     let cancelled = false
-    async function load() {
-      setStatus('loading')
+    setWxByKey({})
+    async function resolveAndFetch(loc) {
       try {
-        const dated = rounds.filter(r => r.date).slice().sort((a, b) => a.date.localeCompare(b.date))
-
-        // Next upcoming round (earliest date >= today), else the last round.
-        const today = todayIsoLocal()
-        const selected = dated.find(r => r.date >= today) || dated[dated.length - 1] || null
-
-        if (!selected) { if (!cancelled) { setLocationLabel(tripName || 'Weather'); setStatus('error') } return }
-
-        let lat = selected.location_lat
-        let lon = selected.location_lon
-        let label = roundLocationLabel(selected) || tripName || 'Weather'
-
+        let lat = loc.lat, lon = loc.lon
         // No stored coords → geocode by CITY NAME only (Open-Meteo returns zero
-        // results if the state is appended to the name), then disambiguate by
-        // state and prefer a US match.
+        // results if the state is appended), disambiguating by state / US match.
         if (lat == null || lon == null) {
-          const city = selected.location_city
-          const state = selected.location_state
-          if (city) {
-            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=10&language=en&format=json`)
+          if (loc.city) {
+            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(loc.city)}&count=10&language=en&format=json`)
             const geo = await geoRes.json()
             const results = Array.isArray(geo?.results) ? geo.results : []
             const us = results.filter(r => r.country_code === 'US')
             const pool = us.length ? us : results
-            const hit = (state && pool.find(r => stateMatches(r.admin1, state))) || pool[0]
+            const hit = (loc.state && pool.find(r => stateMatches(r.admin1, loc.state))) || pool[0]
             if (hit) { lat = hit.latitude; lon = hit.longitude }
           }
         }
-
-        if (lat == null || lon == null) { if (!cancelled) { setLocationLabel(label); setStatus('error') } return }
-
+        if (lat == null || lon == null) return { status: 'error', wx: null, label: loc.label }
         const res = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
           `&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m` +
@@ -204,38 +206,70 @@ function WeatherWidget({ rounds = [], tripName }) {
           `&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto&forecast_days=10`
         )
         const data = await res.json()
-        if (cancelled) return
-        if (data?.current) {
-          const d = data.daily || {}
-          const days = (d.time || []).map((date, i) => ({
-            date,
-            hi: Math.round(d.temperature_2m_max?.[i]),
-            lo: Math.round(d.temperature_2m_min?.[i]),
-            code: d.weathercode?.[i],
-            pop: d.precipitation_probability_max?.[i],
-          }))
-          setWx({
-            temp: Math.round(data.current.temperature_2m),
-            code: data.current.weathercode,
-            wind: Math.round(data.current.windspeed_10m),
-            humidity: data.current.relativehumidity_2m,
-            hi: days[0]?.hi,
-            lo: days[0]?.lo,
-            daily: days, // full 10-day forecast for the tap-through modal
-          })
-          setLocationLabel(label)
-          setStatus('ok')
-        } else {
-          setLocationLabel(label)
-          setStatus('error')
+        if (!data?.current) return { status: 'error', wx: null, label: loc.label }
+        const d = data.daily || {}
+        const daily = (d.time || []).map((date, i) => ({
+          date, hi: Math.round(d.temperature_2m_max?.[i]), lo: Math.round(d.temperature_2m_min?.[i]),
+          code: d.weathercode?.[i], pop: d.precipitation_probability_max?.[i],
+        }))
+        return {
+          status: 'ok', label: loc.label,
+          wx: {
+            temp: Math.round(data.current.temperature_2m), code: data.current.weathercode,
+            wind: Math.round(data.current.windspeed_10m), humidity: data.current.relativehumidity_2m,
+            hi: daily[0]?.hi, lo: daily[0]?.lo, daily,
+          },
         }
-      } catch {
-        if (!cancelled) setStatus('error')
-      }
+      } catch { return { status: 'error', wx: null, label: loc.label } }
     }
-    load()
+    locations.forEach(loc => {
+      resolveAndFetch(loc).then(result => {
+        if (!cancelled && mountedRef.current) setWxByKey(prev => ({ ...prev, [loc.key]: result }))
+      })
+    })
     return () => { cancelled = true }
-  }, [locationKey, tripName]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [locationsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function go(delta) {
+    if (locations.length < 2) return
+    const next = Math.min(locations.length - 1, Math.max(0, activeIndex + delta))
+    if (next !== activeIndex) setUserIndex(next)
+  }
+
+  // Trackpad two-finger horizontal swipe (wheel deltaX). Native non-passive
+  // listener so preventDefault stops the browser's back/forward swipe-nav.
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el || locations.length < 2) return
+    let settle, acc = 0
+    function onWheel(e) {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
+      e.preventDefault()
+      acc += e.deltaX
+      clearTimeout(settle)
+      settle = setTimeout(() => { if (Math.abs(acc) > 40) go(acc < 0 ? -1 : 1); acc = 0 }, 90)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => { el.removeEventListener('wheel', onWheel); clearTimeout(settle) }
+  }, [locationsKey, activeIndex]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Touch / mouse horizontal drag → change location; a tap opens the forecast.
+  function onPointerDownCard(e) { swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false } }
+  function onPointerUpCard(e) {
+    const s = swipeRef.current
+    const dx = e.clientX - s.x0, dy = e.clientY - s.y0
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) { s.did = true; go(dx < 0 ? 1 : -1) }
+  }
+  function onCardClick() {
+    if (swipeRef.current.did) { swipeRef.current.did = false; return } // was a swipe, not a tap
+    setShowForecast(true)
+  }
+
+  const current = active ? wxByKey[active.key] : null
+  const locationLabel = current?.label || active?.label || tripName || 'Weather'
+  const wx = current?.status === 'ok' ? current.wx : null
+  const isLoading = !!active && !current       // fetch for this location still in flight
+  const isError = !active || current?.status === 'error'
 
   // Always render the card shell — never return null.
   const header = (
@@ -245,77 +279,89 @@ function WeatherWidget({ rounds = [], tripName }) {
     </div>
   )
 
-  if (status === 'loading') return (
-    <div style={wxStyles.card}>
-      {header}
-      <div style={wxStyles.loading}>Loading conditions…</div>
+  // Location pager dots — one per distinct location, only when there's more than
+  // one. Muted gray, active filled navy. Tapping a dot jumps to that location.
+  const dots = locations.length > 1 ? (
+    <div style={wxStyles.dotsRow}>
+      {locations.map((l, i) => (
+        <button
+          key={l.key}
+          type="button"
+          aria-label={`Show location ${i + 1} of ${locations.length}`}
+          aria-current={i === activeIndex ? 'true' : undefined}
+          onClick={e => { e.stopPropagation(); setUserIndex(i) }}
+          style={{ ...wxStyles.dot, ...(i === activeIndex ? wxStyles.dotActive : null) }}
+        />
+      ))}
     </div>
-  )
+  ) : null
 
-  if (status === 'error' || !wx) return (
-    <div style={wxStyles.card}>
-      {header}
-      <div style={wxStyles.inner}>
-        <div style={wxStyles.mainRow}>
-          <div>
-            <div style={wxStyles.temp}>—°F</div>
-            <div style={wxStyles.condition}>Weather unavailable</div>
-          </div>
-          <div style={wxStyles.rightCol}>
-            <div style={wxStyles.hiloBlock}>
-              <div style={wxStyles.hi}>↑ —°</div>
-              <div style={wxStyles.lo}>↓ —°</div>
-            </div>
-            <div style={wxStyles.emoji}>-</div>
-          </div>
-        </div>
-        <div style={wxStyles.detailsRow}>
-          <div>
-            <span style={wxStyles.detailLabel}>Wind</span>
-            <span style={wxStyles.detailValue}>—</span>
-          </div>
-          <div>
-            <span style={wxStyles.detailLabel}>Humidity</span>
-            <span style={wxStyles.detailValue}>—</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  const days = wx?.daily || []
+  const cardStyle = { ...wxStyles.card, cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'pan-y' }
 
-  const days = wx.daily || []
   return (
     <>
-      {/* Current conditions (unchanged) — the whole card taps through to the
-          10-day forecast. */}
-      <div style={{ ...wxStyles.card, cursor: 'pointer' }} onClick={() => setShowForecast(true)} role="button" tabIndex={0} aria-label="Open 10-day forecast">
+      {/* Whole card taps through to the 10-day forecast; horizontal drag / two-finger
+          swipe pages between locations (when there's more than one). */}
+      <div ref={cardRef} style={cardStyle} onClick={onCardClick} onPointerDown={onPointerDownCard} onPointerUp={onPointerUpCard} role="button" tabIndex={0} aria-label="Open 10-day forecast">
         {header}
-        <div style={wxStyles.inner}>
-          <div style={wxStyles.mainRow}>
-            <div>
-              <div style={wxStyles.temp}>{wx.temp}°F</div>
-              <div style={wxStyles.condition}>{wxDesc(wx.code)}</div>
-            </div>
-            <div style={wxStyles.rightCol}>
-              <div style={wxStyles.hiloBlock}>
-                <div style={wxStyles.hi}>↑ {wx.hi}°</div>
-                <div style={wxStyles.lo}>↓ {wx.lo}°</div>
+        {isLoading ? (
+          <div style={wxStyles.loading}>Loading conditions…</div>
+        ) : isError ? (
+          <div style={wxStyles.inner}>
+            <div style={wxStyles.mainRow}>
+              <div>
+                <div style={wxStyles.temp}>—°F</div>
+                <div style={wxStyles.condition}>Weather unavailable</div>
               </div>
-              <div style={wxStyles.emoji}>{wxIcon(wx.code)}</div>
+              <div style={wxStyles.rightCol}>
+                <div style={wxStyles.hiloBlock}>
+                  <div style={wxStyles.hi}>↑ —°</div>
+                  <div style={wxStyles.lo}>↓ —°</div>
+                </div>
+                <div style={wxStyles.emoji}>-</div>
+              </div>
+            </div>
+            <div style={wxStyles.detailsRow}>
+              <div>
+                <span style={wxStyles.detailLabel}>Wind</span>
+                <span style={wxStyles.detailValue}>—</span>
+              </div>
+              <div>
+                <span style={wxStyles.detailLabel}>Humidity</span>
+                <span style={wxStyles.detailValue}>—</span>
+              </div>
             </div>
           </div>
-          <div style={wxStyles.detailsRow}>
-            <div>
-              <span style={wxStyles.detailLabel}>Wind</span>
-              <span style={wxStyles.detailValue}>{wx.wind} mph</span>
+        ) : (
+          <div style={wxStyles.inner}>
+            <div style={wxStyles.mainRow}>
+              <div>
+                <div style={wxStyles.temp}>{wx.temp}°F</div>
+                <div style={wxStyles.condition}>{wxDesc(wx.code)}</div>
+              </div>
+              <div style={wxStyles.rightCol}>
+                <div style={wxStyles.hiloBlock}>
+                  <div style={wxStyles.hi}>↑ {wx.hi}°</div>
+                  <div style={wxStyles.lo}>↓ {wx.lo}°</div>
+                </div>
+                <div style={wxStyles.emoji}>{wxIcon(wx.code)}</div>
+              </div>
             </div>
-            <div>
-              <span style={wxStyles.detailLabel}>Humidity</span>
-              <span style={wxStyles.detailValue}>{wx.humidity}%</span>
+            <div style={wxStyles.detailsRow}>
+              <div>
+                <span style={wxStyles.detailLabel}>Wind</span>
+                <span style={wxStyles.detailValue}>{wx.wind} mph</span>
+              </div>
+              <div>
+                <span style={wxStyles.detailLabel}>Humidity</span>
+                <span style={wxStyles.detailValue}>{wx.humidity}%</span>
+              </div>
+              {days.length > 1 && <span style={wxStyles.forecastHint}>10-day ›</span>}
             </div>
-            {days.length > 1 && <span style={wxStyles.forecastHint}>10-day ›</span>}
           </div>
-        </div>
+        )}
+        {dots}
       </div>
 
       {showForecast && days.length > 0 && createPortal(
