@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
@@ -284,6 +284,8 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   const [refreshTick, setRefreshTick] = useState(0) // bumped by realtime score changes + resume to refetch
   const [mode, setMode] = useState('gross') // Gross/Net toggle — scoring/round tiles only
   const [tab, setTab] = useState('Scoring') // category tab (session-only)
+  const tilesRef = useRef(null)             // swipe area (tiles) → change tab
+  const swipeRef = useRef({ x0: 0, y0: 0, did: false })
   const allowance = trip?.handicap_allowance ?? 100
 
   const roundIds = rounds.map(r => r.id)
@@ -357,6 +359,33 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   // so refetch on return (covers the "switched apps and back" case).
   useResumeRefetch(() => setRefreshTick(t => t + 1))
 
+  // Two-finger trackpad horizontal swipe over the tiles → move between category
+  // tabs. Native non-passive listener so preventDefault stops the browser's
+  // back/forward swipe-nav. Re-bound when `data` first renders the tiles.
+  useEffect(() => {
+    const el = tilesRef.current
+    if (!el) return
+    let settle, acc = 0
+    function onWheel(e) {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
+      e.preventDefault()
+      acc += e.deltaX
+      clearTimeout(settle)
+      settle = setTimeout(() => {
+        if (Math.abs(acc) > 50) {
+          setTab(prev => {
+            const i = STAT_TABS.indexOf(prev)
+            const next = acc < 0 ? Math.max(0, i - 1) : Math.min(STAT_TABS.length - 1, i + 1)
+            return STAT_TABS[next]
+          })
+        }
+        acc = 0
+      }, 90)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => { el.removeEventListener('wheel', onWheel); clearTimeout(settle) }
+  }, [data])
+
   const computed = useMemo(() => {
     if (!data) return null
     return computePlayerStats({ rounds, ...data }, allowance)
@@ -424,9 +453,35 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   // Gross/Net only affects the counting + round tiles; Fire & Drinks are net-based.
   const showToggle = tab === 'Scoring' || tab === 'Rounds'
 
+  // Touch / mouse horizontal drag over the tiles → previous/next category tab
+  // (clamped to the tab list). Vertical drags fall through to page scroll.
+  const tabIndex = STAT_TABS.indexOf(tab)
+  function goTab(delta) {
+    const next = Math.min(STAT_TABS.length - 1, Math.max(0, tabIndex + delta))
+    if (next !== tabIndex) setTab(STAT_TABS[next])
+  }
+  function onTilesPointerDown(e) { swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false } }
+  function onTilesPointerUp(e) {
+    const s = swipeRef.current
+    const dx = e.clientX - s.x0, dy = e.clientY - s.y0
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { s.did = true; goTab(dx < 0 ? 1 : -1) }
+  }
+  // Cancel the click that follows a horizontal swipe so it doesn't also trigger a
+  // "See all" / drink-edit tap on whatever the drag started over.
+  function onTilesClickCapture(e) {
+    if (swipeRef.current.did) { e.stopPropagation(); e.preventDefault(); swipeRef.current.did = false }
+  }
+
   return (
     <div>
       <StatSymbols />
+
+      {/* Category tabs — ABOVE the Gross/Net selector; horizontal scroll, Drinks last. */}
+      <div className="stat-tabs" role="tablist" aria-label="Stat categories">
+        {STAT_TABS.map(t => (
+          <button key={t} role="tab" aria-selected={tab === t} className={`stat-tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>
+        ))}
+      </div>
 
       {/* Gross / Net toggle — controls the Scoring counting tiles + Best/Worst
           Round (not Points Won, Fire, or Drinks). Default Gross. */}
@@ -437,15 +492,9 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
         </div>
       )}
 
-      {/* Category tabs — horizontal scroll, Drinks last. */}
-      <div className="stat-tabs" role="tablist" aria-label="Stat categories">
-        {STAT_TABS.map(t => (
-          <button key={t} role="tab" aria-selected={tab === t} className={`stat-tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>
-        ))}
-      </div>
-
-      {/* Tiles for the active tab. Drinks is a single full-width tile with its own
-          inline +/- editing (unchanged behavior). */}
+      {/* Tiles for the active tab. Horizontal drag / two-finger swipe pages between
+          category tabs. Drinks is a full-width tile with inline +/- editing. */}
+      <div ref={tilesRef} style={{ touchAction: 'pan-y' }} onPointerDown={onTilesPointerDown} onPointerUp={onTilesPointerUp} onClickCapture={onTilesClickCapture}>
       <div className="stat-tiles-grid">
         {tilesForTab.map(t => (
           <StatTile key={t.key} title={t.title} icon={t.icon} hi={t.hi} anyScore={anyScore} players={players} valueOf={t.valueOf} />
@@ -488,6 +537,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
             })}
           </div>
         )}
+      </div>
       </div>
     </div>
   )
