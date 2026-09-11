@@ -218,7 +218,10 @@ select {
    A white pill inset from the screen edges, sharing the Home card elevation.
    The wrapper is click-through (pointer-events:none) so its transparent padding
    never blocks taps on content behind; the pill itself re-enables events. */
-.bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; display: flex; justify-content: center; padding: 0 14px calc(env(safe-area-inset-bottom) + 12px); pointer-events: none; }
+/* z-index 220: above all page content — incl. the Trash Talk widget (202) and the
+   feedback FAB (201) — so scrolling chat never covers the nav; still below the
+   Menu drawer / secondary pages (250+) so those overlays cover the nav as before. */
+.bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 220; display: flex; justify-content: center; padding: 0 14px calc(env(safe-area-inset-bottom) + 12px); pointer-events: none; }
 .bnav-pill { pointer-events: auto; display: flex; gap: 2px; width: 100%; max-width: 402px; background: #fff; border-radius: 999px; box-shadow: var(--shadow-card); padding: 7px 8px; }
 .bnav-btn { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; font-family: inherit; padding: 2px 0; color: #AEB4CE; transition: color 0.15s; }
 .bnav-btn svg { display: block; }
