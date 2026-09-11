@@ -473,7 +473,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div>
       <StatSymbols />
 
       {/* Category tabs — ABOVE the Gross/Net selector; horizontal scroll, Drinks last. */}
@@ -485,9 +485,10 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
 
       {/* Everything below the tabs is one swipe surface: a horizontal drag / two-finger
           swipe ANYWHERE here (the toggle, the tiles, or the empty space below them)
-          pages between category tabs. flex:1 so it fills the page height, not just the
-          tiles. */}
-      <div ref={tilesRef} style={{ flex: 1, touchAction: 'pan-y' }} onPointerDown={onTilesPointerDown} onPointerUp={onTilesPointerUp} onClickCapture={onTilesClickCapture}>
+          pages between category tabs. A viewport-based min-height makes the surface
+          reach down past short tabs to the bottom of the screen — .dashboard-content
+          isn't a flex container, so a flex fill wouldn't stretch it. */}
+      <div ref={tilesRef} style={{ minHeight: 'calc(100dvh - 190px)', touchAction: 'pan-y' }} onPointerDown={onTilesPointerDown} onPointerUp={onTilesPointerUp} onClickCapture={onTilesClickCapture}>
         {/* Gross / Net toggle — controls the Scoring counting tiles + Best/Worst
             Round (not Points Won, Fire, or Drinks). Default Gross. */}
         {showToggle && (
