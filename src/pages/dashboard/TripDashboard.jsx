@@ -265,19 +265,59 @@ function WeatherWidget({ rounds = [], tripName }) {
     setShowForecast(true)
   }
 
-  const current = active ? wxByKey[active.key] : null
-  const locationLabel = current?.label || active?.label || tripName || 'Weather'
-  const wx = current?.status === 'ok' ? current.wx : null
-  const isLoading = !!active && !current       // fetch for this location still in flight
-  const isError = !active || current?.status === 'error'
+  // Active-location values — the tap-through 10-day modal follows the active face.
+  const activeCurrent = active ? wxByKey[active.key] : null
+  const activeLabel = activeCurrent?.label || active?.label || tripName || 'Weather'
+  const activeWx = activeCurrent?.status === 'ok' ? activeCurrent.wx : null
 
-  // Always render the card shell — never return null.
-  const header = (
-    <div style={wxStyles.header}>
-      <span style={wxStyles.headerLeft}><WeatherIcon /> Weather</span>
-      <span style={wxStyles.headerRight}>{locationLabel}</span>
-    </div>
-  )
+  // Inner content for one location face: loading / unavailable / conditions. Kept
+  // as a helper so every face in the carousel track renders identically.
+  function wxBody(faceWx, loading, error) {
+    if (loading) return <div style={wxStyles.loading}>Loading conditions…</div>
+    if (error || !faceWx) return (
+      <div style={wxStyles.inner}>
+        <div style={wxStyles.mainRow}>
+          <div>
+            <div style={wxStyles.temp}>—°F</div>
+            <div style={wxStyles.condition}>Weather unavailable</div>
+          </div>
+          <div style={wxStyles.rightCol}>
+            <div style={wxStyles.hiloBlock}>
+              <div style={wxStyles.hi}>↑ —°</div>
+              <div style={wxStyles.lo}>↓ —°</div>
+            </div>
+            <div style={wxStyles.emoji}>-</div>
+          </div>
+        </div>
+        <div style={wxStyles.detailsRow}>
+          <div><span style={wxStyles.detailLabel}>Wind</span><span style={wxStyles.detailValue}>—</span></div>
+          <div><span style={wxStyles.detailLabel}>Humidity</span><span style={wxStyles.detailValue}>—</span></div>
+        </div>
+      </div>
+    )
+    return (
+      <div style={wxStyles.inner}>
+        <div style={wxStyles.mainRow}>
+          <div>
+            <div style={wxStyles.temp}>{faceWx.temp}°F</div>
+            <div style={wxStyles.condition}>{wxDesc(faceWx.code)}</div>
+          </div>
+          <div style={wxStyles.rightCol}>
+            <div style={wxStyles.hiloBlock}>
+              <div style={wxStyles.hi}>↑ {faceWx.hi}°</div>
+              <div style={wxStyles.lo}>↓ {faceWx.lo}°</div>
+            </div>
+            <div style={wxStyles.emoji}>{wxIcon(faceWx.code)}</div>
+          </div>
+        </div>
+        <div style={wxStyles.detailsRow}>
+          <div><span style={wxStyles.detailLabel}>Wind</span><span style={wxStyles.detailValue}>{faceWx.wind} mph</span></div>
+          <div><span style={wxStyles.detailLabel}>Humidity</span><span style={wxStyles.detailValue}>{faceWx.humidity}%</span></div>
+          {faceWx.daily && faceWx.daily.length > 1 && <span style={wxStyles.forecastHint}>10-day ›</span>}
+        </div>
+      </div>
+    )
+  }
 
   // Location pager dots — one per distinct location, only when there's more than
   // one. Muted gray, active filled navy. Tapping a dot jumps to that location.
@@ -296,71 +336,43 @@ function WeatherWidget({ rounds = [], tripName }) {
     </div>
   ) : null
 
-  const days = wx?.daily || []
+  const days = activeWx?.daily || []
   const cardStyle = { ...wxStyles.card, cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'pan-y' }
 
   return (
     <>
       {/* Whole card taps through to the 10-day forecast; horizontal drag / two-finger
-          swipe pages between locations (when there's more than one). */}
+          swipe pages between locations. The shell is a fixed viewport; the track
+          holds one full-width face per location and slides (translateX) to the
+          active one — a carousel, not an instant value swap. The threshold gesture
+          only changes the index; CSS animates the slide and re-targets cleanly on
+          rapid swipes. Dots stay fixed below the track. */}
       <div ref={cardRef} style={cardStyle} onClick={onCardClick} onPointerDown={onPointerDownCard} onPointerUp={onPointerUpCard} role="button" tabIndex={0} aria-label="Open 10-day forecast">
-        {header}
-        {isLoading ? (
-          <div style={wxStyles.loading}>Loading conditions…</div>
-        ) : isError ? (
-          <div style={wxStyles.inner}>
-            <div style={wxStyles.mainRow}>
-              <div>
-                <div style={wxStyles.temp}>—°F</div>
-                <div style={wxStyles.condition}>Weather unavailable</div>
-              </div>
-              <div style={wxStyles.rightCol}>
-                <div style={wxStyles.hiloBlock}>
-                  <div style={wxStyles.hi}>↑ —°</div>
-                  <div style={wxStyles.lo}>↓ —°</div>
+        <div style={{ display: 'flex', transform: `translateX(-${activeIndex * 100}%)`, transition: 'transform 260ms ease-out', willChange: 'transform' }}>
+          {locations.map(loc => {
+            const c = wxByKey[loc.key]
+            const faceWx = c?.status === 'ok' ? c.wx : null
+            const faceLabel = c?.label || loc.label || tripName || 'Weather'
+            return (
+              <div key={loc.key} style={{ flex: '0 0 100%', minWidth: 0 }}>
+                <div style={wxStyles.header}>
+                  <span style={wxStyles.headerLeft}><WeatherIcon /> Weather</span>
+                  <span style={wxStyles.headerRight}>{faceLabel}</span>
                 </div>
-                <div style={wxStyles.emoji}>-</div>
+                {wxBody(faceWx, !c, c?.status === 'error')}
               </div>
+            )
+          })}
+          {locations.length === 0 && (
+            <div style={{ flex: '0 0 100%', minWidth: 0 }}>
+              <div style={wxStyles.header}>
+                <span style={wxStyles.headerLeft}><WeatherIcon /> Weather</span>
+                <span style={wxStyles.headerRight}>{activeLabel}</span>
+              </div>
+              {wxBody(null, false, true)}
             </div>
-            <div style={wxStyles.detailsRow}>
-              <div>
-                <span style={wxStyles.detailLabel}>Wind</span>
-                <span style={wxStyles.detailValue}>—</span>
-              </div>
-              <div>
-                <span style={wxStyles.detailLabel}>Humidity</span>
-                <span style={wxStyles.detailValue}>—</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div style={wxStyles.inner}>
-            <div style={wxStyles.mainRow}>
-              <div>
-                <div style={wxStyles.temp}>{wx.temp}°F</div>
-                <div style={wxStyles.condition}>{wxDesc(wx.code)}</div>
-              </div>
-              <div style={wxStyles.rightCol}>
-                <div style={wxStyles.hiloBlock}>
-                  <div style={wxStyles.hi}>↑ {wx.hi}°</div>
-                  <div style={wxStyles.lo}>↓ {wx.lo}°</div>
-                </div>
-                <div style={wxStyles.emoji}>{wxIcon(wx.code)}</div>
-              </div>
-            </div>
-            <div style={wxStyles.detailsRow}>
-              <div>
-                <span style={wxStyles.detailLabel}>Wind</span>
-                <span style={wxStyles.detailValue}>{wx.wind} mph</span>
-              </div>
-              <div>
-                <span style={wxStyles.detailLabel}>Humidity</span>
-                <span style={wxStyles.detailValue}>{wx.humidity}%</span>
-              </div>
-              {days.length > 1 && <span style={wxStyles.forecastHint}>10-day ›</span>}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
         {dots}
       </div>
 
@@ -372,7 +384,7 @@ function WeatherWidget({ rounds = [], tripName }) {
                 padding reserves its space so the label doesn't run under it. */}
             <div style={{ ...wxStyles.header, borderRadius: '14px 14px 0 0', position: 'relative', paddingRight: '44px' }}>
               <span style={wxStyles.headerLeft}><WeatherIcon /> 10-Day Forecast</span>
-              <span style={wxStyles.headerRight}>{locationLabel}</span>
+              <span style={wxStyles.headerRight}>{activeLabel}</span>
               <button style={wxStyles.modalClose} aria-label="Close" onClick={() => setShowForecast(false)}>✕</button>
             </div>
             <div>
