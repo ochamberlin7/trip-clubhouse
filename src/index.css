@@ -520,6 +520,30 @@ select {
 .drink-inline-popup.open{display:flex}
 .dip-btn{width:28px;height:28px;border-radius:50%;border:1px solid var(--bg3);background:var(--bg2);color:var(--gold);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
 .dip-val{font-size:13px;font-weight:800;color:var(--gold);min-width:20px;text-align:center}
+
+/* ── Stats page: category tabs + podium tiles ── */
+.stat-tabs{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px 0 4px;margin-bottom:12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.stat-tabs::-webkit-scrollbar{display:none}
+.stat-tab{flex-shrink:0;padding:8px 18px;border-radius:999px;background:#fff;color:#5B6B84;border:1px solid #E5E7EB;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background 0.15s,color 0.15s,border-color 0.15s}
+.stat-tab.active{background:#1B3F6E;color:#fff;border-color:#1B3F6E}
+.stat-tiles-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-tile{background:#fff;border-radius:16px;box-shadow:0 10px 20px -12px rgba(15,30,51,.22);overflow:hidden}
+/* Skinny navy header bar (shorter than the Home-widget bar) — white icon + label. */
+.stat-tile-header{background:#1B3F6E;padding:7px 16px;display:flex;align-items:center;gap:8px}
+.stat-tile-title{color:#fff;font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.stat-tile-icon{width:16px;height:16px;color:#fff;flex-shrink:0;display:block}
+.stat-tile-plus{color:#fff;font-size:13px;font-weight:800;line-height:1}
+.stat-tile-row{display:flex;align-items:center;gap:10px;padding:10px 14px}
+.stat-tile-row + .stat-tile-row{border-top:1px solid #EEF2F6}
+.stat-tile-rank{width:18px;font-size:13px;font-weight:700;color:#94A3B8;flex-shrink:0}
+.stat-tile-name{flex:1;font-size:15px;font-weight:700;color:#0F1E33;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-tile-val{font-size:15px;font-weight:800;color:#0F1E33;min-width:24px;text-align:right}
+.stat-tile-seeall{display:block;width:100%;text-align:center;padding:11px;background:#FBFCFD;border:none;border-top:1px solid #EEF2F6;color:#1B3F6E;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+/* "See all" full-list modal */
+.stat-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
+.stat-modal-sheet{display:flex;flex-direction:column;background:#fff;border-radius:16px;width:100%;max-width:400px;max-height:calc(100vh - 40px);overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.25)}
+.stat-modal-list{overflow-y:auto}
+.stat-modal-close{position:absolute;top:50%;right:10px;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:#fff;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 /* Flights page — keep entered date/time values left-aligned like the text fields
    (WebKit date/time inputs otherwise center/right-align their value). */
 .flight-field-input::-webkit-datetime-edit{text-align:left;padding:0}

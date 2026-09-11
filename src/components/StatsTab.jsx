@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import {
@@ -174,28 +175,62 @@ function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlay
   return { stats, drinkByPlayer, anyScore }
 }
 
-// Cards 2–10, re-rendered per Gross/Net mode. hi = sort high-first; dash = the
-// value is a round total (show "—" when the player has no qualifying 18-hole
-// round, and rank those "—" players last).
-const TOGGLE_CARDS = [
-  { title: 'Eagles', icon: '🦅', key: 'eagles', hi: true },
-  { title: 'Birdies', icon: '🐦', key: 'birdies', hi: true },
-  { title: 'Pars', icon: '⛳', key: 'pars', hi: true },
-  { title: 'Pars or Better', icon: '✅', key: 'parsOrBetter', hi: true },
-  { title: 'Bogeys', icon: '😬', key: 'bogeys', hi: false },
-  { title: 'Doubles', icon: '✌️', key: 'doubles', hi: false },
-  { title: 'Triples+', icon: '💀', key: 'triples', hi: false },
-  { title: 'Best Round', icon: '📉', key: 'bestRound', hi: false, dash: true },
-  { title: 'Worst Round', icon: '📈', key: 'worstRound', hi: true, dash: true },
-]
+// Category tabs (Drinks last). Each tab shows a 2-col grid of stat tiles.
+const STAT_TABS = ['Scoring', 'Fire', 'Rounds', 'Drinks']
 
-// `valueOf(player)` returns the ranked value (number, or null → "—"). `anyScore`
-// gates the whole card: with no scores entered anywhere, show "No data yet".
-function StatCard({ title, icon, players, valueOf, hi, anyScore }) {
+// Custom stat icon set — defined once as <symbol>s, referenced via <use>. White
+// on the navy tile header (stroke: currentColor). "+1" (Points Won) is text, not
+// an icon.
+function StatSymbols() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+      <symbol id="ic-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20.5V3" /><path d="M12 4l7 2.6-7 2.6z" /><path d="M8.3 20.5h7.4" /></symbol>
+      <symbol id="ic-shieldcheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5l7 2.7v5.3c0 4.6-2.9 7.3-7 8.5-4.1-1.2-7-3.9-7-8.5V6.2l7-2.7z" /><path d="M8.7 12.3l2.2 2.2 4.4-4.4" /></symbol>
+      <symbol id="ic-circle1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="7.5" /></symbol>
+      <symbol id="ic-dcircle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="12" r="8.2" /><circle cx="12" cy="12" r="5.2" /></symbol>
+      <symbol id="ic-square1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5" /></symbol>
+      <symbol id="ic-dsquare" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="4.3" y="4.3" width="15.4" height="15.4" rx="1.8" /><rect x="7.5" y="7.5" width="9" height="9" rx="1.2" /></symbol>
+      <symbol id="ic-xsquare" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5" /><path d="M7.3 7.3l9.4 9.4M16.7 7.3l-9.4 9.4" /></symbol>
+      <symbol id="ic-chartup" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 16.5l6-6 4 4 8-8.5" /><path d="M14.5 6h6.5v6.5" /></symbol>
+      <symbol id="ic-chartdown" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7.5l6 6 4-4 8 8.5" /><path d="M14.5 18h6.5v-6.5" /></symbol>
+      <symbol id="ic-flameplain" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21.5c-4.2 0-7-2.9-7-6.8 0-2.7 1.7-4.6 2.8-6.3.2 1.8 1 2.9 2 2.9-.3-3.4-.6-5.6 1.6-8.8 1 3.2 3.8 5 3.8 8.6 0 1.1 1 1.9 1.9.9 1.2 2.9-.9 9.5-5.1 9.5z" /></symbol>
+      <symbol id="ic-flamestreak" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 21.5c-4.2 0-7-2.9-7-6.8 0-2.7 1.7-4.6 2.8-6.3.2 1.8 1 2.9 2 2.9-.3-3.4-.6-5.6 1.6-8.8 1 3.2 3.8 5 3.8 8.6 0 1.1 1 1.9 1.9.9 1.2 2.9-.9 9.5-5.1 9.5z" /><path d="M.3 9.8h6" /><path d="M3.3 14.3h3" /><path d="M.3 18.8h6" /></symbol>
+      <symbol id="ic-cocktail" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M5.3 7.3h12l-6 8.3z" /><path d="M11.3 15.6v5.7" /><path d="M7.8 21.3h7" /><path d="M17.2 4.3a3.2 3.2 0 0 1 3.2 3.2h-3.2z" /><path d="M17.9 6.9l1.8-1.8" /></symbol>
+    </svg>
+  )
+}
+
+// The skinny navy header's icon: "+1" renders as bold white text; anything else
+// references a <symbol> by id.
+function StatIcon({ icon }) {
+  if (icon === '+1') return <span className="stat-tile-plus">+1</span>
+  return <svg className="stat-tile-icon" viewBox="0 0 24 24" aria-hidden="true"><use href={`#${icon}`} /></svg>
+}
+
+function StatHeaderBar({ icon, title }) {
+  return (
+    <div className="stat-tile-header">
+      <StatIcon icon={icon} />
+      <span className="stat-tile-title">{title}</span>
+    </div>
+  )
+}
+
+function StatRow({ i, row }) {
+  return (
+    <div className="stat-tile-row">
+      <span className="stat-tile-rank">{i + 1}</span>
+      <span className="stat-tile-name">{firstName(row.p.name) || row.p.name}</span>
+      <span className="stat-tile-val">{row.v == null ? '—' : row.v}</span>
+    </div>
+  )
+}
+
+// Rank players by a card's value (unchanged from before): high- or low-first per
+// `hi`, null values ("—") last, ties broken alphabetically by first name.
+function rankPlayers(players, valueOf, hi) {
   const nameOf = p => firstName(p.name) || p.name || ''
   const rows = players.map(p => ({ p, v: valueOf(p) }))
-  // Rank by value in the card's natural direction; null values ("—") sort last;
-  // ties broken alphabetically.
   rows.sort((a, b) => {
     if (a.v == null && b.v == null) return nameOf(a.p).localeCompare(nameOf(b.p))
     if (a.v == null) return 1
@@ -203,21 +238,42 @@ function StatCard({ title, icon, players, valueOf, hi, anyScore }) {
     if (a.v !== b.v) return hi ? b.v - a.v : a.v - b.v
     return nameOf(a.p).localeCompare(nameOf(b.p))
   })
+  return rows
+}
+
+// One podium tile: skinny navy header + top-3 rows + a "See all N ›" footer that
+// opens a modal with the full ranked list. `anyScore` gates it to "No data yet".
+function StatTile({ title, icon, players, valueOf, hi, anyScore, span }) {
+  const [open, setOpen] = useState(false)
+  const rows = rankPlayers(players, valueOf, hi)
   return (
-    <div className="stat-card">
-      <div className="stat-card-header">
-        <span className="stat-card-icon">{icon}</span>
-        <span className="stat-card-title">{title}</span>
-      </div>
-      {!anyScore
-        ? <div className="stat-empty">No data yet</div>
-        : rows.map((row, i) => (
-          <div className="stat-row-item" key={row.p.id}>
-            <span className="stat-rank">{i + 1}</span>
-            <span className="stat-player-name">{firstName(row.p.name) || row.p.name}</span>
-            <span className="stat-value">{row.v == null ? '—' : row.v}</span>
+    <div className="stat-tile" style={span ? { gridColumn: '1 / -1' } : undefined}>
+      <StatHeaderBar icon={icon} title={title} />
+      {!anyScore ? (
+        <div className="stat-empty">No data yet</div>
+      ) : (
+        <>
+          {rows.slice(0, 3).map((row, i) => <StatRow key={row.p.id} i={i} row={row} />)}
+          {rows.length > 3 && (
+            <button className="stat-tile-seeall" onClick={() => setOpen(true)}>See all {rows.length} ›</button>
+          )}
+        </>
+      )}
+      {open && createPortal(
+        <div className="stat-modal-overlay" role="dialog" aria-modal="true" onClick={() => setOpen(false)}>
+          <div className="stat-modal-sheet" onClick={e => e.stopPropagation()}>
+            <div className="stat-tile-header" style={{ position: 'relative', paddingRight: 44 }}>
+              <StatIcon icon={icon} />
+              <span className="stat-tile-title">{title}</span>
+              <button className="stat-modal-close" aria-label="Close" onClick={() => setOpen(false)}>✕</button>
+            </div>
+            <div className="stat-modal-list">
+              {rows.map((row, i) => <StatRow key={row.p.id} i={i} row={row} />)}
+            </div>
           </div>
-        ))}
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }
@@ -226,7 +282,8 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   const [data, setData] = useState(null)
   const [openDrinkPopup, setOpenDrinkPopup] = useState(null) // trip_player_id
   const [refreshTick, setRefreshTick] = useState(0) // bumped by realtime score changes + resume to refetch
-  const [mode, setMode] = useState('gross') // Gross/Net toggle — cards 2–10 only
+  const [mode, setMode] = useState('gross') // Gross/Net toggle — scoring/round tiles only
+  const [tab, setTab] = useState('Scoring') // category tab (session-only)
   const allowance = trip?.handicap_allowance ?? 100
 
   const roundIds = rounds.map(r => r.id)
@@ -322,7 +379,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   // Point Match Play tracks points earned. It's mode-independent (match-play
   // scoring is always net) so the Gross/Net toggle never changes it.
   const isStandard = trip?.format === 'standard_match_play'
-  const primaryCard = { title: isStandard ? 'Holes Won' : 'Points Won', icon: '📊' }
+  const primaryCard = { title: isStandard ? 'Holes Won' : 'Points Won', icon: '+1' }
 
   const canEditDrinks = p => !!isCommissioner || (!!currentUserId && (p.user_id === currentUserId || p.claimed_user_id === currentUserId))
 
@@ -336,108 +393,101 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     return <div className="empty-state"><span className="empty-state-icon">📊</span>No players on this trip yet.</div>
   }
 
+  // Value accessor for a Gross/Net mode-dependent stat (`dash` → round total that
+  // shows "—" when absent). Mode-independent stats use direct accessors below.
+  const modeValue = (key, dash) => p => {
+    const m = stats.get(p.id)?.[mode]
+    if (!m) return dash ? null : 0
+    return dash ? m[key] : (m[key] ?? 0)
+  }
+
+  // Tile descriptors per tab. Icons per the spec; Points Won uses the "+1" text.
+  const scoringTiles = [
+    { key: 'primary', title: primaryCard.title, icon: '+1', hi: true, valueOf: p => stats.get(p.id)?.primary ?? 0 },
+    { key: 'eagles', title: 'Eagles', icon: 'ic-dcircle', hi: true, valueOf: modeValue('eagles') },
+    { key: 'birdies', title: 'Birdies', icon: 'ic-circle1', hi: true, valueOf: modeValue('birdies') },
+    { key: 'pars', title: 'Pars', icon: 'ic-flag', hi: true, valueOf: modeValue('pars') },
+    { key: 'parsOrBetter', title: 'Pars+', icon: 'ic-shieldcheck', hi: true, valueOf: modeValue('parsOrBetter') },
+    { key: 'bogeys', title: 'Bogeys', icon: 'ic-square1', hi: false, valueOf: modeValue('bogeys') },
+    { key: 'doubles', title: 'Doubles', icon: 'ic-dsquare', hi: false, valueOf: modeValue('doubles') },
+    { key: 'triples', title: 'Triples+', icon: 'ic-xsquare', hi: false, valueOf: modeValue('triples') },
+  ]
+  const fireTiles = [
+    { key: 'fireStreak', title: 'Longest Fire Streak', icon: 'ic-flamestreak', hi: true, valueOf: p => stats.get(p.id)?.fireStreak ?? 0 },
+    { key: 'fireHoles', title: 'Total Fire Holes', icon: 'ic-flameplain', hi: true, valueOf: p => stats.get(p.id)?.fireHolesTotal ?? 0 },
+  ]
+  const roundsTiles = [
+    { key: 'bestRound', title: 'Best Round', icon: 'ic-chartup', hi: false, valueOf: modeValue('bestRound', true) },
+    { key: 'worstRound', title: 'Worst Round', icon: 'ic-chartdown', hi: true, valueOf: modeValue('worstRound', true) },
+  ]
+  const tilesForTab = tab === 'Scoring' ? scoringTiles : tab === 'Fire' ? fireTiles : tab === 'Rounds' ? roundsTiles : []
+  // Gross/Net only affects the counting + round tiles; Fire & Drinks are net-based.
+  const showToggle = tab === 'Scoring' || tab === 'Rounds'
+
   return (
     <div>
-      {/* Drink leaderboard */}
-      <div className="drink-lb-card">
-        <div className="drink-lb-header">
-          <div>
-            <div className="drink-lb-title">🍺 Drink Leaderboard</div>
-            <div className="drink-lb-subtitle">Total drinks this trip</div>
-          </div>
+      <StatSymbols />
+
+      {/* Gross / Net toggle — controls the Scoring counting tiles + Best/Worst
+          Round (not Points Won, Fire, or Drinks). Default Gross. */}
+      {showToggle && (
+        <div className="gross-net-toggle" role="tablist" aria-label="Gross or net stats">
+          <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
+          <button role="tab" aria-selected={mode === 'net'} className={`gn-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
         </div>
-        {drinkRows.map((p, i) => {
-          const editable = canEditDrinks(p)
-          const open = openDrinkPopup === p.id
-          return (
-            <div className="stat-row-item" key={p.id} style={{ position: 'relative' }}>
-              <span className="stat-rank">{i + 1}</span>
-              {editable ? (
-                <button
-                  className="stat-player-name"
-                  style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
-                  onClick={() => setOpenDrinkPopup(open ? null : p.id)}
-                >
-                  {firstName(p.name) || p.name}
-                </button>
-              ) : (
-                <span className="stat-player-name">{firstName(p.name) || p.name}</span>
-              )}
-              <span className="stat-value">{totalDrinks(p)}</span>
-              {open && (
-                <>
-                  {/* Tap anywhere else to close. */}
-                  <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setOpenDrinkPopup(null)} />
-                  <div className="drink-inline-popup open">
-                    <button className="dip-btn" aria-label="Remove a drink" onClick={() => adjustManual(p, -1)}>−</button>
-                    <span className="dip-val">{p.manual_drinks || 0}</span>
-                    <button className="dip-btn" aria-label="Add a drink" onClick={() => adjustManual(p, +1)}>+</button>
-                  </div>
-                </>
-              )}
-            </div>
-          )
-        })}
+      )}
+
+      {/* Category tabs — horizontal scroll, Drinks last. */}
+      <div className="stat-tabs" role="tablist" aria-label="Stat categories">
+        {STAT_TABS.map(t => (
+          <button key={t} role="tab" aria-selected={tab === t} className={`stat-tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>
+        ))}
       </div>
 
-      {/* Gross / Net toggle — controls cards 2–10 (not the primary card 1, and
-          not the Drink Leaderboard). Default Gross. */}
-      <div className="gross-net-toggle" role="tablist" aria-label="Gross or net stats">
-        <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
-        <button role="tab" aria-selected={mode === 'net'} className={`gn-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
-      </div>
+      {/* Tiles for the active tab. Drinks is a single full-width tile with its own
+          inline +/- editing (unchanged behavior). */}
+      <div className="stat-tiles-grid">
+        {tilesForTab.map(t => (
+          <StatTile key={t.key} title={t.title} icon={t.icon} hi={t.hi} anyScore={anyScore} players={players} valueOf={t.valueOf} />
+        ))}
 
-      {/* Stat grid. Card 1 (Holes Won / Points Won) is mode-independent; cards
-          2–10 recompute from the active Gross/Net mode. Every player is listed
-          (even at 0); Best/Worst Round show "—" without a qualifying 18-hole
-          round; #1 is highlighted navy. All cards show "No data yet" until a
-          score is entered anywhere. */}
-      <div className="stats-grid">
-        <StatCard
-          key="primary"
-          title={primaryCard.title} icon={primaryCard.icon} hi anyScore={anyScore}
-          players={players}
-          valueOf={p => stats.get(p.id)?.primary ?? 0}
-        />
-        {/* Counting cards (Eagles … Triples+) — Gross/Net mode-dependent. */}
-        {TOGGLE_CARDS.slice(0, 7).map(c => (
-          <StatCard
-            key={c.key}
-            title={c.title} icon={c.icon} hi={c.hi} anyScore={anyScore}
-            players={players}
-            valueOf={p => {
-              const m = stats.get(p.id)?.[mode]
-              if (!m) return c.dash ? null : 0
-              return c.dash ? m[c.key] : (m[c.key] ?? 0)
-            }}
-          />
-        ))}
-        {/* Fire stats — mode-independent (net-based, like the primary card). */}
-        <StatCard
-          key="fireStreak"
-          title="Longest Fire Streak" icon="🔥" hi anyScore={anyScore}
-          players={players}
-          valueOf={p => stats.get(p.id)?.fireStreak ?? 0}
-        />
-        <StatCard
-          key="fireHoles"
-          title="Total Fire Holes" icon="🔥" hi anyScore={anyScore}
-          players={players}
-          valueOf={p => stats.get(p.id)?.fireHolesTotal ?? 0}
-        />
-        {/* Best / Worst Round — Gross/Net mode-dependent. */}
-        {TOGGLE_CARDS.slice(7).map(c => (
-          <StatCard
-            key={c.key}
-            title={c.title} icon={c.icon} hi={c.hi} anyScore={anyScore}
-            players={players}
-            valueOf={p => {
-              const m = stats.get(p.id)?.[mode]
-              if (!m) return c.dash ? null : 0
-              return c.dash ? m[c.key] : (m[c.key] ?? 0)
-            }}
-          />
-        ))}
+        {tab === 'Drinks' && (
+          <div className="stat-tile" style={{ gridColumn: '1 / -1' }}>
+            <StatHeaderBar icon="ic-cocktail" title="Drink Leaderboard" />
+            {drinkRows.map((p, i) => {
+              const editable = canEditDrinks(p)
+              const open = openDrinkPopup === p.id
+              return (
+                <div className="stat-tile-row" key={p.id} style={{ position: 'relative' }}>
+                  <span className="stat-tile-rank">{i + 1}</span>
+                  {editable ? (
+                    <button
+                      className="stat-tile-name"
+                      style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+                      onClick={() => setOpenDrinkPopup(open ? null : p.id)}
+                    >
+                      {firstName(p.name) || p.name}
+                    </button>
+                  ) : (
+                    <span className="stat-tile-name">{firstName(p.name) || p.name}</span>
+                  )}
+                  <span className="stat-tile-val">{totalDrinks(p)}</span>
+                  {open && (
+                    <>
+                      {/* Tap anywhere else to close. */}
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setOpenDrinkPopup(null)} />
+                      <div className="drink-inline-popup open">
+                        <button className="dip-btn" aria-label="Remove a drink" onClick={() => adjustManual(p, -1)}>−</button>
+                        <span className="dip-val">{p.manual_drinks || 0}</span>
+                        <button className="dip-btn" aria-label="Add a drink" onClick={() => adjustManual(p, +1)}>+</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
