@@ -729,7 +729,9 @@ function StandardLeaderboard({ trip, teams, rounds }) {
 // are computed live from the same score/tee/handicap data the leaderboard uses; a
 // Gross/Net toggle (default Net) switches the display. No winner/leader UI mid-trip.
 const powCard = {
-  card: { borderRadius: 10, overflow: 'hidden', marginBottom: 10, border: '1px solid #DDE3EA' },
+  // Shared HOME_CARD shell; keeps the team-COLOURED header (set inline per team),
+  // matching the tournament Leaderboard team cards.
+  card: { ...HOME_CARD },
   header: { padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   name: { fontSize: 16, fontWeight: 800, color: '#fff' },
   total: { fontSize: 28, fontWeight: 900, color: '#fff' },
