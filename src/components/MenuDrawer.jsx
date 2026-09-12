@@ -1010,7 +1010,7 @@ function NameEditModal({ round, saving, onSave, onClose }) {
 
 function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onEditName, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
   if (!data) return <div style={s.muted}>Loading…</div>
-  const { days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, stays = [], mealsByDate = {} } = data
+  const { days, roundsByDate, scheduleByDate, players, playerRounds, stays = [], mealsByDate = {} } = data
   if (!days || days.length === 0) {
     return <Card title="Schedule"><div style={s.muted}>Course schedule will appear once the trip dates are set.</div></Card>
   }
@@ -1036,8 +1036,11 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
             </div>
             <div style={s.cardBody}>
               {dayRounds.map((r, i, arr) => {
-                const assigned = playersByRound[r.id]
-                const calcPlayers = (assigned && assigned.size) ? players.filter(p => assigned.has(p.id)) : players
+                // The Handicaps table is a per-course reference for the whole
+                // roster — always list every trip player. (Previously it filtered
+                // to players in a pairing for the round, so a partial pairing hid
+                // everyone not yet assigned; rounds with no pairings showed all.)
+                const calcPlayers = players
                 const scoreLocked = scoredRounds?.has(r.id)
                 const locked = scoreLocked || (r.date != null && r.date < todayIso)
                 const lockReason = scoreLocked ? 'scored' : 'past'
