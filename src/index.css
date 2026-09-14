@@ -480,7 +480,9 @@ select {
 .divider { border: none; border-top: 1px solid var(--bg2); margin: 4px 0; }
 
 /* ── Live-match floating banner ── */
-.match-banner-float{position:fixed;bottom:calc(var(--tab-bar-space) + 8px);left:16px;right:16px;max-width:398px;margin:0 auto;background:var(--bg1);border:1px solid var(--bg3);border-radius:var(--radius);padding:10px 14px;z-index:200;box-shadow:0 -2px 16px rgba(0,0,0,0.5);display:none;pointer-events:none}
+/* z-index 203: above the Trash Talk widget (202) so the live banner scrolls OVER
+   the thread; the feedback FAB stays at 201 so it still scrolls UNDER the thread. */
+.match-banner-float{position:fixed;bottom:calc(var(--tab-bar-space) + 8px);left:16px;right:16px;max-width:398px;margin:0 auto;background:var(--bg1);border:1px solid var(--bg3);border-radius:var(--radius);padding:10px 14px;z-index:203;box-shadow:0 -2px 16px rgba(0,0,0,0.5);display:none;pointer-events:none}
 .match-banner-float.visible{display:block}
 .match-banner-round{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);font-weight:600;margin-bottom:6px}
 .match-banner-rows{display:flex;flex-direction:column;gap:4px}
