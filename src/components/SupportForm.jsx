@@ -35,9 +35,23 @@ export default function SupportForm({ tripId, userId, defaultCategory = 'bug', i
     const body = message.trim()
     if (!body) return
     setStatus('saving'); setError(null)
+    // Capture the submitter's contact info so a plain read of the table shows who
+    // wrote in (no profile join needed). Sourced from the current auth session:
+    // email from auth, name from the display_name we keep on user metadata (see
+    // ProfilePage), falling back to the profiles table, then the email local part.
+    const { data: { user } = {} } = await supabase.auth.getUser()
+    const email = user?.email ?? null
+    let name = user?.user_metadata?.display_name || null
+    if (!name && user?.id) {
+      const { data: prof } = await supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle()
+      name = prof?.display_name || null
+    }
+    if (!name && email) name = email.split('@')[0]
     const { error: err } = await supabase.from('support_requests').insert({
       trip_id: tripId ?? null,
       user_id: userId ?? null,
+      email,
+      name,
       category,
       message: body,
     })
