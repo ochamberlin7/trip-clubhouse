@@ -1604,7 +1604,7 @@ function RulesPage({ tripId, isCommissioner, tournamentFormat, bonusGames }) {
 // does a direct UPDATE by team id (blank clears the name back to null → "Team N") and
 // returns to read-only.
 // Expanded body of the "Team Names" disclosure: a name input per team + Save.
-function TeamNamesBody({ teams, onSaved }) {
+function TeamNamesBody({ teams, onSaved, onClose }) {
   const [names, setNames] = useState(() => teams.map(t => t.name || ''))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -1623,6 +1623,7 @@ function TeamNamesBody({ teams, onSaved }) {
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     onSaved(next)
+    onClose?.() // collapse the row after a successful save
   }
 
   if (teams.length === 0) return <div style={s.muted}>No teams for this trip.</div>
@@ -1648,7 +1649,7 @@ function TeamNamesBody({ teams, onSaved }) {
 const ALLOWANCE_OPTIONS = [100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50] // descending
 
 // Expanded body of the "Handicap Allowance" disclosure.
-function AllowanceBody({ tripId, allowance, onUpdate }) {
+function AllowanceBody({ tripId, allowance, onUpdate, onClose }) {
   const [value, setValue] = useState(allowance ?? 100)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -1663,6 +1664,7 @@ function AllowanceBody({ tripId, allowance, onUpdate }) {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
       if (onUpdate) onUpdate()
+      onClose?.() // collapse the row after a successful save
     }
   }
 
@@ -1682,7 +1684,7 @@ function AllowanceBody({ tripId, allowance, onUpdate }) {
 }
 
 // Expanded body of the "Tournament Purse" disclosure: amount + Home-tab toggle.
-function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate }) {
+function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate, onClose }) {
   const [amount, setAmount] = useState(Number(purseAmount) > 0 ? String(purseAmount) : '')
   const [showHome, setShowHome] = useState(!!showPurseOnHome)
   const [saving, setSaving] = useState(false)
@@ -1701,6 +1703,7 @@ function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate }) {
     if (error) { setErr(`Save failed: ${error.message || 'unknown error'}`); return }
     setSaved(true); setTimeout(() => setSaved(false), 2000)
     onUpdate?.()
+    onClose?.() // collapse the row after a successful save (the Home-toggle stays open)
   }
 
   async function toggle() {
@@ -1789,13 +1792,13 @@ function CommissionerPage({ data, tripId, tripName, handicapAllowance, purseAmou
   return (
     <div>
       <Disclosure label="Team Names" value={teamsValue}>
-        <TeamNamesBody teams={teams} onSaved={onTeamsSaved} />
+        {({ close }) => <TeamNamesBody teams={teams} onSaved={onTeamsSaved} onClose={close} />}
       </Disclosure>
       <Disclosure label="Tournament Purse" value={purseValue}>
-        <PurseBody tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} onUpdate={onTripUpdate} />
+        {({ close }) => <PurseBody tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} onUpdate={onTripUpdate} onClose={close} />}
       </Disclosure>
       <Disclosure label="Handicap Allowance" value={allowanceValue}>
-        <AllowanceBody tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} />
+        {({ close }) => <AllowanceBody tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} onClose={close} />}
       </Disclosure>
       <InvitePlayersRow inviteToken={inviteToken} />
       <div style={{ ...rowUI.rowStatic, ...rowUI.divider }}>

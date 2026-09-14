@@ -55,8 +55,10 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [pwState, setPwState] = useState({ saving: false, ok: '', err: '' })
 
+  // Each save returns true on success so the caller can collapse the row. Failure
+  // (validation or error) returns false → the row stays open with its message.
   async function saveName() {
-    if (!firstName.trim() || !lastName.trim()) { setNameState({ saving: false, saved: false, err: 'First and last name are required.' }); return }
+    if (!firstName.trim() || !lastName.trim()) { setNameState({ saving: false, saved: false, err: 'First and last name are required.' }); return false }
     setNameState({ saving: true, saved: false, err: '' })
     const displayName = `${firstName.trim()} ${lastName.trim()}`.trim()
     try {
@@ -66,8 +68,10 @@ export default function ProfilePage() {
       if (profErr) throw profErr
       setNameState({ saving: false, saved: true, err: '' })
       setTimeout(() => setNameState(s => ({ ...s, saved: false })), 2000)
+      return true
     } catch (err) {
       setNameState({ saving: false, saved: false, err: err?.message || String(err) })
+      return false
     }
   }
 
@@ -85,41 +89,49 @@ export default function ProfilePage() {
       setPhone(formatPhone(phone))
       setPhoneState({ saving: false, saved: true, err: '' })
       setTimeout(() => setPhoneState(s => ({ ...s, saved: false })), 2000)
+      return true
     } catch (err) {
       setPhoneState({ saving: false, saved: false, err: err?.message || String(err) })
+      return false
     }
   }
 
   async function saveEmail() {
-    if (!emailLooksValid(email)) { setEmailState({ saving: false, saved: false, err: 'Enter a valid email address.', note: '' }); return }
-    if (email.trim().toLowerCase() === (user.email || '').toLowerCase()) { setEmailState({ saving: false, saved: true, err: '', note: '' }); setTimeout(() => setEmailState(s => ({ ...s, saved: false })), 2000); return }
+    if (!emailLooksValid(email)) { setEmailState({ saving: false, saved: false, err: 'Enter a valid email address.', note: '' }); return false }
+    if (email.trim().toLowerCase() === (user.email || '').toLowerCase()) { setEmailState({ saving: false, saved: true, err: '', note: '' }); setTimeout(() => setEmailState(s => ({ ...s, saved: false })), 2000); return true }
     setEmailState({ saving: true, saved: false, err: '', note: '' })
     try {
       const { error } = await supabase.auth.updateUser({ email: email.trim() })
       if (error) throw error
-      // Email changes require confirming the new address before they take effect.
+      // Email changes require confirming the new address before they take effect —
+      // keep the row OPEN so the "check your new email" note stays visible (return
+      // false so the caller doesn't collapse it).
       setEmailState({ saving: false, saved: false, err: '', note: `Check your new email (${email.trim()}) to confirm the change — until then your login email stays the same.` })
+      return false
     } catch (err) {
       setEmailState({ saving: false, saved: false, err: err?.message || String(err), note: '' })
+      return false
     }
   }
 
   async function changePassword() {
-    if (!currentPassword) { setPwState({ saving: false, ok: '', err: 'Enter your current password.' }); return }
-    if (newPassword.length < 6) { setPwState({ saving: false, ok: '', err: 'New password must be at least 6 characters.' }); return }
-    if (newPassword !== confirmPassword) { setPwState({ saving: false, ok: '', err: 'New passwords do not match.' }); return }
-    if (newPassword === currentPassword) { setPwState({ saving: false, ok: '', err: 'New password must be different from the current one.' }); return }
+    if (!currentPassword) { setPwState({ saving: false, ok: '', err: 'Enter your current password.' }); return false }
+    if (newPassword.length < 6) { setPwState({ saving: false, ok: '', err: 'New password must be at least 6 characters.' }); return false }
+    if (newPassword !== confirmPassword) { setPwState({ saving: false, ok: '', err: 'New passwords do not match.' }); return false }
+    if (newPassword === currentPassword) { setPwState({ saving: false, ok: '', err: 'New password must be different from the current one.' }); return false }
     setPwState({ saving: true, ok: '', err: '' })
     try {
       // Re-authenticate to confirm the current password — no silent updates.
       const { error: reauthErr } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword })
-      if (reauthErr) { setPwState({ saving: false, ok: '', err: 'Current password is incorrect.' }); return }
+      if (reauthErr) { setPwState({ saving: false, ok: '', err: 'Current password is incorrect.' }); return false }
       const { error: updErr } = await supabase.auth.updateUser({ password: newPassword })
       if (updErr) throw updErr
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
       setPwState({ saving: false, ok: 'Password updated.', err: '' })
+      return true
     } catch (err) {
       setPwState({ saving: false, ok: '', err: err?.message || String(err) })
+      return false
     }
   }
 
@@ -146,49 +158,57 @@ export default function ProfilePage() {
 
       <div style={hdr.body}>
         <Disclosure label="Name" value={nameValue}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{ flex: 1 }}>
-              <div style={rowUI.fieldLabel}>First Name</div>
-              <input style={rowUI.input} type="text" placeholder="First" value={firstName}
-                onChange={e => { setFirstName(e.target.value); setNameState(s => ({ ...s, saved: false })) }} />
+          {({ close }) => (<>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <div style={rowUI.fieldLabel}>First Name</div>
+                <input style={rowUI.input} type="text" placeholder="First" value={firstName}
+                  onChange={e => { setFirstName(e.target.value); setNameState(s => ({ ...s, saved: false })) }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={rowUI.fieldLabel}>Last Name</div>
+                <input style={rowUI.input} type="text" placeholder="Last" value={lastName}
+                  onChange={e => { setLastName(e.target.value); setNameState(s => ({ ...s, saved: false })) }} />
+              </div>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={rowUI.fieldLabel}>Last Name</div>
-              <input style={rowUI.input} type="text" placeholder="Last" value={lastName}
-                onChange={e => { setLastName(e.target.value); setNameState(s => ({ ...s, saved: false })) }} />
-            </div>
-          </div>
-          <SaveLink onClick={saveName} saving={nameState.saving} saved={nameState.saved} error={nameState.err} />
+            <SaveLink onClick={async () => { if (await saveName()) close() }} saving={nameState.saving} saved={nameState.saved} error={nameState.err} />
+          </>)}
         </Disclosure>
 
         <Disclosure label="Phone Number" value={phoneValue}>
-          <div style={rowUI.fieldLabel}>Phone</div>
-          <input style={rowUI.input} type="tel" inputMode="tel" placeholder="(555) 000-0000" value={phone}
-            onChange={e => { setPhone(e.target.value); setPhoneState(s => ({ ...s, saved: false })) }}
-            onBlur={() => setPhone(formatPhone(phone))} />
-          <SaveLink onClick={savePhone} saving={phoneState.saving} saved={phoneState.saved} error={phoneState.err} />
+          {({ close }) => (<>
+            <div style={rowUI.fieldLabel}>Phone</div>
+            <input style={rowUI.input} type="tel" inputMode="tel" placeholder="(555) 000-0000" value={phone}
+              onChange={e => { setPhone(e.target.value); setPhoneState(s => ({ ...s, saved: false })) }}
+              onBlur={() => setPhone(formatPhone(phone))} />
+            <SaveLink onClick={async () => { if (await savePhone()) close() }} saving={phoneState.saving} saved={phoneState.saved} error={phoneState.err} />
+          </>)}
         </Disclosure>
 
         <Disclosure label="Email" value={emailValue}>
-          <div style={rowUI.fieldLabel}>Email</div>
-          <input style={rowUI.input} type="email" placeholder="you@example.com" value={email}
-            onChange={e => { setEmail(e.target.value); setEmailState(s => ({ ...s, saved: false, note: '' })) }} />
-          {emailState.note && <div style={rowUI.info}>{emailState.note}</div>}
-          <SaveLink onClick={saveEmail} saving={emailState.saving} saved={emailState.saved} error={emailState.err} />
+          {({ close }) => (<>
+            <div style={rowUI.fieldLabel}>Email</div>
+            <input style={rowUI.input} type="email" placeholder="you@example.com" value={email}
+              onChange={e => { setEmail(e.target.value); setEmailState(s => ({ ...s, saved: false, note: '' })) }} />
+            {emailState.note && <div style={rowUI.info}>{emailState.note}</div>}
+            <SaveLink onClick={async () => { if (await saveEmail()) close() }} saving={emailState.saving} saved={emailState.saved} error={emailState.err} />
+          </>)}
         </Disclosure>
 
         <Disclosure label="Change Password" value="">
-          <div style={rowUI.fieldLabel}>Current Password</div>
-          <input style={rowUI.input} type="password" placeholder="Current password" value={currentPassword}
-            onChange={e => setCurrentPassword(e.target.value)} autoComplete="current-password" />
-          <div style={rowUI.fieldLabel}>New Password</div>
-          <input style={rowUI.input} type="password" placeholder="Min 6 characters" value={newPassword}
-            onChange={e => setNewPassword(e.target.value)} minLength={6} autoComplete="new-password" />
-          <div style={rowUI.fieldLabel}>Confirm New Password</div>
-          <input style={rowUI.input} type="password" placeholder="Re-enter new password" value={confirmPassword}
-            onChange={e => setConfirmPassword(e.target.value)} minLength={6} autoComplete="new-password" />
-          {pwState.ok && <div style={{ ...rowUI.ok, marginTop: 8 }}>{pwState.ok}</div>}
-          <SaveLink onClick={changePassword} saving={pwState.saving} saved={false} error={pwState.err} label="Update password" />
+          {({ close }) => (<>
+            <div style={rowUI.fieldLabel}>Current Password</div>
+            <input style={rowUI.input} type="password" placeholder="Current password" value={currentPassword}
+              onChange={e => setCurrentPassword(e.target.value)} autoComplete="current-password" />
+            <div style={rowUI.fieldLabel}>New Password</div>
+            <input style={rowUI.input} type="password" placeholder="Min 6 characters" value={newPassword}
+              onChange={e => setNewPassword(e.target.value)} minLength={6} autoComplete="new-password" />
+            <div style={rowUI.fieldLabel}>Confirm New Password</div>
+            <input style={rowUI.input} type="password" placeholder="Re-enter new password" value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)} minLength={6} autoComplete="new-password" />
+            {pwState.ok && <div style={{ ...rowUI.ok, marginTop: 8 }}>{pwState.ok}</div>}
+            <SaveLink onClick={async () => { if (await changePassword()) close() }} saving={pwState.saving} saved={false} error={pwState.err} label="Update password" />
+          </>)}
         </Disclosure>
 
         <div style={rowUI.dangerWrap}>

@@ -36,8 +36,11 @@ function Chevron({ open }) {
   )
 }
 
+// `children` may be a render function receiving { close } so the body can collapse
+// the row itself (e.g. after a successful save), or plain nodes for static rows.
 export function Disclosure({ label, value, children }) {
   const [open, setOpen] = useState(false)
+  const close = () => setOpen(false)
   return (
     <div style={rowUI.divider}>
       <button style={rowUI.rowBtn} onClick={() => setOpen(o => !o)} aria-expanded={open}>
@@ -45,7 +48,7 @@ export function Disclosure({ label, value, children }) {
         <span style={rowUI.value}>{value}</span>
         <span style={rowUI.chevronBox}><Chevron open={open} /></span>
       </button>
-      {open && <div style={rowUI.body}>{children}</div>}
+      {open && <div style={rowUI.body}>{typeof children === 'function' ? children({ close }) : children}</div>}
     </div>
   )
 }
