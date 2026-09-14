@@ -62,6 +62,19 @@ const WX_DESC = {
 function wxIcon(code) { return WX_ICONS[code] ?? '-' }
 function wxDesc(code) { return WX_DESC[code] ?? '—' }
 
+// Open-Meteo's daily weathercode over-calls severity vs. how TWC/WU/AccuWeather
+// word their day summaries — it returns "Heavy rain/drizzle/snow" and "Violent
+// showers" on scattered days where the precip probability is only moderate. Only
+// keep the "heavy/violent" wording when the day is a high-confidence wet day
+// (POP ≥ 70%); otherwise step down to the gentler, code-appropriate word. When
+// POP is unknown, fall back to the literal label. Thunderstorm codes are left
+// alone (a distinct phenomenon, not a rain-intensity call).
+const WX_SOFTENED = { 55: 'Drizzle', 63: 'Rain', 65: 'Rain', 75: 'Snow', 82: 'Showers' }
+function wxDescPop(code, pop) {
+  if (pop != null && pop < 70 && WX_SOFTENED[code]) return WX_SOFTENED[code]
+  return wxDesc(code)
+}
+
 const wxStyles = {
   card: { ...HOME_CARD },
   header: { ...HOME_CARD_HEADER },
@@ -186,18 +199,25 @@ function WeatherWidget({ rounds = [], tripName }) {
       try {
         let lat = loc.lat, lon = loc.lon
         // No stored coords → geocode by CITY NAME only (Open-Meteo returns zero
-        // results if the state is appended), disambiguating by state / US match.
+        // results if the state is appended). Widen to count=100 so small towns
+        // (e.g. Arcadia, MI, pop ~600) actually appear, then REQUIRE a state
+        // match — never guess a same-name city in another state. Among state
+        // matches, prefer an exact city-name hit ("Arcadia" over "Arcadian"). If
+        // there's no state to match on, or no match is found, leave the location
+        // unresolved (handled just below) rather than defaulting to a wrong city.
         if (lat == null || lon == null) {
-          if (loc.city) {
-            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(loc.city)}&count=10&language=en&format=json`)
+          if (loc.city && loc.state) {
+            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(loc.city)}&count=100&language=en&format=json`)
             const geo = await geoRes.json()
             const results = Array.isArray(geo?.results) ? geo.results : []
-            const us = results.filter(r => r.country_code === 'US')
-            const pool = us.length ? us : results
-            const hit = (loc.state && pool.find(r => stateMatches(r.admin1, loc.state))) || pool[0]
+            const stateHits = results.filter(r => r.country_code === 'US' && stateMatches(r.admin1, loc.state))
+            const cityLc = loc.city.trim().toLowerCase()
+            const hit = stateHits.find(r => (r.name || '').trim().toLowerCase() === cityLc) || stateHits[0] || null
             if (hit) { lat = hit.latitude; lon = hit.longitude }
           }
         }
+        // Unresolved (no coords, no state, or no state match) → "forecast
+        // unavailable" rather than a confidently-wrong guessed city.
         if (lat == null || lon == null) return { status: 'error', wx: null, label: loc.label }
         const res = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
@@ -300,7 +320,7 @@ function WeatherWidget({ rounds = [], tripName }) {
         <div style={wxStyles.mainRow}>
           <div>
             <div style={wxStyles.temp}>{faceWx.temp}°F</div>
-            <div style={wxStyles.condition}>{wxDesc(faceWx.code)}</div>
+            <div style={wxStyles.condition}>{wxDescPop(faceWx.code, faceWx.daily?.[0]?.pop)}</div>
           </div>
           <div style={wxStyles.rightCol}>
             <div style={wxStyles.hiloBlock}>
@@ -392,7 +412,7 @@ function WeatherWidget({ rounds = [], tripName }) {
                 <div key={day.date} style={{ ...wxStyles.fRow, ...(i === days.length - 1 ? { borderBottom: 'none' } : null) }}>
                   <span style={wxStyles.fDay}>{fmtForecastDay(day.date, i)}</span>
                   <span style={wxStyles.fEmoji}>{wxIcon(day.code)}</span>
-                  <span style={wxStyles.fCond}>{wxDesc(day.code)}</span>
+                  <span style={wxStyles.fCond}>{wxDescPop(day.code, day.pop)}</span>
                   <span style={wxStyles.fPop}>{day.pop != null ? `${day.pop}%` : ''}</span>
                   <span style={wxStyles.fTemp}>{day.hi}° / {day.lo}°</span>
                 </div>
