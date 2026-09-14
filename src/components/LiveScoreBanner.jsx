@@ -302,7 +302,12 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
 
   return (
     <div ref={bannerRef} className="match-banner-float visible" id="match-banner-float" role="status" aria-label="Live score">
-      <div className="match-banner-round">{round.club_name || round.course_name} · Live Match</div>
+      <div className="match-banner-round">
+        {round.club_name || round.course_name} · Live Match
+        {/* Green "live" dot only while a round is still in progress; hidden (not
+            recolored) once every match is complete and the banner shows results. */}
+        {!selectedComplete && <span className="match-banner-live-dot" aria-hidden="true" />}
+      </div>
       <div className="match-banner-rows">
         {visibleRows.map(t => {
           const st = isStandard ? standardStatus(t, n1, n2) : pointsSummary(t, n1, n2)

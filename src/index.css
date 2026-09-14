@@ -485,6 +485,7 @@ select {
 .match-banner-float{position:fixed;bottom:calc(var(--tab-bar-space) + 8px);left:16px;right:16px;max-width:398px;margin:0 auto;background:var(--bg1);border:1px solid var(--bg3);border-radius:var(--radius);padding:10px 14px;z-index:203;box-shadow:0 -2px 16px rgba(0,0,0,0.5);display:none;pointer-events:none}
 .match-banner-float.visible{display:block}
 .match-banner-round{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);font-weight:600;margin-bottom:6px}
+.match-banner-live-dot{display:inline-block;width:7px;height:7px;margin-left:6px;border-radius:50%;background:#22C55E;box-shadow:0 0 5px rgba(34,197,94,0.7);vertical-align:middle}
 .match-banner-rows{display:flex;flex-direction:column;gap:4px}
 .match-banner-row{display:flex;align-items:center;gap:6px}
 .match-banner-pair-label{font-size:10px;color:var(--muted);min-width:56px;font-weight:600}
