@@ -437,9 +437,9 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     { key: 'birdies', title: 'Birdies', icon: 'ic-circle1', hi: true, valueOf: modeValue('birdies') },
     { key: 'pars', title: 'Pars', icon: 'ic-flag', hi: true, valueOf: modeValue('pars') },
     { key: 'parsOrBetter', title: 'Pars+', icon: 'ic-shieldcheck', hi: true, valueOf: modeValue('parsOrBetter') },
-    { key: 'bogeys', title: 'Bogeys', icon: 'ic-square1', hi: false, valueOf: modeValue('bogeys') },
-    { key: 'doubles', title: 'Doubles', icon: 'ic-dsquare', hi: false, valueOf: modeValue('doubles') },
-    { key: 'triples', title: 'Triples+', icon: 'ic-xsquare', hi: false, valueOf: modeValue('triples') },
+    { key: 'bogeys', title: 'Bogeys', icon: 'ic-square1', hi: true, valueOf: modeValue('bogeys') },
+    { key: 'doubles', title: 'Doubles', icon: 'ic-dsquare', hi: true, valueOf: modeValue('doubles') },
+    { key: 'triples', title: 'Triples+', icon: 'ic-xsquare', hi: true, valueOf: modeValue('triples') },
   ]
   const fireTiles = [
     { key: 'fireStreak', title: 'Longest Fire Streak', icon: 'ic-flamestreak', hi: true, valueOf: p => stats.get(p.id)?.fireStreak ?? 0 },
