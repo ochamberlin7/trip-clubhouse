@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
@@ -284,8 +284,12 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   const [refreshTick, setRefreshTick] = useState(0) // bumped by realtime score changes + resume to refetch
   const [mode, setMode] = useState('gross') // Gross/Net toggle — scoring/round tiles only
   const [tab, setTab] = useState('Scoring') // category tab (session-only)
-  const tilesRef = useRef(null)             // swipe area (tiles) → change tab
-  const swipeRef = useRef({ x0: 0, y0: 0, did: false })
+  const tilesRef = useRef(null)             // swipe viewport → change tab
+  const swipeRef = useRef({ x0: 0, y0: 0, did: false, decided: false, horiz: false })
+  const panelRefs = useRef([])              // one per tab panel, for height measuring
+  const [drag, setDrag] = useState(0)       // live finger offset (px) during a swipe
+  const [dragging, setDragging] = useState(false) // disables the snap transition while dragging
+  const [panelHeights, setPanelHeights] = useState([]) // measured px height per panel
   const allowance = trip?.handicap_allowance ?? 100
 
   const roundIds = rounds.map(r => r.id)
@@ -386,6 +390,20 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     return () => { el.removeEventListener('wheel', onWheel); clearTimeout(settle) }
   }, [data])
 
+  // Measure each carousel panel so the viewport can size to (and animate between)
+  // the active panel's height — the tabs have very different content lengths.
+  useLayoutEffect(() => {
+    const measure = () => {
+      const hs = panelRefs.current.map(el => el ? el.scrollHeight : 0)
+      setPanelHeights(prev => (prev.length === hs.length && prev.every((v, i) => v === hs[i])) ? prev : hs)
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    panelRefs.current.forEach(el => el && ro?.observe(el))
+    window.addEventListener('resize', measure)
+    return () => { ro?.disconnect(); window.removeEventListener('resize', measure) }
+  }, [data, mode, tab, openDrinkPopup])
+
   const computed = useMemo(() => {
     if (!data) return null
     return computePlayerStats({ rounds, ...data }, allowance)
@@ -449,28 +467,128 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     { key: 'bestRound', title: 'Best Round', icon: 'ic-chartup', hi: false, valueOf: modeValue('bestRound', true) },
     { key: 'worstRound', title: 'Worst Round', icon: 'ic-chartdown', hi: true, valueOf: modeValue('worstRound', true) },
   ]
-  const tilesForTab = tab === 'Scoring' ? scoringTiles : tab === 'Fire' ? fireTiles : tab === 'Rounds' ? roundsTiles : []
+  // Tiles per tab (Drinks has no podium tiles — it renders its own leaderboard).
+  const tilesByTab = { Scoring: scoringTiles, Fire: fireTiles, Rounds: roundsTiles, Drinks: [] }
   // Gross/Net only affects the counting + round tiles; Fire & Drinks are net-based.
-  const showToggle = tab === 'Scoring' || tab === 'Rounds'
-
-  // Touch / mouse horizontal drag over the tiles → previous/next category tab
-  // (clamped to the tab list). Vertical drags fall through to page scroll.
+  const toggleTabs = new Set(['Scoring', 'Rounds'])
   const tabIndex = STAT_TABS.indexOf(tab)
+
   function goTab(delta) {
     const next = Math.min(STAT_TABS.length - 1, Math.max(0, tabIndex + delta))
     if (next !== tabIndex) setTab(STAT_TABS[next])
   }
-  function onTilesPointerDown(e) { swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false } }
-  function onTilesPointerUp(e) {
+
+  // Finger-following carousel: all four panels sit side by side in a flex track;
+  // the track translates by (-tabIndex * 100%) so switching tabs slides the page.
+  // A live pointer drag moves the track with the finger, then snaps to the nearest
+  // tab on release — so a swipe reads as physically dragging the page.
+  function onTilesPointerDown(e) {
+    swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false, decided: false, horiz: false }
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* older browsers */ }
+  }
+  function onTilesPointerMove(e) {
     const s = swipeRef.current
+    if (s.x0 == null) return
     const dx = e.clientX - s.x0, dy = e.clientY - s.y0
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { s.did = true; goTab(dx < 0 ? 1 : -1) }
+    // Decide the gesture axis once past a small deadzone. A vertical intent bows
+    // out so the page scrolls normally; a horizontal one takes over the drag.
+    if (!s.decided) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+      s.decided = true
+      s.horiz = Math.abs(dx) > Math.abs(dy)
+      if (s.horiz) setDragging(true)
+    }
+    if (!s.horiz) return
+    // Rubber-band resistance when dragging past the first/last tab.
+    const overEdge = (tabIndex === 0 && dx > 0) || (tabIndex === STAT_TABS.length - 1 && dx < 0)
+    setDrag(overEdge ? dx * 0.35 : dx)
+    if (Math.abs(dx) > 6) s.did = true
+  }
+  function endDrag(e) {
+    const s = swipeRef.current
+    if (s.horiz) {
+      const dx = e.clientX - s.x0
+      const w = tilesRef.current?.offsetWidth || 320
+      // Commit to the next/prev tab past ~22% of the width (or a firm 60px flick).
+      if (Math.abs(dx) > Math.min(60, w * 0.22)) goTab(dx < 0 ? 1 : -1)
+    }
+    setDrag(0)
+    setDragging(false)
+    swipeRef.current = { ...s, x0: null }
   }
   // Cancel the click that follows a horizontal swipe so it doesn't also trigger a
   // "See all" / drink-edit tap on whatever the drag started over.
   function onTilesClickCapture(e) {
     if (swipeRef.current.did) { e.stopPropagation(); e.preventDefault(); swipeRef.current.did = false }
   }
+
+  // Content for one tab panel: optional Gross/Net toggle + the tab's tiles, plus
+  // the Drink Leaderboard on the Drinks tab.
+  function renderPanelInner(tabName) {
+    const tiles = tilesByTab[tabName]
+    return (
+      <>
+        {/* Gross / Net toggle — controls the Scoring counting tiles + Best/Worst
+            Round (not Points Won, Fire, or Drinks). Default Gross. */}
+        {toggleTabs.has(tabName) && (
+          <div className="gross-net-toggle" role="tablist" aria-label="Gross or net stats">
+            <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
+            <button role="tab" aria-selected={mode === 'net'} className={`gn-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
+          </div>
+        )}
+        <div className="stat-tiles-grid">
+          {tiles.map(t => (
+            <StatTile key={t.key} title={t.title} icon={t.icon} hi={t.hi} anyScore={anyScore} players={players} valueOf={t.valueOf} />
+          ))}
+
+          {tabName === 'Drinks' && (
+            <div className="stat-tile" style={{ gridColumn: '1 / -1' }}>
+              <StatHeaderBar icon="ic-cocktail" title="Drink Leaderboard" />
+              {drinkRows.map((p, i) => {
+                const editable = canEditDrinks(p)
+                const open = openDrinkPopup === p.id
+                return (
+                  <div className="stat-tile-row" key={p.id} style={{ position: 'relative' }}>
+                    <span className="stat-tile-rank">{i + 1}</span>
+                    {editable ? (
+                      <button
+                        className="stat-tile-name"
+                        style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+                        onClick={() => setOpenDrinkPopup(open ? null : p.id)}
+                      >
+                        {firstName(p.name) || p.name}
+                      </button>
+                    ) : (
+                      <span className="stat-tile-name">{firstName(p.name) || p.name}</span>
+                    )}
+                    <span className="stat-tile-val">{totalDrinks(p)}</span>
+                    {open && (
+                      <>
+                        {/* Tap anywhere else to close. */}
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setOpenDrinkPopup(null)} />
+                        <div className="drink-inline-popup open">
+                          <button className="dip-btn" aria-label="Remove a drink" onClick={() => adjustManual(p, -1)}>−</button>
+                          <span className="dip-val">{p.manual_drinks || 0}</span>
+                          <button className="dip-btn" aria-label="Add a drink" onClick={() => adjustManual(p, +1)}>+</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </>
+    )
+  }
+
+  // Viewport height follows the active panel; while dragging it grows to fit the
+  // incoming neighbor too, so a taller tab isn't clipped mid-swipe.
+  const restH = panelHeights[tabIndex] || 0
+  const neighborIdx = drag < 0 ? tabIndex + 1 : tabIndex - 1
+  const dragTargetH = dragging && neighborIdx >= 0 && neighborIdx < STAT_TABS.length ? (panelHeights[neighborIdx] || 0) : 0
+  const viewportH = Math.max(restH, dragTargetH)
 
   return (
     <div>
@@ -483,63 +601,40 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
         ))}
       </div>
 
-      {/* Everything below the tabs is one swipe surface: a horizontal drag / two-finger
-          swipe ANYWHERE here (the toggle, the tiles, or the empty space below them)
-          pages between category tabs. A viewport-based min-height makes the surface
-          reach down past short tabs to the bottom of the screen — .dashboard-content
-          isn't a flex container, so a flex fill wouldn't stretch it. */}
-      <div ref={tilesRef} style={{ minHeight: 'calc(100dvh - 190px)', touchAction: 'pan-y' }} onPointerDown={onTilesPointerDown} onPointerUp={onTilesPointerUp} onClickCapture={onTilesClickCapture}>
-        {/* Gross / Net toggle — controls the Scoring counting tiles + Best/Worst
-            Round (not Points Won, Fire, or Drinks). Default Gross. */}
-        {showToggle && (
-          <div className="gross-net-toggle" role="tablist" aria-label="Gross or net stats">
-            <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
-            <button role="tab" aria-selected={mode === 'net'} className={`gn-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
-          </div>
-        )}
-        <div className="stat-tiles-grid">
-        {tilesForTab.map(t => (
-          <StatTile key={t.key} title={t.title} icon={t.icon} hi={t.hi} anyScore={anyScore} players={players} valueOf={t.valueOf} />
-        ))}
-
-        {tab === 'Drinks' && (
-          <div className="stat-tile" style={{ gridColumn: '1 / -1' }}>
-            <StatHeaderBar icon="ic-cocktail" title="Drink Leaderboard" />
-            {drinkRows.map((p, i) => {
-              const editable = canEditDrinks(p)
-              const open = openDrinkPopup === p.id
-              return (
-                <div className="stat-tile-row" key={p.id} style={{ position: 'relative' }}>
-                  <span className="stat-tile-rank">{i + 1}</span>
-                  {editable ? (
-                    <button
-                      className="stat-tile-name"
-                      style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
-                      onClick={() => setOpenDrinkPopup(open ? null : p.id)}
-                    >
-                      {firstName(p.name) || p.name}
-                    </button>
-                  ) : (
-                    <span className="stat-tile-name">{firstName(p.name) || p.name}</span>
-                  )}
-                  <span className="stat-tile-val">{totalDrinks(p)}</span>
-                  {open && (
-                    <>
-                      {/* Tap anywhere else to close. */}
-                      <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setOpenDrinkPopup(null)} />
-                      <div className="drink-inline-popup open">
-                        <button className="dip-btn" aria-label="Remove a drink" onClick={() => adjustManual(p, -1)}>−</button>
-                        <span className="dip-val">{p.manual_drinks || 0}</span>
-                        <button className="dip-btn" aria-label="Add a drink" onClick={() => adjustManual(p, +1)}>+</button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+      {/* Swipe carousel: all four tab panels sit side by side in a flex track. The
+          track translates by (-tabIndex * 100%) and follows the finger during a
+          drag, so paging between tabs slides the page instead of swapping values in
+          place. The viewport clips horizontally and sizes to the active panel's
+          height (animated). A per-panel min-height keeps short tabs full-screen. */}
+      <div
+        ref={tilesRef}
+        style={{ overflow: 'hidden', touchAction: 'pan-y', height: viewportH ? viewportH : undefined, transition: dragging ? 'none' : 'height 280ms cubic-bezier(.22,.61,.36,1)' }}
+        onPointerDown={onTilesPointerDown}
+        onPointerMove={onTilesPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onClickCapture={onTilesClickCapture}
+      >
+        <div
+          style={{
+            display: 'flex',
+            width: `${STAT_TABS.length * 100}%`,
+            transform: `translateX(calc(${-tabIndex * (100 / STAT_TABS.length)}% + ${drag}px))`,
+            transition: dragging ? 'none' : 'transform 300ms cubic-bezier(.22,.61,.36,1)',
+            alignItems: 'flex-start',
+          }}
+        >
+          {STAT_TABS.map((t, i) => (
+            <div
+              key={t}
+              ref={el => { panelRefs.current[i] = el }}
+              aria-hidden={t !== tab}
+              style={{ flex: `0 0 ${100 / STAT_TABS.length}%`, width: `${100 / STAT_TABS.length}%`, minWidth: 0, minHeight: 'calc(100dvh - 190px)', boxSizing: 'border-box' }}
+            >
+              {renderPanelInner(t)}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
