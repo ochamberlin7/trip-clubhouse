@@ -80,6 +80,7 @@ input, select, textarea {
 }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--navy); }
 input::placeholder { color: var(--muted); }
+.sf-textarea::placeholder { color: var(--mist); }
 input[type="date"] { color: var(--cream); }
 /* Wizard step 1: force text + date fields to an identical height/box model so
    the date inputs don't render shorter than the text input (native date-control
