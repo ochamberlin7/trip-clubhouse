@@ -2945,7 +2945,7 @@ export default function MenuDrawer({
       )}
       {page === 'support' && (
         <SecondaryPage context={tripName} title="Support" onBack={backToDrawer}>
-          <SupportForm tripId={tripId} userId={currentUserId} framed />
+          <SupportForm tripId={tripId} tripName={tripName} userId={currentUserId} framed />
         </SecondaryPage>
       )}
 

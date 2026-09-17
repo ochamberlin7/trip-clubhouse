@@ -45,11 +45,13 @@ const styles = {
   textarea: { width: '100%', boxSizing: 'border-box', minHeight: 124, resize: 'vertical', lineHeight: 1.45, border: '1px solid var(--hairline)', borderRadius: 14, padding: '12px 14px', fontSize: 14, color: 'var(--ink)', fontFamily: 'inherit', background: '#fff' },
   error: { color: '#C0392B', fontSize: 13, marginBottom: 12 },
   sendBase: { width: '100%', borderRadius: 14, padding: '13px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', border: 'none', color: '#fff', background: 'var(--navy)' },
-  doneWrap: { textAlign: 'center', padding: '8px 0' },
-  doneCheck: { width: 48, height: 48, borderRadius: '50%', background: 'rgba(15,110,86,0.12)', color: '#0F6E56', fontSize: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' },
-  doneText: { fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 },
-  doneSub: { fontSize: 13, color: 'var(--slate)', marginBottom: 16 },
-  doneBtns: { display: 'flex', gap: 8 },
+  // Elevated success state.
+  doneWrap: { textAlign: 'center', padding: '18px 8px 12px' },
+  doneBadge: { width: 76, height: 76, borderRadius: '50%', background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 12px 24px -6px rgba(27,63,110,.45), 0 4px 10px rgba(27,63,110,.26)' },
+  doneHead: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.2px', margin: '0 0 8px' },
+  doneSub: { fontSize: 14, color: 'var(--slate)', lineHeight: 1.5, margin: '0 auto 22px', maxWidth: 300 },
+  doneLink: { background: 'none', border: 'none', padding: 6, fontFamily: 'inherit', fontSize: 15, fontWeight: 800, color: 'var(--navy)', cursor: 'pointer' },
+  doneDone: { width: '100%', borderRadius: 14, padding: '13px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', border: 'none', color: '#fff', background: 'var(--navy)', cursor: 'pointer', marginBottom: 6 },
 }
 
 // On the full page the fields sit inside the shared HOME_CARD shell with a navy
@@ -65,7 +67,7 @@ function Frame({ framed, children }) {
   )
 }
 
-export default function SupportForm({ tripId, userId, defaultCategory = 'bug', intro, onDone, framed = false }) {
+export default function SupportForm({ tripId, tripName, userId, defaultCategory = 'bug', intro, onDone, framed = false }) {
   const [category, setCategory] = useState(defaultCategory)
   const [message, setMessage] = useState('')
   const [status, setStatus] = useState('idle') // idle | saving | done | error
@@ -102,16 +104,19 @@ export default function SupportForm({ tripId, userId, defaultCategory = 'bug', i
   }
 
   if (status === 'done') {
+    const tripLabel = (tripName && tripName.trim()) || 'this trip'
     return (
       <Frame framed={framed}>
         <div style={styles.doneWrap}>
-          <div style={styles.doneCheck}>✓</div>
-          <div style={styles.doneText}>Thanks — we got it!</div>
-          <div style={styles.doneSub}>Your feedback has been sent.</div>
-          <div style={styles.doneBtns}>
-            <button type="button" className="btn btn-outline" onClick={() => setStatus('idle')}>Send another</button>
-            {onDone && <button type="button" className="btn btn-primary" onClick={onDone}>Done</button>}
+          <div style={styles.doneBadge}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12.5l4.2 4.2L19 7" />
+            </svg>
           </div>
+          <div style={styles.doneHead}>Thanks — we got it</div>
+          <div style={styles.doneSub}>Your feedback helps make {tripLabel} better for the whole group.</div>
+          {onDone && <button type="button" style={styles.doneDone} onClick={onDone}>Done</button>}
+          <button type="button" style={styles.doneLink} onClick={() => setStatus('idle')}>Send another</button>
         </div>
       </Frame>
     )

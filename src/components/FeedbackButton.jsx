@@ -16,7 +16,7 @@ const styles = {
   body: { padding: '16px' },
 }
 
-export default function FeedbackButton({ tripId, userId }) {
+export default function FeedbackButton({ tripId, tripName, userId }) {
   const [open, setOpen] = useState(false)
   const fabRef = useRef(null)
 
@@ -57,6 +57,7 @@ export default function FeedbackButton({ tripId, userId }) {
             <div style={styles.body}>
               <SupportForm
                 tripId={tripId}
+                tripName={tripName}
                 userId={userId}
                 defaultCategory="feature_request"
                 intro="Got an idea to make this better? We'd love to hear it — big or small."

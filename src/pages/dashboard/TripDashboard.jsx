@@ -1566,7 +1566,7 @@ export default function TripDashboard() {
 
       {/* Persistent feedback FAB — visible on every tab, floats above the tab bar
           and (when shown) the live-score banner. */}
-      <FeedbackButton tripId={trip.id} userId={user?.id} />
+      <FeedbackButton tripId={trip.id} tripName={trip.name} userId={user?.id} />
 
       {/* Slide-out menu drawer (opened by the MENU tab) */}
       <MenuDrawer
