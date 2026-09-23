@@ -8,6 +8,7 @@ import { getActiveRound, liveMatchTally, liveStandardMatchTally, parseTeeTimeToM
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
+import { useSwipeNav } from '../../lib/useSwipeNav'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
@@ -274,7 +275,13 @@ function WeatherWidget({ rounds = [], tripName }) {
   }, [locationsKey, activeIndex]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Touch / mouse horizontal drag → change location; a tap opens the forecast.
-  function onPointerDownCard(e) { swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false } }
+  // The widget OWNS its swipe: stopPropagation keeps the page-level swipe from
+  // also firing here, and it clamps at its first/last day (no chaining into page
+  // nav — it's a small embedded widget, not a primary nav surface).
+  function onPointerDownCard(e) {
+    e.stopPropagation()
+    swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false }
+  }
   function onPointerUpCard(e) {
     const s = swipeRef.current
     const dx = e.clientX - s.x0, dy = e.clientY - s.y0
@@ -473,9 +480,11 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenu
 
 // ── Tab: Leaderboard ─────────────────────────────────────────────
 
-function TabLeaderboard({ trip, teams, rounds }) {
+function TabLeaderboard({ trip, teams, rounds, onSwipePage }) {
   const powEnabled = hasBonusGame(trip, 'prince_of_wales')
   const [sub, setSub] = useState('tournament') // 'tournament' | 'pow'
+  const lbSwipe = useRef({ x0: null, y0: 0 })
+  const lbDid = useRef(false) // a swipe committed → cancel the trailing tab-button tap
 
   if (!trip.team_mode) {
     return (
@@ -493,11 +502,35 @@ function TabLeaderboard({ trip, teams, rounds }) {
     ? <StandardLeaderboard trip={trip} teams={teams} rounds={rounds} />
     : <PointsLeaderboard trip={trip} teams={teams} rounds={rounds} />
 
-  // Without the Prince of Wales bonus game there are no tabs — just the tournament.
+  // Without the Prince of Wales bonus game there are no tabs — just the tournament,
+  // so any horizontal swipe here falls through to page-level nav (no owned swipe).
   if (!powEnabled) return tournamentView
 
+  // Two sub-tabs: swipe switches Tournament ↔ Prince of Wales; a swipe past a
+  // boundary tab chains to page nav (prev page = Score, next page = Stats). Owns
+  // the gesture (stopPropagation) unless it starts in the OS edge strip.
+  function onLbPointerDown(e) {
+    if (inEdgeZone(e.clientX)) { lbSwipe.current = { x0: null }; return }
+    e.stopPropagation()
+    lbSwipe.current = { x0: e.clientX, y0: e.clientY }
+  }
+  function onLbPointerUp(e) {
+    const s = lbSwipe.current
+    if (s.x0 == null) return
+    const dx = e.clientX - s.x0, dy = e.clientY - s.y0
+    lbSwipe.current = { x0: null }
+    if (Math.abs(dx) < 55 || Math.abs(dx) <= Math.abs(dy)) return
+    lbDid.current = true // suppress the trailing tap on a tab button under the finger
+    const dir = dx < 0 ? 1 : -1
+    if (sub === 'tournament') { dir === 1 ? setSub('pow') : onSwipePage?.(-1) }
+    else { dir === -1 ? setSub('tournament') : onSwipePage?.(1) }
+  }
+  function onLbClickCapture(e) {
+    if (lbDid.current) { e.stopPropagation(); e.preventDefault(); lbDid.current = false }
+  }
+
   return (
-    <div>
+    <div onPointerDown={onLbPointerDown} onPointerUp={onLbPointerUp} onClickCapture={onLbClickCapture} style={{ touchAction: 'pan-y' }}>
       <div className="gross-net-toggle" role="tablist" aria-label="Leaderboard view" style={{ marginBottom: 12 }}>
         <button role="tab" aria-selected={sub === 'tournament'} className={`gn-btn ${sub === 'tournament' ? 'active' : ''}`} onClick={() => setSub('tournament')}>Tournament</button>
         <button role="tab" aria-selected={sub === 'pow'} className={`gn-btn ${sub === 'pow' ? 'active' : ''}`} onClick={() => setSub('pow')}>Prince of Wales</button>
@@ -1291,6 +1324,20 @@ export default function TripDashboard() {
   const [drawerPage, setDrawerPage] = useState(null) // deep-link target when opening the drawer
   const openMenuPage = (pageId) => { setDrawerPage(pageId); setDrawerOpen(true) }
   const [showTripBanner, setShowTripBanner] = useState(location.state?.singleTripWarning ?? false)
+
+  // Page-level swipe order (excludes 'menu' — the drawer is the fall-off target).
+  // goPage walks it: past the last page opens the drawer; before the first is a
+  // no-op (no wraparound). Component-owned swipes call this at their boundaries.
+  const PAGE_ORDER = ['dashboard', 'scores', 'leaderboard', 'stats', 'tee-times']
+  const goPage = (delta) => {
+    const i = PAGE_ORDER.indexOf(activeTab)
+    if (i < 0) return
+    const next = i + delta
+    if (next < 0) return
+    if (next >= PAGE_ORDER.length) { openMenuPage(null); return } // past Tee Times → drawer
+    setActiveTab(PAGE_ORDER[next])
+  }
+  const pageSwipe = useSwipeNav({ onNext: () => goPage(1), onPrev: () => goPage(-1) })
   const [trip, setTrip] = useState(null)
   const [rounds, setRounds] = useState([])
   const [meals, setMeals] = useState([]) // trip meals, woven into the Tee Times list
@@ -1513,7 +1560,7 @@ export default function TripDashboard() {
 
       {/* Internal scroll region (headers + tab content). The page shell itself is
           fixed-height/overflow:hidden so the fixed bottom tab bar never drifts. */}
-      <div className="dashboard-scroll">
+      <div className="dashboard-scroll" onPointerDown={pageSwipe.onPointerDown} onPointerUp={pageSwipe.onPointerUp}>
       {/* ── Page header ── */}
       {activeTab === 'dashboard' && (
         <TripHeader tripName={trip.name} startDate={trip.start_date} endDate={trip.end_date} tripId={trip.id} canEdit={canManage} onRenamed={refetchTrip} />
@@ -1555,8 +1602,8 @@ export default function TripDashboard() {
       <div className="dashboard-content" key={`content-${trip.id}`}>
         {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} onOpenMenuPage={openMenuPage} onNavigateTab={setActiveTab} />}
         {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
-        {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
-        {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} />}
+        {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} onSwipePage={goPage} />}
+        {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} onSwipePage={goPage} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} meals={meals} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => sortRoundsByTee(rs.map(r => r.id === id ? { ...r, ...patch } : r)))} />}
       </div>
       </div>

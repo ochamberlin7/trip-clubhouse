@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
+import { inEdgeZone } from '../lib/useSwipeNav'
 import {
   matchPlayPointsByPlayer, fireStatsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName, effectiveAllowance, shotsGivenFromCourseHandicaps,
 } from '../lib/scoring'
@@ -278,7 +279,7 @@ function StatTile({ title, icon, players, valueOf, hi, anyScore, span }) {
   )
 }
 
-export default function StatsTab({ trip, rounds = [], isCommissioner, currentUserId }) {
+export default function StatsTab({ trip, rounds = [], isCommissioner, currentUserId, onSwipePage }) {
   const [data, setData] = useState(null)
   const [openDrinkPopup, setOpenDrinkPopup] = useState(null) // trip_player_id
   const [refreshTick, setRefreshTick] = useState(0) // bumped by realtime score changes + resume to refetch
@@ -286,6 +287,8 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   const [tab, setTab] = useState('Scoring') // category tab (session-only)
   const tilesRef = useRef(null)             // swipe viewport → change tab
   const swipeRef = useRef({ x0: 0, y0: 0, did: false, decided: false, horiz: false })
+  const stripSwipeRef = useRef({ x0: null, y0: 0 }) // swipe on the category tab strip
+  const stripDidRef = useRef(false)                 // a strip swipe committed → cancel the trailing tap
   const panelRefs = useRef([])              // one per tab panel, for height measuring
   const [drag, setDrag] = useState(0)       // live finger offset (px) during a swipe
   const [dragging, setDragging] = useState(false) // disables the snap transition while dragging
@@ -377,18 +380,18 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
       clearTimeout(settle)
       settle = setTimeout(() => {
         if (Math.abs(acc) > 50) {
-          setTab(prev => {
-            const i = STAT_TABS.indexOf(prev)
-            const next = acc < 0 ? Math.max(0, i - 1) : Math.min(STAT_TABS.length - 1, i + 1)
-            return STAT_TABS[next]
-          })
+          const dir = acc < 0 ? -1 : 1
+          const i = STAT_TABS.indexOf(tab)
+          const next = i + dir
+          if (next < 0 || next >= STAT_TABS.length) onSwipePage?.(dir) // chain past a boundary tab
+          else setTab(STAT_TABS[next])
         }
         acc = 0
       }, 90)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => { el.removeEventListener('wheel', onWheel); clearTimeout(settle) }
-  }, [data])
+  }, [data, tab, onSwipePage]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Measure each carousel panel so the viewport can size to (and animate between)
   // the active panel's height — the tabs have very different content lengths.
@@ -483,6 +486,12 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   // A live pointer drag moves the track with the finger, then snaps to the nearest
   // tab on release — so a swipe reads as physically dragging the page.
   function onTilesPointerDown(e) {
+    // Edge-strip gestures belong to the OS back-swipe — don't own or capture them,
+    // and let them bubble so the page handler also ignores them consistently.
+    if (inEdgeZone(e.clientX)) { swipeRef.current = { x0: null } ; return }
+    // Owns the gesture: stop the page-level swipe from also tracking it. At the
+    // boundary tabs we chain into page nav explicitly (see endDrag).
+    e.stopPropagation()
     swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false, decided: false, horiz: false }
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* older browsers */ }
   }
@@ -509,13 +518,45 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     if (s.horiz) {
       const dx = e.clientX - s.x0
       const w = tilesRef.current?.offsetWidth || 320
-      // Commit to the next/prev tab past ~22% of the width (or a firm 60px flick).
-      if (Math.abs(dx) > Math.min(60, w * 0.22)) goTab(dx < 0 ? 1 : -1)
+      // Commit past ~22% of the width (or a firm 60px flick). At a boundary tab a
+      // continued swipe falls through to page-level nav (prev page past Scoring,
+      // next page past Drinks) instead of clamping.
+      if (Math.abs(dx) > Math.min(60, w * 0.22)) {
+        const dir = dx < 0 ? 1 : -1
+        const nextTab = tabIndex + dir
+        if (nextTab < 0 || nextTab >= STAT_TABS.length) onSwipePage?.(dir)
+        else goTab(dir)
+      }
     }
     setDrag(0)
     setDragging(false)
     swipeRef.current = { ...s, x0: null }
   }
+  // The category tab strip is a separate element above the carousel viewport, so a
+  // swipe on it wouldn't be caught by the viewport handler. Give it its own
+  // threshold-commit swipe (switch tab, chain to page nav past a boundary) and
+  // stop it bubbling to the page-level swipe.
+  function onStripPointerDown(e) {
+    if (inEdgeZone(e.clientX)) { stripSwipeRef.current = { x0: null }; return }
+    e.stopPropagation()
+    stripSwipeRef.current = { x0: e.clientX, y0: e.clientY }
+  }
+  function onStripPointerUp(e) {
+    const s = stripSwipeRef.current
+    if (s.x0 == null) return
+    const dx = e.clientX - s.x0, dy = e.clientY - s.y0
+    stripSwipeRef.current = { x0: null }
+    if (Math.abs(dx) < 45 || Math.abs(dx) <= Math.abs(dy)) return
+    stripDidRef.current = true // so the tab button under the finger doesn't also fire
+    const dir = dx < 0 ? 1 : -1
+    const nextTab = tabIndex + dir
+    if (nextTab < 0 || nextTab >= STAT_TABS.length) onSwipePage?.(dir)
+    else goTab(dir)
+  }
+  function onStripClickCapture(e) {
+    if (stripDidRef.current) { e.stopPropagation(); e.preventDefault(); stripDidRef.current = false }
+  }
+
   // Cancel the click that follows a horizontal swipe so it doesn't also trigger a
   // "See all" / drink-edit tap on whatever the drag started over.
   function onTilesClickCapture(e) {
@@ -595,7 +636,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
       <StatSymbols />
 
       {/* Category tabs — ABOVE the Gross/Net selector; horizontal scroll, Drinks last. */}
-      <div className="stat-tabs" role="tablist" aria-label="Stat categories">
+      <div className="stat-tabs" role="tablist" aria-label="Stat categories" onPointerDown={onStripPointerDown} onPointerUp={onStripPointerUp} onClickCapture={onStripClickCapture} style={{ touchAction: 'pan-y' }}>
         {STAT_TABS.map(t => (
           <button key={t} role="tab" aria-selected={tab === t} className={`stat-tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>
         ))}
