@@ -70,13 +70,15 @@ function dividerInfo(ts) {
 
 export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   const [messages, setMessages] = useState([])
-  const [nameMap, setNameMap] = useState({}) // user_id -> profiles.display_name
+  const [nameMap, setNameMap] = useState({}) // user_id -> profiles.display_name (fallback)
+  const [ptNames, setPtNames] = useState({}) // user_id -> Players & Teams name (authoritative)
   const [text, setText] = useState('')
   const [pressed, setPressed] = useState(false)
   const [sendError, setSendError] = useState(null)
   const areaRef = useRef(null)
   const taRef = useRef(null)
   const nameMapRef = useRef({})
+  const ptNamesRef = useRef({})
   const mountedRef = useRef(true)
 
   useEffect(() => () => { mountedRef.current = false }, [])
@@ -106,10 +108,44 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   // Start at a single row.
   useEffect(() => { resetComposerHeight() }, [])
 
-  // Resolve sender display names from profiles by user_id — the authoritative
-  // source — rather than each message's stored sender_name (which can be stale
-  // or a role like "Member"/"Player" captured on another device). Fetches only
-  // the ids we don't already have.
+  // Authoritative sender names come from the trip's Players & Teams roster
+  // (trip_players: first/last name, or guest_name), NOT the user's profile — a
+  // player is shown here by whatever the commissioner entered on that tab. Keyed
+  // by both user_id and claimed_user_id (a user who claimed a guest slot), and
+  // kept live so a rename on that tab reflects here. profiles.display_name stays
+  // only as a fallback for anyone with no name entered on the roster.
+  useEffect(() => {
+    let cancelled = false
+    let channel
+
+    async function loadRoster() {
+      const { data } = await supabase
+        .from('trip_players')
+        .select('user_id, claimed_user_id, first_name, last_name, guest_name')
+        .eq('trip_id', tripId)
+      if (cancelled || !data) return
+      const map = {}
+      data.forEach(tp => {
+        const nm = [tp.first_name, tp.last_name].filter(Boolean).join(' ').trim() || (tp.guest_name || '').trim()
+        if (!nm) return
+        if (tp.user_id) map[tp.user_id] = nm
+        if (tp.claimed_user_id) map[tp.claimed_user_id] = nm
+      })
+      ptNamesRef.current = map
+      setPtNames(map)
+    }
+
+    loadRoster()
+    channel = supabase
+      .channel(uniqueChannelName(`chat-roster:${tripId}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${tripId}` }, loadRoster)
+      .subscribe()
+
+    return () => { cancelled = true; if (channel) supabase.removeChannel(channel) }
+  }, [tripId])
+
+  // Fallback names from profiles by user_id, used only when the roster has no name
+  // entered for that player. Fetches only the ids we don't already have.
   async function fetchNames(ids) {
     const missing = [...new Set(ids)].filter(id => id && !nameMapRef.current[id])
     if (!missing.length) return
@@ -188,11 +224,15 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
     resetComposerHeight() // shrink the composer back to one row
     setSendError(null)
 
+    // Store my roster (Players & Teams) name as the sender_name so it's the
+    // fallback others see; profile-based currentUserName only if I'm not on the roster.
+    const myName = ptNames[currentUserId] || currentUserName || 'Player'
+
     const optimistic = {
       id: 'opt_' + Date.now(),
       trip_id: tripId,
       user_id: currentUserId,
-      sender_name: currentUserName,
+      sender_name: myName,
       content,
       created_at: new Date().toISOString(),
       _optimistic: true,
@@ -201,7 +241,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ trip_id: tripId, user_id: currentUserId, sender_name: currentUserName, content })
+      .insert({ trip_id: tripId, user_id: currentUserId, sender_name: myName, content })
       .select()
       .single()
 
@@ -237,9 +277,9 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
         ) : (
           messages.map((m, i) => {
             const mine = m.user_id === currentUserId
-            // Always resolve the name from profiles by user_id; fall back to the
-            // stored sender_name only until the profile lookup lands.
-            const resolved = nameMap[m.user_id] || m.sender_name || 'Player'
+            // Roster (Players & Teams) name first; profile only as a fallback when
+            // none is set there; stored sender_name until either lookup lands.
+            const resolved = ptNames[m.user_id] || nameMap[m.user_id] || m.sender_name || 'Player'
             const firstName = resolved.split(' ')[0] || resolved
             // Insert a centered day divider whenever the day changes from the
             // previous message. The first message (no previous) never gets one.
