@@ -18,7 +18,6 @@ import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } fro
 import { ProfileBadge } from './ProfileAvatar'
 import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
-import { useSwipeNav } from '../lib/useSwipeNav'
 import SupportForm from './SupportForm'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -2314,10 +2313,6 @@ export default function MenuDrawer({
   // the history stack clean. onClose is read via a ref so this only runs on open changes.
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
-
-  // Swipe the drawer (which slides in from the right) rightward to dismiss it —
-  // the mirror of "swipe past Tee Times to open it", so it returns to that page.
-  const drawerSwipe = useSwipeNav({ onPrev: onClose })
   useEffect(() => {
     if (!open) return
     window.history.pushState({ drawerOpen: true }, '')
@@ -2824,11 +2819,7 @@ export default function MenuDrawer({
       />
 
       {/* Drawer */}
-      <div
-        style={{ ...s.drawer, transform: drawerVisible ? 'translateX(0)' : 'translateX(100%)', touchAction: 'pan-y' }}
-        onPointerDown={drawerSwipe.onPointerDown}
-        onPointerUp={drawerSwipe.onPointerUp}
-      >
+      <div style={{ ...s.drawer, transform: drawerVisible ? 'translateX(0)' : 'translateX(100%)' }}>
         <div style={s.drawerHeader}>
           <div style={s.groupLine}>{groupName}</div>
           <div style={s.tripLine}>{tripName}</div>
