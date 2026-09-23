@@ -30,8 +30,26 @@
 -- anon visitors to /login before reading any trip data, so authenticated-only
 -- grant is sufficient (mirrors the existing invite RPCs).
 --
+-- ATOMIC: the whole script runs in one transaction (BEGIN … COMMIT). If ANY
+-- statement fails — e.g. a CREATE POLICY can't find is_group_member(uuid) — the
+-- entire thing rolls back, so we never end up with a table whose old SELECT
+-- policy was dropped but whose replacement was never created (RLS-on + zero
+-- policies = deny-all lockout for real members, worse than the leak).
+--
 -- Idempotent. Run in Supabase SQL Editor (project mjssollqfngbeetwnxml).
 -- =============================================================
+
+BEGIN;
+
+-- Fail fast, before dropping anything: the trips policy below depends on
+-- is_group_member(uuid). If it's absent under that exact signature, abort now
+-- with a clear message (and roll back — nothing has changed yet).
+DO $$
+BEGIN
+  IF to_regprocedure('public.is_group_member(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'Required function public.is_group_member(uuid) is missing — aborting migration (no changes made).';
+  END IF;
+END $$;
 
 -- Helper: does the current user share a group with `other_uid`? SECURITY DEFINER
 -- so it reads group_members without tripping that table's own RLS (and so the
@@ -114,3 +132,5 @@ BEGIN
     RAISE NOTICE 'SELECT policies now on %: % (%).', r.tablename, r.n, r.names;
   END LOOP;
 END $$;
+
+COMMIT;
