@@ -105,17 +105,20 @@ CREATE POLICY "profiles_select" ON public.profiles
   FOR SELECT TO authenticated
   USING (id = auth.uid() OR shares_group_with(id));
 
--- ── pairing_players: pairings of rounds in trips you play in (was USING true).
---    Mirrors pairings_select so the two pairing tables agree on visibility. ──
+-- ── pairing_players: members of the trip's group (was USING true). Scopes
+--    through is_group_member(group_id) — identical to the existing correct
+--    "Members can view pairing players" policy and to the trips/profiles fixes.
+--    NOT trip_players-scoped: a group member without a trip_players row for a
+--    given trip (a non-playing commissioner, or a member of a multi-trip group
+--    who isn't a player in this particular trip) can see pairing_players today,
+--    and this must not narrow that. ──
 CREATE POLICY "pairing_players_select" ON public.pairing_players
   FOR SELECT TO authenticated
   USING (pairing_id IN (
     SELECT p.id FROM pairings p
-    WHERE p.round_id IN (
-      SELECT r.id FROM rounds r
-      JOIN trip_players tp ON tp.trip_id = r.trip_id
-      WHERE tp.user_id = auth.uid()
-    )
+    JOIN rounds r ON r.id = p.round_id
+    JOIN trips t ON t.id = r.trip_id
+    WHERE is_group_member(t.group_id)
   ));
 
 -- ── Post-check: each table should now have EXACTLY ONE SELECT policy, the new
