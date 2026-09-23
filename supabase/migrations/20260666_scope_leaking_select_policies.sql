@@ -13,12 +13,22 @@
 -- three, matching how group_members / trip_players / rounds already behave.
 -- Writes were already correctly blocked and are unchanged here (SELECT-only fix).
 --
+-- NAME-AGNOSTIC DROP: production RLS has drifted from the migration history, so we
+-- do NOT trust hard-coded policy names. Instead we loop pg_policies and drop EVERY
+-- existing SELECT-command policy on each of the three tables, then create exactly
+-- one correctly-scoped policy. This prevents a stale leaky SELECT policy from
+-- surviving under a different name and being OR'd together with the new one
+-- (Postgres unions permissive policies). FOR ALL / write policies are untouched.
+-- The RAISE NOTICE lines print the real policy names that were dropped.
+--
 -- Keeping the invite/join flow working: JoinTrip.jsx read `trips` directly by
 -- invite_token, which member-only scoping would break for a not-yet-member
 -- invitee. Following the existing pattern (invite_guest_list / invite_commissioner
--- / claim_invite_slot are all token-gated SECURITY DEFINER RPCs), a new
--- trip_by_invite_token(uuid) RPC returns the single trip matching a token —
--- bypassing RLS but gated on the token (the secret shared only via /join/:token).
+-- / claim_invite_slot are token-gated SECURITY DEFINER RPCs granted to
+-- `authenticated`), a new trip_by_invite_token(uuid) RPC returns the single trip
+-- matching a token — bypassing RLS but gated on the token. The join page redirects
+-- anon visitors to /login before reading any trip data, so authenticated-only
+-- grant is sufficient (mirrors the existing invite RPCs).
 --
 -- Idempotent. Run in Supabase SQL Editor (project mjssollqfngbeetwnxml).
 -- =============================================================
@@ -51,21 +61,34 @@ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
 $$;
 GRANT EXECUTE ON FUNCTION public.trip_by_invite_token(uuid) TO authenticated;
 
+-- ── Drop EVERY existing SELECT policy on the three tables (by real name) ──
+DO $$
+DECLARE pol record;
+BEGIN
+  FOR pol IN
+    SELECT tablename, policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN ('trips', 'profiles', 'pairing_players')
+      AND cmd = 'SELECT'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
+    RAISE NOTICE 'Dropped SELECT policy "%" on public.%', pol.policyname, pol.tablename;
+  END LOOP;
+END $$;
+
 -- ── trips: members of the trip's group only (was leaking ALL trips) ──
-DROP POLICY IF EXISTS "trips_select" ON public.trips;
 CREATE POLICY "trips_select" ON public.trips
   FOR SELECT TO authenticated
   USING (is_group_member(group_id));
 
 -- ── profiles: only yourself + people who share a group with you (was USING true) ──
-DROP POLICY IF EXISTS "profiles_select" ON public.profiles;
 CREATE POLICY "profiles_select" ON public.profiles
   FOR SELECT TO authenticated
   USING (id = auth.uid() OR shares_group_with(id));
 
 -- ── pairing_players: pairings of rounds in trips you play in (was USING true).
 --    Mirrors pairings_select so the two pairing tables agree on visibility. ──
-DROP POLICY IF EXISTS "pairing_players_select" ON public.pairing_players;
 CREATE POLICY "pairing_players_select" ON public.pairing_players
   FOR SELECT TO authenticated
   USING (pairing_id IN (
@@ -76,3 +99,18 @@ CREATE POLICY "pairing_players_select" ON public.pairing_players
       WHERE tp.user_id = auth.uid()
     )
   ));
+
+-- ── Post-check: each table should now have EXACTLY ONE SELECT policy, the new
+--    scoped one. Any other row here means a stale policy survived — investigate. ──
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT tablename, count(*) AS n, string_agg(policyname, ', ') AS names
+    FROM pg_policies
+    WHERE schemaname='public' AND tablename IN ('trips','profiles','pairing_players') AND cmd='SELECT'
+    GROUP BY tablename
+  LOOP
+    RAISE NOTICE 'SELECT policies now on %: % (%).', r.tablename, r.n, r.names;
+  END LOOP;
+END $$;
