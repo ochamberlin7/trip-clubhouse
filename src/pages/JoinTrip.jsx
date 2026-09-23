@@ -38,9 +38,17 @@ export default function JoinTrip() {
     }
     let cancelled = false
     ;(async () => {
-      // STEP 1 — look up the trip by its invite token.
-      const { data: tripRow } = await supabase
-        .from('trips').select('*').eq('invite_token', inviteToken).maybeSingle()
+      // STEP 1 — look up the trip by its invite token. Uses the token-gated
+      // SECURITY DEFINER RPC (trips_select is scoped to group members, so a
+      // not-yet-member invitee can't read the row directly). Falls back to a
+      // direct select if the RPC isn't deployed yet (pre-migration).
+      let tripRow = null
+      const rpcRes = await supabase.rpc('trip_by_invite_token', { p_invite_token: inviteToken })
+      if (Array.isArray(rpcRes.data)) tripRow = rpcRes.data[0] || null
+      if (!tripRow && rpcRes.error && /does not exist|schema cache|could not find|function/i.test(rpcRes.error.message || '')) {
+        const { data } = await supabase.from('trips').select('*').eq('invite_token', inviteToken).maybeSingle()
+        tripRow = data || null
+      }
       if (cancelled) return
       if (!tripRow) { setError('This invite link is invalid.'); setStatus('error'); return }
       setTrip(tripRow)

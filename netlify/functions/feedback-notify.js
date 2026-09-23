@@ -15,9 +15,10 @@
 //                             which Resend allows for sending to your own account
 //                             email with no domain verification. Set a verified
 //                             domain sender once one exists.
-//   FEEDBACK_WEBHOOK_SECRET   (optional but recommended) Shared secret; if set, the
-//                             request must send a matching `x-webhook-secret` header
-//                             (configure it as a custom header on the Supabase webhook).
+//   FEEDBACK_WEBHOOK_SECRET   (REQUIRED — fail closed) Shared secret; the request
+//                             must send a matching `x-webhook-secret` header
+//                             (configure it as a custom header on the Supabase
+//                             webhook). If unset, the function rejects everything.
 //   SUPABASE_URL              (optional) Used to resolve the trip name + build a
 //                             dashboard link. Falls back to VITE_SUPABASE_URL.
 //   SUPABASE_SERVICE_ROLE_KEY (optional) If present, resolves trip_id -> trip name
@@ -35,12 +36,13 @@ exports.handler = async (event) => {
     return { statusCode: 405, body: 'Method not allowed' }
   }
 
-  // Optional shared-secret gate (Supabase webhooks can send a custom header).
+  // Shared-secret gate (Supabase webhook sends it as a custom header). FAIL CLOSED:
+  // if the secret isn't configured on the server, reject every request rather than
+  // run wide open — an unset var must not mean "no auth".
   const secret = process.env.FEEDBACK_WEBHOOK_SECRET
-  if (secret) {
-    const got = event.headers['x-webhook-secret'] || event.headers['X-Webhook-Secret']
-    if (got !== secret) return { statusCode: 401, body: 'Unauthorized' }
-  }
+  if (!secret) return { statusCode: 503, body: 'Webhook secret not configured' }
+  const got = event.headers['x-webhook-secret'] || event.headers['X-Webhook-Secret']
+  if (got !== secret) return { statusCode: 401, body: 'Unauthorized' }
 
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return { statusCode: 500, body: 'RESEND_API_KEY not configured on the server' }
