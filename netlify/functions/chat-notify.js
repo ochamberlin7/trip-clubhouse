@@ -43,7 +43,25 @@ exports.handler = async (event) => {
   // JWT-shaped (legacy) key — a non-JWT sb_secret_ key fails PostgREST's JWT parse
   // in the Bearer slot, so for those the apikey header alone grants service_role.
   const svcHeaders = /^eyJ/.test(svc || '') ? { apikey: svc, Authorization: `Bearer ${svc}` } : { apikey: svc }
-  const sb = (path) => fetch(`${base}/rest/v1/${path}`, { headers: svcHeaders }).then(r => r.json())
+  const keyKind = /^eyJ/.test(svc || '') ? 'jwt' : (svc || '').startsWith('sb_secret_') ? 'sb_secret' : 'other'
+  // Surface REST failures instead of silently defaulting to []/null. A non-2xx
+  // (401 bad key, 42501 grant/RLS as anon, etc.) is logged with status + body so
+  // the actual cause is visible in the function log — no more silent zeros.
+  async function sb(path) {
+    let res
+    try {
+      res = await fetch(`${base}/rest/v1/${path}`, { headers: svcHeaders })
+    } catch (e) {
+      console.error('[chat-notify] REST fetch threw', { path: path.slice(0, 60), keyKind, error: String(e && e.message) })
+      return null
+    }
+    const text = await res.text()
+    if (!res.ok) {
+      console.error('[chat-notify] REST error', { path: path.slice(0, 60), status: res.status, keyKind, body: text.slice(0, 200) })
+      return null
+    }
+    try { return JSON.parse(text) } catch { return null }
+  }
 
   // 1. Recipients = everyone who can be in this thread, minus the sender. This MUST
   //    mirror the messages RLS (20260621): a member reaches the chat via a
@@ -60,7 +78,7 @@ exports.handler = async (event) => {
   const memberIds = (Array.isArray(members) ? members : []).map(m => m.user_id).filter(Boolean)
   const recipients = [...new Set([...rosterIds, ...memberIds])].filter(uid => uid !== senderId)
   if (!recipients.length) {
-    console.log('[chat-notify]', JSON.stringify({ trip_id: tripId, sender: senderId, group_id: groupId, trip_players: rosterIds.length, group_members: memberIds.length, recipients: 0, note: 'no recipients' }))
+    console.log('[chat-notify]', JSON.stringify({ trip_id: tripId, sender: senderId, group_id: groupId, keyKind, trip_players: rosterIds.length, group_members: memberIds.length, recipients: 0, note: 'no recipients' }))
     return { statusCode: 200, body: JSON.stringify({ ok: true, sent: 0, note: 'no recipients' }) }
   }
 
