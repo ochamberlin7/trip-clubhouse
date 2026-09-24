@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
+import { isPushSupported, pushPermission, enablePush, markChatRead } from '../lib/push'
 
 // Trash Talk Thread — trip chat for the dashboard home tab.
 //
@@ -38,6 +39,10 @@ const styles = {
   inputRow: { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #DDE3EA', background: '#FFFFFF', flexShrink: 0, alignItems: 'flex-end' },
   input: { flex: 1, background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: '20px', padding: '8px 14px', fontSize: '16px', lineHeight: '20px', color: '#0D1B2A', outline: 'none', fontFamily: 'inherit', resize: 'none', overflowY: 'hidden', maxHeight: COMPOSER_MAX, boxSizing: 'border-box', display: 'block' },
   sendBtn: { width: '38px', height: '38px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  pushPrompt: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#EAF1F8', borderBottom: '1px solid #DDE3EA', flexShrink: 0 },
+  pushText: { fontSize: 12, color: '#2C3E50', flex: 1, lineHeight: 1.35 },
+  pushEnable: { background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
+  pushDismiss: { background: 'none', border: 'none', color: '#7A8FA6', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, padding: '5px 2px' },
 }
 
 function SendIcon() {
@@ -75,6 +80,8 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   const [text, setText] = useState('')
   const [pressed, setPressed] = useState(false)
   const [sendError, setSendError] = useState(null)
+  const [showPushPrompt, setShowPushPrompt] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
   const areaRef = useRef(null)
   const taRef = useRef(null)
   const nameMapRef = useRef({})
@@ -82,6 +89,36 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   const mountedRef = useRef(true)
 
   useEffect(() => () => { mountedRef.current = false }, [])
+
+  // Opening the thread marks it read (clears the unread badge from real state,
+  // not just iOS's foreground auto-clear). Also decide the contextual push
+  // prompt: only on a RETURN visit (never first), and only when push is actually
+  // supported, permission hasn't been decided, and it wasn't dismissed before —
+  // no immediate auto-prompt.
+  useEffect(() => {
+    if (currentUserId && tripId) markChatRead(currentUserId, tripId)
+    try {
+      const seen = localStorage.getItem('tc_chat_seen')
+      if (!seen) { localStorage.setItem('tc_chat_seen', '1'); return }
+      const dismissed = localStorage.getItem('tc_push_prompt_dismissed')
+      if (isPushSupported() && pushPermission() === 'default' && !dismissed) setShowPushPrompt(true)
+    } catch { /* localStorage unavailable */ }
+  }, [currentUserId, tripId])
+
+  async function handleEnablePush() {
+    setPushBusy(true)
+    const res = await enablePush(currentUserId)
+    setPushBusy(false)
+    setShowPushPrompt(false)
+    // If they declined at the OS level, don't nag again.
+    if (!res.ok && (res.reason === 'denied' || res.reason === 'default')) {
+      try { localStorage.setItem('tc_push_prompt_dismissed', '1') } catch { /* ignore */ }
+    }
+  }
+  function dismissPushPrompt() {
+    setShowPushPrompt(false)
+    try { localStorage.setItem('tc_push_prompt_dismissed', '1') } catch { /* ignore */ }
+  }
 
   // Auto-grow the composer like iMessage: reset to measure, then set height to fit
   // the content up to COMPOSER_MAX. Past that the textarea scrolls internally
@@ -216,6 +253,14 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
 
+  // While the user is actually looking at the thread, keep it marked read so the
+  // badge stays cleared as new messages land (drives off real "viewing" state).
+  useEffect(() => {
+    if (messages.length && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      markChatRead(currentUserId, tripId)
+    }
+  }, [messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleSend() {
     const content = text.trim()
     if (!content) return
@@ -270,6 +315,16 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
       <div style={styles.header}>
         <span style={styles.headerText}>Trash Talk Thread</span>
       </div>
+
+      {showPushPrompt && (
+        <div style={styles.pushPrompt}>
+          <span style={styles.pushText}>🔔 Get a notification when someone posts here.</span>
+          <button type="button" style={styles.pushEnable} onClick={handleEnablePush} disabled={pushBusy}>
+            {pushBusy ? '…' : 'Turn on'}
+          </button>
+          <button type="button" style={styles.pushDismiss} onClick={dismissPushPrompt}>Not now</button>
+        </div>
+      )}
 
       <div style={styles.area} ref={areaRef}>
         {messages.length === 0 ? (
