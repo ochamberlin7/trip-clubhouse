@@ -39,17 +39,28 @@ exports.handler = async (event) => {
   const senderId = msg?.user_id
   if (!tripId || !msg?.content) return { statusCode: 400, body: 'No message row in payload' }
 
-  const sb = (path) => fetch(`${base}/rest/v1/${path}`, { headers: { apikey: svc, Authorization: `Bearer ${svc}` } }).then(r => r.json())
+  // Service-role auth via the apikey header. Only add Authorization: Bearer for a
+  // JWT-shaped (legacy) key — a non-JWT sb_secret_ key fails PostgREST's JWT parse
+  // in the Bearer slot, so for those the apikey header alone grants service_role.
+  const svcHeaders = /^eyJ/.test(svc || '') ? { apikey: svc, Authorization: `Bearer ${svc}` } : { apikey: svc }
+  const sb = (path) => fetch(`${base}/rest/v1/${path}`, { headers: svcHeaders }).then(r => r.json())
 
-  // 1. Recipients: every user tied to this trip's roster, minus the sender.
-  const roster = await sb(`trip_players?trip_id=eq.${tripId}&select=user_id,claimed_user_id`)
-  const recipients = [...new Set(
-    (Array.isArray(roster) ? roster : [])
-      .flatMap(r => [r.user_id, r.claimed_user_id])
-      .filter(Boolean),
-  )].filter(uid => uid !== senderId)
+  // 1. Recipients = everyone who can be in this thread, minus the sender. This MUST
+  //    mirror the messages RLS (20260621): a member reaches the chat via a
+  //    trip_players row (user_id OR claimed_user_id) *or* by being a group member
+  //    of the trip's group. Scoping to trip_players alone silently drops
+  //    group-member-only participants — who can post but have no trip_players row.
+  const tripRows = await sb(`trips?id=eq.${tripId}&select=group_id`)
+  const groupId = Array.isArray(tripRows) && tripRows[0] ? tripRows[0].group_id : null
+  const [roster, members] = await Promise.all([
+    sb(`trip_players?trip_id=eq.${tripId}&select=user_id,claimed_user_id`),
+    groupId ? sb(`group_members?group_id=eq.${groupId}&select=user_id`) : Promise.resolve([]),
+  ])
+  const rosterIds = (Array.isArray(roster) ? roster : []).flatMap(r => [r.user_id, r.claimed_user_id]).filter(Boolean)
+  const memberIds = (Array.isArray(members) ? members : []).map(m => m.user_id).filter(Boolean)
+  const recipients = [...new Set([...rosterIds, ...memberIds])].filter(uid => uid !== senderId)
   if (!recipients.length) {
-    console.log('[chat-notify]', JSON.stringify({ trip_id: tripId, sender: senderId, recipients: 0, note: 'no recipients (nobody else on the roster)' }))
+    console.log('[chat-notify]', JSON.stringify({ trip_id: tripId, sender: senderId, group_id: groupId, trip_players: rosterIds.length, group_members: memberIds.length, recipients: 0, note: 'no recipients' }))
     return { statusCode: 200, body: JSON.stringify({ ok: true, sent: 0, note: 'no recipients' }) }
   }
 
@@ -85,7 +96,7 @@ exports.handler = async (event) => {
       const status = err && err.statusCode
       if (status === 404 || status === 410) {
         await fetch(`${base}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(s.endpoint)}`, {
-          method: 'DELETE', headers: { apikey: svc, Authorization: `Bearer ${svc}` },
+          method: 'DELETE', headers: svcHeaders,
         }).catch(() => {})
         return { user_id: s.user_id, ok: false, pruned: true, status }
       }
