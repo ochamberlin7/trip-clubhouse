@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
+import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { loadPurseStandings, computePurse, formatMoney } from '../lib/purse'
 import HomeCard from './homeCard'
 
@@ -32,6 +33,10 @@ const styles = {
 export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }) {
   const [st, setSt] = useState({ status: 'loading' })
   const [tick, setTick] = useState(0)
+  // Bumped on background→resume: refetches (load effect dep) AND rebuilds the
+  // realtime channel (subscribe effect dep), which stalls while suspended.
+  const [resumeTick, setResumeTick] = useState(0)
+  useResumeRefetch(() => setResumeTick(t => t + 1))
 
   // Live: recompute on score / trip (amount + toggle) / handicap changes.
   useEffect(() => {
@@ -43,7 +48,7 @@ export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${tripId}` }, bump)
       .subscribe()
     return () => { if (t) clearTimeout(t); supabase.removeChannel(ch) }
-  }, [tripId])
+  }, [tripId, resumeTick])
 
   useEffect(() => {
     let cancelled = false
@@ -61,7 +66,7 @@ export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }
     }
     load()
     return () => { cancelled = true }
-  }, [tripId, allowance, tick])
+  }, [tripId, allowance, tick, resumeTick])
 
   if (st.status !== 'ready') return null
 

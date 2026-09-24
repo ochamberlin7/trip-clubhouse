@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
+import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 
 // Trash Talk Thread — trip chat for the dashboard home tab.
@@ -75,6 +76,10 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   const [text, setText] = useState('')
   const [pressed, setPressed] = useState(false)
   const [sendError, setSendError] = useState(null)
+  // Bumped on background→resume to re-run the load+subscribe effect below: catches
+  // up messages missed while suspended AND rebuilds the stalled realtime channel.
+  const [resumeTick, setResumeTick] = useState(0)
+  useResumeRefetch(() => setResumeTick(t => t + 1))
   const areaRef = useRef(null)
   const taRef = useRef(null)
   const nameMapRef = useRef({})
@@ -208,7 +213,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
       cancelled = true
       if (channel) supabase.removeChannel(channel)
     }
-  }, [tripId])
+  }, [tripId, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll to bottom whenever the message list changes.
   useEffect(() => {

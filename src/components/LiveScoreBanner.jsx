@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
+import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { liveMatchTally, liveStandardMatchTally } from '../lib/scoring'
 import { getTeamDisplayName, isDefaultTeamName, teamColor, colorIndexOf } from '../lib/teamColors'
 
@@ -105,6 +106,10 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   const [teeRowMap, setTeeRowMap] = useState({}) // `${roundId}:${tpId}` -> player_rounds row
   // Bumped every 60s so the 9pm cutoff is re-evaluated.
   const [, setClockTick] = useState(0)
+  // Bumped on background→resume to re-run the load+subscribe effect (refetch
+  // scores AND rebuild the realtime channel, which stalls while suspended).
+  const [resumeTick, setResumeTick] = useState(0)
+  useResumeRefetch(() => setResumeTick(t => t + 1))
   const channelRef = useRef(null)
   const bannerRef = useRef(null) // outer float, for measuring its rendered height
 
@@ -201,7 +206,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       channelRef.current = null
       supabase.removeChannel(ch)
     }
-  }, [trip?.id, allRoundKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trip?.id, allRoundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Visibility gates ────────────────────────────────────────────
   const now = new Date()
