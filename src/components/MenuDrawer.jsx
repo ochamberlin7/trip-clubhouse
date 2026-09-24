@@ -18,6 +18,7 @@ import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } fro
 import { ProfileBadge } from './ProfileAvatar'
 import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
+import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -2313,6 +2314,12 @@ export default function MenuDrawer({
   // the history stack clean. onClose is read via a ref so this only runs on open changes.
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
+
+  // Bumped on background→resume to rebuild the two realtime channels below (they
+  // stall silently while the PWA is suspended). Data itself reloads when a page is
+  // (re)opened via the [open, page] effect, so this just restores live delivery.
+  const [resumeTick, setResumeTick] = useState(0)
+  useResumeRefetch(() => setResumeTick(t => t + 1))
   useEffect(() => {
     if (!open) return
     window.history.pushState({ drawerOpen: true }, '')
@@ -2352,12 +2359,14 @@ export default function MenuDrawer({
       setScoredRounds(new Set((data || []).map(s => s.round_id)))
     }
 
+    // Refresh once on (re)subscribe so a resume also catches up missed scores.
+    refreshScoredRounds()
     const ch = supabase
       .channel(uniqueChannelName(`courses-lock-${tripId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'scores', filter: `round_id=in.(${roundIds.join(',')})` }, () => { refreshScoredRounds() })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [page, coursesData, tripId])
+  }, [page, coursesData, tripId, resumeTick])
 
   // Live HI propagation: when a player's handicap_index changes, update it in
   // place so every course card's course handicaps recalculate (HI is never
@@ -2379,7 +2388,7 @@ export default function MenuDrawer({
       })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [tripId])
+  }, [tripId, resumeTick])
 
   // Fetch (or re-fetch) everything the Schedule & Courses page needs and set it
   // in one shot. Callers use this both for the initial lazy-load AND for

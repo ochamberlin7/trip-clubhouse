@@ -83,6 +83,10 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   const [sendError, setSendError] = useState(null)
   const [showPushPrompt, setShowPushPrompt] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
+  // Bumped on background→resume to re-run the load+subscribe effect below: catches
+  // up messages missed while suspended AND rebuilds the stalled realtime channel.
+  const [resumeTick, setResumeTick] = useState(0)
+  useResumeRefetch(() => setResumeTick(t => t + 1))
   const areaRef = useRef(null)
   const taRef = useRef(null)
   const nameMapRef = useRef({})
@@ -246,23 +250,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
       cancelled = true
       if (channel) supabase.removeChannel(channel)
     }
-  }, [tripId])
-
-  // Background→foreground resume: when the OS suspends the PWA the realtime socket
-  // can stall silently (no CLOSED event), so messages that arrive while
-  // backgrounded are missed until a full relaunch remounts this widget. Refetch
-  // history on resume — the same catch-up a relaunch does — so the thread updates
-  // without a restart. (Matches the app-wide useResumeRefetch pattern.)
-  useResumeRefetch(async () => {
-    if (!tripId) return
-    const { data } = await supabase
-      .from('messages').select('*').eq('trip_id', tripId)
-      .order('created_at', { ascending: true }).limit(100)
-    if (data && mountedRef.current) {
-      setMessages(data)
-      fetchNames(data.map(m => m.user_id))
-    }
-  })
+  }, [tripId, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll to bottom whenever the message list changes.
   useEffect(() => {

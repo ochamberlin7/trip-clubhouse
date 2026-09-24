@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
+import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { analyzeScoring, playerName, initialsOf, formatVsPar, isTournamentRound } from '../lib/scoring'
 import HomeCard from './homeCard'
 
@@ -50,6 +51,10 @@ export default function DailyMVPCard({ tripId, endDate }) {
   const [dayIso, setDayIso] = useState(() => golfDayIso(new Date()))
   const [state, setState] = useState({ status: 'loading' })
   const [tick, setTick] = useState(0) // bumped by realtime changes to recompute
+  // Bumped on background→resume: refetches (load effect dep) AND rebuilds the
+  // realtime channel (subscribe effect dep), which stalls while suspended.
+  const [resumeTick, setResumeTick] = useState(0)
+  useResumeRefetch(() => setResumeTick(t => t + 1))
 
   // Re-check the golf day every minute so a 4 AM rollover reset applies while the
   // app stays open (reopening recomputes from scratch on load). Same primitive →
@@ -69,7 +74,7 @@ export default function DailyMVPCard({ tripId, endDate }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${tripId}` }, bump)
       .subscribe()
     return () => { if (t) clearTimeout(t); supabase.removeChannel(ch) }
-  }, [tripId])
+  }, [tripId, resumeTick])
 
   const isPostTrip = !!endDate && dayIso > endDate
 
@@ -157,7 +162,7 @@ export default function DailyMVPCard({ tripId, endDate }) {
     }
     load()
     return () => { cancelled = true }
-  }, [tripId, dayIso, tick, isPostTrip])
+  }, [tripId, dayIso, tick, isPostTrip, resumeTick])
 
   if (isPostTrip) return null // trip over — the Trip Summary card takes over
 

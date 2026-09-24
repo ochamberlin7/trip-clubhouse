@@ -8,6 +8,7 @@ import { getActiveRound, liveMatchTally, liveStandardMatchTally, parseTeeTimeToM
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
+import { useResumeRefetch } from '../../lib/useResumeRefetch'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
@@ -517,6 +518,11 @@ function PointsLeaderboard({ trip, teams, rounds }) {
   const [scoresMap, setScoresMap] = useState({})
   const [hcpByPlayer, setHcpByPlayer] = useState({})
   const [teeRowMap, setTeeRowMap] = useState({})
+  // Bumped when the app returns from the background: re-runs the load+subscribe
+  // effect below, so it both refetches missed scores AND rebuilds the realtime
+  // channel (which stalls silently while the PWA is suspended).
+  const [resumeTick, setResumeTick] = useState(0)
+  useResumeRefetch(() => setResumeTick(t => t + 1))
 
   const allowance = trip?.handicap_allowance ?? 100
   // Leaderboard shows only counting rounds: exclude 'none' placeholders, practice
@@ -578,7 +584,7 @@ function PointsLeaderboard({ trip, teams, rounds }) {
       .subscribe()
 
     return () => { cancelled = true; supabase.removeChannel(ch) }
-  }, [trip?.id, roundKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trip?.id, roundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // roundId -> per-pairing Points Match Play tally (hole-win counts per side).
   const byRound = useMemo(() => {
@@ -636,15 +642,18 @@ function PointsLeaderboard({ trip, teams, rounds }) {
 }
 
 // Standard Match Play standings: each completed round is a match worth 1 (win),
-// 0.5 (halve) or 0 (loss) to each team; totals accumulate across rounds. Fetches
-// its own scores/pairings on mount (the leaderboard tab remounts each time it's
-// opened, so this is fresh without a realtime subscription).
+// 0.5 (halve) or 0 (loss) to each team; totals accumulate across rounds. Loads
+// its own scores/pairings and subscribes to live changes (so it updates mid-round
+// without a remount), refetching + re-subscribing on background→resume.
 function StandardLeaderboard({ trip, teams, rounds }) {
   const [pairings, setPairings] = useState([])
   const [pairingPlayers, setPairingPlayers] = useState([])
   const [scoresMap, setScoresMap] = useState({})
   const [hcpByPlayer, setHcpByPlayer] = useState({})
   const [teeRowMap, setTeeRowMap] = useState({})
+  // Bumped on background→resume to re-run load+subscribe (see PointsLeaderboard).
+  const [resumeTick, setResumeTick] = useState(0)
+  useResumeRefetch(() => setResumeTick(t => t + 1))
 
   const allowance = trip?.handicap_allowance ?? 100
   // Leaderboard shows only counting rounds: exclude 'none', practice, and
@@ -656,7 +665,8 @@ function StandardLeaderboard({ trip, teams, rounds }) {
   useEffect(() => {
     if (!trip?.id || roundIds.length === 0) return
     let cancelled = false
-    ;(async () => {
+
+    async function loadAll() {
       const [pairRes, tpRes, scoreRes, prRes] = await Promise.all([
         supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds),
         supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
@@ -675,9 +685,28 @@ function StandardLeaderboard({ trip, teams, rounds }) {
       const sMap = {}; (scoreRes.data || []).forEach(s => { if (s.gross_score != null) sMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score })
       const tMap = {}; (prRes.data || []).forEach(pr => { tMap[`${pr.round_id}:${pr.trip_player_id}`] = pr })
       setPairings(pairs); setPairingPlayers(pp); setHcpByPlayer(hcp); setScoresMap(sMap); setTeeRowMap(tMap)
-    })()
-    return () => { cancelled = true }
-  }, [trip?.id, roundKey]) // eslint-disable-line react-hooks/exhaustive-deps
+    }
+
+    loadAll()
+
+    // Live updates (previously absent — this leaderboard only refreshed on remount,
+    // so it went stale mid-round). Mirror the points leaderboard: refetch on any
+    // score / tee / pairing / HI change for these rounds.
+    const ch = supabase.channel(uniqueChannelName(`standard-lb:${roundKey}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, payload => {
+        const rid = payload.new?.round_id ?? payload.old?.round_id
+        if (rid && roundIds.includes(rid)) loadAll()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_rounds' }, payload => {
+        const rid = payload.new?.round_id ?? payload.old?.round_id
+        if (rid && roundIds.includes(rid)) loadAll()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => loadAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${trip.id}` }, () => loadAll())
+      .subscribe()
+
+    return () => { cancelled = true; supabase.removeChannel(ch) }
+  }, [trip?.id, roundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // roundId -> per-pairing Standard Match Play results.
   const byRound = useMemo(() => {
@@ -778,6 +807,9 @@ function PrinceOfWalesLeaderboard({ trip, teams, rounds }) {
   const [playersByTeam, setPlayersByTeam] = useState({})
   const [hcpByPlayer, setHcpByPlayer] = useState({})
   const [mode, setMode] = useState('net') // Gross/Net toggle — defaults to Net
+  // Bumped on background→resume to re-run load+subscribe (see PointsLeaderboard).
+  const [resumeTick, setResumeTick] = useState(0)
+  useResumeRefetch(() => setResumeTick(t => t + 1))
 
   const allowance = trip?.handicap_allowance ?? 100
   // Same filter the tournament leaderboard uses: tournament rounds only (exclude
@@ -830,7 +862,7 @@ function PrinceOfWalesLeaderboard({ trip, teams, rounds }) {
       .subscribe()
 
     return () => { cancelled = true; supabase.removeChannel(ch) }
-  }, [trip?.id, roundKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trip?.id, roundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const composites = useMemo(
     () => princeOfWalesComposites({ rounds: powRounds, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer }, allowance),
