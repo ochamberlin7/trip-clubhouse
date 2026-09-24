@@ -48,7 +48,10 @@ exports.handler = async (event) => {
       .flatMap(r => [r.user_id, r.claimed_user_id])
       .filter(Boolean),
   )].filter(uid => uid !== senderId)
-  if (!recipients.length) return { statusCode: 200, body: JSON.stringify({ ok: true, sent: 0, note: 'no recipients' }) }
+  if (!recipients.length) {
+    console.log('[chat-notify]', JSON.stringify({ trip_id: tripId, sender: senderId, recipients: 0, note: 'no recipients (nobody else on the roster)' }))
+    return { statusCode: 200, body: JSON.stringify({ ok: true, sent: 0, note: 'no recipients' }) }
+  }
 
   const inList = `(${recipients.join(',')})`
 
@@ -69,33 +72,34 @@ exports.handler = async (event) => {
   const title = msg.sender_name || 'Trash Talk'
   const body = String(msg.content).slice(0, 140)
 
-  // 3. Send to every subscription; prune expired ones (404/410).
+  // 3. Send to every subscription. Prune expired ones (404/410); LOG every other
+  //    failure (403/400 = VAPID mismatch/bad JWT, etc.) instead of swallowing it,
+  //    so the function's real outcome is visible in the Netlify logs.
   const subsList = Array.isArray(subs) ? subs : []
-  let sent = 0, pruned = 0
-  await Promise.all(subsList.map(async (s) => {
-    const data = JSON.stringify({
-      title,
-      body,
-      badge: unreadFor(s.user_id),
-      url: '/',
-      tag: `trash-talk:${tripId}`,
-    })
+  const results = await Promise.all(subsList.map(async (s) => {
+    const data = JSON.stringify({ title, body, badge: unreadFor(s.user_id), url: '/', tag: `trash-talk:${tripId}` })
     try {
-      await webpush.sendNotification(
-        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-        data,
-      )
-      sent++
+      const res = await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, data)
+      return { user_id: s.user_id, ok: true, status: res.statusCode }
     } catch (err) {
-      if (err && (err.statusCode === 404 || err.statusCode === 410)) {
-        pruned++
+      const status = err && err.statusCode
+      if (status === 404 || status === 410) {
         await fetch(`${base}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(s.endpoint)}`, {
           method: 'DELETE', headers: { apikey: svc, Authorization: `Bearer ${svc}` },
         }).catch(() => {})
+        return { user_id: s.user_id, ok: false, pruned: true, status }
       }
-      // other errors: swallow (one bad endpoint shouldn't fail the batch)
+      const detail = (err && (err.body || err.message)) || 'unknown'
+      console.error('[chat-notify] send failed', { endpoint: String(s.endpoint).slice(0, 50), status, detail: String(detail).slice(0, 200) })
+      return { user_id: s.user_id, ok: false, status, error: String(detail).slice(0, 200) }
     }
   }))
 
-  return { statusCode: 200, body: JSON.stringify({ ok: true, recipients: recipients.length, subscriptions: subsList.length, sent, pruned }) }
+  const sent = results.filter(r => r.ok).length
+  const pruned = results.filter(r => r.pruned).length
+  const failures = results.filter(r => !r.ok && !r.pruned).map(r => ({ status: r.status, error: r.error }))
+  const summary = { trip_id: tripId, sender: senderId, recipients: recipients.length, subscriptions: subsList.length, sent, pruned, failures }
+  console.log('[chat-notify]', JSON.stringify(summary))
+
+  return { statusCode: 200, body: JSON.stringify({ ok: true, ...summary }) }
 }

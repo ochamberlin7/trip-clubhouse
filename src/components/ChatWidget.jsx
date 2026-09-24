@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
+import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { isPushSupported, pushPermission, enablePush, markChatRead } from '../lib/push'
 
@@ -246,6 +247,22 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
       if (channel) supabase.removeChannel(channel)
     }
   }, [tripId])
+
+  // Background→foreground resume: when the OS suspends the PWA the realtime socket
+  // can stall silently (no CLOSED event), so messages that arrive while
+  // backgrounded are missed until a full relaunch remounts this widget. Refetch
+  // history on resume — the same catch-up a relaunch does — so the thread updates
+  // without a restart. (Matches the app-wide useResumeRefetch pattern.)
+  useResumeRefetch(async () => {
+    if (!tripId) return
+    const { data } = await supabase
+      .from('messages').select('*').eq('trip_id', tripId)
+      .order('created_at', { ascending: true }).limit(100)
+    if (data && mountedRef.current) {
+      setMessages(data)
+      fetchNames(data.map(m => m.user_id))
+    }
+  })
 
   // Scroll to bottom whenever the message list changes.
   useEffect(() => {
