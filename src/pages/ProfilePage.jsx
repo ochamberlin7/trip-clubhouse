@@ -6,11 +6,12 @@
 // Flat disclosure rows on a plain background (matching Commissioner Tools): each
 // field is its own tap-to-expand row with an inline Save; Sign Out is a plain red
 // text action under a heavier divider.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { rowUI, Disclosure, SaveLink } from '../components/DisclosureRow'
+import { rowUI, Disclosure, SaveLink, Toggle } from '../components/DisclosureRow'
+import { isPushSupported, pushPermission, enablePush, disablePush, hasActiveSubscription } from '../lib/push'
 
 // Display-only phone formatting — matches Signup.jsx. Stored value is raw digits.
 function formatPhone(raw) {
@@ -54,6 +55,37 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [pwState, setPwState] = useState({ saving: false, ok: '', err: '' })
+
+  // Push notifications toggle. `supported` gates the whole row; on unsupported
+  // devices/browsers we show a clear "not available here" note instead of a broken
+  // control. `on` reflects an active subscription for THIS browser.
+  const pushSupported = isPushSupported()
+  const [pushOn, setPushOn] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushErr, setPushErr] = useState('')
+  useEffect(() => {
+    if (!pushSupported) return
+    hasActiveSubscription().then(setPushOn)
+  }, [pushSupported])
+
+  async function togglePush() {
+    if (pushBusy) return
+    setPushBusy(true); setPushErr('')
+    if (pushOn) {
+      await disablePush()
+      setPushOn(false)
+    } else {
+      const res = await enablePush(user.id)
+      if (res.ok) setPushOn(true)
+      else setPushErr(
+        res.reason === 'denied' ? 'Notifications are blocked in your device settings — enable them there first.'
+        : res.reason === 'unsupported' ? 'Not available on this browser.'
+        : res.reason === 'no-vapid-key' ? 'Push isn’t configured on the server yet.'
+        : 'Could not enable notifications. Please try again.',
+      )
+    }
+    setPushBusy(false)
+  }
 
   // Each save returns true on success so the caller can collapse the row. Failure
   // (validation or error) returns false → the row stays open with its message.
@@ -209,6 +241,18 @@ export default function ProfilePage() {
             {pwState.ok && <div style={{ ...rowUI.ok, marginTop: 8 }}>{pwState.ok}</div>}
             <SaveLink onClick={async () => { if (await changePassword()) close() }} saving={pwState.saving} saved={false} error={pwState.err} label="Update password" />
           </>)}
+        </Disclosure>
+
+        <Disclosure label="Notifications" value={!pushSupported ? 'Unavailable' : pushOn ? 'On' : 'Off'}>
+          {pushSupported ? (
+            <>
+              <Toggle on={pushOn} onClick={togglePush} label="Trash talk push notifications" />
+              <div style={rowUI.note}>Get a push (and an app-icon badge) when someone posts to the Trash Talk thread. iPhone: add Trip Clubhouse to your Home Screen first.</div>
+              {pushErr && <div style={rowUI.err}>{pushErr}</div>}
+            </>
+          ) : (
+            <div style={rowUI.note}>Push notifications aren’t available on this browser. On iPhone, add Trip Clubhouse to your Home Screen and open it from there to enable them.</div>
+          )}
         </Disclosure>
 
         <div style={rowUI.dangerWrap}>
