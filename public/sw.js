@@ -7,7 +7,9 @@
  * the (previously service-worker-less) app.
  *
  * Push payload shape (from netlify/functions/chat-notify.js):
- *   { title, body, badge, url, tag }
+ *   { title, subtitle, body, badge, url, tag }
+ * Web push exposes only title + body, so the sender name (subtitle) is rendered
+ * as the first line of the notification body, with the message beneath it.
  */
 
 self.addEventListener('install', () => self.skipWaiting())
@@ -18,7 +20,8 @@ self.addEventListener('push', (event) => {
   try { data = event.data ? event.data.json() : {} } catch { data = {} }
 
   const title = data.title || 'Trip Clubhouse'
-  const body = data.body || 'New message'
+  // Compose subtitle (sender) + body (message) — no native subtitle in web push.
+  const body = [data.subtitle, data.body].filter(Boolean).join('\n') || 'New message'
   const url = data.url || '/'
   const tag = data.tag || 'trash-talk'
   const badge = typeof data.badge === 'number' ? data.badge : null

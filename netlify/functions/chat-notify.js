@@ -14,7 +14,20 @@
 //   VAPID_SUBJECT              mailto: or https: contact (defaults to a mailto).
 const webpush = require('web-push')
 
+// Truncate to `max` chars at the last complete word — never mid-word — appending
+// an ellipsis only if the text was actually cut. Falls back to a hard cut only
+// when a single word already exceeds `max` (no earlier space to break on).
+function truncateAtWord(text, max) {
+  const s = String(text == null ? '' : text).trim()
+  if (s.length <= max) return s
+  const slice = s.slice(0, max)
+  const lastSpace = slice.lastIndexOf(' ')
+  const cut = lastSpace > 0 ? slice.slice(0, lastSpace) : slice
+  return cut.replace(/\s+$/, '') + '…'
+}
+
 exports.handler = async (event) => {
+  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method not allowed' }
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method not allowed' }
 
   // FAIL CLOSED: no configured secret → reject everything (built in from the start).
@@ -103,15 +116,20 @@ exports.handler = async (event) => {
     return msgs.filter(m => m.uid !== uid && m.t > since).length
   }
 
-  const title = msg.sender_name || 'Trash Talk'
-  const body = String(msg.content).slice(0, 140)
+  // Banner format: app name as the title, sender's full name as the subtitle,
+  // message body truncated at a word boundary (never mid-word) with an ellipsis
+  // only if it was actually cut. The SW composes subtitle + body into the
+  // notification (web push has title + body only — no native subtitle field).
+  const title = 'Trip Clubhouse'
+  const subtitle = msg.sender_name || 'Someone'
+  const body = truncateAtWord(msg.content, 50)
 
   // 3. Send to every subscription. Prune expired ones (404/410); LOG every other
   //    failure (403/400 = VAPID mismatch/bad JWT, etc.) instead of swallowing it,
   //    so the function's real outcome is visible in the Netlify logs.
   const subsList = Array.isArray(subs) ? subs : []
   const results = await Promise.all(subsList.map(async (s) => {
-    const data = JSON.stringify({ title, body, badge: unreadFor(s.user_id), url: '/', tag: `trash-talk:${tripId}` })
+    const data = JSON.stringify({ title, subtitle, body, badge: unreadFor(s.user_id), url: '/', tag: `trash-talk:${tripId}` })
     try {
       const res = await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, data)
       return { user_id: s.user_id, ok: true, status: res.statusCode }

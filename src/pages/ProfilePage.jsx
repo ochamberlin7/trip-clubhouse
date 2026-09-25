@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { rowUI, Disclosure, SaveLink, Toggle } from '../components/DisclosureRow'
-import { isPushSupported, pushPermission, enablePush, disablePush, hasActiveSubscription } from '../lib/push'
+import { isPushSupported, pushPermission, enablePush, disablePush, hasActiveSubscription, markPromptDismissed } from '../lib/push'
 
 // Display-only phone formatting — matches Signup.jsx. Stored value is raw digits.
 function formatPhone(raw) {
@@ -76,8 +76,12 @@ export default function ProfilePage() {
       setPushOn(false)
     } else {
       const res = await enablePush(user.id)
-      if (res.ok) setPushOn(true)
-      else setPushErr(
+      if (res.ok) {
+        setPushOn(true)
+        // Opting in here is also a decision — record it so the in-chat prompt
+        // never shows on another device after the user has already enabled push.
+        markPromptDismissed(user.id)
+      } else setPushErr(
         res.reason === 'denied' ? 'Notifications are blocked in your device settings — enable them there first.'
         : res.reason === 'unsupported' ? 'Not available on this browser.'
         : res.reason === 'no-vapid-key' ? 'Push isn’t configured on the server yet.'

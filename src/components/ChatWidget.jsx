@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
-import { isPushSupported, pushPermission, enablePush, markChatRead } from '../lib/push'
+import { isPushSupported, pushPermission, enablePush, markChatRead, isPromptDismissed, markPromptDismissed } from '../lib/push'
 
 // Trash Talk Thread — trip chat for the dashboard home tab.
 //
@@ -40,10 +40,11 @@ const styles = {
   inputRow: { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #DDE3EA', background: '#FFFFFF', flexShrink: 0, alignItems: 'flex-end' },
   input: { flex: 1, background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: '20px', padding: '8px 14px', fontSize: '16px', lineHeight: '20px', color: '#0D1B2A', outline: 'none', fontFamily: 'inherit', resize: 'none', overflowY: 'hidden', maxHeight: COMPOSER_MAX, boxSizing: 'border-box', display: 'block' },
   sendBtn: { width: '38px', height: '38px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  pushPrompt: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#EAF1F8', borderBottom: '1px solid #DDE3EA', flexShrink: 0 },
-  pushText: { fontSize: 12, color: '#2C3E50', flex: 1, lineHeight: 1.35 },
-  pushEnable: { background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
-  pushDismiss: { background: 'none', border: 'none', color: '#7A8FA6', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, padding: '5px 2px' },
+  pushPrompt: { display: 'flex', alignItems: 'center', gap: 9, margin: '10px 10px 0', padding: '9px 10px 9px 12px', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: 12, boxShadow: '0 2px 6px rgba(15,30,51,.06)', flexShrink: 0 },
+  pushIcon: { display: 'flex', flexShrink: 0, color: '#1B3F6E' },
+  pushText: { fontSize: 12.5, color: '#33455E', flex: 1, lineHeight: 1.3 },
+  pushEnable: { background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
+  pushDismiss: { background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, color: '#94A3B8' },
 }
 
 function SendIcon() {
@@ -51,6 +52,24 @@ function SendIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="22" y1="2" x2="11" y2="13" />
       <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  )
+}
+
+// Stroke icons for the notification prompt — same spec as the Stats page
+// (currentColor, viewBox 24, round caps/joins), so colour is set via the parent.
+function BellIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  )
+}
+function DismissXIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 6 6 18M6 6l12 12" />
     </svg>
   )
 }
@@ -97,17 +116,25 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
 
   // Opening the thread marks it read (clears the unread badge from real state,
   // not just iOS's foreground auto-clear). Also decide the contextual push
-  // prompt: only on a RETURN visit (never first), and only when push is actually
-  // supported, permission hasn't been decided, and it wasn't dismissed before —
-  // no immediate auto-prompt.
+  // prompt. showPushPrompt starts false and is only ever flipped true AFTER the
+  // permanent-dismissal check resolves, so a previously-dismissed user (even on a
+  // fresh device/reinstall) never sees a flash of the prompt before the DB says no.
+  // Gates: return visit (never first) · push supported · OS permission still
+  // 'default' · NOT permanently dismissed (profiles.push_prompt_dismissed_at).
   useEffect(() => {
     if (currentUserId && tripId) markChatRead(currentUserId, tripId)
-    try {
-      const seen = localStorage.getItem('tc_chat_seen')
-      if (!seen) { localStorage.setItem('tc_chat_seen', '1'); return }
-      const dismissed = localStorage.getItem('tc_push_prompt_dismissed')
-      if (isPushSupported() && pushPermission() === 'default' && !dismissed) setShowPushPrompt(true)
-    } catch { /* localStorage unavailable */ }
+    let cancelled = false
+    ;(async () => {
+      let seen
+      try {
+        seen = localStorage.getItem('tc_chat_seen')
+        if (!seen) { localStorage.setItem('tc_chat_seen', '1'); return } // never on first visit
+      } catch { return }
+      if (!isPushSupported() || pushPermission() !== 'default') return // unsupported or already decided
+      const dismissed = await isPromptDismissed(currentUserId) // DB source of truth (local fast-path)
+      if (!cancelled && !dismissed) setShowPushPrompt(true)
+    })()
+    return () => { cancelled = true }
   }, [currentUserId, tripId])
 
   async function handleEnablePush() {
@@ -115,14 +142,16 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
     const res = await enablePush(currentUserId)
     setPushBusy(false)
     setShowPushPrompt(false)
-    // If they declined at the OS level, don't nag again.
-    if (!res.ok && (res.reason === 'denied' || res.reason === 'default')) {
-      try { localStorage.setItem('tc_push_prompt_dismissed', '1') } catch { /* ignore */ }
+    // Answering the OS dialog either way (grant/deny/dismiss) is a decision —
+    // record it permanently so the prompt never returns on any device. Technical
+    // failures (unsupported / no key / subscribe error) are NOT a decision.
+    if (res.ok || res.reason === 'denied' || res.reason === 'default') {
+      await markPromptDismissed(currentUserId)
     }
   }
   function dismissPushPrompt() {
     setShowPushPrompt(false)
-    try { localStorage.setItem('tc_push_prompt_dismissed', '1') } catch { /* ignore */ }
+    markPromptDismissed(currentUserId) // permanent, per account
   }
 
   // Auto-grow the composer like iMessage: reset to measure, then set height to fit
@@ -323,11 +352,14 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
 
       {showPushPrompt && (
         <div style={styles.pushPrompt}>
-          <span style={styles.pushText}>🔔 Get a notification when someone posts here.</span>
+          <span style={styles.pushIcon}><BellIcon /></span>
+          <span style={styles.pushText}>Get notified about new messages</span>
           <button type="button" style={styles.pushEnable} onClick={handleEnablePush} disabled={pushBusy}>
-            {pushBusy ? '…' : 'Turn on'}
+            {pushBusy ? '…' : 'Turn On'}
           </button>
-          <button type="button" style={styles.pushDismiss} onClick={dismissPushPrompt}>Not now</button>
+          <button type="button" style={styles.pushDismiss} onClick={dismissPushPrompt} aria-label="Dismiss">
+            <DismissXIcon />
+          </button>
         </div>
       )}
 
