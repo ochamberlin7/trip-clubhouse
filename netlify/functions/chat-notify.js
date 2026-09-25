@@ -44,11 +44,11 @@ exports.handler = async (event) => {
   // in the Bearer slot, so for those the apikey header alone grants service_role.
   const svcHeaders = /^eyJ/.test(svc || '') ? { apikey: svc, Authorization: `Bearer ${svc}` } : { apikey: svc }
   const keyKind = /^eyJ/.test(svc || '') ? 'jwt' : (svc || '').startsWith('sb_secret_') ? 'sb_secret' : 'other'
-  // First 8 chars only — safe to log (a JWT header start `eyJhbGci` or the literal
-  // `sb_secret` prefix; neither reveals the secret). Removes all ambiguity about
-  // WHICH key the deployed function is actually reading at runtime.
+  // First 8 chars only — safe (a JWT header start `eyJhbGci` or the literal
+  // `sb_secret` prefix; neither reveals the secret). Logged ONLY on a REST failure
+  // (not every message) so the key in use is visible when it actually matters.
   const keyPrefix = (svc || '').slice(0, 8)
-  console.log('[chat-notify] key in use', JSON.stringify({ keyKind, keyPrefix, len: (svc || '').length }))
+  const keyInfo = { keyKind, keyPrefix, keyLen: (svc || '').length }
   // Surface REST failures instead of silently defaulting to []/null. A non-2xx
   // (401 bad key, 42501 grant/RLS as anon, etc.) is logged with status + body so
   // the actual cause is visible in the function log — no more silent zeros.
@@ -57,12 +57,12 @@ exports.handler = async (event) => {
     try {
       res = await fetch(`${base}/rest/v1/${path}`, { headers: svcHeaders })
     } catch (e) {
-      console.error('[chat-notify] REST fetch threw', { path: path.slice(0, 60), keyKind, error: String(e && e.message) })
+      console.error('[chat-notify] REST fetch threw', { path: path.slice(0, 60), ...keyInfo, error: String(e && e.message) })
       return null
     }
     const text = await res.text()
     if (!res.ok) {
-      console.error('[chat-notify] REST error', { path: path.slice(0, 60), status: res.status, keyKind, body: text.slice(0, 200) })
+      console.error('[chat-notify] REST error', { path: path.slice(0, 60), status: res.status, ...keyInfo, body: text.slice(0, 200) })
       return null
     }
     try { return JSON.parse(text) } catch { return null }
