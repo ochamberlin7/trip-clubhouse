@@ -104,32 +104,35 @@ export async function clearAppBadge() {
   } catch { /* unsupported */ }
 }
 
-// ── In-chat prompt dismissal (permanent, per account) ───────────────────────
-// Source of truth is profiles.push_prompt_dismissed_at; localStorage is only a
-// fast-path cache so we can skip the network read once we know it's dismissed.
-const DISMISS_CACHE = 'tc_push_prompt_dismissed'
-
-// Has the user permanently dismissed / answered the prompt? Checks the local
-// cache first (cheap), then the DB (authoritative — catches reinstall / new
-// device where the cache is empty). Caches a true result locally.
+// ── In-chat prompt dismissal (per account) ──────────────────────────────────
+// profiles.push_prompt_dismissed_at is the SOLE source of truth (no localStorage
+// cache): a stale local flag would wrongly keep the banner hidden after the user
+// turns notifications off elsewhere, so we always read the server. Reads default
+// to "not dismissed" on error — the safe direction (show rather than hide).
 export async function isPromptDismissed(userId) {
-  try { if (localStorage.getItem(DISMISS_CACHE) === '1') return true } catch { /* ignore */ }
   if (!userId) return false
   try {
     const { data } = await supabase.from('profiles').select('push_prompt_dismissed_at').eq('id', userId).maybeSingle()
-    const dismissed = !!data?.push_prompt_dismissed_at
-    if (dismissed) { try { localStorage.setItem(DISMISS_CACHE, '1') } catch { /* ignore */ } }
-    return dismissed
+    return !!data?.push_prompt_dismissed_at
   } catch { return false }
 }
 
-// Record the dismissal permanently (DB) + cache it locally. Idempotent.
+// Record the dismissal (X tap, OS-dialog answered, or enabled elsewhere). Idempotent.
 export async function markPromptDismissed(userId) {
-  try { localStorage.setItem(DISMISS_CACHE, '1') } catch { /* ignore */ }
   if (!userId) return
   try {
     await supabase.from('profiles').update({ push_prompt_dismissed_at: new Date().toISOString() }).eq('id', userId)
-  } catch { /* non-fatal — local cache still suppresses it on this device */ }
+  } catch { /* non-fatal */ }
+}
+
+// Un-dismiss: clear the flag so the banner reappears. Called when the user turns
+// notifications OFF (via the Profile toggle) so they can re-enable if it was a
+// mistake — a fresh dismissal then makes it permanent again.
+export async function clearPromptDismissed(userId) {
+  if (!userId) return
+  try {
+    await supabase.from('profiles').update({ push_prompt_dismissed_at: null }).eq('id', userId)
+  } catch { /* non-fatal */ }
 }
 
 // Mark the thread read up to now for this user+trip, and clear the badge. Driven

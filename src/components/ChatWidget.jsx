@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
-import { isPushSupported, pushPermission, enablePush, markChatRead, isPromptDismissed, markPromptDismissed } from '../lib/push'
+import { isPushSupported, pushPermission, enablePush, markChatRead, isPromptDismissed, markPromptDismissed, hasActiveSubscription } from '../lib/push'
 
 // Trash Talk Thread — trip chat for the dashboard home tab.
 //
@@ -115,18 +115,21 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   useEffect(() => () => { mountedRef.current = false }, [])
 
   // Re-derive whether the "enable notifications" prompt should show. It shows on
-  // EVERY open (no first-visit exception) whenever push is supported, the OS
-  // permission is still undecided, and it hasn't been permanently dismissed — and
-  // it keeps showing until the user explicitly taps Turn On (OS flow) or the X.
-  // showPushPrompt is only flipped true AFTER the permanent-dismissal check
-  // resolves, so a dismissed user (even on a fresh device/reinstall) never sees a
-  // flash before the DB says no. Runs on mount, tab-return (remount), AND
-  // background→resume/focus (see useResumeRefetch below) so "chat is visible"
-  // drives it — never stale, never silently hidden without an explicit action.
+  // EVERY open whenever notifications are OFF for this device — i.e. there's no
+  // active push subscription (never enabled, OR enabled then turned off) — and it
+  // hasn't been dismissed. It keeps showing until the user explicitly taps Turn On
+  // (OS flow) or the X. Hidden while a subscription is active, or if the OS
+  // permission is hard-denied (Turn On couldn't re-prompt anyway). showPushPrompt
+  // is only flipped true AFTER the async checks resolve (never a flash), and runs
+  // on mount, tab-return (remount), AND background→resume/focus (useResumeRefetch
+  // below) so "chat is visible" drives it — never stale.
   const deriveShowPrompt = useCallback(async () => {
-    if (!isPushSupported() || pushPermission() !== 'default') { setShowPushPrompt(false); return }
-    const dismissed = await isPromptDismissed(currentUserId) // DB source of truth (local fast-path)
-    if (mountedRef.current) setShowPushPrompt(!dismissed)
+    if (!isPushSupported() || pushPermission() === 'denied') { setShowPushPrompt(false); return }
+    const [hasSub, dismissed] = await Promise.all([
+      hasActiveSubscription(),
+      isPromptDismissed(currentUserId),
+    ])
+    if (mountedRef.current) setShowPushPrompt(!hasSub && !dismissed)
   }, [currentUserId])
 
   useEffect(() => {

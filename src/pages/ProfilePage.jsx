@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { rowUI, Disclosure, SaveLink, Toggle } from '../components/DisclosureRow'
-import { isPushSupported, pushPermission, enablePush, disablePush, hasActiveSubscription, markPromptDismissed } from '../lib/push'
+import { isPushSupported, pushPermission, enablePush, disablePush, hasActiveSubscription, markPromptDismissed, clearPromptDismissed } from '../lib/push'
 
 // Display-only phone formatting — matches Signup.jsx. Stored value is raw digits.
 function formatPhone(raw) {
@@ -74,6 +74,9 @@ export default function ProfilePage() {
     if (pushOn) {
       await disablePush()
       setPushOn(false)
+      // Turning notifications off un-dismisses the in-chat banner, so it reappears
+      // and they can re-enable if it was a mistake (re-dismissing makes it stick).
+      clearPromptDismissed(user.id)
     } else {
       const res = await enablePush(user.id)
       if (res.ok) {
