@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
@@ -114,28 +114,29 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
 
   useEffect(() => () => { mountedRef.current = false }, [])
 
-  // Opening the thread marks it read (clears the unread badge from real state,
-  // not just iOS's foreground auto-clear). Also decide the contextual push
-  // prompt. showPushPrompt starts false and is only ever flipped true AFTER the
-  // permanent-dismissal check resolves, so a previously-dismissed user (even on a
-  // fresh device/reinstall) never sees a flash of the prompt before the DB says no.
-  // Gates: return visit (never first) · push supported · OS permission still
-  // 'default' · NOT permanently dismissed (profiles.push_prompt_dismissed_at).
+  // Re-derive whether the "enable notifications" prompt should show. It shows on
+  // EVERY open (no first-visit exception) whenever push is supported, the OS
+  // permission is still undecided, and it hasn't been permanently dismissed — and
+  // it keeps showing until the user explicitly taps Turn On (OS flow) or the X.
+  // showPushPrompt is only flipped true AFTER the permanent-dismissal check
+  // resolves, so a dismissed user (even on a fresh device/reinstall) never sees a
+  // flash before the DB says no. Runs on mount, tab-return (remount), AND
+  // background→resume/focus (see useResumeRefetch below) so "chat is visible"
+  // drives it — never stale, never silently hidden without an explicit action.
+  const deriveShowPrompt = useCallback(async () => {
+    if (!isPushSupported() || pushPermission() !== 'default') { setShowPushPrompt(false); return }
+    const dismissed = await isPromptDismissed(currentUserId) // DB source of truth (local fast-path)
+    if (mountedRef.current) setShowPushPrompt(!dismissed)
+  }, [currentUserId])
+
   useEffect(() => {
     if (currentUserId && tripId) markChatRead(currentUserId, tripId)
-    let cancelled = false
-    ;(async () => {
-      let seen
-      try {
-        seen = localStorage.getItem('tc_chat_seen')
-        if (!seen) { localStorage.setItem('tc_chat_seen', '1'); return } // never on first visit
-      } catch { return }
-      if (!isPushSupported() || pushPermission() !== 'default') return // unsupported or already decided
-      const dismissed = await isPromptDismissed(currentUserId) // DB source of truth (local fast-path)
-      if (!cancelled && !dismissed) setShowPushPrompt(true)
-    })()
-    return () => { cancelled = true }
-  }, [currentUserId, tripId])
+    deriveShowPrompt()
+  }, [currentUserId, tripId, deriveShowPrompt])
+
+  // Chat became visible again (OS resume / window focus) → re-derive, so the
+  // prompt survives backgrounding exactly as it was rather than going stale.
+  useResumeRefetch(deriveShowPrompt)
 
   async function handleEnablePush() {
     setPushBusy(true)

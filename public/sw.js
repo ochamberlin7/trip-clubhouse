@@ -7,9 +7,9 @@
  * the (previously service-worker-less) app.
  *
  * Push payload shape (from netlify/functions/chat-notify.js):
- *   { title, subtitle, body, badge, url, tag }
- * Web push exposes only title + body, so the sender name (subtitle) is rendered
- * as the first line of the notification body, with the message beneath it.
+ *   { title, body, badge, url, tag }
+ * title = sender's name, body = message. The app name ("Trip Clubhouse") is NOT
+ * in the payload — iOS already renders it in the system notification header.
  */
 
 self.addEventListener('install', () => self.skipWaiting())
@@ -19,9 +19,8 @@ self.addEventListener('push', (event) => {
   let data = {}
   try { data = event.data ? event.data.json() : {} } catch { data = {} }
 
-  const title = data.title || 'Trip Clubhouse'
-  // Compose subtitle (sender) + body (message) — no native subtitle in web push.
-  const body = [data.subtitle, data.body].filter(Boolean).join('\n') || 'New message'
+  const title = data.title || 'Trip Clubhouse' // sender's name (fallback if missing)
+  const body = data.body || 'New message'
   const url = data.url || '/'
   const tag = data.tag || 'trash-talk'
   const badge = typeof data.badge === 'number' ? data.badge : null

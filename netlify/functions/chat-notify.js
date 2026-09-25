@@ -116,12 +116,11 @@ exports.handler = async (event) => {
     return msgs.filter(m => m.uid !== uid && m.t > since).length
   }
 
-  // Banner format: app name as the title, sender's full name as the subtitle,
-  // message body truncated at a word boundary (never mid-word) with an ellipsis
-  // only if it was actually cut. The SW composes subtitle + body into the
-  // notification (web push has title + body only — no native subtitle field).
-  const title = 'Trip Clubhouse'
-  const subtitle = msg.sender_name || 'Someone'
+  // Banner format: sender's full name as the (bold) title, message as the body —
+  // truncated at a word boundary (never mid-word), ellipsis only if actually cut.
+  // No app name in the payload: iOS already shows "Trip Clubhouse" (icon + name)
+  // in the system notification header, so a title of it would just stack twice.
+  const title = msg.sender_name || 'New message'
   const body = truncateAtWord(msg.content, 50)
 
   // 3. Send to every subscription. Prune expired ones (404/410); LOG every other
@@ -129,7 +128,7 @@ exports.handler = async (event) => {
   //    so the function's real outcome is visible in the Netlify logs.
   const subsList = Array.isArray(subs) ? subs : []
   const results = await Promise.all(subsList.map(async (s) => {
-    const data = JSON.stringify({ title, subtitle, body, badge: unreadFor(s.user_id), url: '/', tag: `trash-talk:${tripId}` })
+    const data = JSON.stringify({ title, body, badge: unreadFor(s.user_id), url: '/', tag: `trash-talk:${tripId}` })
     try {
       const res = await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, data)
       return { user_id: s.user_id, ok: true, status: res.statusCode }
