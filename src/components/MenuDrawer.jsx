@@ -2105,7 +2105,7 @@ function RecentlyDeleted({ trips, onRestore }) {
 // Upcoming / Past (name + location left, date + golfer count right), plus a
 // collapsible Recently Deleted section for soft-deleted trips restorable within
 // 30 days. Trip names/dates/locations/counts all come from the live trip data.
-function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, onDelete }) {
+function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), onPick, onCreate, onRestore, onDelete }) {
   const [rows, setRows] = useState(null)       // active trips — null = loading
   const [deleted, setDeleted] = useState([])   // soft-deleted, restorable (<30d)
   const [pendingDelete, setPendingDelete] = useState(null) // trip awaiting delete confirm
@@ -2224,7 +2224,12 @@ function TripSwitcherPage({ userId, currentTripId, onPick, onCreate, onRestore, 
               onPick={() => onPick(t.id)} onDelete={() => setPendingDelete(t)}>
               {isCurrent && <span style={{ ...sw.dot, ...sw.dotCurrent }} />}
               <span style={sw.left}>
-                <span style={sw.name}>{t.name || 'Untitled Trip'}</span>
+                <span style={sw.name}>
+                  {t.name || 'Untitled Trip'}
+                  {unreadTripIds.has(t.id) && (
+                    <span aria-label="Unread messages" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#FF3B30', marginLeft: 7, verticalAlign: 'middle' }} />
+                  )}
+                </span>
                 {t.location && <span style={sw.loc}>{t.location}</span>}
               </span>
               <span style={sw.right}>
@@ -2284,7 +2289,9 @@ export default function MenuDrawer({
   inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
-  const { activeTripId, switchTrip, restoreTrip, softDeleteTrip } = useGroup()
+  const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
+  // "Trips" row red dot: any trip OTHER than the active one has unread trash-talk.
+  const otherTripUnread = [...unreadTripIds].some(id => id !== activeTripId)
   const [page, setPage] = useState(null)
   const [playersData, setPlayersData] = useState(null)
   const [commissionerData, setCommissionerData] = useState(null)
@@ -2845,8 +2852,9 @@ export default function MenuDrawer({
           </button>
           {/* Trip switcher — styled like the other menu rows; opens the switcher page */}
           <button style={s.item} onClick={() => setPage('switch-trip')}>
-            <span style={s.iconBox}>
+            <span style={{ ...s.iconBox, position: 'relative' }}>
               <svg {...svgProps}><path d="M8 3 4 7l4 4" /><path d="M4 7h16" /><path d="m16 21 4-4-4-4" /><path d="M20 17H4" /></svg>
+              {otherTripUnread && <span className="unread-dot" aria-label="Unread messages in another trip" />}
             </span>
             <span>
               <span style={{ ...s.itemLabel, display: 'block' }}>Trips</span>
@@ -2876,6 +2884,7 @@ export default function MenuDrawer({
           <TripSwitcherPage
             userId={currentUserId}
             currentTripId={activeTripId}
+            unreadTripIds={unreadTripIds}
             onPick={id => { onClose(); switchTrip(id) }}
             onCreate={() => { onClose(); navigate('/onboarding/trip') }}
             onRestore={id => restoreTrip(id)}

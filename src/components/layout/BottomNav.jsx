@@ -20,7 +20,9 @@ function TabIcon({ id }) {
   return null
 }
 
-export default function BottomNav({ items, active, onSelect }) {
+// `menuDot` shows a small red dot on the Menu icon when another trip has unread
+// trash-talk (the top of the cross-trip unread cascade).
+export default function BottomNav({ items, active, onSelect, menuDot = false }) {
   return (
     <nav className="bnav">
       <div className="bnav-pill">
@@ -33,7 +35,10 @@ export default function BottomNav({ items, active, onSelect }) {
               onClick={() => onSelect(tab.id)}
               aria-current={isActive ? 'page' : undefined}
             >
-              <span className="bnav-icon"><TabIcon id={tab.id} /></span>
+              <span className="bnav-icon" style={{ position: 'relative' }}>
+                <TabIcon id={tab.id} />
+                {tab.id === 'menu' && menuDot && <span className="unread-dot" aria-label="Unread messages in another trip" />}
+              </span>
               <span className="bnav-label">{tab.label}</span>
             </button>
           )

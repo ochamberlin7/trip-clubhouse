@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
+import { useResumeRefetch } from '../lib/useResumeRefetch'
+import { fetchUnreadByTrip, setAppBadgeCount } from '../lib/push'
 
 const GroupContext = createContext({})
 
@@ -53,17 +55,36 @@ export function GroupProvider({ children }) {
   const [activeTripId, setActiveTripId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [tripsLoaded, setTripsLoaded] = useState(false)
+  // trip_ids with unread trash-talk for this user (drives the red-dot cascade).
+  const [unreadTripIds, setUnreadTripIds] = useState(() => new Set())
+
+  // Recompute cross-trip unread (dots) AND the OS badge total from one RLS-scoped
+  // RPC, so the badge and dots always agree. Called on mount, on resume, and right
+  // after a trip's chat is marked read (from ChatWidget).
+  const refreshUnread = useCallback(async () => {
+    if (!user) { setUnreadTripIds(new Set()); setAppBadgeCount(0); return }
+    const rows = await fetchUnreadByTrip()
+    const ids = new Set(rows.filter(r => Number(r.unread) > 0).map(r => r.trip_id))
+    const total = rows.reduce((a, r) => a + Number(r.unread || 0), 0)
+    setUnreadTripIds(ids)
+    setAppBadgeCount(total)
+  }, [user])
 
   useEffect(() => {
     if (user) {
       fetchUserGroups()
+      refreshUnread()
     } else {
       setUserGroups([])
       setAllTrips([])
       setActiveTripId(null)
       setTripsLoaded(false)
+      setUnreadTripIds(new Set())
     }
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Recompute on background→resume/focus (same pattern as the chat catch-up fix).
+  useResumeRefetch(refreshUnread)
 
   // Fetch every group the user belongs to, plus every trip in those groups.
   // Auto-selects the best trip (keeping any still-valid current selection).
@@ -139,7 +160,7 @@ export function GroupProvider({ children }) {
   return (
     <GroupContext.Provider value={{
       userGroups, allTrips, activeGroup, activeTrip, activeTripId,
-      loading, tripsLoaded, isAdmin,
+      loading, tripsLoaded, isAdmin, unreadTripIds, refreshUnread,
       fetchUserGroups, switchTrip, softDeleteTrip, restoreTrip,
     }}>
       {children}

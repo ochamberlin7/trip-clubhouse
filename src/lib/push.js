@@ -104,6 +104,22 @@ export async function clearAppBadge() {
   } catch { /* unsupported */ }
 }
 
+// Set the app icon badge to an exact count (0 → clear). Used to keep the badge
+// consistent with the in-app cross-trip unread total.
+export async function setAppBadgeCount(n) {
+  if (!(n > 0)) return clearAppBadge()
+  try { if ('setAppBadge' in navigator) await navigator.setAppBadge(n) } catch { /* unsupported */ }
+}
+
+// Per-trip unread trash-talk counts for the current user, via the RLS-scoped RPC.
+// Returns [{ trip_id, unread }] for trips with any unread (others omitted).
+export async function fetchUnreadByTrip() {
+  try {
+    const { data } = await supabase.rpc('unread_chat_by_trip')
+    return Array.isArray(data) ? data : []
+  } catch { return [] }
+}
+
 // ── In-chat prompt dismissal (per account) ──────────────────────────────────
 // profiles.push_prompt_dismissed_at is the SOLE source of truth (no localStorage
 // cache): a stale local flag would wrongly keep the banner hidden after the user
@@ -135,8 +151,10 @@ export async function clearPromptDismissed(userId) {
   } catch { /* non-fatal */ }
 }
 
-// Mark the thread read up to now for this user+trip, and clear the badge. Driven
-// by "the user actually opened the thread", not by app foreground.
+// Mark the thread read up to now for this user+trip. Driven by "the user actually
+// opened the thread", not by app foreground. The OS badge + red dots are refreshed
+// separately (GroupContext.refreshUnread, called right after) so the badge shows
+// the accurate cross-trip unread TOTAL, not a hard 0.
 export async function markChatRead(userId, tripId) {
   if (!userId || !tripId) return
   try {
@@ -145,5 +163,4 @@ export async function markChatRead(userId, tripId) {
       { onConflict: 'user_id,trip_id' },
     )
   } catch { /* non-fatal */ }
-  await clearAppBadge()
 }

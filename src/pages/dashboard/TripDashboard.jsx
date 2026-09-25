@@ -1314,7 +1314,9 @@ const TABS = [
 
 export default function TripDashboard() {
   const { user } = useAuth()
-  const { activeTrip, activeGroup, tripsLoaded } = useGroup()
+  const { activeTrip, activeGroup, tripsLoaded, activeTripId, unreadTripIds } = useGroup()
+  // Menu-icon red dot: any trip OTHER than the active one has unread trash-talk.
+  const otherTripUnread = [...unreadTripIds].some(id => id !== activeTripId)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -1541,6 +1543,7 @@ export default function TripDashboard() {
         items={TABS}
         active={activeTab}
         onSelect={id => (id === 'menu' ? openMenuPage(null) : setActiveTab(id))}
+        menuDot={otherTripUnread}
       />
 
       {/* Internal scroll region (headers + tab content). The page shell itself is

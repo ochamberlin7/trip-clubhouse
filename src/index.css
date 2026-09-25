@@ -233,6 +233,9 @@ select {
 .bnav-btn.active { color: var(--navy); }
 .bnav-btn.active .bnav-icon { background: var(--accent-bg); }
 .bnav-btn.active .bnav-label { font-weight: 700; }
+/* Cross-trip unread indicator — small red dot with a white ring so it reads on
+   any background (bottom-nav Menu icon, drawer rows, trip-switcher rows). */
+.unread-dot { position: absolute; top: -2px; right: -3px; width: 9px; height: 9px; border-radius: 50%; background: #FF3B30; border: 1.5px solid #fff; box-sizing: border-box; pointer-events: none; }
 .bnav-label { font-size: 8px; font-weight: 600; letter-spacing: 0.2px; text-transform: uppercase; }
 
 /* ── Countdown card — CTI .countdown-wrap ── */

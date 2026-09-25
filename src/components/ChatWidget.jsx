@@ -3,6 +3,7 @@ import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { isPushSupported, pushPermission, enablePush, markChatRead, isPromptDismissed, markPromptDismissed, hasActiveSubscription } from '../lib/push'
+import { useGroup } from '../context/GroupContext'
 
 // Trash Talk Thread — trip chat for the dashboard home tab.
 //
@@ -102,6 +103,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   const [sendError, setSendError] = useState(null)
   const [showPushPrompt, setShowPushPrompt] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
+  const { refreshUnread } = useGroup() // recompute the cross-trip dots + badge after read
   // Bumped on background→resume to re-run the load+subscribe effect below: catches
   // up messages missed while suspended AND rebuilds the stalled realtime channel.
   const [resumeTick, setResumeTick] = useState(0)
@@ -133,9 +135,11 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   }, [currentUserId])
 
   useEffect(() => {
-    if (currentUserId && tripId) markChatRead(currentUserId, tripId)
+    // Opening this trip's chat marks it read, then refresh the cross-trip unread
+    // dots + badge so this trip's dot clears everywhere (Menu, Trips, its row).
+    if (currentUserId && tripId) markChatRead(currentUserId, tripId).then(() => refreshUnread())
     deriveShowPrompt()
-  }, [currentUserId, tripId, deriveShowPrompt])
+  }, [currentUserId, tripId, deriveShowPrompt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Chat became visible again (OS resume / window focus) → re-derive, so the
   // prompt survives backgrounding exactly as it was rather than going stale.
