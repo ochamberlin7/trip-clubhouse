@@ -86,9 +86,34 @@ export function AuthProvider({ children }) {
       apply(null)
     })()
 
+    // Keep the login alive across long backgrounds. iOS suspends supabase-js's
+    // auto-refresh timer while the PWA is backgrounded, so returning after the
+    // access token's ~1h lifetime could leave it expired. On return-to-foreground,
+    // refresh IF the token is expired or within 2 minutes of it (avoids needless
+    // refresh-token rotation on every quick app-switch). This only ever refreshes
+    // — never signs out — so a failed refresh leaves the current session intact.
+    async function refreshOnResume() {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession()
+        const expiresMs = s?.expires_at ? s.expires_at * 1000 : 0
+        const needsRefresh = !s || (expiresMs - Date.now() < 120_000)
+        if (needsRefresh && storedRefreshToken()) {
+          const { data, error } = await supabase.auth.refreshSession()
+          if (active && !error && data?.session) apply(data.session)
+        } else if (active && s) {
+          apply(s)
+        }
+      } catch { /* keep the current session on any error */ }
+    }
+    document.addEventListener('visibilitychange', refreshOnResume)
+    window.addEventListener('focus', refreshOnResume)
+
     return () => {
       active = false
       subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', refreshOnResume)
+      window.removeEventListener('focus', refreshOnResume)
     }
   }, [])
 
