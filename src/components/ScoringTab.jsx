@@ -501,20 +501,6 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     return matchOutcomes?.[hole - 1]?.winner ?? null
   }
 
-  // TEMP DEBUG (revert): dump the scorecard's inputs for the investigated rounds so
-  // we can diff them against the leaderboard's inputs ([LB2]). Open Forest Dunes →
-  // Pairing 2 to emit the matching line.
-  if (typeof window !== 'undefined' && matchActive && (round.id === 'fdf2b0ea-4a91-4d4d-81b0-81683a21658b' || round.id === '4075afcd-e36b-4418-86f9-d4517fa14580')) {
-    let t1 = 0, t2 = 0
-    ;(matchOutcomes || []).forEach(o => { if (o.winner === 'T1') t1++; else if (o.winner === 'T2') t2++ })
-    const diag = [...t1MatchTps, ...t2MatchTps].map(id => {
-      const row = playerRoundsMap[`${round.id}:${id}`]; const tee = resolvePlayerTee(round, row)
-      return { id: id.slice(0, 8), hi: playersById[id]?.handicap_index, slope: tee.slope, rating: tee.rating, par: tee.par, hasTeeRow: !!row, shots: shotsByTp.get(id) ?? 0 }
-    })
-    // eslint-disable-next-line no-console
-    console.log('[SC2]', round.id.slice(0, 8), 'P' + pairNum, 'slots', JSON.stringify(slotMap), '=>', t1 + '/' + t2, JSON.stringify(diag))
-  }
-
   // Stroke dots once the visible slots are filled (a 1-player-per-team pairing
   // fills only slots 1 & 3). A player shows a dot on a hole when their SHOTS GIVEN
   // (playing handicap relative to the pairing's lowest) covers that hole's SI — so

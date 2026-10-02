@@ -601,16 +601,6 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
         if (o.winner === 'T1') t1pts++
         else if (o.winner === 'T2') t2pts++
       }
-      // TEMP DEBUG (revert): dump the leaderboard's inputs for the investigated rounds
-      // so we can diff them against the scorecard's inputs ([SC2]).
-      if (typeof window !== 'undefined' && (round.id === 'fdf2b0ea-4a91-4d4d-81b0-81683a21658b' || round.id === '4075afcd-e36b-4418-86f9-d4517fa14580')) {
-        const diag = [...t1Players, ...t2Players].map(id => {
-          const row = getTeeRow(id); const tee = resolvePlayerTee(round, row)
-          return { id: id.slice(0, 8), hi: getHcp(id), slope: tee.slope, rating: tee.rating, par: tee.par, hasTeeRow: !!row, shots: shots.get(id) ?? 0 }
-        })
-        // eslint-disable-next-line no-console
-        console.log('[LB2]', round.id.slice(0, 8), 'P' + pairing.pairing_number, 'slots', JSON.stringify(slotMap), '=>', t1pts + '/' + t2pts, 'hs', holesScored, JSON.stringify(diag))
-      }
     }
 
     // thru = holes where at least one of the pairing's players has a gross
