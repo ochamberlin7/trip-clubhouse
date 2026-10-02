@@ -535,24 +535,32 @@ function PointsLeaderboard({ trip, teams, rounds }) {
     if (!trip?.id || roundIds.length === 0) return
     let cancelled = false
 
-    async function loadScores() {
+    // Pure fetches (return the map) so the initial load can set scores + tees in ONE
+    // atomic batch — never an intermediate render with scores but no tees, which made
+    // liveMatchTally fall back to the round's default tee and compute wrong results.
+    async function fetchScores() {
       const { data } = await supabase.from('scores')
         .select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds)
-      if (cancelled) return
       const m = {}; (data || []).forEach(s => { if (s.gross_score != null) m[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score })
-      setScoresMap(m)
+      return m
     }
-    async function loadTees() {
+    async function fetchTees() {
       const { data } = await supabase.from('player_rounds')
         .select('trip_player_id, round_id, slope, rating, par').in('round_id', roundIds)
-      if (cancelled) return
       const m = {}; (data || []).forEach(pr => { m[`${pr.round_id}:${pr.trip_player_id}`] = pr })
-      setTeeRowMap(m)
+      return m
     }
+    // Targeted realtime refetches. Safe to set a single slice here: the full set is
+    // already loaded, so recomputing against the existing (complete) tees/scores can't
+    // hit the empty-tees race.
+    async function loadScores() { const m = await fetchScores(); if (!cancelled) setScoresMap(m) }
+    async function loadTees() { const m = await fetchTees(); if (!cancelled) setTeeRowMap(m) }
     async function loadAll() {
-      const [pairRes, tpRes] = await Promise.all([
+      const [pairRes, tpRes, sMap, tMap] = await Promise.all([
         supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds),
         supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
+        fetchScores(),
+        fetchTees(),
       ])
       const pairs = pairRes.data || []
       const pairIds = pairs.map(p => p.id)
@@ -563,8 +571,9 @@ function PointsLeaderboard({ trip, teams, rounds }) {
       }
       if (cancelled) return
       const hcp = {}; (tpRes.data || []).forEach(tp => { hcp[tp.id] = tp.handicap_index })
-      setPairings(pairs); setPairingPlayers(pp); setHcpByPlayer(hcp)
-      await loadScores(); await loadTees()
+      // Tees before scores so no render can ever see scores without tees (React
+      // batches these into one render anyway).
+      setPairings(pairs); setPairingPlayers(pp); setHcpByPlayer(hcp); setTeeRowMap(tMap); setScoresMap(sMap)
     }
 
     loadAll()

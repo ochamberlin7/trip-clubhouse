@@ -135,33 +135,39 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     if (!trip?.id || allRoundIds.length === 0) return
     let cancelled = false
 
-    async function loadScores() {
+    // Pure fetches (return the map) so the initial load sets scores + tees in ONE
+    // atomic batch — never an intermediate render with scores but no tees, which made
+    // the tally fall back to the round's default tee and compute wrong results.
+    async function fetchScores() {
       const { data } = await supabase
         .from('scores').select('round_id, trip_player_id, hole_number, gross_score')
         .in('round_id', allRoundIds)
-      if (cancelled) return
       const map = {}
       ;(data || []).forEach(s => {
         if (s.gross_score != null) map[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score
       })
-      setScoresMap(map)
+      return map
     }
-
     // Per-player tee selections (drive each player's course handicap).
-    async function loadPlayerRounds() {
+    async function fetchPlayerRounds() {
       const { data } = await supabase
         .from('player_rounds').select('trip_player_id, round_id, tee_name, slope, rating, par')
         .in('round_id', allRoundIds)
-      if (cancelled) return
       const map = {}
       ;(data || []).forEach(pr => { map[`${pr.round_id}:${pr.trip_player_id}`] = pr })
-      setTeeRowMap(map)
+      return map
     }
+    // Targeted realtime refetches. Safe to set a single slice: the full set is already
+    // loaded, so recomputing against the existing (complete) data can't race.
+    async function loadScores() { const m = await fetchScores(); if (!cancelled) setScoresMap(m) }
+    async function loadPlayerRounds() { const m = await fetchPlayerRounds(); if (!cancelled) setTeeRowMap(m) }
 
     async function loadAll() {
-      const [pairRes, tpRes] = await Promise.all([
+      const [pairRes, tpRes, sMap, tMap] = await Promise.all([
         supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', allRoundIds),
         supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
+        fetchScores(),
+        fetchPlayerRounds(),
       ])
       const pairs = pairRes.data || []
       const pairIds = pairs.map(p => p.id)
@@ -174,11 +180,13 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       if (cancelled) return
       const hcp = {}
       ;(tpRes.data || []).forEach(tp => { hcp[tp.id] = tp.handicap_index })
+      // Tees before scores so no render can ever see scores without tees (React
+      // batches these into one render anyway).
       setPairings(pairs)
       setPairingPlayers(pp)
       setHcpByPlayer(hcp)
-      await loadScores()
-      await loadPlayerRounds()
+      setTeeRowMap(tMap)
+      setScoresMap(sMap)
     }
 
     loadAll()

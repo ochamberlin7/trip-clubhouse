@@ -220,6 +220,72 @@ export function playingHandicapForRound(round, playerRoundRow, handicapIndex, gl
   return Math.max(0, Math.round(raw * (effectiveAllowance(round, globalAllowance) / 100)))
 }
 
+// Low-ball "shots given" for a group of players in a round, each from their OWN tee
+// (player_rounds row → round default). The single place every match calculation
+// builds stroke allocation, so the scorecard dots, the live tallies, the
+// leaderboard and the per-player stats all allocate strokes identically.
+//   players  : [tripPlayerId] — the pairing/group to compute relative shots within
+//   hcpOf(id)    -> handicap_index for a player
+//   teeRowOf(id) -> that player's player_rounds row (or undefined → round default)
+// Returns Map(tripPlayerId -> shots given).
+export function pairingShots(round, players, hcpOf, teeRowOf, allowance = 100) {
+  const entries = players.map(id => {
+    const tee = resolvePlayerTee(round, teeRowOf(id))
+    return { id, ch: rawCourseHandicapForTee(hcpOf(id), tee.slope, tee.rating, tee.par) }
+  })
+  return shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
+}
+
+// ── SINGLE SOURCE OF TRUTH: per-hole better-ball match outcome ────────────────
+// Decides who won each hole of ONE match (one pairing) by best-ball net. EVERY
+// surface that shows "who won a hole" goes through here — the scorecard badges,
+// the live tallies (Point + Standard Match Play), the leaderboard team totals, and
+// the per-player points/holes-won stats — so they agree by construction and can't
+// drift into parallel implementations again.
+//
+// A hole is DECIDED only once every present player on BOTH sides has a gross
+// (matches the on-screen scorecard: a missing score shows no badge). For a decided
+// hole, the side with the lower best (lowest) net wins; equal best nets halve.
+// t1Winners/t2Winners list the players on each side whose OWN net equals that
+// side's best (both when teammates tie for low) — the basis for per-player credit.
+//
+//   roundId   : prefix for scoresMap keys (`${roundId}:${tpId}:${hole}`)
+//   t1Players : [tripPlayerId] on side 1 (slots 1&2)
+//   t2Players : [tripPlayerId] on side 2 (slots 3&4)
+//   shots     : Map|obj tripPlayerId -> shots given (from pairingShots)
+//   scoresMap : `${roundId}:${tpId}:${hole}` -> gross
+//   holes     : positional array; holes[h-1] carries the hole's stroke index
+// Returns [{ hole, winner:'T1'|'T2'|'halve'|null, b1, b2, t1Winners, t2Winners }].
+export function matchHoleOutcomes({ roundId, t1Players = [], t2Players = [], shots, scoresMap = {}, holes }) {
+  const totalHoles = Array.isArray(holes) && holes.length ? holes.length : 18
+  const shotsOf = id => ((shots instanceof Map ? shots.get(id) : shots?.[id]) ?? 0)
+  const out = []
+  for (let hole = 1; hole <= totalHoles; hole++) {
+    const si = strokeIndexOfHole(holes?.[hole - 1])
+    // Best (lowest) net for one side + the player(s) who own it. complete=false if
+    // the side is empty or any present player is missing a gross on this hole.
+    const side = players => {
+      let best = Infinity, winners = [], complete = players.length > 0
+      for (const id of players) {
+        const g = scoresMap[`${roundId}:${id}:${hole}`]
+        if (g == null) { complete = false; continue }
+        const n = g - strokesOnHole(shotsOf(id), si)
+        if (n < best) { best = n; winners = [id] }
+        else if (n === best) winners.push(id)
+      }
+      return { best, winners, complete }
+    }
+    const s1 = side(t1Players)
+    const s2 = side(t2Players)
+    if (!s1.complete || !s2.complete) { out.push({ hole, winner: null, b1: null, b2: null, t1Winners: [], t2Winners: [] }); continue }
+    let winner = 'halve'
+    if (s1.best < s2.best) winner = 'T1'
+    else if (s2.best < s1.best) winner = 'T2'
+    out.push({ hole, winner, b1: s1.best, b2: s2.best, t1Winners: s1.winners, t2Winners: s2.winners })
+  }
+  return out
+}
+
 // Prince of Wales composite scorecards. A trip-long TEAM game: for each team, for
 // each hole slot 1..18, take the single LOWEST score any teammate posted in that
 // slot across every included (tournament) round. Two parallel composites are built
@@ -525,27 +591,15 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
 
     let t1pts = 0, t2pts = 0, holesScored = 0
     if (hasMatch) {
-      // Shots given per player (WHS better ball): playing HCP minus the pairing's
-      // lowest — the same value the scorecard stroke dots use, so net matches dots.
-      const entries = [...t1Players, ...t2Players].map(id => {
-        const tee = resolvePlayerTee(round, getTeeRow(id))
-        return { id, ch: rawCourseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
-      })
-      const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
-
-      const net = (tp, hole) =>
-        netScore(scoresMap[`${round.id}:${tp}:${hole}`], playing.get(tp) ?? 0, holes?.[hole - 1]?.handicap)
-
-      for (let hole = 1; hole <= totalHoles; hole++) {
-        // Best (lowest) net per side; a hole counts once every present player on
-        // both sides has a gross. Lower net wins the hole, equal nets halve it.
-        const t1 = t1Players.map(tp => net(tp, hole))
-        const t2 = t2Players.map(tp => net(tp, hole))
-        if (t1.some(n => n == null) || t2.some(n => n == null)) continue
+      // Shots given per player (WHS better ball), then the per-hole winner — both
+      // from the shared helpers, so this matches the scorecard badges exactly.
+      const shots = pairingShots(round, [...t1Players, ...t2Players], getHcp, getTeeRow, allowance)
+      const outcomes = matchHoleOutcomes({ roundId: round.id, t1Players, t2Players, shots, scoresMap, holes })
+      for (const o of outcomes) {
+        if (o.winner == null) continue // hole not fully scored yet
         holesScored++
-        const b1 = Math.min(...t1), b2 = Math.min(...t2)
-        if (b1 < b2) t1pts++
-        else if (b2 < b1) t2pts++
+        if (o.winner === 'T1') t1pts++
+        else if (o.winner === 'T2') t2pts++
       }
     }
 
@@ -623,16 +677,28 @@ export function standardMatchTally(holes, players = [], teams = {}) {
   const t2 = players.filter(p => onTeam(p, 2))
   const hasMatch = t1.length > 0 && t2.length > 0
 
-  const grossOf = (p, hole) => {
-    const g = p.grossByHole instanceof Map ? p.grossByHole.get(hole) : p.grossByHole?.[hole]
-    return g == null ? null : g
+  // Per-hole winner comes from the shared source of truth (same best-ball-net
+  // decision as the scorecard badges and Point Match Play) — Standard only layers
+  // the running lead / closeout on top. Adapt the players' grossByHole +
+  // playingHandicap into the scoresMap + shots shape matchHoleOutcomes expects,
+  // keyed by a synthetic round id.
+  const RID = '_'
+  const scoresMap = {}
+  const shots = new Map()
+  for (const p of players) {
+    shots.set(p.id, p.playingHandicap ?? 0)
+    const gb = p.grossByHole
+    for (let h = 1; h <= totalHoles; h++) {
+      const g = gb instanceof Map ? gb.get(h) : gb?.[h]
+      if (g != null) scoresMap[`${RID}:${p.id}:${h}`] = g
+    }
   }
-  const bestNet = (side, hole) => {
-    const si = strokeIndexOfHole(list[hole - 1])
-    const nets = side.map(p => netScore(grossOf(p, hole), p.playingHandicap ?? 0, si))
-    if (!nets.length || nets.some(n => n == null)) return null // hole not fully scored
-    return Math.min(...nets)
-  }
+  const outcomes = matchHoleOutcomes({
+    roundId: RID,
+    t1Players: t1.map(p => p.id),
+    t2Players: t2.map(p => p.id),
+    shots, scoresMap, holes: list,
+  })
 
   const results = []
   let lead = 0            // + = Team 1 up
@@ -643,27 +709,21 @@ export function standardMatchTally(holes, players = [], teams = {}) {
 
   for (let hole = 1; hole <= totalHoles; hole++) {
     const holesRemaining = totalHoles - hole // holes left AFTER this one
+    const o = outcomes[hole - 1]
 
     if (closed) {
       // Match already decided — remaining holes carry the final result.
-      results.push({ hole, winner: null, lead, statusShort: finalMargin, leader: winner, closed: true })
+      results.push({ hole, winner: null, lead, statusShort: finalMargin, leader: winner, closed: true, t1Winners: [], t2Winners: [] })
       continue
     }
-    if (!hasMatch) {
-      results.push({ hole, winner: null, lead, statusShort: null, leader: null, closed: false })
-      continue
-    }
-
-    const b1 = bestNet(t1, hole)
-    const b2 = bestNet(t2, hole)
-    if (b1 == null || b2 == null) {
-      results.push({ hole, winner: null, lead, statusShort: null, leader: null, closed: false })
+    if (!hasMatch || !o || o.winner == null) {
+      results.push({ hole, winner: null, lead, statusShort: null, leader: null, closed: false, t1Winners: [], t2Winners: [] })
       continue
     }
 
-    let holeWinner = 'halve'
-    if (b1 < b2) { lead += 1; holeWinner = 'T1' }
-    else if (b2 < b1) { lead -= 1; holeWinner = 'T2' }
+    const holeWinner = o.winner // 'T1' | 'T2' | 'halve'
+    if (holeWinner === 'T1') lead += 1
+    else if (holeWinner === 'T2') lead -= 1
 
     const absLead = Math.abs(lead)
     const leader = lead > 0 ? 'T1' : lead < 0 ? 'T2' : null
@@ -674,7 +734,7 @@ export function standardMatchTally(holes, players = [], teams = {}) {
       closedAtHole = hole
       winner = leader
       finalMargin = holesRemaining === 0 ? `${absLead}UP` : `${absLead}&${holesRemaining}`
-      results.push({ hole, winner: holeWinner, lead, statusShort: finalMargin, leader, closed: true })
+      results.push({ hole, winner: holeWinner, lead, statusShort: finalMargin, leader, closed: true, t1Winners: o.t1Winners, t2Winners: o.t2Winners })
       continue
     }
 
@@ -682,7 +742,7 @@ export function standardMatchTally(holes, players = [], teams = {}) {
     if (absLead === 0) statusShort = 'AS'
     else if (holesRemaining > 0 && absLead === holesRemaining) statusShort = `Dormie ${absLead}`
     else statusShort = `${absLead}UP`
-    results.push({ hole, winner: holeWinner, lead, statusShort, leader, closed: false })
+    results.push({ hole, winner: holeWinner, lead, statusShort, leader, closed: false, t1Winners: o.t1Winners, t2Winners: o.t2Winners })
   }
 
   // Overall = the last hole that produced a real status (scored or closeout).
@@ -746,13 +806,9 @@ export function liveStandardMatchTally(round, pairings, pairingPlayers, scoresMa
     const all = [...t1Players, ...t2Players]
     const hasMatch = t1Players.length > 0 && t2Players.length > 0
 
-    // Shots given per player (WHS better ball): playing HCP minus the pairing's
-    // lowest — the same value the scorecard stroke dots use, so net matches dots.
-    const entries = all.map(id => {
-      const tee = resolvePlayerTee(round, getTeeRow(id))
-      return { id, ch: rawCourseHandicapForTee(getHcp(id), tee.slope, tee.rating, tee.par) }
-    })
-    const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
+    // Shots given per player (WHS better ball), from the shared helper so stroke
+    // allocation matches the scorecard dots exactly.
+    const playing = pairingShots(round, all, getHcp, getTeeRow, allowance)
 
     const grossFor = id => {
       const o = {}
@@ -861,12 +917,8 @@ export function standardHolesWonByPlayer(
       if (!t1Players.length || !t2Players.length) continue // need both sides for a match
       const all = [...t1Players, ...t2Players]
 
-      // Low-ball playing handicaps (per-player tee), identical to liveStandardMatchTally.
-      const entries = all.map(id => {
-        const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
-        return { id, ch: rawCourseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
-      })
-      const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
+      // Low-ball playing handicaps (per-player tee), from the shared helper.
+      const playing = pairingShots(round, all, id => hcpByPlayer.get(id), id => teeRowByRoundPlayer.get(`${r.id}:${id}`), allowance)
       const grossFor = id => {
         const o = {}
         for (let h = 1; h <= totalHoles; h++) { const g = scoreMap[`${r.id}:${id}:${h}`]; if (g != null) o[h] = g }
@@ -877,24 +929,13 @@ export function standardHolesWonByPlayer(
         ...t2Players.map(id => ({ id, team: 2, playingHandicap: playing.get(id) ?? 0, grossByHole: grossFor(id) })),
       ]
 
+      // Credit each decided hole to the winning side's best-net player(s) — the
+      // winners are carried on each result straight from matchHoleOutcomes, so this
+      // credit matches the per-hole badges / Point Match Play exactly.
       const tally = standardMatchTally(holes, players, {})
-      // Credit the hole only to the winning side's best-net player(s) (both if
-      // teammates tie for low), not to both teammates unconditionally.
-      const bestNetWinners = (side, holeNumber) => {
-        const si = strokeIndexOfHole(holes[holeNumber - 1])
-        let best = Infinity, winners = []
-        for (const id of side) {
-          const g = scoreMap[`${r.id}:${id}:${holeNumber}`]
-          if (g == null) continue
-          const n = g - strokesOnHole(playing.get(id) ?? 0, si)
-          if (n < best) { best = n; winners = [id] }
-          else if (n === best) winners.push(id)
-        }
-        return winners
-      }
       for (const res of tally.results) {
-        if (res.winner === 'T1') bestNetWinners(t1Players, res.hole).forEach(credit)
-        else if (res.winner === 'T2') bestNetWinners(t2Players, res.hole).forEach(credit)
+        if (res.winner === 'T1') res.t1Winners.forEach(credit)
+        else if (res.winner === 'T2') res.t2Winners.forEach(credit)
       }
     }
   }
@@ -961,36 +1002,16 @@ export function matchPlayPointsByPlayer(
       const t2 = [slotMap[3], slotMap[4]].filter(Boolean)
       if (!t1.length || !t2.length) continue // need both sides for a match
 
-      // Low-ball playing handicaps (per-player tee), identical to the scorecard.
-      const entries = [...t1, ...t2].map(id => {
-        const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
-        return { id, ch: rawCourseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
-      })
-      const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
-
-      // Best (lowest) net for a side + the players who own it; scored=false when
-      // nobody on the side has a score on this hole yet.
-      const sideBest = (side, hole, si) => {
-        let best = Infinity, winners = []
-        for (const id of side) {
-          const g = scoreMap[`${r.id}:${id}:${hole}`]
-          if (g == null) continue
-          const n = g - strokesOnHole(playing.get(id) ?? 0, si)
-          if (n < best) { best = n; winners = [id] }
-          else if (n === best) winners.push(id)
-        }
-        return { best, winners, scored: winners.length > 0 }
-      }
-
-      for (const h of holes) {
-        const hole = h.hole_number
-        const si = h.stroke_index ?? h.handicap
-        const a = sideBest(t1, hole, si)
-        const b = sideBest(t2, hole, si)
-        if (!a.scored || !b.scored) continue // hole not yet decided
-        if (a.best < b.best) a.winners.forEach(credit)
-        else if (b.best < a.best) b.winners.forEach(credit)
-        // equal best net → halved, no points
+      // Shots given + per-hole winner from the shared helpers — the SAME decision as
+      // the scorecard badges, the leaderboard and Standard holes-won. A hole counts
+      // only once every present player on both sides has scored it; the point goes to
+      // each winning-side player whose own net equals that side's best (both if tied).
+      const playing = pairingShots(round, [...t1, ...t2], id => hcpByPlayer.get(id), id => teeRowByRoundPlayer.get(`${r.id}:${id}`), allowance)
+      const outcomes = matchHoleOutcomes({ roundId: r.id, t1Players: t1, t2Players: t2, shots: playing, scoresMap: scoreMap, holes })
+      for (const o of outcomes) {
+        if (o.winner === 'T1') o.t1Winners.forEach(credit)
+        else if (o.winner === 'T2') o.t2Winners.forEach(credit)
+        // halve / undecided → no points
       }
     }
   }
