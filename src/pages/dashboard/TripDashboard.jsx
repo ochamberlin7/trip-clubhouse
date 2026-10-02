@@ -513,11 +513,10 @@ function TabLeaderboard({ trip, teams, rounds }) {
 // subscribes to score / pairing / handicap / tee changes so standings update as
 // scores are entered (same realtime pattern as LiveScoreBanner).
 function PointsLeaderboard({ trip, teams, rounds }) {
-  const [pairings, setPairings] = useState([])
-  const [pairingPlayers, setPairingPlayers] = useState([])
-  const [scoresMap, setScoresMap] = useState({})
-  const [hcpByPlayer, setHcpByPlayer] = useState({})
-  const [teeRowMap, setTeeRowMap] = useState({})
+  // All inputs in ONE object so a render can never see a partial combination
+  // (e.g. scores without tees). null until the first full load completes → we show
+  // a skeleton instead of a provisional total computed from empty/partial state.
+  const [data, setData] = useState(null) // { pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap }
   // Bumped when the app returns from the background: re-runs the load+subscribe
   // effect below, so it both refetches missed scores AND rebuilds the realtime
   // channel (which stalls silently while the PWA is suspended).
@@ -550,11 +549,11 @@ function PointsLeaderboard({ trip, teams, rounds }) {
       const m = {}; (data || []).forEach(pr => { m[`${pr.round_id}:${pr.trip_player_id}`] = pr })
       return m
     }
-    // Targeted realtime refetches. Safe to set a single slice here: the full set is
-    // already loaded, so recomputing against the existing (complete) tees/scores can't
-    // hit the empty-tees race.
-    async function loadScores() { const m = await fetchScores(); if (!cancelled) setScoresMap(m) }
-    async function loadTees() { const m = await fetchTees(); if (!cancelled) setTeeRowMap(m) }
+    // Targeted realtime refetches merge one slice into the existing object. The
+    // `d ? … : d` guard makes them no-ops until the first full load lands (data is
+    // still null), so they never create a partial object.
+    async function loadScores() { const m = await fetchScores(); if (!cancelled) setData(d => d ? { ...d, scoresMap: m } : d) }
+    async function loadTees() { const m = await fetchTees(); if (!cancelled) setData(d => d ? { ...d, teeRowMap: m } : d) }
     async function loadAll() {
       const [pairRes, tpRes, sMap, tMap] = await Promise.all([
         supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds),
@@ -571,9 +570,10 @@ function PointsLeaderboard({ trip, teams, rounds }) {
       }
       if (cancelled) return
       const hcp = {}; (tpRes.data || []).forEach(tp => { hcp[tp.id] = tp.handicap_index })
-      // Tees before scores so no render can ever see scores without tees (React
-      // batches these into one render anyway).
-      setPairings(pairs); setPairingPlayers(pp); setHcpByPlayer(hcp); setTeeRowMap(tMap); setScoresMap(sMap)
+      // One atomic set — every input lands together, so byRound never computes on a
+      // partial combination. (We never reset data to null on resume, so a background
+      // refetch keeps showing the current numbers instead of flashing the skeleton.)
+      setData({ pairings: pairs, pairingPlayers: pp, hcpByPlayer: hcp, scoresMap: sMap, teeRowMap: tMap })
     }
 
     loadAll()
@@ -596,13 +596,16 @@ function PointsLeaderboard({ trip, teams, rounds }) {
   }, [trip?.id, roundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // roundId -> per-pairing Points Match Play tally (hole-win counts per side).
+  // Empty until the full load lands (data === null), so nothing is computed from
+  // partial inputs.
   const byRound = useMemo(() => {
     const m = new Map()
+    if (!data) return m
     for (const r of lbRounds) {
-      m.set(r.id, liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap))
+      m.set(r.id, liveMatchTally(r, data.pairings, data.pairingPlayers, data.scoresMap, data.hcpByPlayer, allowance, data.teeRowMap))
     }
     return m
-  }, [roundKey, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [roundKey, data, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Attribute each pairing's hole wins to the REAL team on that side
   // (team1_id = slots 1&2, team2_id = slots 3&4), so any team can face any other
@@ -620,6 +623,37 @@ function PointsLeaderboard({ trip, teams, rounds }) {
   const roundCellTeam = (teamId, roundId) => {
     const { pts, scored } = roundPointsForTeam(teamId, roundId)
     return scored === 0 ? '—' : pts
+  }
+
+  // Loading state: render the card shells (team names + placeholder scores) until the
+  // full batched load lands, so no provisional total is ever shown — then the real
+  // numbers appear once, with no visible jump.
+  if (!data) {
+    return (
+      <div>
+        {teams.map(team => (
+          <div key={team.id} className="lb-team-card">
+            <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
+              <span className="lb-team-name">{getTeamDisplayName(team)}</span>
+              <span className="lb-team-pts" aria-hidden="true">·</span>
+            </div>
+            <div className="lb-rounds">
+              {lbRounds.map(r => (
+                <div key={r.id} className="lb-round-row">
+                  <span className="lb-round-name">{r.course_name}</span>
+                  <span className="lb-round-score">—</span>
+                </div>
+              ))}
+              {lbRounds.length === 0 && (
+                <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
+                  No rounds yet
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
   }
 
   return (
@@ -655,11 +689,9 @@ function PointsLeaderboard({ trip, teams, rounds }) {
 // its own scores/pairings and subscribes to live changes (so it updates mid-round
 // without a remount), refetching + re-subscribing on background→resume.
 function StandardLeaderboard({ trip, teams, rounds }) {
-  const [pairings, setPairings] = useState([])
-  const [pairingPlayers, setPairingPlayers] = useState([])
-  const [scoresMap, setScoresMap] = useState({})
-  const [hcpByPlayer, setHcpByPlayer] = useState({})
-  const [teeRowMap, setTeeRowMap] = useState({})
+  // One object (see PointsLeaderboard) so a render never sees a partial combination;
+  // null until the first full load → skeleton instead of a provisional total.
+  const [data, setData] = useState(null) // { pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap }
   // Bumped on background→resume to re-run load+subscribe (see PointsLeaderboard).
   const [resumeTick, setResumeTick] = useState(0)
   useResumeRefetch(() => setResumeTick(t => t + 1))
@@ -693,7 +725,8 @@ function StandardLeaderboard({ trip, teams, rounds }) {
       const hcp = {}; (tpRes.data || []).forEach(tp => { hcp[tp.id] = tp.handicap_index })
       const sMap = {}; (scoreRes.data || []).forEach(s => { if (s.gross_score != null) sMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score })
       const tMap = {}; (prRes.data || []).forEach(pr => { tMap[`${pr.round_id}:${pr.trip_player_id}`] = pr })
-      setPairings(pairs); setPairingPlayers(pp); setHcpByPlayer(hcp); setScoresMap(sMap); setTeeRowMap(tMap)
+      // One atomic set — all inputs land together (no partial-combination render).
+      setData({ pairings: pairs, pairingPlayers: pp, hcpByPlayer: hcp, scoresMap: sMap, teeRowMap: tMap })
     }
 
     loadAll()
@@ -717,14 +750,16 @@ function StandardLeaderboard({ trip, teams, rounds }) {
     return () => { cancelled = true; supabase.removeChannel(ch) }
   }, [trip?.id, roundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // roundId -> per-pairing Standard Match Play results.
+  // roundId -> per-pairing Standard Match Play results. Empty until the full load
+  // lands (data === null), so nothing is computed from partial inputs.
   const byRound = useMemo(() => {
     const m = new Map()
+    if (!data) return m
     for (const r of lbRounds) {
-      m.set(r.id, liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap))
+      m.set(r.id, liveStandardMatchTally(r, data.pairings, data.pairingPlayers, data.scoresMap, data.hcpByPlayer, allowance, data.teeRowMap))
     }
     return m
-  }, [roundKey, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [roundKey, data, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fmtPts = x => (Number.isInteger(x) ? String(x) : x.toFixed(1))
 
@@ -752,6 +787,36 @@ function StandardLeaderboard({ trip, teams, rounds }) {
     if (matches === 0 || completed === 0) return '—'
     if (matches === 1) return pts === 1 ? 'W' : pts === 0.5 ? 'H' : 'L'
     return fmtPts(pts) // multiple matches in one round → show the earned points
+  }
+
+  // Loading state: card shells with placeholder scores until the full batched load
+  // lands, so no provisional total shows — then real numbers appear once.
+  if (!data) {
+    return (
+      <div>
+        {teams.map(team => (
+          <div key={team.id} className="lb-team-card">
+            <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
+              <span className="lb-team-name">{getTeamDisplayName(team)}</span>
+              <span className="lb-team-pts" aria-hidden="true">·</span>
+            </div>
+            <div className="lb-rounds">
+              {lbRounds.map(r => (
+                <div key={r.id} className="lb-round-row">
+                  <span className="lb-round-name">{r.course_name}</span>
+                  <span className="lb-round-score">—</span>
+                </div>
+              ))}
+              {lbRounds.length === 0 && (
+                <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
+                  No rounds yet
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
   }
 
   return (
