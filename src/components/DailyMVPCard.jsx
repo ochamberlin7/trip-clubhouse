@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
-import { analyzeScoring, playerName, initialsOf, formatVsPar, isTournamentRound } from '../lib/scoring'
+import { analyzeScoring, matchPlayPointsByPlayer, playerName, initialsOf, formatVsPar, isTournamentRound } from '../lib/scoring'
 import HomeCard from './homeCard'
 
 // Daily MVPs — the day's best performer in three categories: Most Points, Best
@@ -87,12 +87,13 @@ export default function DailyMVPCard({ tripId, endDate }) {
       if (!todaysRounds || todaysRounds.length === 0) { if (!cancelled) setState({ status: 'incomplete' }); return }
 
       const roundIds = todaysRounds.map(r => r.id)
-      const [scoresRes, pairingsRes, tpRes, prRes, drinksRes] = await Promise.all([
+      const [scoresRes, pairingsRes, tpRes, prRes, drinksRes, tripRes] = await Promise.all([
         supabase.from('scores').select('round_id, hole_number, trip_player_id, gross_score').in('round_id', roundIds),
         supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', roundIds),
         supabase.from('trip_players').select('id, user_id, first_name, last_name, guest_name, handicap_index, team_id').eq('trip_id', tripId),
         supabase.from('player_rounds').select('trip_player_id, round_id, tee_name, slope, rating, par').in('round_id', roundIds),
         supabase.from('drinks').select('round_id, trip_player_id, count').in('round_id', roundIds),
+        supabase.from('trips').select('handicap_allowance').eq('id', tripId).maybeSingle(),
       ])
 
       const pairings = pairingsRes.data || []
@@ -123,10 +124,17 @@ export default function DailyMVPCard({ tripId, endDate }) {
         }))
       }
 
+      // Respect the trip's handicap allowance so points/net match the Stats page
+      // (which passes it) rather than silently assuming 100%.
+      const allowance = tripRes.data?.handicap_allowance ?? 100
       const data = { rounds: todaysRounds, scores: scoresRes.data || [], courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds: prRes.data || [] }
       const todayRoundIds = new Set(roundIds)
-      const { completeRoundIds, pointsByPlayer, vsParByPlayer } = analyzeScoring(data, todayRoundIds)
+      // analyzeScoring still supplies completeness + net-vs-par; points now come from
+      // the SAME shared per-player function the Stats page uses, scoped to today's
+      // completed tournament rounds — so "Most Points" can't disagree with Stats.
+      const { completeRoundIds, vsParByPlayer } = analyzeScoring(data, todayRoundIds, allowance)
       const completeToday = todaysRounds.filter(r => completeRoundIds.has(r.id) && isTournamentRound(r))
+      const pointsByPlayer = matchPlayPointsByPlayer({ ...data, rounds: completeToday }, allowance)
 
       if (cancelled) return
       if (completeToday.length === 0) { setState({ status: 'incomplete' }); return }

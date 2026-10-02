@@ -129,3 +129,112 @@ test('Prince of Wales: a team with no scores has blank cells and a zero/dash tot
   assert.equal(comp.grossTotal, 0)
   assert.equal(comp.gross.every(v => v === null), true)
 })
+
+// ── Consolidation: one per-hole winner source feeds every surface ─────────────
+// These lock the fix for the leaderboard/Stats/MVP points discrepancy: the
+// scorecard badges (matchHoleOutcomes), the leaderboard (liveMatchTally), the
+// per-player points (matchPlayPointsByPlayer) and the Standard path
+// (standardMatchTally / standardHolesWonByPlayer) must all agree on the same data.
+import {
+  matchHoleOutcomes, liveMatchTally, matchPlayPointsByPlayer,
+  liveStandardMatchTally, standardHolesWonByPlayer,
+} from './scoring.js'
+
+const HOLES3 = [{ par: 4, handicap: 1 }, { par: 4, handicap: 2 }, { par: 4, handicap: 3 }]
+// 2v2: T1 = A,B (slots 1&2); T2 = C,D (slots 3&4). All scratch, neutral tee, so
+// net = gross and the hole winner is purely the lowest gross per side.
+const SPEC = [
+  { A: 4, B: 5, C: 5, D: 6 }, // T1 best 4 (A) < T2 best 5 (C)      → T1, A credited
+  { A: 5, B: 5, C: 4, D: 5 }, // T1 best 5     > T2 best 4 (C)      → T2, C credited
+  { A: 4, B: 4, C: 5, D: 4 }, // T1 best 4 (A,B) = T2 best 4 (D)    → halve
+]
+const ROUND3 = { id: 'R1', round_type: 'tournament', holes: HOLES3, number_of_holes: 3, slope_rating: 113, course_rating: 72, par_total: 72 }
+const PAIRINGS3 = [{ id: 'pr1', round_id: 'R1', pairing_number: 1, team1_id: 'TA', team2_id: 'TB' }]
+const PP3 = [
+  { pairing_id: 'pr1', trip_player_id: 'A', team_slot: 1 },
+  { pairing_id: 'pr1', trip_player_id: 'B', team_slot: 2 },
+  { pairing_id: 'pr1', trip_player_id: 'C', team_slot: 3 },
+  { pairing_id: 'pr1', trip_player_id: 'D', team_slot: 4 },
+]
+const HCP3 = { A: 0, B: 0, C: 0, D: 0 }
+const TRIP_PLAYERS3 = [['A', 'TA'], ['B', 'TA'], ['C', 'TB'], ['D', 'TB']].map(([id, team_id]) => ({ id, handicap_index: 0, team_id }))
+const COURSE_HOLES3 = HOLES3.map((h, i) => ({ round_id: 'R1', hole_number: i + 1, par: h.par, stroke_index: h.handicap }))
+function scoresMapOf(spec) {
+  const m = {}
+  spec.forEach((h, i) => { for (const [p, g] of Object.entries(h)) m[`R1:${p}:${i + 1}`] = g })
+  return m
+}
+function scoresArrOf(spec) {
+  const a = []
+  spec.forEach((h, i) => { for (const [p, g] of Object.entries(h)) a.push({ round_id: 'R1', trip_player_id: p, hole_number: i + 1, gross_score: g }) })
+  return a
+}
+const bundle3 = { rounds: [ROUND3], scores: scoresArrOf(SPEC), courseHoles: COURSE_HOLES3, pairings: PAIRINGS3, pairingPlayers: PP3, tripPlayers: TRIP_PLAYERS3, playerRounds: [] }
+
+test('matchHoleOutcomes: lowest net per side wins; equal nets halve; winners named', () => {
+  const o = matchHoleOutcomes({ roundId: 'R1', t1Players: ['A', 'B'], t2Players: ['C', 'D'], shots: HCP3, scoresMap: scoresMapOf(SPEC), holes: HOLES3 })
+  assert.deepEqual(o.map(x => x.winner), ['T1', 'T2', 'halve'])
+  assert.deepEqual(o[0].t1Winners, ['A'])
+  assert.deepEqual(o[1].t2Winners, ['C'])
+})
+
+test('leaderboard (liveMatchTally) counts the same per-hole winners', () => {
+  const row = liveMatchTally(ROUND3, PAIRINGS3, PP3, scoresMapOf(SPEC), HCP3, 100, {})[0]
+  assert.equal(row.t1pts, 1)
+  assert.equal(row.t2pts, 1)
+  assert.equal(row.holesScored, 3)
+})
+
+test('per-player points (matchPlayPointsByPlayer) match the badges', () => {
+  const pts = matchPlayPointsByPlayer(bundle3, 100)
+  assert.equal(pts.get('A'), 1)
+  assert.equal(pts.get('C'), 1)
+  assert.equal(pts.get('B') ?? 0, 0)
+  assert.equal(pts.get('D') ?? 0, 0)
+})
+
+test('a hole is undecided until EVERY present player on both sides has scored it', () => {
+  const partial = scoresMapOf(SPEC)
+  delete partial['R1:D:1'] // D has not entered hole 1 yet
+  const row = liveMatchTally(ROUND3, PAIRINGS3, PP3, partial, HCP3, 100, {})[0]
+  assert.equal(row.holesScored, 2) // hole 1 no longer counts
+  const o = matchHoleOutcomes({ roundId: 'R1', t1Players: ['A', 'B'], t2Players: ['C', 'D'], shots: HCP3, scoresMap: partial, holes: HOLES3 })
+  assert.equal(o[0].winner, null)
+})
+
+test('teammates tied for the winning low BOTH score a point (team still wins one hole)', () => {
+  const spec = [{ A: 4, B: 4, C: 5, D: 5 }] // A & B tie for T1 low; T1 wins the hole
+  const round = { ...ROUND3, holes: [HOLES3[0]], number_of_holes: 1 }
+  const row = liveMatchTally(round, PAIRINGS3, PP3, scoresMapOf(spec), HCP3, 100, {})[0]
+  assert.equal(row.t1pts, 1) // one TEAM hole won
+  const pts = matchPlayPointsByPlayer({ ...bundle3, rounds: [round], scores: scoresArrOf(spec), courseHoles: [COURSE_HOLES3[0]] }, 100)
+  assert.equal(pts.get('A'), 1) // both teammates credited
+  assert.equal(pts.get('B'), 1)
+})
+
+test('Standard path (liveStandardMatchTally / standardHolesWonByPlayer) uses the same winners', () => {
+  const std = liveStandardMatchTally(ROUND3, PAIRINGS3, PP3, scoresMapOf(SPEC), HCP3, 100, {})[0]
+  assert.equal(std.result, 'halve') // +1 then −1 then halve → all square
+  const holes = standardHolesWonByPlayer(bundle3, 100)
+  assert.equal(holes.get('A'), 1)
+  assert.equal(holes.get('C'), 1)
+})
+
+test('the round default tee feeds every player identically when no per-player tee row exists', () => {
+  // Regression intent for the tee race: with teeRowMap empty, all four players
+  // resolve to the round's default tee, so the leaderboard and the badges compute
+  // the SAME shots — the bug was a transient render that had scores but no tees.
+  const withHcp = { A: 10, B: 0, C: 4, D: 0 } // real spread so strokes actually apply
+  const mapWins = liveMatchTally(ROUND3, PAIRINGS3, PP3, scoresMapOf(SPEC), withHcp, 100, {})[0]
+  const o = matchHoleOutcomes({ roundId: 'R1', t1Players: ['A', 'B'], t2Players: ['C', 'D'], shots: require_shots(withHcp), scoresMap: scoresMapOf(SPEC), holes: HOLES3 })
+  const counted = o.reduce((acc, x) => { if (x.winner === 'T1') acc.t1++; else if (x.winner === 'T2') acc.t2++; return acc }, { t1: 0, t2: 0 })
+  assert.equal(mapWins.t1pts, counted.t1)
+  assert.equal(mapWins.t2pts, counted.t2)
+})
+
+// Shots given for the 4-player group off the neutral round tee (slope 113, rating =
+// par), so course handicap == index; mirrors what liveMatchTally computes internally.
+function require_shots(hcp) {
+  const entries = Object.entries(hcp).map(([id, idx]) => ({ id, ch: idx }))
+  return shotsGivenFromCourseHandicaps(entries, 100)
+}

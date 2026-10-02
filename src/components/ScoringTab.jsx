@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
-import { strokesOnHole, netScore, rawCourseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally, effectiveAllowance } from '../lib/scoring'
+import { strokesOnHole, netScore, rawCourseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally, matchHoleOutcomes, effectiveAllowance } from '../lib/scoring'
 import { teamPillStyle, getTeamDisplayName, teamColor, colorIndexOf } from '../lib/teamColors'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import PullToRefresh from './PullToRefresh'
@@ -489,15 +489,16 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const matchClosed = isStandard && !!stdTally?.closed
   const closedAtHole = stdTally?.closedAtHole ?? null
 
+  // Per-hole Point Match Play winners from the SINGLE source of truth
+  // (matchHoleOutcomes) — the exact same function the leaderboard, live banner and
+  // Stats/MVP call. Fed this pairing's shots (sgOf / shotsByTp) and the scores map,
+  // so the on-screen badges can never drift from the leaderboard again. `scores` is
+  // already keyed `${round.id}:${tpId}:${hole}`, matching the helper.
+  const matchOutcomes = matchActive
+    ? matchHoleOutcomes({ roundId: round.id, t1Players: t1MatchTps, t2Players: t2MatchTps, shots: shotsByTp, scoresMap: scores, holes })
+    : null
   function holeResult(hole) {
-    // Best (lowest) net per side wins the hole; equal nets halve. Each side's
-    // best ball is taken over only its present players, so 2v1 works.
-    if (!matchActive) return null
-    const t1 = t1MatchTps.map(tp => netOf(tp, hole))
-    const t2 = t2MatchTps.map(tp => netOf(tp, hole))
-    if (t1.some(n => n == null) || t2.some(n => n == null)) return null
-    const b1 = Math.min(...t1), b2 = Math.min(...t2)
-    return b1 < b2 ? 'T1' : b2 < b1 ? 'T2' : 'halve'
+    return matchOutcomes?.[hole - 1]?.winner ?? null
   }
 
   // Stroke dots once the visible slots are filled (a 1-player-per-team pairing
