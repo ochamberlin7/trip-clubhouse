@@ -86,19 +86,27 @@ export function isRoundComplete(roundId, assignedByRound, holesByRoundPlayer) {
   return true
 }
 
-// The round currently being played today: started (within 30 min of tee_time_1)
-// and not yet complete. If several are active, prefer the most recently started.
-export function getActiveRound(rounds, ctx) {
+// Every round "live" right now — today's date, not yet complete, and at or past
+// (tee_time_1 − 30 min) — ordered most-recently-started first (latest tee time).
+// Used to land each user on the round they're actually playing; `getActiveRound`
+// is just the first of these. ctx matches isRoundComplete's needs.
+export function getLiveRounds(rounds, ctx) {
   const now = new Date()
   const todayISO = now.toISOString().split('T')[0]
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
-  let best = null
-  for (const r of rounds.filter(r => r.date === todayISO)) {
-    if (isRoundComplete(r.id, ctx.assignedByRound, ctx.holesByRoundPlayer)) continue
-    const tee = parseTeeTimeToMinutes(r.tee_time_1)
-    if (nowMinutes >= tee - 30 && (!best || tee > best.tee)) best = { round: r, tee }
-  }
-  return best?.round || null
+  return (rounds || [])
+    .filter(r => r.date === todayISO)
+    .filter(r => !isRoundComplete(r.id, ctx.assignedByRound, ctx.holesByRoundPlayer))
+    .map(r => ({ r, tee: parseTeeTimeToMinutes(r.tee_time_1) }))
+    .filter(x => nowMinutes >= x.tee - 30)
+    .sort((a, b) => b.tee - a.tee) // latest tee first = most recently started
+    .map(x => x.r)
+}
+
+// The single round currently being played today (most recently started). Thin
+// wrapper over getLiveRounds for callers that only want one.
+export function getActiveRound(rounds, ctx) {
+  return getLiveRounds(rounds, ctx)[0] || null
 }
 
 // Raw course handicap: handicap_index * (slope / 113), rounded.

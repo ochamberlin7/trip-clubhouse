@@ -171,7 +171,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // and handicap_index (e.g. after a handicap edit on a player card).
   async function loadPlayers() {
     const { data: tps } = await supabase.from('trip_players')
-      .select('id, user_id, first_name, last_name, guest_name, handicap_index, team_id').eq('trip_id', trip.id)
+      .select('id, user_id, claimed_user_id, first_name, last_name, guest_name, handicap_index, team_id').eq('trip_id', trip.id)
     const list = tps || []
     const userIds = list.map(t => t.user_id).filter(Boolean)
     const profMap = {}
@@ -515,7 +515,14 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
   // Read-only past trips: nobody can enter scores or assign players.
   const canAssign = isCommissioner && !readOnly
-  const isInPairing = !readOnly && (isCommissioner || [1, 2, 3, 4].some(s => slotMap[s] && playersById[slotMap[s]]?.user_id === currentUserId))
+  // Only a player IN this pairing may enter/edit its scores — no commissioner
+  // bypass (enforced at the DB too via can_write_score). A user counts as in the
+  // pairing by their own account or a claimed guest slot. One such player can still
+  // enter for the whole foursome, including guests.
+  const isInPairing = !readOnly && [1, 2, 3, 4].some(s => {
+    const p = slotMap[s] && playersById[slotMap[s]]
+    return p && (p.user_id === currentUserId || p.claimed_user_id === currentUserId)
+  })
 
   // ── commissioner: assign (or clear) a player in a slot ──
   // The pairing's two teams are INFERRED from the players placed, not chosen from
@@ -650,7 +657,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   }
 
   function openModal(slot, hole) {
-    if (readOnly) return // past trip — scorecard is view-only
+    if (readOnly || !isInPairing) return // past trip, or not a player in this pairing
     const tpId = slotMap[slot]; if (!tpId) return
     setModal({ tpId, hole, teamSide: slot <= 2 ? 'T1' : 'T2' })
   }
@@ -750,8 +757,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const st = strokesOnHole(sgOf(tpId), holes?.[hole - 1]?.handicap)
     const showDot = shownSet.has(tpId) && st >= 1
     const dc = getDrinks(tpId, hole)
-    // Read-only past trips: cells display scores but are not clickable (no entry).
-    if (readOnly) {
+    // Read-only when it's a past trip OR the viewer isn't a player in this pairing:
+    // cells display scores but aren't clickable and show no "+" entry affordance
+    // (matches the DB rule — only pairing members can write).
+    if (readOnly || !isInPairing) {
       return (
         <span className="sc-score-wrap">
           <button className={`sc-score ${cls}`} style={{ cursor: 'default' }} tabIndex={-1}>
