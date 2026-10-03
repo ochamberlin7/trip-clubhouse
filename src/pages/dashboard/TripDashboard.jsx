@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getActiveRound, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites } from '../../lib/scoring'
+import { getLiveRounds, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
@@ -1407,7 +1407,13 @@ export default function TripDashboard() {
   const [isCommissioner, setIsCommissioner] = useState(false)
   const [scoringInit, setScoringInit] = useState(null) // { roundId, pairingNum } — active round to auto-open
   const [scoreConnStatus, setScoreConnStatus] = useState('connecting') // realtime status from ScoringTab
-  const autoNavedRef = React.useRef(false)
+  // The live round we last auto-navigated the user to. Lets a background→resume
+  // redirect to a NEWLY-live round while NOT re-yanking someone who navigated away
+  // during the same round (redirect only fires when this changes).
+  const lastActiveRoundRef = React.useRef(null)
+  // Bumped on each auto-redirect so ScoringTab remounts to the new round/pairing
+  // even if the user is already sitting on the Score tab.
+  const [scoreNavTick, setScoreNavTick] = useState(0)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(null)
 
@@ -1420,6 +1426,14 @@ export default function TripDashboard() {
     }
     fetchAll()
   }, [activeTrip?.id, tripsLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Background→resume: recompute the live round/pairing from current state and
+  // redirect to a round that went live while the app was suspended. Reuses the
+  // shared resume hook (not a second mechanism); computeActiveScoring's
+  // lastActiveRoundRef guard prevents re-yanking within the same round.
+  useResumeRefetch(() => {
+    if (trip?.id && rounds.length) computeActiveScoring(rounds, players)
+  })
 
   async function devReset(trip, activeGroup) {
     const { data: roundRows } = await supabase.from('rounds').select('id').eq('trip_id', trip.id)
@@ -1456,7 +1470,7 @@ export default function TripDashboard() {
       const [roundsRes, playersRes, teamsRes, memberRes, mealsRes] = await Promise.all([
         // Calendar order (date asc); round_number only breaks ties within a day.
         supabase.from('rounds').select('*').eq('trip_id', tripData.id).order('date').order('round_number'),
-        supabase.from('trip_players').select('id, user_id, guest_name, handicap_index').eq('trip_id', tripData.id),
+        supabase.from('trip_players').select('id, user_id, claimed_user_id, guest_name, handicap_index').eq('trip_id', tripData.id),
         supabase.from('teams').select('*').eq('trip_id', tripData.id).order('team_index'),
         user?.id
           ? supabase.from('group_members').select('role').eq('group_id', tripData.group_id).eq('user_id', user.id).maybeSingle()
@@ -1518,27 +1532,37 @@ export default function TripDashboard() {
       ;(holesByRoundPlayer[k] ??= new Set()).add(sc.hole_number)
     })
 
-    const active = getActiveRound(roundList, { assignedByRound, holesByRoundPlayer })
+    // Live rounds right now, most-recently-started first.
+    const liveRounds = getLiveRounds(roundList, { assignedByRound, holesByRoundPlayer })
+
+    // The user's trip_player — matched by their account OR a claimed guest slot.
+    const myTp = rawPlayers.find(p => p.user_id === user?.id || p.claimed_user_id === user?.id)?.id
+    const myPairingIdFor = (roundId) => myTp
+      ? pp.find(x => x.trip_player_id === myTp && roundOfPairing[x.pairing_id] === roundId)?.pairing_id
+      : null
+
+    // Land each user on the round they ACTUALLY play: prefer the live round they
+    // have a pairing in (latest tee wins among several). Only fall back to the
+    // global live round for manual viewing — a non-playing commissioner/spectator
+    // (no pairing in any live round) is never auto-opened; they stay on Home.
+    let active = null, myPairingId = null, userInLive = false
+    for (const r of liveRounds) {
+      const pid = myPairingIdFor(r.id)
+      if (pid) { active = r; myPairingId = pid; userInLive = true; break }
+    }
+    if (!active) active = liveRounds[0] || null
     if (!active) { setScoringInit(null); return }
 
-    // The user's OWN pairing for the active round — resolved from their
-    // trip_player, never defaulted silently. Reused for the tee-time lookup, the
-    // scores check, and the landing pairing (scoringInit).
-    const myTp = rawPlayers.find(p => p.user_id === user?.id)?.id
-    const myPairingId = myTp
-      ? pp.find(x => x.trip_player_id === myTp && roundOfPairing[x.pairing_id] === active.id)?.pairing_id
-      : null
     const pairingNum = pairings.find(p => p.id === myPairingId)?.pairing_number || 1
     setScoringInit({ roundId: active.id, pairingNum })
 
-    // Auto-open Score if EITHER condition holds (else stay on Home):
-    //   1. TIME — we're ≥5 min past the user's own scheduled tee time (pairing N
-    //      tees off at tee_time_N, falling back to tee_time_1).
-    //   2. DATA — the user's OWN pairing has already entered at least one score,
-    //      even if the time window hasn't opened / a tee time isn't set. Scoped
-    //      to their pairing so another group teeing off first doesn't pull in a
-    //      user whose own group hasn't started. Reuses holesByRoundPlayer (built
-    //      above from the scores query) — no extra query.
+    // Auto-open Score ONLY for a user actually playing a live round. Open when it's
+    // underway for them — ≥5 min past their own tee time (tee_time_N, else _1), or
+    // their own pairing already has a score. On background→resume this re-runs; the
+    // lastActiveRoundRef guard means we redirect to a NEWLY-live round but don't
+    // re-yank someone who navigated away during the SAME round. The nav tick forces
+    // ScoringTab to remount onto the new round even if they're already on the tab.
+    if (!userInLive) return
     const teeStr = active[`tee_time_${pairingNum}`] || active.tee_time_1
     const teeMinutes = parseTeeTimeToMinutes(teeStr)
     const now = new Date()
@@ -1548,8 +1572,9 @@ export default function TripDashboard() {
     const myPairPlayers = myPairingId ? pp.filter(x => x.pairing_id === myPairingId).map(x => x.trip_player_id) : []
     const myPairingHasScores = myPairPlayers.some(tp => (holesByRoundPlayer[`${active.id}:${tp}`]?.size ?? 0) > 0)
 
-    if ((pastTeeThreshold || myPairingHasScores) && !autoNavedRef.current) {
-      autoNavedRef.current = true
+    if ((pastTeeThreshold || myPairingHasScores) && lastActiveRoundRef.current !== active.id) {
+      lastActiveRoundRef.current = active.id
+      setScoreNavTick(t => t + 1)
       setActiveTab('scores')
     }
   }
@@ -1663,7 +1688,7 @@ export default function TripDashboard() {
           keys must be UNIQUE among siblings — see the banner/drawer below) */}
       <div className="dashboard-content" key={`content-${trip.id}`}>
         {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} onOpenMenuPage={openMenuPage} onNavigateTab={setActiveTab} />}
-        {activeTab === 'scores'      && <ScoringTab trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
+        {activeTab === 'scores'      && <ScoringTab key={scoreNavTick} trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} meals={meals} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => sortRoundsByTee(rs.map(r => r.id === id ? { ...r, ...patch } : r)))} />}
