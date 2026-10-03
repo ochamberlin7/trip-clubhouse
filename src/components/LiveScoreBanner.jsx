@@ -115,6 +115,10 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
 
   const allowance = trip?.handicap_allowance ?? 100
   const isStandard = trip?.format === 'standard_match_play'
+  // Team lookup by id, so each pairing's two sides are resolved from its REAL
+  // team1_id/team2_id (the tally carries them) — never a fixed teams[0]/teams[1]
+  // order, which is wrong whenever a pairing's sides are flipped.
+  const teamById = useMemo(() => Object.fromEntries((teams || []).map(t => [t.id, t])), [teams])
 
   // Today's local date, for the round-selection priority (any round type).
   const todayISO = todayIsoLocal()
@@ -308,9 +312,6 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   if (!beforeNine || !round || !anyHolesScored) return null
   if (selectedComplete && !inTripWindow) return null
 
-  const n1 = getTeamDisplayName(teams?.[0]) || 'Team 1'
-  const n2 = getTeamDisplayName(teams?.[1]) || 'Team 2'
-
   const visibleRows = tallies.filter(t => t.hasMatch)
 
   return (
@@ -323,11 +324,18 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       </div>
       <div className="match-banner-rows">
         {visibleRows.map(t => {
+          // Resolve THIS pairing's two sides from its real team ids (slots 1&2 =
+          // team1_id, slots 3&4 = team2_id). Fall back to the global order only for a
+          // legacy pairing with null team ids. side 0 → team1, side 1 → team2.
+          const team1 = teamById[t.team1_id] ?? teams?.[0]
+          const team2 = teamById[t.team2_id] ?? teams?.[1]
+          const n1 = getTeamDisplayName(team1) || 'Team 1'
+          const n2 = getTeamDisplayName(team2) || 'Team 2'
           const st = isStandard ? standardStatus(t, n1, n2) : pointsSummary(t, n1, n2)
           return (
             <div className="match-banner-row" key={t.pairingNumber}>
               <span className="match-banner-pair-label">Pairing {t.pairingNumber}</span>
-              <span className="match-banner-status" style={{ color: statusColor(st.side, teams) }}>{st.text}</span>
+              <span className="match-banner-status" style={{ color: statusColor(st.side, [team1, team2]) }}>{st.text}</span>
               <span className="match-banner-thru">{st.thru}</span>
             </div>
           )
