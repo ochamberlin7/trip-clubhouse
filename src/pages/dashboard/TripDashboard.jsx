@@ -880,6 +880,8 @@ function PrinceOfWalesLeaderboard({ trip, teams, rounds }) {
   const [teeRowMap, setTeeRowMap] = useState({})
   const [playersByTeam, setPlayersByTeam] = useState({})
   const [hcpByPlayer, setHcpByPlayer] = useState({})
+  const [pairings, setPairings] = useState([])
+  const [pairingPlayers, setPairingPlayers] = useState([])
   const [mode, setMode] = useState('net') // Gross/Net toggle — defaults to Net
   // Bumped on background→resume to re-run load+subscribe (see PointsLeaderboard).
   const [resumeTick, setResumeTick] = useState(0)
@@ -919,8 +921,23 @@ function PrinceOfWalesLeaderboard({ trip, teams, rounds }) {
       ;(data || []).forEach(tp => { hcp[tp.id] = tp.handicap_index; if (tp.team_id) (byTeam[tp.team_id] ??= []).push(tp.id) })
       setPlayersByTeam(byTeam); setHcpByPlayer(hcp)
     }
+    // Pairings drive the Net composite's shots-off-the-low (same as the scorecard).
+    async function loadPairings() {
+      if (!roundIds.length) { setPairings([]); setPairingPlayers([]); return }
+      const { data: pairs } = await supabase.from('pairings').select('id, round_id').in('round_id', roundIds)
+      if (cancelled) return
+      const pairList = pairs || []
+      const pairIds = pairList.map(p => p.id)
+      let pp = []
+      if (pairIds.length) {
+        const { data } = await supabase.from('pairing_players').select('pairing_id, trip_player_id').in('pairing_id', pairIds)
+        pp = data || []
+      }
+      if (cancelled) return
+      setPairings(pairList); setPairingPlayers(pp)
+    }
 
-    loadPlayers(); loadScores(); loadTees()
+    loadPlayers(); loadScores(); loadTees(); loadPairings()
 
     // Live: recompute as scores are entered/edited, tees change, or players move teams.
     const ch = supabase.channel(uniqueChannelName(`pow-lb:${roundKey}`))
@@ -933,14 +950,19 @@ function PrinceOfWalesLeaderboard({ trip, teams, rounds }) {
         if (rid && roundIds.includes(rid)) loadTees()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${trip.id}` }, () => loadPlayers())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pairings' }, payload => {
+        const rid = payload.new?.round_id ?? payload.old?.round_id
+        if (rid && roundIds.includes(rid)) loadPairings()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => loadPairings())
       .subscribe()
 
     return () => { cancelled = true; supabase.removeChannel(ch) }
   }, [trip?.id, roundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const composites = useMemo(
-    () => princeOfWalesComposites({ rounds: powRounds, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer }, allowance),
-    [roundKey, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer, allowance] // eslint-disable-line react-hooks/exhaustive-deps
+    () => princeOfWalesComposites({ rounds: powRounds, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer, pairings, pairingPlayers }, allowance),
+    [roundKey, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer, pairings, pairingPlayers, allowance] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   // Persist the latest composite per team for later reference (archives). Best-

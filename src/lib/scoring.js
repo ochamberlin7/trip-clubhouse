@@ -303,21 +303,51 @@ export function matchHoleOutcomes({ roundId, t1Players = [], t2Players = [], sho
 // simply never contributes past its own hole count. An unscored slot stays null and
 // is not counted in the total.
 //
+// NET uses the SAME per-pairing shots-off-the-low strokes the scorecard dots and the
+// match-play tallies use — NOT the absolute playing handicap. Each player's strokes
+// come from pairingShots over their pairing group (slots 1..4) for that round, so the
+// lowest handicap in the group plays off scratch. This is the only correct basis: an
+// absolute playing handicap over-allocates (it never subtracts the group's low) and
+// is meaningless on a short course whose rating/par inflates every course handicap
+// (e.g. The Dozen: 12 holes, rating 62.1 vs par 42). Shots-off-the-low cancels that
+// offset; absolute handicaps don't. A player not found in any pairing for a round
+// falls back to 0 strokes (scratch) rather than an inflated absolute figure.
+//
 // ctx: {
-//   rounds:        already filtered to the included (tournament) rounds; each needs
-//                  holes[] (for stroke index) + tee/par fields resolvePlayerTee reads,
-//   teams:         [{ id, ... }],
-//   playersByTeam: { [teamId]: [tripPlayerId, ...] },
-//   scoresMap:     { `${roundId}:${tpId}:${hole}`: gross },
-//   teeRowMap:     { `${roundId}:${tpId}`: player_rounds row } (for per-player tees),
-//   hcpByPlayer:   { [tpId]: handicap_index },
+//   rounds:         already filtered to the included (tournament) rounds; each needs
+//                   holes[] (for stroke index) + tee/par fields resolvePlayerTee reads,
+//   teams:          [{ id, ... }],
+//   playersByTeam:  { [teamId]: [tripPlayerId, ...] },
+//   scoresMap:      { `${roundId}:${tpId}:${hole}`: gross },
+//   teeRowMap:      { `${roundId}:${tpId}`: player_rounds row } (for per-player tees),
+//   hcpByPlayer:    { [tpId]: handicap_index },
+//   pairings:       [{ id, round_id, ... }]            — for shots-off-low grouping,
+//   pairingPlayers: [{ pairing_id, trip_player_id }],
 // }
 // Returns Map teamId -> { gross:[18], net:[18], grossTotal, netTotal, anyScored }
 // where each cell is a number or null.
 export function princeOfWalesComposites(ctx, globalAllowance = 100) {
-  const { rounds = [], teams = [], playersByTeam = {}, scoresMap = {}, teeRowMap = {}, hcpByPlayer = {} } = ctx || {}
+  const { rounds = [], teams = [], playersByTeam = {}, scoresMap = {}, teeRowMap = {}, hcpByPlayer = {}, pairings = [], pairingPlayers = [] } = ctx || {}
   const SLOTS = 18
-  const phCache = new Map() // `${roundId}:${tpId}` -> playing handicap (computed once)
+
+  // Per-round shots-off-the-low, keyed `${roundId}:${tpId}` -> shots given. Computed
+  // ONCE per pairing via the shared pairingShots (the same path the scorecard dots
+  // use), so the Net composite allocates strokes identically.
+  const ppByPairing = new Map()
+  for (const pp of pairingPlayers) {
+    if (!ppByPairing.has(pp.pairing_id)) ppByPairing.set(pp.pairing_id, [])
+    ppByPairing.get(pp.pairing_id).push(pp.trip_player_id)
+  }
+  const roundById = new Map(rounds.map(r => [r.id, r]))
+  const shotsMap = new Map()
+  for (const pairing of pairings) {
+    const r = roundById.get(pairing.round_id)
+    if (!r) continue
+    const ids = (ppByPairing.get(pairing.id) || []).filter(Boolean)
+    if (!ids.length) continue
+    const shots = pairingShots(r, ids, id => hcpByPlayer[id], id => teeRowMap[`${r.id}:${id}`], globalAllowance)
+    for (const [id, s] of shots) shotsMap.set(`${r.id}:${id}`, s)
+  }
   const out = new Map()
 
   for (const team of teams) {
@@ -329,19 +359,14 @@ export function princeOfWalesComposites(ctx, globalAllowance = 100) {
       const holeCount = Array.isArray(r?.holes) && r.holes.length ? r.holes.length : (r?.number_of_holes || SLOTS)
       const upto = Math.min(SLOTS, holeCount)
       for (const tpId of members) {
-        const key = `${r.id}:${tpId}`
-        let ph = phCache.get(key)
-        if (ph === undefined) {
-          ph = playingHandicapForRound(r, teeRowMap[key], hcpByPlayer[tpId], globalAllowance)
-          phCache.set(key, ph)
-        }
+        const shots = shotsMap.get(`${r.id}:${tpId}`) ?? 0
         for (let h = 1; h <= upto; h++) {
           const g = scoresMap[`${r.id}:${tpId}:${h}`]
           if (g == null) continue
           const idx = h - 1
           if (gross[idx] == null || g < gross[idx]) gross[idx] = g
-          const si = r?.holes?.[idx]?.handicap
-          const n = netScore(g, ph, si)
+          const si = strokeIndexOfHole(r?.holes?.[idx])
+          const n = netScore(g, shots, si)
           if (n != null && (net[idx] == null || n < net[idx])) net[idx] = n
         }
       }
