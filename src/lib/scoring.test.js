@@ -100,13 +100,20 @@ test('Prince of Wales composite: lowest per hole-slot across rounds+teammates, g
     'R1:A': { slope: 113, rating: null, par: null }, 'R1:B': { slope: 113, rating: null, par: null },
     'R2:A': { slope: 113, rating: null, par: null }, 'R2:B': { slope: 113, rating: null, par: null },
   }
+  // A & B share a pairing each round; shots-off-the-low within {A:0, B:9} → A 0, B 9
+  // (same stroke allocation the scorecard dots use).
+  const pairings = [{ id: 'P1', round_id: 'R1' }, { id: 'P2', round_id: 'R2' }]
+  const pairingPlayers = [
+    { pairing_id: 'P1', trip_player_id: 'A' }, { pairing_id: 'P1', trip_player_id: 'B' },
+    { pairing_id: 'P2', trip_player_id: 'A' }, { pairing_id: 'P2', trip_player_id: 'B' },
+  ]
   const scoresMap = {
     'R1:A:1': 5, 'R1:B:1': 5,   // slot 1: gross 5; B nets 4 (stroke on SI1)
     'R1:A:2': 4, 'R1:B:2': 4,   // slot 2: gross 4; B nets 3 (stroke on SI2)
     'R2:A:1': 3,                // slot 1 again, lower gross across rounds
   }
   const comp = princeOfWalesComposites(
-    { rounds, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer }, 100,
+    { rounds, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer, pairings, pairingPlayers }, 100,
   ).get('T1')
 
   assert.equal(comp.gross[0], 3, 'slot 1 gross = lowest across both rounds')
@@ -117,6 +124,44 @@ test('Prince of Wales composite: lowest per hole-slot across rounds+teammates, g
   assert.equal(comp.grossTotal, 7, 'total sums only scored cells (3 + 4)')
   assert.equal(comp.netTotal, 6, 'net total (3 + 3)')
   assert.equal(comp.anyScored, true)
+})
+
+test('Prince of Wales NET uses per-pairing shots-off-the-low, not the absolute playing handicap', () => {
+  // Regression for the live-trip bug: the Net composite gave every player their full
+  // ABSOLUTE playing handicap, which (a) never subtracts the pairing's low and (b) is
+  // wildly inflated on a short course whose rating ≫ par. Here "The Dozen" is 12 holes
+  // with rating 62 vs par 42 → a +20 offset on every course handicap. Owen (HI 6) and
+  // Nate (HI 16) are teammates in one pairing; both shoot par (3) on every hole.
+  //   raw CH: Owen 6+20=26, Nate 16+20=36  → absolute playing 26 / 36.
+  //   shots-off-the-low within the pairing: Owen 0, Nate 10 (the +20 cancels out).
+  // On the SI-1 hole: absolute would give Owen strokesOnHole(26,1)=2 → net 1 (the bug's
+  // stray 1s). Shots-off-low gives Owen 0 → net 3, Nate 10 → net 2; the team's best is 2.
+  const holes = Array.from({ length: 12 }, (_, i) => ({ par: 3, handicap: i + 1 }))
+  const rounds = [{ id: 'Dozen', round_type: 'tournament', holes, number_of_holes: 12 }]
+  const teams = [{ id: 'T1' }]
+  const playersByTeam = { T1: ['Owen', 'Nate'] }
+  const hcpByPlayer = { Owen: 6, Nate: 16 }
+  const teeRowMap = {
+    'Dozen:Owen': { slope: 113, rating: 62, par: 42 },
+    'Dozen:Nate': { slope: 113, rating: 62, par: 42 },
+  }
+  const pairings = [{ id: 'P1', round_id: 'Dozen' }]
+  const pairingPlayers = [
+    { pairing_id: 'P1', trip_player_id: 'Owen' },
+    { pairing_id: 'P1', trip_player_id: 'Nate' },
+  ]
+  const scoresMap = {}
+  for (let h = 1; h <= 12; h++) { scoresMap[`Dozen:Owen:${h}`] = 3; scoresMap[`Dozen:Nate:${h}`] = 3 }
+
+  const comp = princeOfWalesComposites(
+    { rounds, teams, playersByTeam, scoresMap, teeRowMap, hcpByPlayer, pairings, pairingPlayers }, 100,
+  ).get('T1')
+
+  assert.equal(comp.gross[0], 3, 'gross is unchanged (best raw score)')
+  assert.equal(comp.net[0], 2, 'SI-1 net = 2 (Nate nets 2 off 10 shots); NOT 1 (the absolute-handicap bug)')
+  assert.equal(comp.net[10], 3, 'SI-11 hole: neither player gets a stroke off the low → net = par 3')
+  // Whole-card: holes SI 1..10 net 2 (Nate strokes), SI 11..12 net 3 → 10×2 + 2×3 = 26.
+  assert.equal(comp.netTotal, 26, 'net total reflects shots-off-low, not the inflated absolute handicap')
 })
 
 test('Prince of Wales: a team with no scores has blank cells and a zero/dash total', () => {
