@@ -133,19 +133,46 @@ export function scheduleRoundState(round, ctx, todayIso, nowMinutes) {
   return 'live'
 }
 
-// Every round "live" right now — today's date, not yet complete, and at or past
-// (tee_time_1 − 30 min) — ordered most-recently-started first (latest tee time).
-// Used to land each user on the round they're actually playing; `getActiveRound`
-// is just the first of these. ctx matches isRoundComplete's needs.
+// Any score at all recorded for a round (regardless of hole count). Used ONLY to
+// decide liveness when tee_time_1 is missing — the tee is then UNKNOWN, so a round is
+// "in play" only once scoring has actually begun. ctx carries the same maps as
+// isRoundComplete ({ assignedByRound, holesByRoundPlayer }).
+export function roundHasAnyScore(roundId, ctx) {
+  const assigned = ctx?.assignedByRound?.[roundId]
+  if (!assigned) return false
+  for (const tp of assigned) {
+    if ((ctx.holesByRoundPlayer?.[`${roundId}:${tp}`]?.size ?? 0) > 0) return true
+  }
+  return false
+}
+
+// THE single live-window test — the one source of truth for "is this round in play
+// right now". A round is live when it's dated today (trip-local), not yet complete,
+// and we're at or past (tee_time_1 − 30 min). `todayIso` and `nowMinutes` are the
+// TRIP-local today / minutes-past-midnight the CALLER computes (so the time zone is
+// explicit). A MISSING tee_time_1 is UNKNOWN, NOT "live from midnight": with no tee
+// time the round is live only once it already has a score today (and isn't complete).
+// ctx matches isRoundComplete's needs ({ assignedByRound, holesByRoundPlayer,
+// holeCountByRound? }). Both getLiveRounds and getTripPhase go through here.
+export function isRoundLiveAt(round, ctx, todayIso, nowMinutes) {
+  if (!round || round.date !== todayIso) return false
+  if (isRoundComplete(round.id, ctx?.assignedByRound || {}, ctx?.holesByRoundPlayer || {}, ctx?.holeCountByRound)) return false
+  const tee = parseTeeTimeToMinutes(round.tee_time_1)
+  if (tee > 0) return nowMinutes >= tee - 30
+  return roundHasAnyScore(round.id, ctx)
+}
+
+// Every round "live" right now — ordered most-recently-started first (latest tee
+// time). A thin wrapper over the shared isRoundLiveAt window (no second copy of the
+// logic). Computes today/now from the phone's clock, exactly as before. Used to land
+// each user on the round they're actually playing; `getActiveRound` is the first.
 export function getLiveRounds(rounds, ctx) {
   const now = new Date()
   const todayISO = now.toISOString().split('T')[0]
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   return (rounds || [])
-    .filter(r => r.date === todayISO)
-    .filter(r => !isRoundComplete(r.id, ctx.assignedByRound, ctx.holesByRoundPlayer, ctx.holeCountByRound))
+    .filter(r => isRoundLiveAt(r, ctx, todayISO, nowMinutes))
     .map(r => ({ r, tee: parseTeeTimeToMinutes(r.tee_time_1) }))
-    .filter(x => nowMinutes >= x.tee - 30)
     .sort((a, b) => b.tee - a.tee) // latest tee first = most recently started
     .map(x => x.r)
 }
@@ -154,6 +181,132 @@ export function getLiveRounds(rounds, ctx) {
 // wrapper over getLiveRounds for callers that only want one.
 export function getActiveRound(rounds, ctx) {
   return getLiveRounds(rounds, ctx)[0] || null
+}
+
+// ── Trip phase: the ONE answer to "where are we in the trip right now?" ───────────
+// Several features (default screen on open, no-current-trip landing, Home banner,
+// live banner) all need the same classification. This computes it ONCE, from facts
+// only — it does NOT decide which screen to show (routing policy lives elsewhere).
+//
+// Practice rounds (no_scoring): they have no scores, so a practice round is complete
+// once its date is before today; on its own day it is upcoming until its tee time and
+// then "in play" for PRACTICE_LIVE_MINUTES (5h), after which it reads as completed. A
+// practice round with no tee time never auto-reads as live (there are no scores to
+// detect). It still counts as a round for phase purposes.
+const PRACTICE_LIVE_MINUTES = 5 * 60
+
+// Minutes-past-midnight treating a missing tee as "end of list" (Infinity).
+function teeSortMinutes(round) {
+  const t = parseTeeTimeToMinutes(round?.tee_time_1)
+  return t > 0 ? t : Infinity
+}
+function byDateThenTee(a, b) {
+  const da = String(a?.date || ''), db = String(b?.date || '')
+  if (da !== db) return da < db ? -1 : 1
+  return teeSortMinutes(a) - teeSortMinutes(b)
+}
+
+// Parse a 'YYYY-MM-DD' date-only string to a UTC midnight epoch (for whole-day diffs
+// that are immune to DST). Returns null when absent/malformed.
+function isoDateToUTC(iso) {
+  const m = typeof iso === 'string' && iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+}
+
+// The trip-local date ('YYYY-MM-DD') and minutes-past-midnight for an instant, in the
+// given IANA zone. timeZone is REQUIRED/explicit — this never reads the phone's zone
+// itself; when it is undefined the JS runtime zone is used by Intl (the documented
+// "callers pass the phone zone for now" path). 'en-CA' formats as YYYY-MM-DD.
+function zonedTodayAndMinutes(now, timeZone) {
+  const dtf = new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  })
+  const parts = {}
+  for (const p of dtf.formatToParts(now)) parts[p.type] = p.value
+  return { todayIso: `${parts.year}-${parts.month}-${parts.day}`, nowMinutes: Number(parts.hour) * 60 + Number(parts.minute) }
+}
+
+// getTripPhase — FACTS about where the trip is right now. See phase values below.
+//   trip:            { start_date, end_date } (DATE strings) or null,
+//   rounds:          round rows (date, tee_time_1, round_type, no_scoring, …),
+//   now:             a Date instant (defaults to real now),
+//   timeZone:        IANA zone name (e.g. 'America/Detroit'); explicit, never read here,
+//   holeCountByRound: optional roundId -> hole count, passed straight to isRoundComplete
+//                     (18-hole default preserved — hole-count handling is NOT changed here),
+//   completeness:    EITHER a predicate (round) => isFullyScored, OR the ctx maps
+//                    { assignedByRound, holesByRoundPlayer } the rest of the app builds.
+// Returns { phase, dayNumber, totalDays, todaysRounds, liveRound, nextRound,
+//           lastCompletedRound, hasRoundsToday }.
+export function getTripPhase({ trip, rounds = [], now = new Date(), timeZone, holeCountByRound, completeness } = {}) {
+  const EMPTY = { dayNumber: null, totalDays: null, todaysRounds: [], liveRound: null, nextRound: null, lastCompletedRound: null, hasRoundsToday: false }
+  if (!trip) return { phase: 'no-trip', ...EMPTY }
+
+  const { todayIso, nowMinutes } = zonedTodayAndMinutes(now, timeZone)
+
+  // Completeness delegates to the EXISTING check (no second copy). A predicate is used
+  // as-is; the ctx-maps form routes through isRoundComplete. hasScore (for the missing-
+  // tee liveness rule) is only knowable from the ctx-maps form.
+  const completenessIsFn = typeof completeness === 'function'
+  const ctx = completenessIsFn ? null : (completeness || {})
+  const isScored = (round) => completenessIsFn
+    ? !!completeness(round)
+    : isRoundComplete(round.id, ctx.assignedByRound || {}, ctx.holesByRoundPlayer || {}, holeCountByRound)
+  const hasScore = (round) => completenessIsFn ? false : roundHasAnyScore(round.id, ctx)
+
+  // Per-round state: 'completed' | 'live' | 'upcoming'.
+  function stateOf(round) {
+    const date = round.date || null
+    if (isPracticeRound(round)) {
+      if (date && date < todayIso) return 'completed'
+      if (date && date > todayIso) return 'upcoming'
+      const tee = parseTeeTimeToMinutes(round.tee_time_1)
+      if (tee <= 0) return 'upcoming'                       // no tee: never auto-live (no scores)
+      if (nowMinutes < tee) return 'upcoming'
+      if (nowMinutes < tee + PRACTICE_LIVE_MINUTES) return 'live'
+      return 'completed'                                    // its window has passed
+    }
+    if (isScored(round)) return 'completed'                 // fully scored, any day
+    if (date && date < todayIso) return 'completed'         // past day is over
+    if (date && date > todayIso) return 'upcoming'          // future day
+    const tee = parseTeeTimeToMinutes(round.tee_time_1)     // today, not yet scored
+    if (tee > 0) return nowMinutes >= tee - 30 ? 'live' : 'upcoming'
+    return hasScore(round) ? 'live' : 'upcoming'            // missing tee → live only once play began
+  }
+
+  // Real rounds only — 'none' placeholders ("not decided yet") are not rounds.
+  const real = (rounds || []).filter(r => r && !isNoneRound(r))
+  const todaysRounds = real.filter(r => r.date === todayIso).slice().sort((a, b) => teeSortMinutes(a) - teeSortMinutes(b))
+  const hasRoundsToday = todaysRounds.length > 0
+
+  const liveRound = todaysRounds.filter(r => stateOf(r) === 'live').sort((a, b) => teeSortMinutes(b) - teeSortMinutes(a))[0] || null
+  const nextRound = real.filter(r => r.date && r.date >= todayIso && stateOf(r) === 'upcoming').sort(byDateThenTee)[0] || null
+  const completedRounds = real.filter(r => stateOf(r) === 'completed').sort(byDateThenTee)
+  const lastCompletedRound = completedRounds[completedRounds.length - 1] || null
+
+  // dayNumber / totalDays from the trip's start+end (inclusive). Both null when the
+  // trip has no dates — never guessed. dayNumber is null when today is outside the trip.
+  const startUTC = isoDateToUTC(trip.start_date)
+  const endUTC = isoDateToUTC(trip.end_date)
+  const totalDays = (startUTC != null && endUTC != null) ? Math.max(0, Math.round((endUTC - startUTC) / 86400000) + 1) : null
+  const todayUTC = isoDateToUTC(todayIso)
+  const insideTrip = startUTC != null && endUTC != null && todayUTC >= startUTC && todayUTC <= endUTC
+  const dayNumber = insideTrip ? Math.round((todayUTC - startUTC) / 86400000) + 1 : null
+
+  // Phase. Trip-level before/after wins; then today's rounds decide the rest.
+  let phase
+  if (trip.start_date && todayIso < trip.start_date) phase = 'before-trip'
+  else if (trip.end_date && todayIso > trip.end_date) phase = 'after-trip'
+  else if (!hasRoundsToday) phase = 'no-round-day'
+  else {
+    const states = todaysRounds.map(stateOf)
+    if (states.includes('live')) phase = 'round-live'
+    else if (states.every(s => s === 'upcoming')) phase = 'before-first-tee'
+    else if (states.every(s => s === 'completed')) phase = 'after-last-round'
+    else phase = 'between-rounds' // mix of completed + upcoming, none live
+  }
+
+  return { phase, dayNumber, totalDays, todaysRounds, liveRound, nextRound, lastCompletedRound, hasRoundsToday }
 }
 
 // Raw course handicap: handicap_index * (slope / 113), rounded.
