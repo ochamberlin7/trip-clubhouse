@@ -283,3 +283,74 @@ function require_shots(hcp) {
   const entries = Object.entries(hcp).map(([id, idx]) => ({ id, ch: idx }))
   return shotsGivenFromCourseHandicaps(entries, 100)
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Schedule & Courses tab: the shared completeness helper (scheduleRoundState) and
+// the hole-count-aware isRoundComplete. These classify a round as completed / live
+// / upcoming for the tab's shading + post-round handicap reveal. The helper is pure:
+// the caller injects the trip-local todayIso + nowMinutes, so a day boundary in a
+// zone other than the phone's is testable (the app stores no trip time zone).
+import { scheduleRoundState, roundHoleCount, isRoundComplete, isPracticeRound } from './scoring.js'
+
+// Build { assignedByRound, holesByRoundPlayer } for one round where every listed
+// player has scored `holesEach` holes (1..holesEach).
+function completionCtx(roundId, players, holesEach) {
+  const assignedByRound = { [roundId]: new Set(players) }
+  const holesByRoundPlayer = {}
+  for (const p of players) {
+    const set = new Set()
+    for (let h = 1; h <= holesEach; h++) set.add(h)
+    holesByRoundPlayer[`${roundId}:${p}`] = set
+  }
+  return { assignedByRound, holesByRoundPlayer }
+}
+
+test('roundHoleCount honours the round’s own holes; isRoundComplete uses it (The Dozen = 12)', () => {
+  assert.equal(roundHoleCount({ number_of_holes: 12 }), 12)
+  assert.equal(roundHoleCount({ holes: new Array(12).fill({ par: 4 }) }), 12)
+  assert.equal(roundHoleCount({}), 18) // last-resort default only
+  const ctx = completionCtx('D', ['p1', 'p2'], 12)
+  // 12 scored holes is NOT complete against the default 18…
+  assert.equal(isRoundComplete('D', ctx.assignedByRound, ctx.holesByRoundPlayer), false)
+  // …but IS complete against the round's own 12.
+  assert.equal(isRoundComplete('D', ctx.assignedByRound, ctx.holesByRoundPlayer, { D: 12 }), true)
+})
+
+test('scheduleRoundState: a 12-hole round completes at 12 holes, not 18', () => {
+  const dozen = { id: 'D', date: '2026-07-01', round_type: 'tournament', number_of_holes: 12 }
+  const full = completionCtx('D', ['p1', 'p2'], 12)
+  assert.equal(scheduleRoundState(dozen, full, '2026-07-01', 14 * 60), 'completed')
+  // One hole short → not complete; on its own day it is still live, not completed.
+  const partial = completionCtx('D', ['p1', 'p2'], 11)
+  assert.equal(scheduleRoundState(dozen, partial, '2026-07-01', 14 * 60), 'live')
+})
+
+test('scheduleRoundState: a practice round is completed only once its day is past', () => {
+  const prac = { id: 'P', date: '2026-07-01', round_type: 'practice' }
+  assert.ok(isPracticeRound(prac))
+  assert.equal(scheduleRoundState(prac, {}, '2026-07-02', 8 * 60), 'completed') // day after
+  assert.equal(scheduleRoundState(prac, {}, '2026-07-01', 8 * 60), 'live')      // same day
+  assert.equal(scheduleRoundState(prac, {}, '2026-06-30', 8 * 60), 'upcoming')  // day before
+  // A no_scoring round behaves like a practice round.
+  assert.equal(scheduleRoundState({ id: 'P2', date: '2026-07-01', no_scoring: true }, {}, '2026-07-02', 0), 'completed')
+})
+
+test('scheduleRoundState: day boundary uses the trip-local date it is given, not the phone', () => {
+  // Trip is in Michigan (Eastern); viewer is in Phoenix. At 00:30 ET on Jul 2 the
+  // phone in Phoenix still reads 21:30 on Jul 1 — a day behind the trip. Given the
+  // trip-local date, a Jul 1 round is correctly completed; given the phone's date it
+  // is not yet. Proves the classification follows the injected (trip) date.
+  const round = { id: 'R', date: '2026-07-01', round_type: 'practice' }
+  assert.equal(scheduleRoundState(round, {}, '2026-07-02', 30), 'completed')          // trip-local (ET)
+  assert.equal(scheduleRoundState(round, {}, '2026-07-01', 21 * 60 + 30), 'live')     // phone (Phoenix)
+})
+
+test('scheduleRoundState: a not-yet-started round is upcoming', () => {
+  const future = { id: 'F', date: '2026-07-05', round_type: 'tournament', number_of_holes: 18, tee_time_1: '9:00 AM' }
+  assert.equal(scheduleRoundState(future, {}, '2026-07-01', 8 * 60), 'upcoming')
+  // Today, but before (tee − 30): 8:00 AM is before the 8:30 cutoff for a 9:00 tee.
+  const today = { id: 'T', date: '2026-07-01', round_type: 'tournament', number_of_holes: 18, tee_time_1: '9:00 AM' }
+  assert.equal(scheduleRoundState(today, {}, '2026-07-01', 8 * 60), 'upcoming')
+  // Past the cutoff (8:45) and not yet scored → live.
+  assert.equal(scheduleRoundState(today, {}, '2026-07-01', 8 * 60 + 45), 'live')
+})

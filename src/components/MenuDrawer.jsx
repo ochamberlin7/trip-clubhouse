@@ -9,7 +9,7 @@ import CourseScanFlow from './CourseScanFlow'
 import { roundToReview } from '../lib/scanCourse'
 import { getCourseDetails } from '../lib/courseApi'
 import { teamPillStyle, teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
-import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes, sortRoundsByTee, effectiveAllowance } from '../lib/scoring'
+import { rawCourseHandicapForTee, resolvePlayerTee, tournamentFormatLabel, parseTeeTimeToMinutes, sortRoundsByTee, effectiveAllowance, pairingShots, roundHoleCount, scheduleRoundState, isPracticeRound } from '../lib/scoring'
 import { hasBonusGame } from '../lib/bonusGames'
 import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
@@ -638,7 +638,12 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   // same tracks and each column is a straight vertical line, regardless of the
   // Tee dropdown's or a number's rendered width. Player takes the slack; the four
   // numeric columns are compact + right-aligned.
-  const grid = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 56px 38px 32px 32px 30px', alignItems: 'center', gap: 6 }
+  // Absolute Course/Playing handicaps are hidden on non-18-hole rounds: a short
+  // course's rating-vs-par gap inflates them by ~20 (The Dozen's 62.1 vs par 42 turns
+  // a 6.4 into a 26). Shots-off-the-low cancels that offset, so those rounds show tee +
+  // shots only. 18-hole rounds are unaffected and keep the full Idx / CH / PH / SO set.
+  const show18 = roundHoleCount(round) === 18
+  const grid = { display: 'grid', gridTemplateColumns: show18 ? 'minmax(0, 1fr) 56px 38px 32px 32px 30px' : 'minmax(0, 1fr) 56px 38px 30px', alignItems: 'center', gap: 6 }
   const numCell = { fontSize: 13, textAlign: 'right' }
   const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
   const muted = { color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
@@ -741,8 +746,8 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                 <span style={headCell}>Player</span>
                 <span style={headCell}>Tee</span>
                 <span style={{ ...headCell, textAlign: 'right' }}>Idx</span>
-                <span style={{ ...headCell, textAlign: 'right' }}>CH</span>
-                <span style={{ ...headCell, textAlign: 'right' }}>PH</span>
+                {show18 && <span style={{ ...headCell, textAlign: 'right' }}>CH</span>}
+                {show18 && <span style={{ ...headCell, textAlign: 'right' }}>PH</span>}
                 <span style={{ ...headCell, textAlign: 'right' }}>SO</span>
               </div>
               {orderedRows.map((r, i) => (
@@ -763,8 +768,8 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                     <span style={{ fontSize: 12, color: '#7A8FA6' }}>{r.teeName ?? round.tee_name ?? '—'}</span>
                   )}
                   <span style={{ ...numCell, color: r.idx == null ? '#7A8FA6' : '#2C3E50' }}>{r.idx ?? 'TBD'}</span>
-                  <span style={{ ...numCell, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>
-                  <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{r.playing ?? '—'}</span>
+                  {show18 && <span style={{ ...numCell, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>}
+                  {show18 && <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{r.playing ?? '—'}</span>}
                   <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{r.shotsOff ?? '—'}</span>
                 </div>
               ))}
@@ -772,6 +777,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                 {round.handicap_allowance != null
                   ? `Allowance: ${alw}% (course override)`
                   : (allowance == null ? 'Allowance: 100% (default)' : `Allowance: ${alw}%`)}
+                {!show18 && ' · CH/PH hidden on short rounds (inflated); SO = strokes received'}
               </div>
             </>
           )}
@@ -950,9 +956,15 @@ const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: '#7A8FA6' }
 // One golf round: unchanged content (name, rating/slope, location, par) plus the
 // new bottom toolbar (Handicaps · Tournament · Edit). Own hcOpen state so the
 // Handicaps pill toggles the handicaps table below.
-function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, lockReason, onEditCourse, onRoundTypeChange, onChangePlayerTee, onEditName }) {
+function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, lockReason, muted = false, showRecap = false, roundPairings = [], playersById = {}, onEditCourse, onRoundTypeChange, onChangePlayerTee, onEditName }) {
   const [hcOpen, setHcOpen] = useState(false)
-  const entryStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: roundIndex === roundCount - 1 ? 0 : 10 }
+  // Completed rounds read muted (lower emphasis) so live/upcoming rounds stand out —
+  // but stay fully tappable (not disabled), so the handicap recap still opens.
+  const entryStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: roundIndex === roundCount - 1 ? 0 : 10, ...(muted ? { opacity: 0.62 } : null) }
+  // Tee times, same source + plain string values Home's "Today's tee times" shows
+  // (tee_time_1…5 are already stored as trip-local display strings, no conversion).
+  // Nothing renders when a round has no tee time set.
+  const teeTimes = ['tee_time_1', 'tee_time_2', 'tee_time_3', 'tee_time_4', 'tee_time_5'].map(c => r[c]).filter(Boolean)
   return (
     <div style={entryStyle}>
       {roundCount > 1 && <div style={roundNumLabel}>Round {roundIndex + 1}</div>}
@@ -974,7 +986,10 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
       </div>
       <div style={{ paddingTop: 8 }}>
         <div style={cdRow(false)}><span style={cdLabel}>Location</span><span style={cdValue}>{locationText(r)}</span></div>
-        <div style={cdRow(true)}><span style={cdLabel}>Par</span><span style={cdValue}>{parText(r)}</span></div>
+        <div style={cdRow(teeTimes.length === 0)}><span style={cdLabel}>Par</span><span style={cdValue}>{parText(r)}</span></div>
+        {teeTimes.length > 0 && (
+          <div style={cdRow(true)}><span style={cdLabel}>Tee Times</span><span style={cdValue}>{teeTimes.join(' / ')}</span></div>
+        )}
       </div>
       <div style={toolbarRowStyle}>
         <button style={{ ...toolbarPillStyle, ...(hcOpen ? { background: '#1B3F6E', color: '#fff' } : null) }} onClick={() => setHcOpen(o => !o)}><IconHandicaps />Handicaps</button>
@@ -982,6 +997,65 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
         {isCommissioner && <EditCourseButton round={r} locked={locked} lockReason={lockReason} onEditCourse={onEditCourse} />}
       </div>
       <HandicapCalculator round={r} players={calcPlayers} allowance={allowance} playerRoundsMap={playerRounds} onChangeTee={onChangePlayerTee} readOnly={readOnly} open={hcOpen} />
+      {hcOpen && showRecap && (
+        <RoundStrokesRecap round={r} pairings={roundPairings} playersById={playersById} playerRounds={playerRounds} allowance={allowance} />
+      )}
+    </div>
+  )
+}
+
+// Post-round handicap recap shown under the Handicaps section once a round is
+// completed. Per pairing, per player: the tee played that round (from player_rounds,
+// NOT the player's current default) and the strokes received — the shots-off-the-low
+// WITHIN that pairing, via the shared pairingShots path, so these match the scorecard
+// dots, the leaderboards and the stats exactly. Course handicap is shown ONLY on
+// 18-hole rounds; on short rounds (e.g. The Dozen, rating 62.1 vs par 42) the absolute
+// course/playing handicap is inflated by ~20, while shots-off-low cancels that out —
+// so short rounds show tee + strokes only.
+function RoundStrokesRecap({ round, pairings, playersById, playerRounds, allowance }) {
+  const alw = effectiveAllowance(round, allowance)
+  const show18 = roundHoleCount(round) === 18
+  const grid = { display: 'grid', gridTemplateColumns: show18 ? 'minmax(0, 1fr) 70px 40px 54px' : 'minmax(0, 1fr) 90px 60px', alignItems: 'center', gap: 6, padding: '7px 10px' }
+  const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)' }
+  const numCell = { fontSize: 13, textAlign: 'right', color: 'var(--ink)' }
+  return (
+    <div style={{ marginTop: 8, border: '1px solid var(--bg3)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ padding: '7px 10px', background: 'var(--accent-bg)', borderBottom: '1px solid var(--bg3)', fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)' }}>
+        Strokes received · matches the scorecard
+      </div>
+      {pairings.map((grp, gi) => {
+        const ids = grp.players.filter(id => playersById[id])
+        const shots = pairingShots(round, ids, id => playersById[id]?.handicap_index, id => playerRounds[`${round.id}:${id}`], alw)
+        return (
+          <div key={grp.pairingNumber ?? gi}>
+            <div style={{ ...grid, background: 'var(--bg2)', borderTop: gi === 0 ? 'none' : '1px solid var(--bg3)' }}>
+              <span style={headCell}>Pairing {grp.pairingNumber ?? gi + 1}</span>
+              <span style={{ ...headCell, textAlign: 'right' }}>Tee</span>
+              {show18 && <span style={{ ...headCell, textAlign: 'right' }}>CH</span>}
+              <span style={{ ...headCell, textAlign: 'right' }}>Strokes</span>
+            </div>
+            {ids.map((id) => {
+              const p = playersById[id]
+              const saved = playerRounds[`${round.id}:${id}`]
+              const teeName = saved?.tee_name || round.tee_name || '—'
+              let ch = null
+              if (show18) {
+                const tee = resolvePlayerTee(round, saved)
+                const raw = rawCourseHandicapForTee(p?.handicap_index, tee.slope, tee.rating, tee.par)
+                ch = raw == null ? null : Math.round(raw)
+              }
+              return (
+                <div key={id} style={{ ...grid, borderTop: '1px solid var(--bg2)' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p?.name || 'Player'}</span>
+                  <span style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{teeName}</span>
+                  {show18 && <span style={numCell}>{ch ?? '—'}</span>}
+                  <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{shots.get(id) ?? 0}</span>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -1011,13 +1085,19 @@ function NameEditModal({ round, saving, onSave, onClose }) {
 
 function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onEditName, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
   if (!data) return <div style={s.muted}>Loading…</div>
-  const { days, roundsByDate, scheduleByDate, players, playerRounds, stays = [], mealsByDate = {} } = data
+  const { days, roundsByDate, scheduleByDate, players, playerRounds, stays = [], mealsByDate = {}, pairingsByRound = {}, playersByRound = {}, holesByRoundPlayer = {} } = data
   if (!days || days.length === 0) {
     return <Card title="Schedule"><div style={s.muted}>Course schedule will appear once the trip dates are set.</div></Card>
   }
   // Local "today" — recomputed every render so past/today flips naturally at midnight.
+  // NOTE: the app stores no trip time zone, so (like Home's tee-times card) this uses
+  // the phone's clock. scheduleRoundState takes the date explicitly, so the moment a
+  // trip time zone exists it can be fed in here without touching the helper.
   const now = new Date()
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const stateCtx = { assignedByRound: playersByRound, holesByRoundPlayer }
+  const playersById = {}; players.forEach(p => { playersById[p.id] = p })
   return (
     <>
       {days.map(date => {
@@ -1029,8 +1109,10 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
         const isToday = date === todayIso
         const typeLabel = dayRounds.length === 0 && dayType && dayType !== 'unknown' ? DAY_PLACEHOLDER_META[dayType]?.label : null
         return (
-          // Past days render as one dimmed, non-interactive unit (recomputed each render).
-          <div key={date} style={{ ...HOME_CARD, ...(isPast ? { opacity: 0.5, pointerEvents: 'none' } : null) }}>
+          // The day card stays fully interactive: completed rounds are muted per-round
+          // (below) rather than dimming the whole day, so their handicap recap stays
+          // tappable even once the day is past.
+          <div key={date} style={HOME_CARD}>
             <div style={{ ...s.cardHeader, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>{fmtDayLong(date)}</span>
               {isToday && <span style={todayBadgeStyle}>Today</span>}
@@ -1045,11 +1127,17 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
                 const scoreLocked = scoredRounds?.has(r.id)
                 const locked = scoreLocked || (r.date != null && r.date < todayIso)
                 const lockReason = scoreLocked ? 'scored' : 'past'
+                const state = scheduleRoundState(r, stateCtx, todayIso, nowMinutes)
+                // Post-round handicap recap: per-pairing strokes received (dots), shown
+                // once a scoring round is completed and it has pairings to group by.
+                const roundPairings = pairingsByRound[r.id] || []
+                const showRecap = state === 'completed' && !isPracticeRound(r) && roundPairings.length > 0
                 return (
                   <GolfRoundEntry
                     key={r.id} round={r} roundIndex={i} roundCount={arr.length}
                     isCommissioner={isCommissioner} readOnly={readOnly} allowance={allowance}
                     calcPlayers={calcPlayers} playerRounds={playerRounds} locked={locked} lockReason={lockReason}
+                    muted={state === 'completed'} showRecap={showRecap} roundPairings={roundPairings} playersById={playersById}
                     onEditCourse={onEditCourse} onEditName={onEditName} onRoundTypeChange={onRoundTypeChange} onChangePlayerTee={onChangePlayerTee}
                   />
                 )
@@ -2408,7 +2496,7 @@ export default function MenuDrawer({
     const roundIds = roundList.map(r => r.id)
     const [tpRes, pairRes, tripRes, staysRes, mealsRes] = await Promise.all([
       supabase.from('trip_players').select('id, first_name, last_name, guest_name, handicap_index').eq('trip_id', tripId),
-      roundIds.length ? supabase.from('pairings').select('id, round_id').in('round_id', roundIds) : Promise.resolve({ data: [] }),
+      roundIds.length ? supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', roundIds) : Promise.resolve({ data: [] }),
       supabase.from('trips').select('schedule').eq('id', tripId).maybeSingle(),
       supabase.from('stays').select('*').eq('trip_id', tripId).order('check_in'),
       supabase.from('meals').select('*').eq('trip_id', tripId).order('day'),
@@ -2417,12 +2505,26 @@ export default function MenuDrawer({
     const pairIds = pairings.map(p => p.id)
     let pp = []
     if (pairIds.length) {
-      const r = await supabase.from('pairing_players').select('pairing_id, trip_player_id').in('pairing_id', pairIds)
+      const r = await supabase.from('pairing_players').select('pairing_id, trip_player_id, team_slot').in('pairing_id', pairIds)
       pp = r.data || []
     }
     const roundOfPairing = {}; pairings.forEach(p => { roundOfPairing[p.id] = p.round_id })
     const playersByRound = {} // roundId -> Set(trip_player_id)
     pp.forEach(x => { const rid = roundOfPairing[x.pairing_id]; if (rid) (playersByRound[rid] ??= new Set()).add(x.trip_player_id) })
+    // Pairing groups per round (for the post-round, dots-matching strokes recap):
+    // roundId -> [{ pairingNumber, players: [trip_player_id] }], players in slot order.
+    const pairingsByRound = {}
+    const pairingById = {}
+    pairings.forEach(p => {
+      const grp = { pairingNumber: p.pairing_number, players: [] }
+      pairingById[p.id] = grp
+      ;(pairingsByRound[p.round_id] ??= []).push(grp)
+    })
+    pp.forEach(x => { const grp = pairingById[x.pairing_id]; if (grp) grp.players.push({ id: x.trip_player_id, slot: x.team_slot ?? 99 }) })
+    Object.values(pairingsByRound).forEach(list => {
+      list.sort((a, b) => (a.pairingNumber ?? 0) - (b.pairingNumber ?? 0))
+      list.forEach(grp => { grp.players.sort((a, b) => a.slot - b.slot); grp.players = grp.players.map(pl => pl.id) })
+    })
     // Per-player tee selections: `${roundId}:${tpId}` -> player_rounds row.
     const playerRounds = {}
     if (roundIds.length) {
@@ -2452,13 +2554,21 @@ export default function MenuDrawer({
     days = [...dateSet].sort()
 
     // A round is locked if it has any score (else it locks once its date passes).
+    // The same read also builds per-player hole coverage, so completion can be judged
+    // with the round's OWN hole count (scheduleRoundState) — no extra/RLS-bypassing query.
     let scored = new Set()
+    const holesByRoundPlayer = {} // `${roundId}:${tpId}` -> Set(hole_number)
     if (roundIds.length) {
-      const { data: sc } = await supabase.from('scores').select('round_id').in('round_id', roundIds)
-      ;(sc || []).forEach(s => scored.add(s.round_id))
+      const { data: sc } = await supabase.from('scores').select('round_id, trip_player_id, hole_number').in('round_id', roundIds)
+      ;(sc || []).forEach(s => {
+        scored.add(s.round_id)
+        ;(holesByRoundPlayer[`${s.round_id}:${s.trip_player_id}`] ??= new Set()).add(s.hole_number)
+      })
     }
+    const holeCountByRound = {}
+    roundList.forEach(r => { holeCountByRound[r.id] = roundHoleCount(r) })
     setScoredRounds(scored)
-    setCoursesData({ days, roundsByDate, scheduleByDate, players, playersByRound, playerRounds, roundIds, stays, mealsByDate })
+    setCoursesData({ days, roundsByDate, scheduleByDate, players, playersByRound, pairingsByRound, holesByRoundPlayer, holeCountByRound, playerRounds, roundIds, stays, mealsByDate })
   }, [tripId, tripStartDate, tripEndDate])
 
   // Lazy-load data per page.
