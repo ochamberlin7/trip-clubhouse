@@ -73,17 +73,64 @@ export function sortRoundsByTee(rounds) {
   })
 }
 
-// A round is complete when every player assigned to a pairing for it has all
-// 18 holes scored. `assignedByRound`: roundId -> Set(trip_player_id);
-// `holesByRoundPlayer`: `${roundId}:${tpId}` -> Set(hole).
-export function isRoundComplete(roundId, assignedByRound, holesByRoundPlayer) {
+// A round is complete when every player assigned to a pairing for it has scored
+// all of the round's OWN holes. `assignedByRound`: roundId -> Set(trip_player_id);
+// `holesByRoundPlayer`: `${roundId}:${tpId}` -> Set(hole). `holeCountByRound`
+// (optional): roundId -> hole count; absent/0 falls back to 18, so existing callers
+// are unchanged while short rounds (The Dozen = 12) can be passed their real count.
+export function isRoundComplete(roundId, assignedByRound, holesByRoundPlayer, holeCountByRound) {
   const assigned = assignedByRound[roundId]
   if (!assigned || assigned.size === 0) return false
+  const need = (holeCountByRound && holeCountByRound[roundId]) || 18
   for (const tp of assigned) {
     const holes = holesByRoundPlayer[`${roundId}:${tp}`]
-    if (!holes || holes.size < 18) return false
+    if (!holes || holes.size < need) return false
   }
   return true
+}
+
+// Hole count for a round — its OWN length, never assumed 18. Prefers the cached
+// per-hole data (rounds.holes), then the stored number_of_holes, then 18 as a last
+// resort. The Dozen is a 12-hole round, so completion/stroke logic must honour this.
+export function roundHoleCount(round) {
+  if (Array.isArray(round?.holes) && round.holes.length) return round.holes.length
+  if (Number(round?.number_of_holes) > 0) return Number(round.number_of_holes)
+  return 18
+}
+
+// A practice / "no scoring" round carries no scorecard, so it can never be complete
+// by scores — it's done once its day has passed.
+export function isPracticeRound(round) {
+  return round?.round_type === 'practice' || round?.no_scoring === true
+}
+
+// Classify a round for the Schedule & Courses tab: 'completed' | 'live' | 'upcoming'.
+// PURE and injectable — the caller passes the trip-local todayIso ('YYYY-MM-DD') and
+// nowMinutes (minutes past local midnight), so the time zone is explicit (the app has
+// no stored trip time zone; Home and this tab both read the phone's clock) and the
+// day-boundary behaviour is unit-testable. Shares getLiveRounds' time window and the
+// SAME completeness check (isRoundComplete) — but with the round's OWN hole count
+// (roundHoleCount), never a hard-coded 18, so The Dozen (12 holes) can complete.
+//   ctx: { assignedByRound, holesByRoundPlayer } (same maps getLiveRounds builds).
+export function scheduleRoundState(round, ctx, todayIso, nowMinutes) {
+  const date = round?.date || null
+  // Practice / no-scoring: no scores to finish — completed once the day is past.
+  if (isPracticeRound(round)) {
+    if (date && date < todayIso) return 'completed'
+    return (date && date > todayIso) ? 'upcoming' : 'live'
+  }
+  // Scoring round: fully scored → completed (on any day). Otherwise a past day is
+  // over (completed), a future day is upcoming, and today's round is live once it's
+  // within 30 min of the first tee (matching getLiveRounds), else still upcoming.
+  const holeCountByRound = round?.id != null ? { [round.id]: roundHoleCount(round) } : {}
+  if (isRoundComplete(round?.id, ctx?.assignedByRound || {}, ctx?.holesByRoundPlayer || {}, holeCountByRound)) {
+    return 'completed'
+  }
+  if (date && date < todayIso) return 'completed'
+  if (date && date > todayIso) return 'upcoming'
+  const tee = parseTeeTimeToMinutes(round?.tee_time_1)
+  if (tee > 0 && nowMinutes < tee - 30) return 'upcoming'
+  return 'live'
 }
 
 // Every round "live" right now — today's date, not yet complete, and at or past
@@ -96,7 +143,7 @@ export function getLiveRounds(rounds, ctx) {
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   return (rounds || [])
     .filter(r => r.date === todayISO)
-    .filter(r => !isRoundComplete(r.id, ctx.assignedByRound, ctx.holesByRoundPlayer))
+    .filter(r => !isRoundComplete(r.id, ctx.assignedByRound, ctx.holesByRoundPlayer, ctx.holeCountByRound))
     .map(r => ({ r, tee: parseTeeTimeToMinutes(r.tee_time_1) }))
     .filter(x => nowMinutes >= x.tee - 30)
     .sort((a, b) => b.tee - a.tee) // latest tee first = most recently started
