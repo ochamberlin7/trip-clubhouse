@@ -436,13 +436,8 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenu
           one-time first-login tips. Self-hides when there's nothing to show. */}
       <GettingStartedCard trip={trip} rounds={rounds} userId={userId} isCommissioner={isCommissioner} onOpenMenuPage={onOpenMenuPage} onNavigateTab={onNavigateTab} />
 
-      {/* Countdown */}
-      <CountdownWidget
-        tripName={trip.name}
-        startDate={trip.start_date}
-        endDate={trip.end_date}
-        rounds={rounds}
-      />
+      {/* Home banner — day strip (pre/post-trip keep their countdown/thank-you copy) */}
+      <CountdownWidget trip={trip} rounds={rounds} />
 
       {/* Today's / next tee times — single day only */}
       <TeeTimesWidget
