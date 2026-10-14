@@ -478,3 +478,26 @@ for (const row of LENGTH_TABLE) {
     assert.equal(res.totalDays, row.totalDays)
   })
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Routing policy — screenForTripPhase turns a phase into the default screen. Score is
+// reached ONLY when the signed-in user is playing the live round AND it's underway.
+import { screenForTripPhase } from './scoring.js'
+
+test('screenForTripPhase: no-trip routes to the no-trip landing', () => {
+  assert.equal(screenForTripPhase('no-trip'), 'no-trip')
+  assert.equal(screenForTripPhase('no-trip', { playingLiveUnderway: true }), 'no-trip')
+})
+
+test('screenForTripPhase: round-live opens Score only for a playing user who is underway', () => {
+  assert.equal(screenForTripPhase('round-live', { playingLiveUnderway: true }), 'scores')
+  assert.equal(screenForTripPhase('round-live', { playingLiveUnderway: false }), 'dashboard') // spectator/commissioner
+  assert.equal(screenForTripPhase('round-live'), 'dashboard')                                 // no user context
+})
+
+test('screenForTripPhase: every non-live phase opens Home, even if the user is "underway"', () => {
+  for (const phase of ['before-trip', 'after-trip', 'no-round-day', 'before-first-tee', 'between-rounds', 'after-last-round']) {
+    assert.equal(screenForTripPhase(phase, { playingLiveUnderway: true }), 'dashboard', phase)
+    assert.equal(screenForTripPhase(phase), 'dashboard', phase)
+  }
+})
