@@ -354,3 +354,127 @@ test('scheduleRoundState: a not-yet-started round is upcoming', () => {
   // Past the cutoff (8:45) and not yet scored → live.
   assert.equal(scheduleRoundState(today, {}, '2026-07-01', 8 * 60 + 45), 'live')
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Trip phase foundation — getTripPhase + the shared live-window predicate.
+// Tests pin an explicit instant (now) and an explicit IANA zone, so "today" is
+// deterministic and the day-boundary case can cross a date in the trip's zone while
+// the phone sits on the previous day.
+import { getTripPhase, isRoundLiveAt, roundHasAnyScore } from './scoring.js'
+
+// A UTC instant for `${iso} ${hh}:${mm}`. Paired with timeZone 'UTC' in most cases so
+// todayIso === iso and nowMinutes === hh*60+mm.
+function at(iso, hh = 12, mm = 0) {
+  const [y, mo, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y, mo - 1, d, hh, mm))
+}
+const R = (id, date, tee, extra = {}) => ({ id, date, tee_time_1: tee, round_type: 'tournament', ...extra })
+// Completeness ctx: `complete` rounds get a full 18 holes for one player; `scored`
+// rounds get a single hole (started, not done). Mirrors the maps the app builds.
+function phaseCtx({ complete = [], scored = [] } = {}) {
+  const assignedByRound = {}
+  const holesByRoundPlayer = {}
+  const add = (rid, holes) => {
+    assignedByRound[rid] = new Set(['p1'])
+    const set = new Set(); for (let h = 1; h <= holes; h++) set.add(h)
+    holesByRoundPlayer[`${rid}:p1`] = set
+  }
+  complete.forEach(rid => add(rid, 18))
+  scored.forEach(rid => { if (!assignedByRound[rid]) add(rid, 1) })
+  return { assignedByRound, holesByRoundPlayer }
+}
+const TRIP6 = { start_date: '2026-10-01', end_date: '2026-10-06' }
+
+// phase, hasRoundsToday, day/total, and the salient round id for each phase value.
+const PHASE_TABLE = [
+  { name: 'no-trip', args: { trip: null, now: at('2026-10-03') }, expect: { phase: 'no-trip', dayNumber: null, totalDays: null, hasRoundsToday: false } },
+  { name: 'before-trip', args: { trip: TRIP6, rounds: [], now: at('2026-09-30') }, expect: { phase: 'before-trip', dayNumber: null, totalDays: 6, hasRoundsToday: false } },
+  { name: 'after-trip', args: { trip: TRIP6, rounds: [], now: at('2026-10-07') }, expect: { phase: 'after-trip', dayNumber: null, totalDays: 6, hasRoundsToday: false } },
+  { name: 'no-round-day', args: { trip: TRIP6, rounds: [R('r', '2026-10-05', '9:00 AM')], now: at('2026-10-03') }, expect: { phase: 'no-round-day', dayNumber: 3, totalDays: 6, hasRoundsToday: false } },
+  { name: 'before-first-tee', args: { trip: TRIP6, rounds: [R('r', '2026-10-03', '9:00 AM')], now: at('2026-10-03', 7) }, expect: { phase: 'before-first-tee', dayNumber: 3, totalDays: 6, hasRoundsToday: true, nextId: 'r' } },
+  { name: 'round-live', args: { trip: TRIP6, rounds: [R('r', '2026-10-03', '9:00 AM')], now: at('2026-10-03', 9, 15) }, expect: { phase: 'round-live', dayNumber: 3, totalDays: 6, hasRoundsToday: true, liveId: 'r' } },
+  { name: 'between-rounds', args: { trip: TRIP6, rounds: [R('am', '2026-10-03', '7:00 AM'), R('pm', '2026-10-03', '1:00 PM')], now: at('2026-10-03', 11), ctx: { complete: ['am'] } }, expect: { phase: 'between-rounds', dayNumber: 3, totalDays: 6, hasRoundsToday: true, nextId: 'pm', lastCompletedId: 'am' } },
+  { name: 'after-last-round', args: { trip: TRIP6, rounds: [R('r', '2026-10-03', '7:00 AM')], now: at('2026-10-03', 15), ctx: { complete: ['r'] } }, expect: { phase: 'after-last-round', dayNumber: 3, totalDays: 6, hasRoundsToday: true, lastCompletedId: 'r' } },
+]
+
+for (const row of PHASE_TABLE) {
+  test(`getTripPhase phase: ${row.name}`, () => {
+    const completeness = row.args.ctx ? phaseCtx(row.args.ctx) : phaseCtx()
+    const res = getTripPhase({ timeZone: 'UTC', completeness, ...row.args })
+    assert.equal(res.phase, row.expect.phase)
+    assert.equal(res.dayNumber, row.expect.dayNumber)
+    assert.equal(res.totalDays, row.expect.totalDays)
+    assert.equal(res.hasRoundsToday, row.expect.hasRoundsToday)
+    if ('liveId' in row.expect) assert.equal(res.liveRound?.id, row.expect.liveId)
+    if ('nextId' in row.expect) assert.equal(res.nextRound?.id, row.expect.nextId)
+    if ('lastCompletedId' in row.expect) assert.equal(res.lastCompletedRound?.id, row.expect.lastCompletedId)
+  })
+}
+
+test('getTripPhase: day boundary follows the trip zone, not the phone', () => {
+  // 11 PM in Phoenix on Oct 3 is 2 AM Eastern on Oct 4. The round is dated Oct 4.
+  const now = at('2026-10-04', 6) // 06:00 UTC = 23:00 MST Oct 3 = 02:00 EDT Oct 4
+  const rounds = [R('r', '2026-10-04', '9:00 AM')]
+  const detroit = getTripPhase({ trip: TRIP6, rounds, now, timeZone: 'America/Detroit', completeness: phaseCtx() })
+  assert.equal(detroit.dayNumber, 4)                 // trip day 4 (Oct 4)
+  assert.equal(detroit.hasRoundsToday, true)
+  assert.equal(detroit.phase, 'before-first-tee')    // 2 AM, before the 9 AM tee
+  const phoenix = getTripPhase({ trip: TRIP6, rounds, now, timeZone: 'America/Phoenix', completeness: phaseCtx() })
+  assert.equal(phoenix.dayNumber, 3)                 // phone still on Oct 3
+  assert.equal(phoenix.hasRoundsToday, false)
+  assert.equal(phoenix.phase, 'no-round-day')
+  assert.equal(phoenix.nextRound?.id, 'r')           // Oct 4 round is still upcoming
+})
+
+test('getTripPhase: a missing tee_time_1 is UNKNOWN, not live-from-midnight', () => {
+  const base = { trip: TRIP6, now: at('2026-10-03', 2), timeZone: 'UTC' } // 2 AM, well before any tee
+  const roundNoTee = R('r', '2026-10-03', null)
+  // No tee and no scores → the round is upcoming (not live), so the day reads
+  // before-first-tee — NOT round-live.
+  const idle = getTripPhase({ ...base, rounds: [roundNoTee], completeness: phaseCtx() })
+  assert.equal(idle.phase, 'before-first-tee')
+  assert.equal(idle.liveRound, null)
+  // Same round once a score exists → live.
+  const started = getTripPhase({ ...base, rounds: [roundNoTee], completeness: phaseCtx({ scored: ['r'] }) })
+  assert.equal(started.phase, 'round-live')
+  assert.equal(started.liveRound?.id, 'r')
+})
+
+test('isRoundLiveAt: missing tee is live only once scoring has begun', () => {
+  const round = R('r', '2026-10-03', null)
+  const ctxNone = phaseCtx()
+  const ctxStarted = phaseCtx({ scored: ['r'] })
+  assert.equal(isRoundLiveAt(round, ctxNone, '2026-10-03', 0), false)      // midnight, no scores
+  assert.equal(isRoundLiveAt(round, ctxStarted, '2026-10-03', 0), true)    // scores exist → live
+  assert.equal(roundHasAnyScore('r', ctxStarted), true)
+  // With a tee time the window is unchanged: live from 30 min before.
+  const teed = R('t', '2026-10-03', '9:00 AM')
+  assert.equal(isRoundLiveAt(teed, phaseCtx(), '2026-10-03', 8 * 60 + 29), false)
+  assert.equal(isRoundLiveAt(teed, phaseCtx(), '2026-10-03', 8 * 60 + 30), true)
+})
+
+test('getTripPhase: practice round has a fixed in-play window and still counts as a round', () => {
+  const prac = (date, tee) => R('p', date, tee, { round_type: 'practice', no_scoring: true })
+  const mk = (now, date, tee) => getTripPhase({ trip: TRIP6, rounds: [prac(date, tee)], now, timeZone: 'UTC', completeness: phaseCtx() })
+  assert.equal(mk(at('2026-10-03', 8), '2026-10-03', '9:00 AM').phase, 'before-first-tee') // before tee
+  assert.equal(mk(at('2026-10-03', 10), '2026-10-03', '9:00 AM').phase, 'round-live')      // within 5h window
+  assert.equal(mk(at('2026-10-03', 15), '2026-10-03', '9:00 AM').phase, 'after-last-round') // window passed
+  assert.equal(mk(at('2026-10-03', 12), '2026-10-02', '9:00 AM').phase, 'no-round-day')    // yesterday → completed, not today
+  assert.equal(mk(at('2026-10-03', 10), '2026-10-03', '9:00 AM').hasRoundsToday, true)      // counts as a round
+})
+
+const LENGTH_TABLE = [
+  { name: '1-day (only day)', trip: { start_date: '2026-10-03', end_date: '2026-10-03' }, today: '2026-10-03', dayNumber: 1, totalDays: 1 },
+  { name: '2-day (last day)', trip: { start_date: '2026-10-03', end_date: '2026-10-04' }, today: '2026-10-04', dayNumber: 2, totalDays: 2 },
+  { name: '3-day (first day)', trip: { start_date: '2026-10-01', end_date: '2026-10-03' }, today: '2026-10-01', dayNumber: 1, totalDays: 3 },
+  { name: '6-day (mid)', trip: { start_date: '2026-10-01', end_date: '2026-10-06' }, today: '2026-10-03', dayNumber: 3, totalDays: 6 },
+  { name: '12-day (last day)', trip: { start_date: '2026-10-01', end_date: '2026-10-12' }, today: '2026-10-12', dayNumber: 12, totalDays: 12 },
+  { name: 'no dates', trip: {}, today: '2026-10-03', dayNumber: null, totalDays: null },
+]
+for (const row of LENGTH_TABLE) {
+  test(`getTripPhase day counting: ${row.name}`, () => {
+    const res = getTripPhase({ trip: row.trip, rounds: [], now: at(row.today), timeZone: 'UTC', completeness: phaseCtx() })
+    assert.equal(res.dayNumber, row.dayNumber)
+    assert.equal(res.totalDays, row.totalDays)
+  })
+}
