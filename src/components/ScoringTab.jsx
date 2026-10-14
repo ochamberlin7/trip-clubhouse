@@ -406,10 +406,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // to hold it (a touch wider for Standard's status text).
   const isStandard = trip?.format === 'standard_match_play'
   // Real team colours for the middle result badge, so the win indicator matches
-  // the coloured team headers (T1 = left, T2 = right). Falls back to the classic
-  // navy/green when a side's team isn't assigned yet (keeps the two distinct).
-  const t1Color = pairTeam1 ? teamColor(colorIndexOf(pairTeam1)).solid : '#1B3F6E'
-  const t2Color = pairTeam2 ? teamColor(colorIndexOf(pairTeam2)).solid : '#047857'
+  // the coloured team headers (T1 = left, T2 = right). Falls back to the shared
+  // palette's team 1 / team 2 when a side's team isn't assigned yet (no hardcoded hex).
+  const t1Color = teamColor(colorIndexOf(pairTeam1)).solid
+  const t2Color = pairTeam2 ? teamColor(colorIndexOf(pairTeam2)).solid : teamColor(2).solid
   const midColW = isStandard ? '38px' : '36px'
   const scGridCols = `30px 24px 24px ${t1Slots.map(() => '1fr').join(' ')} ${midColW} ${t2Slots.map(() => '1fr').join(' ')}`
   // Whether the visible slots are all filled (for the "assign players" hint only).

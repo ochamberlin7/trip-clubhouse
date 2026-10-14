@@ -1,24 +1,38 @@
-// Canonical team colours, keyed by team index. The team NAME can change, but the
-// colour is fixed to the index. Used for every team colour in the app —
-// player-card pills, the score-entry modal badge, leaderboard headers, etc.
+// Canonical team colours, keyed by team index — the SINGLE source of truth. The team
+// NAME can change, but the colour is fixed to the index. Used for every team colour in
+// the app (player pills, score-entry modal badge, leaderboard/pairing headers, live
+// banner, scorecard badges & totals). Stylesheet rules read these via CSS variables
+// published by applyTeamColorVars(); never hardcode a team hex anywhere else.
 //
-// Palette is coordinated around the app's navy: every colour is muted with a
-// cool undertone (no warm brown/orange sitting among the cool chrome). The UI
-// supports up to 4 teams today; 5-6 are provided so the palette covers growth.
-//   1 navy · 2 teal · 3 plum · 4 yellow/gold · 5 olive · 6 berry.
-// Team 4 is a golden yellow. `text` (for pills on a light bg) is a darker gold so
-// it stays legible; `solid` is the brighter identity colour.
+//   1 red · 2 blue · 3 green · 4 purple · 5 amber · 6 teal (5-6 cover future growth).
+//
+// Every `solid` is dark enough to carry WHITE text as a header fill AND to read as text
+// on the app's white/light surfaces (all ≥ ~4.5:1 on white). `pillBg` is the same hue
+// at low alpha for light pills; `text` is the hue at text weight for those pills. Team
+// colours are only ever painted on light backgrounds in the app, so on-navy contrast
+// is not required.
 export const TEAM_COLORS = {
-  1: { solid: '#1B3F6E', pillBg: 'rgba(27,63,110,0.15)', text: '#1B3F6E' },
-  2: { solid: '#0F6E56', pillBg: 'rgba(15,110,86,0.15)', text: '#0F6E56' },
-  3: { solid: '#7B4B94', pillBg: 'rgba(123,75,148,0.15)', text: '#7B4B94' },
-  4: { solid: '#D4A017', pillBg: 'rgba(212,160,23,0.18)', text: '#8A6A00' },
-  5: { solid: '#3C6E1F', pillBg: 'rgba(60,110,31,0.15)', text: '#3C6E1F' },
-  6: { solid: '#8A4A6E', pillBg: 'rgba(138,74,110,0.15)', text: '#8A4A6E' },
+  1: { solid: '#C62828', pillBg: 'rgba(198,40,40,0.15)', text: '#B02222' },
+  2: { solid: '#1C64A6', pillBg: 'rgba(28,100,166,0.15)', text: '#1A5B96' },
+  3: { solid: '#1E7A46', pillBg: 'rgba(30,122,70,0.15)', text: '#1B6E3F' },
+  4: { solid: '#7A3F9E', pillBg: 'rgba(122,63,158,0.15)', text: '#6E3890' },
+  5: { solid: '#B5720E', pillBg: 'rgba(181,114,14,0.18)', text: '#8A5609' },
+  6: { solid: '#15808F', pillBg: 'rgba(21,128,143,0.15)', text: '#126C79' },
 }
 
 export function teamColor(index) {
   return TEAM_COLORS[index] || TEAM_COLORS[1]
+}
+
+// Publish the solid team colours as CSS custom properties (--team-1 … --team-6) so
+// stylesheet rules paint team-coloured elements from the SAME palette above instead of
+// hardcoding hexes. Call once at app start (main.jsx), before first paint.
+export function applyTeamColorVars(root) {
+  const el = root || (typeof document !== 'undefined' ? document.documentElement : null)
+  if (!el) return
+  for (const [index, c] of Object.entries(TEAM_COLORS)) {
+    el.style.setProperty(`--team-${index}`, c.solid)
+  }
 }
 
 // The 1-based colour index for a team — prefer the stored color_index, fall back to
