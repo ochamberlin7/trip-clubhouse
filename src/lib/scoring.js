@@ -900,6 +900,19 @@ export function liveMatchTally(round, pairings, pairingPlayers, scoresMap, hcpBy
   })
 }
 
+// Resolve a live-tally row's two sides to their real team objects — the label logic
+// the live-score banner renders, pulled out so it's testable without a DOM. team1_id
+// is slots 1&2, team2_id is slots 3&4. A side whose team id is null/unknown resolves
+// to null (NOT substituted with teams[0]/teams[1]) — the SAME as the leaderboard,
+// which attributes a null-team pairing to no team; the banner then shows a generic
+// "Team N" label + neutral colour for that side. `teamById`: { [teamId]: teamRow }.
+export function resolveBannerTeams(row, teamById = {}) {
+  return {
+    team1: row?.team1_id ? (teamById[row.team1_id] ?? null) : null,
+    team2: row?.team2_id ? (teamById[row.team2_id] ?? null) : null,
+  }
+}
+
 // Stroke index for a hole object, tolerant of the field name (round.holes uses
 // `.handicap`; course_holes uses `.stroke_index`).
 function strokeIndexOfHole(h) {

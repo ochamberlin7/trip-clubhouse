@@ -558,3 +558,86 @@ for (const row of GRID_TABLE) {
     })
   })
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Live-score banner team resolution — the bug was the banner labelling every pairing
+// with teams[0]/teams[1]. The tally carries each pairing's real team1_id/team2_id;
+// resolveBannerTeams maps a tally row to the real team objects (null → no team, the
+// same as the leaderboard — never substituted with teams[0]/[1]).
+import { resolveBannerTeams } from './scoring.js' // liveMatchTally/liveStandardMatchTally already imported above
+import { getTeamDisplayName, teamColor, colorIndexOf } from './teamColors.js'
+
+// A 3-hole scratch round; slots-1&2 player always beats slots-3&4 (wins every hole).
+const BHOLES = [{ par: 4, handicap: 1 }, { par: 4, handicap: 2 }, { par: 4, handicap: 3 }]
+const BROUND = { id: 'R', round_type: 'tournament', number_of_holes: 3, holes: BHOLES, slope_rating: 113, course_rating: 72, par_total: 72 }
+const B_TEAMS = [
+  { id: 'TA', name: 'Avengers', team_index: 1, color_index: 1 },
+  { id: 'TB', name: 'Bandits', team_index: 2, color_index: 2 },
+  { id: 'TC', name: 'Cobras', team_index: 3, color_index: 3 },
+  { id: 'TD', name: 'Dragons', team_index: 4, color_index: 4 },
+]
+const teamByIdOf = (...ids) => Object.fromEntries(B_TEAMS.filter(t => ids.includes(t.id)).map(t => [t.id, t]))
+// Build pairing_players + a scoresMap where the slots-1&2 player wins all three holes.
+function pp(pairingId, s1, s3) {
+  return [
+    { pairing_id: pairingId, trip_player_id: s1, team_slot: 1 },
+    { pairing_id: pairingId, trip_player_id: s3, team_slot: 3 },
+  ]
+}
+function winScores(s1, s3) {
+  const m = {}
+  for (let h = 1; h <= 3; h++) { m[`R:${s1}:${h}`] = 4; m[`R:${s3}:${h}`] = 5 }
+  return m
+}
+const HCP0 = { p1: 0, p3: 0 }
+// The side (0/1) the banner marks as leading, from a points-tally row.
+const leadSide = row => row.t1pts > row.t2pts ? 0 : row.t2pts > row.t1pts ? 1 : null
+
+test('flipped pairing: the leading side resolves to the team actually in slots 1&2', () => {
+  // Bandits (TB) are in slots 1&2 and win; team1_id reflects that.
+  const pairings = [{ id: 'p', round_id: 'R', pairing_number: 1, team1_id: 'TB', team2_id: 'TA' }]
+  const row = liveMatchTally(BROUND, pairings, pp('p', 'p1', 'p3'), winScores('p1', 'p3'), HCP0, 100, {})[0]
+  assert.equal(leadSide(row), 0) // slots 1&2 won
+  const { team1, team2 } = resolveBannerTeams(row, teamByIdOf('TA', 'TB'))
+  const lead = leadSide(row) === 0 ? team1 : team2
+  assert.equal(getTeamDisplayName(lead), 'Bandits') // NOT Avengers (teams[0])
+  assert.equal(teamColor(colorIndexOf(lead)).solid, teamColor(colorIndexOf(B_TEAMS[1])).solid) // Bandits' colour
+  assert.equal(getTeamDisplayName(team2), 'Avengers')
+})
+
+test('4-team trip: a Team 3 vs Team 4 pairing shows those teams, never Team 1/Team 2', () => {
+  const pairings = [{ id: 'p', round_id: 'R', pairing_number: 1, team1_id: 'TC', team2_id: 'TD' }]
+  const row = liveMatchTally(BROUND, pairings, pp('p', 'p1', 'p3'), winScores('p1', 'p3'), HCP0, 100, {})[0]
+  const { team1, team2 } = resolveBannerTeams(row, teamByIdOf('TA', 'TB', 'TC', 'TD'))
+  assert.equal(getTeamDisplayName(team1), 'Cobras')
+  assert.equal(getTeamDisplayName(team2), 'Dragons')
+  assert.notEqual(getTeamDisplayName(team1), 'Avengers')
+  assert.notEqual(getTeamDisplayName(team2), 'Bandits')
+})
+
+test('canonical 2-team pairing is unchanged (team1_id → teams[0], team2_id → teams[1])', () => {
+  const pairings = [{ id: 'p', round_id: 'R', pairing_number: 1, team1_id: 'TA', team2_id: 'TB' }]
+  const row = liveMatchTally(BROUND, pairings, pp('p', 'p1', 'p3'), winScores('p1', 'p3'), HCP0, 100, {})[0]
+  const { team1, team2 } = resolveBannerTeams(row, teamByIdOf('TA', 'TB'))
+  assert.equal(getTeamDisplayName(team1), 'Avengers')
+  assert.equal(getTeamDisplayName(team2), 'Bandits')
+})
+
+test('liveMatchTally / liveStandardMatchTally return the pairing team ids verbatim', () => {
+  const pairings = [{ id: 'p', round_id: 'R', pairing_number: 1, team1_id: 'TC', team2_id: 'TA' }]
+  const ppRows = pp('p', 'p1', 'p3')
+  const pts = liveMatchTally(BROUND, pairings, ppRows, winScores('p1', 'p3'), HCP0, 100, {})[0]
+  assert.equal(pts.team1_id, 'TC'); assert.equal(pts.team2_id, 'TA')
+  const std = liveStandardMatchTally(BROUND, pairings, ppRows, winScores('p1', 'p3'), HCP0, 100, {})[0]
+  assert.equal(std.team1_id, 'TC'); assert.equal(std.team2_id, 'TA')
+})
+
+test('null team ids resolve to null (no team) — not teams[0]/teams[1]', () => {
+  const pairings = [{ id: 'p', round_id: 'R', pairing_number: 1, team1_id: null, team2_id: null }]
+  const row = liveMatchTally(BROUND, pairings, pp('p', 'p1', 'p3'), winScores('p1', 'p3'), HCP0, 100, {})[0]
+  assert.equal(row.team1_id, null); assert.equal(row.team2_id, null)
+  const { team1, team2 } = resolveBannerTeams(row, teamByIdOf('TA', 'TB'))
+  assert.equal(team1, null) // the component then shows generic "Team 1" + neutral colour
+  assert.equal(team2, null)
+  assert.equal(getTeamDisplayName(team1) || 'Team 1', 'Team 1')
+})

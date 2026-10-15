@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
-import { liveMatchTally, liveStandardMatchTally } from '../lib/scoring'
+import { liveMatchTally, liveStandardMatchTally, resolveBannerTeams } from '../lib/scoring'
 import { getTeamDisplayName, isDefaultTeamName, teamColor, colorIndexOf } from '../lib/teamColors'
 
 // Floating live-score banner, fixed to the bottom of the screen. Mounted once at
@@ -168,7 +168,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
 
     async function loadAll() {
       const [pairRes, tpRes, sMap, tMap] = await Promise.all([
-        supabase.from('pairings').select('id, round_id, pairing_number').in('round_id', allRoundIds),
+        supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', allRoundIds),
         supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
         fetchScores(),
         fetchPlayerRounds(),
@@ -206,6 +206,11 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_rounds' }, payload => {
         const rid = payload.new?.round_id ?? payload.old?.round_id
         if (rid && allRoundIds.includes(rid)) loadPlayerRounds()
+      })
+      // A pairing's teams (team1_id/team2_id) or roster changing refreshes the tally.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pairings' }, payload => {
+        const rid = payload.new?.round_id ?? payload.old?.round_id
+        if (rid && allRoundIds.includes(rid)) loadAll()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => loadAll())
       // A handicap-index (HI) edit recalculates the live tally (HI is never stored).
@@ -325,10 +330,11 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       <div className="match-banner-rows">
         {visibleRows.map(t => {
           // Resolve THIS pairing's two sides from its real team ids (slots 1&2 =
-          // team1_id, slots 3&4 = team2_id). Fall back to the global order only for a
-          // legacy pairing with null team ids. side 0 → team1, side 1 → team2.
-          const team1 = teamById[t.team1_id] ?? teams?.[0]
-          const team2 = teamById[t.team2_id] ?? teams?.[1]
+          // team1_id, slots 3&4 = team2_id) — never a fixed teams[0]/teams[1] order.
+          // A null team id resolves to null (generic "Team N" label + neutral colour),
+          // the same as the leaderboard, which attributes a null-team pairing to no
+          // team. side 0 → team1, side 1 → team2.
+          const { team1, team2 } = resolveBannerTeams(t, teamById)
           const n1 = getTeamDisplayName(team1) || 'Team 1'
           const n2 = getTeamDisplayName(team2) || 'Team 2'
           const st = isStandard ? standardStatus(t, n1, n2) : pointsSummary(t, n1, n2)
