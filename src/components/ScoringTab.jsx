@@ -114,7 +114,7 @@ function MatchCell({ entry, t1Color, t2Color }) {
   )
 }
 
-export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, readOnly = false, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage }) {
+export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, isDevUser = false, readOnly = false, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage }) {
   const [pairings, setPairings] = useState([])
   const [pairingPlayers, setPairingPlayers] = useState([]) // {id, pairing_id, trip_player_id, team_slot}
   const [playersById, setPlayersById] = useState({})
@@ -127,6 +127,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
   const [openSlot, setOpenSlot] = useState(null) // commissioner header dropdown
+  // Dev/testing: when the designated dev account turns test mode ON for this trip, they
+  // may enter scores for ANY pairing (the pairing scope is also relaxed in the DB for
+  // that account only — see migration 20260674). Persisted on the trip so RLS agrees.
+  const [testMode, setTestMode] = useState(!!trip?.test_mode)
   const [assignError, setAssignError] = useState(null)
   const [saveError, setSaveError] = useState(null) // transient toast when an optimistic score save fails
   const [notice, setNotice] = useState(null) // guidance modal message (e.g. tapping a score cell before teams are set)
@@ -519,10 +523,13 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // bypass (enforced at the DB too via can_write_score). A user counts as in the
   // pairing by their own account or a claimed guest slot. One such player can still
   // enter for the whole foursome, including guests.
-  const isInPairing = !readOnly && [1, 2, 3, 4].some(s => {
+  // Dev override: the designated dev account, on a test-mode trip, may enter any
+  // pairing's scores (the DB grants the matching write — migration 20260674).
+  const devScoreOverride = isDevUser && testMode && !readOnly
+  const isInPairing = devScoreOverride || (!readOnly && [1, 2, 3, 4].some(s => {
     const p = slotMap[s] && playersById[slotMap[s]]
     return p && (p.user_id === currentUserId || p.claimed_user_id === currentUserId)
-  })
+  }))
 
   // ── commissioner: assign (or clear) a player in a slot ──
   // The pairing's two teams are INFERRED from the players placed, not chosen from
@@ -834,9 +841,32 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     )
   }
 
+  // Dev-only: flip this trip's test_mode (persisted, so the DB write rule agrees).
+  async function toggleTestMode() {
+    const next = !testMode
+    setTestMode(next) // optimistic
+    const { error } = await supabase.from('trips').update({ test_mode: next }).eq('id', trip.id)
+    if (error) {
+      setTestMode(!next)
+      console.error('[ScoringTab] test_mode toggle failed', error)
+    }
+  }
+
   return (
     <PullToRefresh onRefresh={handlePullRefresh} disabled={!!modal || !!notice || openSlot != null}>
     <div>
+      {/* Dev/testing only (designated account): enter scores for any pairing. */}
+      {isDevUser && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: testMode ? 'rgba(245,158,11,0.12)' : 'var(--bg2)', border: `1px solid ${testMode ? '#f59e0b' : 'var(--bg3)'}`, borderRadius: 8, padding: '8px 12px', marginBottom: 10 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: testMode ? '#92600b' : '#7A8FA6' }}>
+            🔧 Test mode {testMode ? 'ON — you can score any pairing' : 'off'}
+          </span>
+          <button onClick={toggleTestMode}
+            style={{ fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', borderRadius: 6, padding: '5px 12px', border: '1px solid #f59e0b', background: testMode ? '#f59e0b' : '#fff', color: testMode ? '#fff' : '#92600b' }}>
+            {testMode ? 'Turn off' : 'Turn on'}
+          </button>
+        </div>
+      )}
       {/* Round pills */}
       <div className="pill-row">
         {visibleRounds.map(r => (
