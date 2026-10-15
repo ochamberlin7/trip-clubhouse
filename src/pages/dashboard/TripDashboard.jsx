@@ -1652,9 +1652,13 @@ export default function TripDashboard() {
 
   // Read-only mode: a trip whose end date is in the past. Editing is disabled
   // everywhere and commissioner tools are hidden (users are viewing history).
+  // Dev/testing: the designated account, on a test-mode trip, bypasses read-only so a
+  // past/completed test trip stays fully editable (DB already permits it — the dev is
+  // the trip's admin and has the can_write_score override).
   const now = new Date()
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const readOnly = !!(trip.end_date && trip.end_date < todayIso)
+  const devFullOverride = isDevUser && !!trip.test_mode
+  const readOnly = !!(trip.end_date && trip.end_date < todayIso) && !devFullOverride
   const canManage = isCommissioner && !readOnly
 
   return (
@@ -1710,7 +1714,7 @@ export default function TripDashboard() {
           keys must be UNIQUE among siblings — see the banner/drawer below) */}
       <div className="dashboard-content" key={`content-${trip.id}`}>
         {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} onOpenMenuPage={openMenuPage} onNavigateTab={setActiveTab} />}
-        {activeTab === 'scores'      && <ScoringTab key={scoreNavTick} trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} isDevUser={isDevUser} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
+        {activeTab === 'scores'      && <ScoringTab key={scoreNavTick} trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} isDevUser={isDevUser} readOnly={readOnly} onTestModeChange={next => setTrip(t => t ? { ...t, test_mode: next } : t)} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} meals={meals} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => sortRoundsByTee(rs.map(r => r.id === id ? { ...r, ...patch } : r)))} />}

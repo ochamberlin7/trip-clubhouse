@@ -5,10 +5,15 @@
 --
 -- WHY: writes to scores/drinks are scoped to the player's own pairing (migration
 -- 20260672 — commissioners included). That's the production rule and stays intact.
--- For development/testing, one account needs to enter scores for ANY pairing. This
--- adds an opt-in, per-trip flag that grants that power to a SINGLE dev account only,
--- and ONLY on a trip explicitly flagged for testing. Real trips (test_mode = false)
--- are completely unaffected; no other user ever gains write access from this flag.
+-- For development/testing, one account needs to enter scores AND drinks for ANY pairing
+-- (can_write_score is shared by both the scores and drinks policies, so this one change
+-- covers both). This adds an opt-in, per-trip flag that grants that power to a SINGLE
+-- dev account only, and ONLY on a trip explicitly flagged for testing. Everything else a
+-- commissioner can already do (rounds, courses, teams, players, pairings, meals, stays,
+-- trip settings) is unlocked in the app by the parent bypassing read-only for this
+-- account on a test trip — the DB already allows those writes for the trip's admin.
+-- Real trips (test_mode = false) are completely unaffected; no other user ever gains
+-- write access from this flag.
 --
 -- The dev account is identified by email below. To hand this to someone else, change
 -- the email in can_write_score (and the UI gate in TripDashboard.jsx).
