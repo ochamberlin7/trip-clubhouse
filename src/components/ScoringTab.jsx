@@ -114,7 +114,7 @@ function MatchCell({ entry, t1Color, t2Color }) {
   )
 }
 
-export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, isDevUser = false, readOnly = false, onTestModeChange, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage }) {
+export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, isDevUser = false, readOnly = false, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage }) {
   const [pairings, setPairings] = useState([])
   const [pairingPlayers, setPairingPlayers] = useState([]) // {id, pairing_id, trip_player_id, team_slot}
   const [playersById, setPlayersById] = useState({})
@@ -843,33 +843,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     )
   }
 
-  // Dev-only: flip this trip's test_mode (persisted, so the DB write rules agree). The
-  // parent holds the trip state, so update it there (optimistic) and recompute readOnly.
-  async function toggleTestMode() {
-    const next = !testMode
-    onTestModeChange?.(next) // optimistic — parent updates trip.test_mode
-    const { error } = await supabase.from('trips').update({ test_mode: next }).eq('id', trip.id)
-    if (error) {
-      onTestModeChange?.(!next)
-      console.error('[ScoringTab] test_mode toggle failed', error)
-    }
-  }
-
   return (
     <PullToRefresh onRefresh={handlePullRefresh} disabled={!!modal || !!notice || openSlot != null}>
     <div>
-      {/* Dev/testing only (designated account): enter scores for any pairing. */}
-      {isDevUser && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: testMode ? 'rgba(245,158,11,0.12)' : 'var(--bg2)', border: `1px solid ${testMode ? '#f59e0b' : 'var(--bg3)'}`, borderRadius: 8, padding: '8px 12px', marginBottom: 10 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: testMode ? '#92600b' : '#7A8FA6' }}>
-            🔧 Test mode {testMode ? 'ON — you can make any change on this trip' : 'off'}
-          </span>
-          <button onClick={toggleTestMode}
-            style={{ fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', borderRadius: 6, padding: '5px 12px', border: '1px solid #f59e0b', background: testMode ? '#f59e0b' : '#fff', color: testMode ? '#fff' : '#92600b' }}>
-            {testMode ? 'Turn off' : 'Turn on'}
-          </button>
-        </div>
-      )}
       {/* Round pills */}
       <div className="pill-row">
         {visibleRounds.map(r => (
