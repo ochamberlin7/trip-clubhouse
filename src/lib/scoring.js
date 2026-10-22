@@ -218,7 +218,7 @@ function isoDateToUTC(iso) {
 // given IANA zone. timeZone is REQUIRED/explicit — this never reads the phone's zone
 // itself; when it is undefined the JS runtime zone is used by Intl (the documented
 // "callers pass the phone zone for now" path). 'en-CA' formats as YYYY-MM-DD.
-function zonedTodayAndMinutes(now, timeZone) {
+export function zonedTodayAndMinutes(now, timeZone) {
   const dtf = new Intl.DateTimeFormat('en-CA', {
     timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   })
@@ -307,6 +307,29 @@ export function getTripPhase({ trip, rounds = [], now = new Date(), timeZone, ho
   }
 
   return { phase, dayNumber, totalDays, todaysRounds, liveRound, nextRound, lastCompletedRound, hasRoundsToday }
+}
+
+// ── Routing policy: a trip phase → the screen to open ────────────────────────────
+// The ONE place that turns getTripPhase's facts into a default screen, so every entry
+// point (open app, switch trip, background→resume) lands the user identically instead
+// of re-deciding ad hoc. Returns a dashboard tab id, or 'no-trip' when there is no trip
+// to show (the caller renders its no-current-trip landing for that).
+//
+// Auto-opening the Score tab is deliberately NOT triggered by liveness alone: a
+// spectator or a commissioner who isn't playing stays on Home even while a round is
+// live. So the Score screen is chosen only when the signed-in user is actually playing
+// the live round AND it's underway for them — those user-specific facts are passed in
+// (`playingLiveUnderway`) so this function stays pure and testable.
+//   phase: a getTripPhase().phase value.
+//   opts.playingLiveUnderway: the signed-in user is in the live round's pairing and it
+//     has started for them (past their tee or their pairing already has a score).
+// Every non-live phase (before/after trip, no-round-day, before-first-tee,
+// between-rounds, after-last-round) opens Home — the hub with the countdown, tee times
+// and banners — which is where those states read best.
+export function screenForTripPhase(phase, opts = {}) {
+  if (phase === 'no-trip') return 'no-trip'
+  if (phase === 'round-live' && opts.playingLiveUnderway) return 'scores'
+  return 'dashboard'
 }
 
 // ── Home banner (day strip) view-model ───────────────────────────────────────────

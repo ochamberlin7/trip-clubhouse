@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getLiveRounds, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites } from '../../lib/scoring'
+import { getTripPhase, screenForTripPhase, isRoundLiveAt, zonedTodayAndMinutes, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
@@ -1521,7 +1521,9 @@ export default function TripDashboard() {
       setTeams(teamsRes.data || [])
 
       // Determine the round being played right now → auto-open Score on load.
-      await computeActiveScoring(roundList, rawPlayers)
+      // Pass the freshly-fetched trip (state `trip` isn't set yet this render) so the
+      // phase/liveness use the trip's time zone.
+      await computeActiveScoring(roundList, rawPlayers, tripData)
     } catch (err) {
       setFetchError(err?.message || String(err))
     } finally {
@@ -1529,9 +1531,11 @@ export default function TripDashboard() {
     }
   }
 
-  // Build the maps getActiveRound needs, find the active round + the user's
-  // pairing, and (once) auto-navigate to the Score tab.
-  async function computeActiveScoring(roundList, rawPlayers) {
+  // Build the maps the trip-phase computation needs, find the live round + the user's
+  // pairing, and (once) auto-navigate using the shared routing policy. `tripRow`
+  // defaults to state but is passed explicitly on first load (where `trip` state is
+  // still null) so the trip's time zone is available for phase/liveness.
+  async function computeActiveScoring(roundList, rawPlayers, tripRow = trip) {
     const roundIds = roundList.map(r => r.id)
     if (roundIds.length === 0) return
     const [pairRes, scoreRes] = await Promise.all([
@@ -1554,8 +1558,21 @@ export default function TripDashboard() {
       ;(holesByRoundPlayer[k] ??= new Set()).add(sc.hole_number)
     })
 
-    // Live rounds right now, most-recently-started first.
-    const liveRounds = getLiveRounds(roundList, { assignedByRound, holesByRoundPlayer })
+    // Today/now in the TRIP's zone (not the phone's), so an out-of-zone viewer sees
+    // the trip's day — e.g. Phoenix at 11 PM still reads Michigan's correct date. Until
+    // a trip has a stored zone, time_zone is null → the device zone is used (unchanged).
+    const ctx = { assignedByRound, holesByRoundPlayer }
+    const tz = tripRow?.time_zone ?? undefined
+    const { todayIso, nowMinutes } = zonedTodayAndMinutes(new Date(), tz)
+
+    // The one classification of "where are we in the trip", shared with Home/banners.
+    const { phase } = getTripPhase({ trip: tripRow, rounds: roundList, now: new Date(), timeZone: tz, completeness: ctx })
+
+    // Live rounds right now via the shared live-window predicate (zone-aware),
+    // most-recently-started first — same ordering getLiveRounds uses.
+    const liveRounds = roundList
+      .filter(r => isRoundLiveAt(r, ctx, todayIso, nowMinutes))
+      .sort((a, b) => parseTeeTimeToMinutes(b.tee_time_1) - parseTeeTimeToMinutes(a.tee_time_1))
 
     // The user's trip_player — matched by their account OR a claimed guest slot.
     const myTp = rawPlayers.find(p => p.user_id === user?.id || p.claimed_user_id === user?.id)?.id
@@ -1578,23 +1595,21 @@ export default function TripDashboard() {
     const pairingNum = pairings.find(p => p.id === myPairingId)?.pairing_number || 1
     setScoringInit({ roundId: active.id, pairingNum })
 
-    // Auto-open Score ONLY for a user actually playing a live round. Open when it's
-    // underway for them — ≥5 min past their own tee time (tee_time_N, else _1), or
-    // their own pairing already has a score. On background→resume this re-runs; the
+    // Is the live round underway FOR THIS USER — ≥5 min past their own tee time
+    // (tee_time_N, else _1, in the trip zone), or their own pairing already has a
+    // score? Only then does the routing policy send a playing user to the Score tab.
+    const teeStr = active[`tee_time_${pairingNum}`] || active.tee_time_1
+    const teeMinutes = parseTeeTimeToMinutes(teeStr)
+    const pastTeeThreshold = teeMinutes > 0 && nowMinutes >= teeMinutes + 5
+    const myPairPlayers = myPairingId ? pp.filter(x => x.pairing_id === myPairingId).map(x => x.trip_player_id) : []
+    const myPairingHasScores = myPairPlayers.some(tp => (holesByRoundPlayer[`${active.id}:${tp}`]?.size ?? 0) > 0)
+    const playingLiveUnderway = userInLive && (pastTeeThreshold || myPairingHasScores)
+
+    // Shared routing policy decides the screen. On background→resume this re-runs; the
     // lastActiveRoundRef guard means we redirect to a NEWLY-live round but don't
     // re-yank someone who navigated away during the SAME round. The nav tick forces
     // ScoringTab to remount onto the new round even if they're already on the tab.
-    if (!userInLive) return
-    const teeStr = active[`tee_time_${pairingNum}`] || active.tee_time_1
-    const teeMinutes = parseTeeTimeToMinutes(teeStr)
-    const now = new Date()
-    const nowMinutes = now.getHours() * 60 + now.getMinutes()
-    const pastTeeThreshold = teeMinutes > 0 && nowMinutes >= teeMinutes + 5
-
-    const myPairPlayers = myPairingId ? pp.filter(x => x.pairing_id === myPairingId).map(x => x.trip_player_id) : []
-    const myPairingHasScores = myPairPlayers.some(tp => (holesByRoundPlayer[`${active.id}:${tp}`]?.size ?? 0) > 0)
-
-    if ((pastTeeThreshold || myPairingHasScores) && lastActiveRoundRef.current !== active.id) {
+    if (screenForTripPhase(phase, { playingLiveUnderway }) === 'scores' && lastActiveRoundRef.current !== active.id) {
       lastActiveRoundRef.current = active.id
       setScoreNavTick(t => t + 1)
       setActiveTab('scores')
