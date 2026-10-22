@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useGroup } from '../context/GroupContext'
 import { rowUI, Disclosure, SaveLink, Toggle } from '../components/DisclosureRow'
 import { isPushSupported, pushPermission, enablePush, disablePush, hasActiveSubscription, markPromptDismissed, clearPromptDismissed } from '../lib/push'
 
@@ -27,6 +28,10 @@ function splitName(displayName) {
 
 const emailLooksValid = (e) => /^\S+@\S+\.\S+$/.test((e || '').trim())
 
+// Dev/testing account allowed to toggle a trip's test_mode (mirrors the email in
+// migration 20260674 / can_write_score and TripDashboard.jsx).
+const DEV_USER_EMAIL = 'o.chamberlin@gmail.com'
+
 const hdr = {
   page: { minHeight: '100vh', background: '#F0F4F8' },
   bar: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: 'max(env(safe-area-inset-top), 16px) 16px 12px', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: 12 },
@@ -38,7 +43,25 @@ const hdr = {
 
 export default function ProfilePage() {
   const { user } = useAuth()
+  const { activeTrip } = useGroup()
   const navigate = useNavigate()
+
+  // Dev/testing: the designated account can flip the ACTIVE trip's test_mode here
+  // (same flag the Score tab uses). Only this account sees the row.
+  const isDevUser = (user?.email || '').toLowerCase() === DEV_USER_EMAIL
+  // Display the DB value (from the group context) unless the user has toggled this
+  // session — then show the optimistic value. Deriving (vs an effect) avoids a seed
+  // effect and stays correct as the active trip loads/changes.
+  const [pendingTestMode, setPendingTestMode] = useState(null)
+  const testMode = pendingTestMode ?? !!activeTrip?.test_mode
+  const [testErr, setTestErr] = useState('')
+  async function toggleTripTestMode() {
+    if (!activeTrip?.id) return
+    const next = !testMode
+    setTestErr(''); setPendingTestMode(next)
+    const { error } = await supabase.from('trips').update({ test_mode: next }).eq('id', activeTrip.id)
+    if (error) { setPendingTestMode(!next); setTestErr(error.message || 'Could not update test mode') }
+  }
 
   // AppShell guarantees `user` is present before this renders, so seed directly.
   const seeded = splitName(user?.user_metadata?.display_name)
@@ -261,6 +284,20 @@ export default function ProfilePage() {
             <div style={rowUI.note}>Push notifications aren’t available on this browser. On iPhone, add Trip Clubhouse to your Home Screen and open it from there to enable them.</div>
           )}
         </Disclosure>
+
+        {isDevUser && (
+          <Disclosure label="Developer" value={testMode ? 'Test mode on' : 'Test mode off'}>
+            {activeTrip ? (
+              <>
+                <Toggle on={testMode} onClick={toggleTripTestMode} label={`Test mode — ${activeTrip.name || 'this trip'}`} />
+                <div style={rowUI.note}>Lets you enter scores/drinks for any pairing and edit this trip even after it ends. Only affects this trip, and only your account. Turn off when done.</div>
+                {testErr && <div style={rowUI.err}>{testErr}</div>}
+              </>
+            ) : (
+              <div style={rowUI.note}>Select a trip first to toggle its test mode.</div>
+            )}
+          </Disclosure>
+        )}
 
         <div style={rowUI.dangerWrap}>
           <button style={rowUI.dangerBtn} onClick={handleSignOut}>Sign Out</button>

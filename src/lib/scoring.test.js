@@ -501,3 +501,82 @@ test('screenForTripPhase: every non-live phase opens Home, even if the user is "
     assert.equal(screenForTripPhase(phase), 'dashboard', phase)
   }
 })
+// ─────────────────────────────────────────────────────────────────────────────
+// Home banner (day strip) view-model — homeBannerModel + bannerGridColumns. Pure:
+// fed a getTripPhase()-shaped object, returns { showWelcome, dots, title, lines }.
+import { homeBannerModel, bannerGridColumns, roundCourseName } from './scoring.js'
+
+const rnd = (name, by = 'club_name') => ({ [by]: name })
+
+test('homeBannerModel: day 1 playing — welcome on, today = dot 1, course line', () => {
+  const m = homeBannerModel({ dayNumber: 1, totalDays: 6, todaysRounds: [rnd('Pine Valley')] })
+  assert.equal(m.showWelcome, true)
+  assert.equal(m.title, 'Day 1')
+  assert.deepEqual(m.lines, ['Pine Valley'])
+  assert.equal(m.dots.length, 6)
+  assert.equal(m.dots[0].state, 'today')
+  assert.deepEqual(m.dots.slice(1).map(d => d.state), ['future', 'future', 'future', 'future', 'future'])
+})
+
+test('homeBannerModel: day 1 with no rounds — welcome on, "No rounds today", no "travel day"', () => {
+  const m = homeBannerModel({ dayNumber: 1, totalDays: 6, todaysRounds: [] })
+  assert.equal(m.showWelcome, true)
+  assert.deepEqual(m.lines, ['No rounds today'])
+  assert.ok(!m.lines.join(' ').toLowerCase().includes('travel'))
+})
+
+test('homeBannerModel: middle playing day — no welcome, past/today/future split correct', () => {
+  const m = homeBannerModel({ dayNumber: 3, totalDays: 6, todaysRounds: [rnd('Oakmont', 'course_name')] })
+  assert.equal(m.showWelcome, false)
+  assert.equal(m.title, 'Day 3')
+  assert.deepEqual(m.dots.map(d => d.state), ['past', 'past', 'today', 'future', 'future', 'future'])
+  assert.deepEqual(m.lines, ['Oakmont'])
+})
+
+test('homeBannerModel: two-round day — two lines, tee order preserved', () => {
+  const m = homeBannerModel({ dayNumber: 2, totalDays: 4, todaysRounds: [rnd('Morning Links'), rnd('Afternoon Dunes')] })
+  assert.deepEqual(m.lines, ['Morning Links', 'Afternoon Dunes'])
+})
+
+test('homeBannerModel: last day — every earlier dot past, final is today', () => {
+  const m = homeBannerModel({ dayNumber: 6, totalDays: 6, todaysRounds: [rnd('Harbour Town')] })
+  assert.deepEqual(m.dots.map(d => d.state), ['past', 'past', 'past', 'past', 'past', 'today'])
+})
+
+test('homeBannerModel: trip with no dates — strip hidden, no title, still lists courses', () => {
+  const m = homeBannerModel({ dayNumber: null, totalDays: null, todaysRounds: [rnd('Somewhere')] })
+  assert.deepEqual(m.dots, [])
+  assert.equal(m.title, null)
+  assert.equal(m.showWelcome, false)
+  assert.deepEqual(m.lines, ['Somewhere'])
+})
+
+test('roundCourseName: manually-edited club_name wins over course_name', () => {
+  assert.equal(roundCourseName({ club_name: 'Edited Name', course_name: 'Original' }), 'Edited Name')
+  assert.equal(roundCourseName({ course_name: 'Only Course' }), 'Only Course')
+})
+
+// Dot states + grid shape across trip lengths. columns = N (≤8) else 8; rows = ceil(N/cols).
+const GRID_TABLE = [
+  { totalDays: 1, dayNumber: 1, columns: 1, rows: 1 },
+  { totalDays: 2, dayNumber: 2, columns: 2, rows: 1 },
+  { totalDays: 6, dayNumber: 3, columns: 6, rows: 1 },
+  { totalDays: 8, dayNumber: 8, columns: 8, rows: 1 },
+  { totalDays: 9, dayNumber: 1, columns: 8, rows: 2 },
+  { totalDays: 12, dayNumber: 7, columns: 8, rows: 2 },
+]
+for (const row of GRID_TABLE) {
+  test(`homeBannerModel grid: ${row.totalDays}-day trip → ${row.columns} cols, ${row.rows} row(s)`, () => {
+    const m = homeBannerModel({ dayNumber: row.dayNumber, totalDays: row.totalDays, todaysRounds: [] })
+    assert.equal(m.dots.length, row.totalDays)
+    const cols = bannerGridColumns(row.totalDays)
+    assert.equal(cols, row.columns)
+    assert.equal(Math.ceil(row.totalDays / cols), row.rows)
+    // Exactly one 'today', at the right index; everything before it past, after it future.
+    assert.equal(m.dots.filter(d => d.state === 'today').length, 1)
+    m.dots.forEach(d => {
+      const expect = d.n < row.dayNumber ? 'past' : d.n === row.dayNumber ? 'today' : 'future'
+      assert.equal(d.state, expect, `dot ${d.n}`)
+    })
+  })
+}

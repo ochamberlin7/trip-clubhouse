@@ -332,6 +332,44 @@ export function screenForTripPhase(phase, opts = {}) {
   return 'dashboard'
 }
 
+// ── Home banner (day strip) view-model ───────────────────────────────────────────
+// Displayed course name for a round — the SAME field Schedule & Courses shows
+// (GolfRoundEntry renders `club_name || course_name`, and the manual name editor writes
+// club_name). Kept here so the banner reuses it instead of re-deriving a name.
+export function roundCourseName(round) {
+  return round?.club_name || round?.course_name || ''
+}
+
+// Day-strip grid width: 8 dots per row. Trips of 8 days or fewer are a single row
+// spread evenly (N columns); 9+ days wrap at 8 columns so dots line up across rows.
+// (Row count is Math.ceil(totalDays / columns).)
+export function bannerGridColumns(totalDays) {
+  if (!totalDays || totalDays <= 0) return 0
+  return totalDays <= 8 ? totalDays : 8
+}
+
+// Pure view-model for the Home day-strip banner, built from a getTripPhase() result.
+// Returns { showWelcome, dots:[{ n, state }], title, lines }:
+//   showWelcome — true only on day 1 (the "Welcome to <trip>" line).
+//   dots        — one per trip day, 1..totalDays, state 'past' | 'today' | 'future';
+//                 [] when the trip has no dates (totalDays null) → the strip is hidden.
+//   title       — "Day N" (null when there is no day number, e.g. a dateless trip).
+//   lines       — one displayed course name per today's round, in the tee-time order
+//                 getTripPhase already produced; ["No rounds today"] when there are
+//                 none. Never infers or prints "travel day".
+export function homeBannerModel(phase) {
+  const { dayNumber = null, totalDays = null, todaysRounds = [] } = phase || {}
+  const showWelcome = dayNumber === 1
+  const dots = totalDays == null ? [] : Array.from({ length: totalDays }, (_, i) => {
+    const n = i + 1
+    const state = dayNumber == null ? 'future' : (n < dayNumber ? 'past' : n === dayNumber ? 'today' : 'future')
+    return { n, state }
+  })
+  const title = dayNumber == null ? null : `Day ${dayNumber}`
+  const lines = todaysRounds.length ? todaysRounds.map(roundCourseName) : ['No rounds today']
+  return { showWelcome, dots, title, lines }
+}
+
 // Raw course handicap: handicap_index * (slope / 113), rounded.
 export function courseHandicap(handicapIndex, slopeRating) {
   const hi = Number(handicapIndex) || 0
