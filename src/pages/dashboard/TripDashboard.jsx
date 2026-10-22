@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getTripPhase, screenForTripPhase, isRoundLiveAt, zonedTodayAndMinutes, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites } from '../../lib/scoring'
+import { getTripPhase, screenForTripPhase, defaultRoundForTrip, isRoundLiveAt, zonedTodayAndMinutes, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
@@ -1566,7 +1566,8 @@ export default function TripDashboard() {
     const { todayIso, nowMinutes } = zonedTodayAndMinutes(new Date(), tz)
 
     // The one classification of "where are we in the trip", shared with Home/banners.
-    const { phase } = getTripPhase({ trip: tripRow, rounds: roundList, now: new Date(), timeZone: tz, completeness: ctx })
+    const phaseResult = getTripPhase({ trip: tripRow, rounds: roundList, now: new Date(), timeZone: tz, completeness: ctx })
+    const phase = phaseResult.phase
 
     // Live rounds right now via the shared live-window predicate (zone-aware),
     // most-recently-started first — same ordering getLiveRounds uses.
@@ -1590,7 +1591,15 @@ export default function TripDashboard() {
       if (pid) { active = r; myPairingId = pid; userInLive = true; break }
     }
     if (!active) active = liveRounds[0] || null
-    if (!active) { setScoringInit(null); return }
+    // Nothing live: pre-select the shared DEFAULT round (by phase + trip-zone now) so the
+    // Score tab opens on the right round instead of the trip's first round. This only
+    // seeds ScoringTab's initial round — it never changes which screen opens (no live
+    // round → screenForTripPhase stays Home) and a manual pick still wins for the session.
+    if (!active) {
+      const def = defaultRoundForTrip(phaseResult, roundList, todayIso, nowMinutes)
+      setScoringInit(def ? { roundId: def.id, pairingNum: 1 } : null)
+      return
+    }
 
     const pairingNum = pairings.find(p => p.id === myPairingId)?.pairing_number || 1
     setScoringInit({ roundId: active.id, pairingNum })
