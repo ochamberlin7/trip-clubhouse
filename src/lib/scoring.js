@@ -332,6 +332,53 @@ export function screenForTripPhase(phase, opts = {}) {
   return 'dashboard'
 }
 
+// ── Default round: which round a round-based screen should show ───────────────────
+// The ONE rule every round-based screen uses to pick a default round when nothing is
+// live and the user hasn't chosen one. Reads a getTripPhase() RESULT (does NOT recompute
+// phase or completeness) plus the trip's rounds and the SAME trip-zone today/now the
+// caller already fed getTripPhase. Returns a round row, or null (no trip / no rounds).
+// Ties on date are ordered by tee_time_1 (missing sorts last), same as getTripPhase.
+//
+//   round-live        → the live round.
+//   before-first-tee  → today's first (upcoming) round — shown all day until it goes live.
+//   between-rounds    → the last completed round until 60 min before the next round's
+//                       tee (tee_time_1 − 60, trip zone); from then on, the upcoming
+//                       round. No next tee → stay on the last completed round. (The live
+//                       window is tee − 30, so between −60 and −30 the upcoming round
+//                       shows but isn't live yet — intended.)
+//   after-last-round  → the round that just finished (the last completed round).
+//   no-round-day      → the trip's last completed round; if none yet, the trip's first.
+//   before-trip       → the trip's first round.
+//   after-trip        → the trip's last round.
+//   no-trip / no rounds → null.
+export function defaultRoundForTrip(phase, rounds = [], todayIso = '', nowMinutes = 0) {
+  const real = (rounds || []).filter(r => r && !isNoneRound(r)).slice().sort(byDateThenTee)
+  if (!phase || real.length === 0) return null
+  const firstOfTrip = real[0]
+  const lastOfTrip = real[real.length - 1]
+  const { liveRound = null, nextRound = null, lastCompletedRound = null } = phase
+
+  switch (phase.phase) {
+    case 'no-trip':          return null
+    case 'before-trip':      return firstOfTrip
+    case 'after-trip':       return lastOfTrip
+    case 'round-live':       return liveRound || null
+    case 'before-first-tee': return nextRound || firstOfTrip
+    case 'after-last-round': return lastCompletedRound || null
+    case 'no-round-day':     return lastCompletedRound || firstOfTrip
+    case 'between-rounds': {
+      if (!nextRound) return lastCompletedRound || null
+      const tee = parseTeeTimeToMinutes(nextRound.tee_time_1)
+      const nextIsToday = nextRound.date === todayIso
+      // From 60 min before the next tee, switch to the upcoming round; before that (or
+      // when the next round has no tee time) stay on the last completed round.
+      if (nextIsToday && tee > 0 && nowMinutes >= tee - 60) return nextRound
+      return lastCompletedRound || nextRound
+    }
+    default:                 return lastCompletedRound || firstOfTrip
+  }
+}
+
 // ── Home banner (day strip) view-model ───────────────────────────────────────────
 // Displayed course name for a round — the SAME field Schedule & Courses shows
 // (GolfRoundEntry renders `club_name || course_name`, and the manual name editor writes
