@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getTripPhase, screenForTripPhase, defaultRoundForTrip, isRoundLiveAt, zonedTodayAndMinutes, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites } from '../../lib/scoring'
+import { getTripPhase, screenForTripPhase, defaultRoundForTrip, isRoundLiveAt, zonedTodayAndMinutes, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites, isRosterLocked } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
@@ -1684,6 +1684,8 @@ export default function TripDashboard() {
   const devFullOverride = isDevUser && !!trip.test_mode
   const readOnly = !!(trip.end_date && trip.end_date < todayIso) && !devFullOverride
   const canManage = isCommissioner && !readOnly
+  // Players can be removed/replaced only before the trip starts (trip-local date).
+  const rosterLocked = isRosterLocked({ trip, now, timeZone: trip.time_zone ?? undefined, devOverride: devFullOverride })
 
   return (
     <div className="dashboard-page">
@@ -1767,6 +1769,7 @@ export default function TripDashboard() {
         inviteToken={trip.invite_token}
         isCommissioner={canManage}
         readOnly={readOnly}
+        rosterLocked={rosterLocked}
         currentUserId={user?.id}
         handicapAllowance={trip.handicap_allowance ?? 100}
         tournamentFormat={trip.format}

@@ -60,6 +60,7 @@ Recently merged to `main`: trip-phase foundation (`getTripPhase`), phase-driven 
 - `fix/live-banner-team-ids` — fixes the live banner showing wrong team names/colours (it wasn't fetching `team1_id/team2_id`).
 
 ## Gotchas
+- **`src/components/MenuDrawer.jsx` has 20 PRE-EXISTING lint errors** (as of `main` @ `043071f`). Same rule: count only new ones.
 - **`src/pages/dashboard/TripDashboard.jsx` has 6 PRE-EXISTING lint errors** (`groupByDate`, two `WeatherWidget` setState-in-effect, dead `TabMenu`/unused `trip`, `devReset`). They are NOT yours — count only *new* ones. `node_modules`-wide `npm run lint` fails on these + others by design.
 - **Disk/corruption history:** this folder is a **fresh re-clone** (the earlier working copy corrupted when the disk hit 100% full). A backup of the broken copy sits at `~/Desktop/trip-clubhouse-fresh.corrupt-20261021` — safe to delete once you're confident (only unrecoverable thing in it was `.env.local`, already recreated). The repo lives under `~/Desktop` (watch disk space; if reads start timing out, the disk is likely full again — stop and tell Owen, don't delete).
 - Tests are logic-only; there's no component/browser test harness. Verify UI changes on the Netlify preview.

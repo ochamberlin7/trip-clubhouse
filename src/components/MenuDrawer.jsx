@@ -20,6 +20,7 @@ import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
+import { removeTripPlayer, replaceTripPlayer, rosterChangeBlockReason } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -287,7 +288,7 @@ function CheckIcon() {
   )
 }
 
-function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner, editing, onStartEdit, onCloseEdit, onSaved }) {
+function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner, editing, onStartEdit, onCloseEdit, onSaved, groupId, rosterLocked }) {
   // Who can edit what:
   //   • Commissioner → first name, last name, email, phone, handicap, team.
   //   • The player, on their OWN card only → email + phone.
@@ -454,12 +455,108 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
             <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
           </div>
+          {isCommissioner && !commissioner && (
+            <RosterActions player={{ ...player, is_commissioner: commissioner }} groupId={groupId} rosterLocked={rosterLocked} onDone={onSaved} />
+          )}
         </div>
       )}
     </div>
   )
 }
 
+
+// Commissioner-only Remove / Replace, shown in a player's edit panel. Allowed only
+// before the trip starts (rosterLocked); all writes go through src/lib/roster.js.
+function RosterActions({ player, groupId, rosterLocked, onDone }) {
+  const [mode, setMode] = useState(null) // null | 'remove' | 'replace'
+  const [form, setForm] = useState({ first_name: '', last_name: '', handicap_index: '', email: '', phone: '' })
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const blocked = rosterChangeBlockReason({ player, rosterLocked })
+
+  if (blocked) {
+    return <div style={ra.note}>{blocked} Players can't be removed or replaced.</div>
+  }
+
+  async function run(fn) {
+    setBusy(true); setErr(null)
+    const { error } = await fn()
+    setBusy(false)
+    if (error) setErr(error.message || 'Something went wrong.')
+    else { setMode(null); onDone() }
+  }
+  const doRemove = () => run(() => removeTripPlayer(supabase, { player, groupId, rosterLocked }))
+  const doReplace = () => run(() => replaceTripPlayer(supabase, {
+    player, groupId, rosterLocked,
+    replacement: { ...form, phone: form.phone.trim() ? formatPhone(form.phone) : '' },
+  }))
+
+  return (
+    <div style={ra.wrap}>
+      {mode === null && (
+        <div style={{ display: 'flex', gap: 16 }}>
+          <button style={ra.link} onClick={() => setMode('replace')}>Replace player</button>
+          <button style={{ ...ra.link, color: '#C0392B' }} onClick={() => setMode('remove')}>Remove from trip</button>
+        </div>
+      )}
+
+      {mode === 'remove' && (
+        <div>
+          <div style={ra.prompt}>Remove {player.name} from the trip? Their spots in any pairings will open up.</div>
+          <div style={ra.btnRow}>
+            <button style={{ ...ra.btn, background: '#C0392B' }} disabled={busy} onClick={doRemove}>{busy ? 'Removing…' : 'Remove'}</button>
+            <button style={ra.cancel} disabled={busy} onClick={() => { setMode(null); setErr(null) }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'replace' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={ra.prompt}>The new player takes {player.name}'s team spot and pairings, with their own handicap. They join with the trip invite link.</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <label style={pc.editField}>
+              <span style={pc.editLabel}>First Name</span>
+              <input style={pc.editInput} placeholder="First name" value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} />
+            </label>
+            <label style={pc.editField}>
+              <span style={pc.editLabel}>Last Name</span>
+              <input style={pc.editInput} placeholder="Last name" value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
+            </label>
+          </div>
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Handicap Index</span>
+            <input style={pc.editInput} type="number" step="0.1" min="0" max="54" placeholder="e.g. 14.2" value={form.handicap_index} onChange={e => setForm({ ...form, handicap_index: e.target.value })} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Phone</span>
+            <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Email</span>
+            <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+          </label>
+          <div style={ra.btnRow}>
+            <button style={ra.btn} disabled={busy || !form.first_name.trim()} onClick={doReplace}>{busy ? 'Replacing…' : 'Replace'}</button>
+            <button style={ra.cancel} disabled={busy} onClick={() => { setMode(null); setErr(null) }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {err && <div style={ra.err}>{err}</div>}
+    </div>
+  )
+}
+
+const ra = {
+  wrap: { marginTop: 12, paddingTop: 12, borderTop: '1px solid #EEF1F4' },
+  note: { marginTop: 12, paddingTop: 12, borderTop: '1px solid #EEF1F4', fontSize: 12, color: '#7A8FA6' },
+  link: { background: 'transparent', border: 'none', padding: 0, color: '#1B3F6E', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  prompt: { fontSize: 13, color: '#2C3E50', lineHeight: 1.4 },
+  btnRow: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 },
+  btn: { background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  cancel: { background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
+  err: { marginTop: 8, fontSize: 12, color: '#C0392B' },
+}
 
 // Quick-glance roster: a 2-column wrapping grid of team cards, each listing its
 // players + handicaps. Colours come from the SAME palette as the scorecard
@@ -518,7 +615,7 @@ const trs = {
   hcp: { fontSize: 11, fontWeight: 700, flexShrink: 0 },
 }
 
-function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
+function PlayersPage({ data, isCommissioner, currentUserId, onReload, groupId, rosterLocked }) {
   const [editingId, setEditingId] = useState(null)
   if (!data) return <div style={s.muted}>Loading…</div>
   const { players, teams } = data
@@ -540,6 +637,8 @@ function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
       onStartEdit={() => setEditingId(p.id)}        // only one open at a time
       onCloseEdit={() => setEditingId(null)}
       onSaved={() => { setEditingId(null); onReload() }}
+      groupId={groupId}
+      rosterLocked={rosterLocked}
     />
   )
 
@@ -2374,7 +2473,7 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
+  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
   const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
@@ -3030,7 +3129,7 @@ export default function MenuDrawer({
       )}
       {page === 'players' && (
         <SecondaryPage context={groupName} title="Players & Teams" onBack={backToDrawer}>
-          <PlayersPage data={playersData} isCommissioner={isCommissioner} currentUserId={currentUserId} onReload={() => setPlayersData(null)} />
+          <PlayersPage data={playersData} isCommissioner={isCommissioner} currentUserId={currentUserId} onReload={() => setPlayersData(null)} groupId={groupId} rosterLocked={rosterLocked} />
         </SecondaryPage>
       )}
       {page === 'courses' && (

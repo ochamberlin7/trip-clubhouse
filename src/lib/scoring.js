@@ -309,6 +309,17 @@ export function getTripPhase({ trip, rounds = [], now = new Date(), timeZone, ho
   return { phase, dayNumber, totalDays, todaysRounds, liveRound, nextRound, lastCompletedRound, hasRoundsToday }
 }
 
+// isRosterLocked — the ONE rule for "can players still be removed or replaced?"
+// The roster is set once the trip starts: only the 'before-trip' phase (trip-local
+// date, via getTripPhase) is unlocked. A trip with no start date hasn't started.
+// devOverride (test mode) unlocks it so a started test trip can still be exercised.
+export function isRosterLocked({ trip, now = new Date(), timeZone, devOverride = false } = {}) {
+  if (!trip) return true
+  if (devOverride) return false
+  if (!trip.start_date) return false
+  return getTripPhase({ trip, now, timeZone }).phase !== 'before-trip'
+}
+
 // ── Routing policy: a trip phase → the screen to open ────────────────────────────
 // The ONE place that turns getTripPhase's facts into a default screen, so every entry
 // point (open app, switch trip, background→resume) lands the user identically instead
