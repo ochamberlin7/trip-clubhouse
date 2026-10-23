@@ -401,11 +401,6 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               <span>{team ? getTeamDisplayName(team) : 'Unassigned'}</span>
             </div>
           )}
-          {canRemove && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-              <button onClick={() => setConfirmRemove(true)} style={{ background: 'transparent', border: 'none', padding: 0, color: '#C0392B', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
-            </div>
-          )}
         </div>
       )}
       {confirmRemove && (
@@ -475,6 +470,10 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
             <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            {/* Remove lives in edit mode only, bottom-right of the panel. */}
+            {canRemove && (
+              <button onClick={() => setConfirmRemove(true)} disabled={saving} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
+            )}
           </div>
         </div>
       )}

@@ -45,7 +45,7 @@ Default round rules: first round of the day = that round all day until live; 2nd
 ## Next up (in order unless Owen changes it)
 1. **Remove members from a trip** — built on `feat/roster-remove-replace` (not merged). Decided 2026-10-23:
    - **Roster is set once the trip starts** (trip-local date, `isRosterLocked` in `scoring.js`). Before that, the commissioner can remove any player except themselves. Test mode unlocks it for Owen's test trips.
-   - **Remove player** (bottom-right of the card) → centered "Are you sure? This cannot be undone." → the player becomes an **Open spot**: same team, pairings and tee picks; name, handicap, contact, account link, captain flag and flight wiped.
+   - **Remove player** (only after tapping the edit pencil; bottom-right of the edit panel) → centered "Are you sure? This cannot be undone." → the player becomes an **Open spot**: same team, pairings and tee picks; name, handicap, contact, account link, captain flag and flight wiped.
    - **Replacing** = commissioner fills the open spot with the normal edit form, then shares the invite link; the existing email → phone → name matching in `JoinTrip.jsx` claims it. An empty spot can't be matched by mistake.
    - The removed person's group membership is dropped (only if they have no other trip in that group), so the trip leaves their list.
    - All writes go through `src/lib/roster.js`.
