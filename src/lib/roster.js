@@ -3,8 +3,8 @@
 // check that, and removeTripPlayer refuses a locked roster too.
 //
 // Remove → the player's row is cleared into an empty placeholder spot. The spot
-// keeps its team, pairings and tee picks; the person's name, handicap, contact,
-// account link, captain flag and flight details are wiped. The commissioner then
+// keeps its pairings and tee picks; the person's name, handicap, contact, team
+// (→ Unassigned), account link, captain flag and flight details are wiped. The commissioner then
 // fills the spot in with the normal edit form and shares the invite link — the
 // new person is matched to the spot by email, phone or name (JoinTrip.jsx).
 // An empty spot (no name, email or phone) can never be matched by mistake.
@@ -17,6 +17,7 @@ export const PLACEHOLDER_PATCH = Object.freeze({
   first_name: null,
   last_name: null,
   guest_name: null,
+  team_id: null,
   handicap_index: null,
   email: null,
   phone: null,

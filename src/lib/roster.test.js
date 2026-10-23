@@ -38,8 +38,8 @@ test('block reasons: locked roster and the commissioner', () => {
 })
 
 // ── placeholder spot ─────────────────────────────────────────────
-test('placeholder patch wipes the person but not the slot (team stays)', () => {
-  assert.equal('team_id' in PLACEHOLDER_PATCH, false)
+test('placeholder patch wipes the person and sets the team to Unassigned', () => {
+  assert.equal(PLACEHOLDER_PATCH.team_id, null)
   assert.equal(PLACEHOLDER_PATCH.is_claimed, false)
   assert.equal(PLACEHOLDER_PATCH.user_id, null)
   assert.equal(PLACEHOLDER_PATCH.claimed_user_id, null)

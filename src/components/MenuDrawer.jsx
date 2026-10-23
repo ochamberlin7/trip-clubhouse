@@ -498,7 +498,7 @@ function RemovePlayerModal({ player, groupId, rosterLocked, onClose, onRemoved }
       <div style={{ ...s.modalSheet, maxWidth: 360, textAlign: 'center' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
         <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>Remove {player.name}?</div>
         <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.45 }}>
-          Are you sure? This cannot be undone. Their spot stays on the team and in the pairings, empty, so you can add a new player.
+          Are you sure? This cannot be undone. Their spot stays in the pairings, empty and unassigned to a team, so you can add a new player.
         </div>
         {err && <div style={{ marginTop: 10, fontSize: 12, color: '#C0392B' }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
