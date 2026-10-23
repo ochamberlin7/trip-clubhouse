@@ -20,7 +20,7 @@ import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
-import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer } from '../lib/roster'
+import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -345,7 +345,9 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
         .eq('team_id', form.team_id).neq('id', player.id)
     }
     setSaving(false)
-    if (!error) onSaved()
+    // Filling an empty spot → the Players page pops up the invite link for them.
+    const filledSpot = isOpenSpot && isCommissioner && !!payload.first_name
+    if (!error) onSaved(filledSpot ? { invite: [payload.first_name, payload.last_name].filter(Boolean).join(' ') } : undefined)
   }
 
   return (
@@ -354,10 +356,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
       <div style={pc.header}>
         <div style={pc.avatar}>{playerInitials(player)}</div>
         <div style={pc.headerMain}>
-          <div style={{ ...pc.name, ...(isOpenSpot ? { color: '#7A8FA6', fontStyle: 'italic' } : null) }}>{isOpenSpot ? 'Open spot' : player.name}</div>
-          {isOpenSpot && isCommissioner && (
-            <div style={{ fontSize: 12, color: '#7A8FA6', marginTop: 2 }}>Tap the pencil to add the new player, then send them the invite link.</div>
-          )}
+          <div style={{ ...pc.name, ...(isOpenSpot ? { color: '#7A8FA6', fontStyle: 'italic' } : null) }}>{isOpenSpot ? PLACEHOLDER_LABEL : player.name}</div>
           {(player.is_claimed || commissioner || player.is_captain) && (
             <div style={pc.metaRow}>
               {player.is_claimed && <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>}
@@ -569,15 +568,19 @@ const trs = {
   hcp: { fontSize: 11, fontWeight: 700, flexShrink: 0 },
 }
 
-function PlayersPage({ data, isCommissioner, currentUserId, onReload, groupId, rosterLocked }) {
+function PlayersPage({ data, isCommissioner, currentUserId, onReload, groupId, rosterLocked, inviteToken }) {
   const [editingId, setEditingId] = useState(null)
-  if (!data) return <div style={s.muted}>Loading…</div>
+  const [invitee, setInvitee] = useState(null) // name of the player just added to an empty spot
+  const inviteModal = invitee && <InviteNewPlayerModal name={invitee} inviteToken={inviteToken} onClose={() => setInvitee(null)} />
+  if (!data) return <><div style={s.muted}>Loading…</div>{inviteModal}</>
   const { players, teams } = data
 
-  // One commissioner pinned to the top; everyone else sorted alphabetically by first name.
+  // Empty spots first (so the commissioner sees what to fill), then the commissioner,
+  // then everyone else alphabetically by first name.
   const byFirstName = (a, b) => (a.first_name || a.name || '').localeCompare(b.first_name || b.name || '')
+  const openSpots = players.filter(isPlaceholderPlayer)
   const commissioner = players.find(p => p.is_commissioner)
-  const rest = players.filter(p => p !== commissioner).sort(byFirstName)
+  const rest = players.filter(p => p !== commissioner && !isPlaceholderPlayer(p)).sort(byFirstName)
 
   const renderCard = p => (
     <PlayerCard
@@ -590,7 +593,7 @@ function PlayersPage({ data, isCommissioner, currentUserId, onReload, groupId, r
       editing={editingId === p.id}
       onStartEdit={() => setEditingId(p.id)}        // only one open at a time
       onCloseEdit={() => setEditingId(null)}
-      onSaved={() => { setEditingId(null); onReload() }}
+      onSaved={info => { setEditingId(null); if (info?.invite) setInvitee(info.invite); onReload() }}
       groupId={groupId}
       rosterLocked={rosterLocked}
     />
@@ -599,9 +602,42 @@ function PlayersPage({ data, isCommissioner, currentUserId, onReload, groupId, r
   return (
     <>
       <TeamRosterSummary players={players} teams={teams} />
+      {openSpots.map(renderCard)}
       {commissioner && renderCard(commissioner)}
       {rest.map(renderCard)}
+      {inviteModal}
     </>
+  )
+}
+
+// Pops up right after the commissioner fills an empty spot: the trip invite link
+// to send the new player. Their sign-in matches them to the spot by email/phone/name.
+function InviteNewPlayerModal({ name, inviteToken, onClose }) {
+  const [copied, setCopied] = useState(false)
+  const url = inviteUrl(inviteToken)
+  async function copy() {
+    try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return createPortal(
+    <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={onClose}>
+      <div style={{ ...s.modalSheet, maxWidth: 380 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={s.modalTitle}>
+          <span>Invite {name}</span>
+          <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.45 }}>
+          Invite the new player with this link. When they sign in, they're added to the trip automatically.
+        </div>
+        <div style={{ marginTop: 14, background: '#EEF2F6', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: '#5A7290', wordBreak: 'break-all' }}>{url}</div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={onClose} style={{ background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Done</button>
+          <button onClick={copy} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{copied ? 'Copied!' : 'Copy link'}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -1873,10 +1909,15 @@ function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate, onClose }) 
 
 // "Invite Link" row: a "Copy link" button is always visible; the caret beside it
 // expands the full join URL below.
+// The trip's invite link — one builder for every place it's shown.
+function inviteUrl(inviteToken) {
+  return `https://thetripclubhouse.com/join/${inviteToken || ''}`
+}
+
 function InvitePlayersRow({ inviteToken }) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const url = `https://thetripclubhouse.com/join/${inviteToken || ''}`
+  const url = inviteUrl(inviteToken)
   async function copy() {
     try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
     setCopied(true)
@@ -2641,7 +2682,7 @@ export default function MenuDrawer({
         const adminIds = new Set((adminRes.data || []).map(m => m.user_id))
         const tps = (tpRes.data || []).map(tp => ({
           ...tp,
-          name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || (isPlaceholderPlayer(tp) ? 'Open spot' : 'Unnamed Player'),
+          name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || (isPlaceholderPlayer(tp) ? PLACEHOLDER_LABEL : 'Unnamed Player'),
           is_commissioner: adminIds.has(tp.user_id) || adminIds.has(tp.claimed_user_id),
         }))
         if (!cancelled) setPlayersData({ players: tps, teams: teamsRes.data || [] })
@@ -3083,7 +3124,7 @@ export default function MenuDrawer({
       )}
       {page === 'players' && (
         <SecondaryPage context={groupName} title="Players & Teams" onBack={backToDrawer}>
-          <PlayersPage data={playersData} isCommissioner={isCommissioner} currentUserId={currentUserId} onReload={() => setPlayersData(null)} groupId={groupId} rosterLocked={rosterLocked} />
+          <PlayersPage data={playersData} isCommissioner={isCommissioner} currentUserId={currentUserId} onReload={() => setPlayersData(null)} groupId={groupId} rosterLocked={rosterLocked} inviteToken={inviteToken} />
         </SecondaryPage>
       )}
       {page === 'courses' && (

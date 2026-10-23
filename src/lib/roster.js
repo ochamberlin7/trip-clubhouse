@@ -36,6 +36,9 @@ const BLANK_FLIGHT = {
   depart_date: null, depart_time: null, depart_airport: null, flight_number_out: null,
 }
 
+// What an empty spot is called everywhere it shows.
+export const PLACEHOLDER_LABEL = 'Player TBD'
+
 // An empty spot: nobody's name, email or phone on it yet.
 export function isPlaceholderPlayer(p) {
   return !!p && !p.is_claimed
