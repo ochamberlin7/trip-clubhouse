@@ -20,7 +20,7 @@ import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
-import { removeTripPlayer, replaceTripPlayer, rosterChangeBlockReason } from '../lib/roster'
+import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -303,6 +303,10 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
   })
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
+  const isOpenSpot = isPlaceholderPlayer(player)
+  // Commissioner-only, before the trip starts, never on their own card or an empty spot.
+  const canRemove = isCommissioner && !isOpenSpot && !rosterChangeBlockReason({ player: { is_commissioner: commissioner }, rosterLocked })
 
   // Reset the form to the player's values each time edit mode opens.
   useEffect(() => {
@@ -350,7 +354,10 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
       <div style={pc.header}>
         <div style={pc.avatar}>{playerInitials(player)}</div>
         <div style={pc.headerMain}>
-          <div style={pc.name}>{player.name}</div>
+          <div style={{ ...pc.name, ...(isOpenSpot ? { color: '#7A8FA6', fontStyle: 'italic' } : null) }}>{isOpenSpot ? 'Open spot' : player.name}</div>
+          {isOpenSpot && isCommissioner && (
+            <div style={{ fontSize: 12, color: '#7A8FA6', marginTop: 2 }}>Tap the pencil to add the new player, then send them the invite link.</div>
+          )}
           {(player.is_claimed || commissioner || player.is_captain) && (
             <div style={pc.metaRow}>
               {player.is_claimed && <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>}
@@ -394,7 +401,21 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               <span>{team ? getTeamDisplayName(team) : 'Unassigned'}</span>
             </div>
           )}
+          {canRemove && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+              <button onClick={() => setConfirmRemove(true)} style={{ background: 'transparent', border: 'none', padding: 0, color: '#C0392B', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
+            </div>
+          )}
         </div>
+      )}
+      {confirmRemove && (
+        <RemovePlayerModal
+          player={{ ...player, is_commissioner: commissioner }}
+          groupId={groupId}
+          rosterLocked={rosterLocked}
+          onClose={() => setConfirmRemove(false)}
+          onRemoved={() => { setConfirmRemove(false); onSaved() }}
+        />
       )}
 
       {/* Edit panel */}
@@ -455,9 +476,6 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
             <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
           </div>
-          {isCommissioner && !commissioner && (
-            <RosterActions player={{ ...player, is_commissioner: commissioner }} groupId={groupId} rosterLocked={rosterLocked} onDone={onSaved} />
-          )}
         </div>
       )}
     </div>
@@ -465,97 +483,34 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
 }
 
 
-// Commissioner-only Remove / Replace, shown in a player's edit panel. Allowed only
-// before the trip starts (rosterLocked); all writes go through src/lib/roster.js.
-function RosterActions({ player, groupId, rosterLocked, onDone }) {
-  const [mode, setMode] = useState(null) // null | 'remove' | 'replace'
-  const [form, setForm] = useState({ first_name: '', last_name: '', handicap_index: '', email: '', phone: '' })
+// Centered "are you sure" pop-up for removing a player. Portaled to <body> so it
+// sits above the drawer. The write goes through src/lib/roster.js.
+function RemovePlayerModal({ player, groupId, rosterLocked, onClose, onRemoved }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
-  const blocked = rosterChangeBlockReason({ player, rosterLocked })
-
-  if (blocked) {
-    return <div style={ra.note}>{blocked} Players can't be removed or replaced.</div>
-  }
-
-  async function run(fn) {
+  async function confirm() {
     setBusy(true); setErr(null)
-    const { error } = await fn()
+    const { error } = await removeTripPlayer(supabase, { player, groupId, rosterLocked })
     setBusy(false)
     if (error) setErr(error.message || 'Something went wrong.')
-    else { setMode(null); onDone() }
+    else onRemoved()
   }
-  const doRemove = () => run(() => removeTripPlayer(supabase, { player, groupId, rosterLocked }))
-  const doReplace = () => run(() => replaceTripPlayer(supabase, {
-    player, groupId, rosterLocked,
-    replacement: { ...form, phone: form.phone.trim() ? formatPhone(form.phone) : '' },
-  }))
-
-  return (
-    <div style={ra.wrap}>
-      {mode === null && (
-        <div style={{ display: 'flex', gap: 16 }}>
-          <button style={ra.link} onClick={() => setMode('replace')}>Replace player</button>
-          <button style={{ ...ra.link, color: '#C0392B' }} onClick={() => setMode('remove')}>Remove from trip</button>
+  return createPortal(
+    <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={() => !busy && onClose()}>
+      <div style={{ ...s.modalSheet, maxWidth: 360, textAlign: 'center' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>Remove {player.name}?</div>
+        <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.45 }}>
+          Are you sure? This cannot be undone. Their spot stays on the team and in the pairings, empty, so you can add a new player.
         </div>
-      )}
-
-      {mode === 'remove' && (
-        <div>
-          <div style={ra.prompt}>Remove {player.name} from the trip? Their spots in any pairings will open up.</div>
-          <div style={ra.btnRow}>
-            <button style={{ ...ra.btn, background: '#C0392B' }} disabled={busy} onClick={doRemove}>{busy ? 'Removing…' : 'Remove'}</button>
-            <button style={ra.cancel} disabled={busy} onClick={() => { setMode(null); setErr(null) }}>Cancel</button>
-          </div>
+        {err && <div style={{ marginTop: 10, fontSize: 12, color: '#C0392B' }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
+          <button onClick={onClose} disabled={busy} style={{ background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={confirm} disabled={busy} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Removing…' : 'Remove'}</button>
         </div>
-      )}
-
-      {mode === 'replace' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={ra.prompt}>The new player takes {player.name}'s team spot and pairings, with their own handicap. They join with the trip invite link.</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <label style={pc.editField}>
-              <span style={pc.editLabel}>First Name</span>
-              <input style={pc.editInput} placeholder="First name" value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} />
-            </label>
-            <label style={pc.editField}>
-              <span style={pc.editLabel}>Last Name</span>
-              <input style={pc.editInput} placeholder="Last name" value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
-            </label>
-          </div>
-          <label style={{ display: 'block' }}>
-            <span style={pc.editLabel}>Handicap Index</span>
-            <input style={pc.editInput} type="number" step="0.1" min="0" max="54" placeholder="e.g. 14.2" value={form.handicap_index} onChange={e => setForm({ ...form, handicap_index: e.target.value })} />
-          </label>
-          <label style={{ display: 'block' }}>
-            <span style={pc.editLabel}>Phone</span>
-            <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
-          </label>
-          <label style={{ display: 'block' }}>
-            <span style={pc.editLabel}>Email</span>
-            <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-          </label>
-          <div style={ra.btnRow}>
-            <button style={ra.btn} disabled={busy || !form.first_name.trim()} onClick={doReplace}>{busy ? 'Replacing…' : 'Replace'}</button>
-            <button style={ra.cancel} disabled={busy} onClick={() => { setMode(null); setErr(null) }}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {err && <div style={ra.err}>{err}</div>}
-    </div>
+      </div>
+    </div>,
+    document.body,
   )
-}
-
-const ra = {
-  wrap: { marginTop: 12, paddingTop: 12, borderTop: '1px solid #EEF1F4' },
-  note: { marginTop: 12, paddingTop: 12, borderTop: '1px solid #EEF1F4', fontSize: 12, color: '#7A8FA6' },
-  link: { background: 'transparent', border: 'none', padding: 0, color: '#1B3F6E', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  prompt: { fontSize: 13, color: '#2C3E50', lineHeight: 1.4 },
-  btnRow: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 },
-  btn: { background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  cancel: { background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
-  err: { marginTop: 8, fontSize: 12, color: '#C0392B' },
 }
 
 // Quick-glance roster: a 2-column wrapping grid of team cards, each listing its
@@ -2687,7 +2642,7 @@ export default function MenuDrawer({
         const adminIds = new Set((adminRes.data || []).map(m => m.user_id))
         const tps = (tpRes.data || []).map(tp => ({
           ...tp,
-          name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || 'Unnamed Player',
+          name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || (isPlaceholderPlayer(tp) ? 'Open spot' : 'Unnamed Player'),
           is_commissioner: adminIds.has(tp.user_id) || adminIds.has(tp.claimed_user_id),
         }))
         if (!cancelled) setPlayersData({ players: tps, teams: teamsRes.data || [] })

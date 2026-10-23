@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { isRosterLocked } from './scoring.js'
-import { rosterChangeBlockReason, replacementPatch, removeTripPlayer, replaceTripPlayer } from './roster.js'
+import { rosterChangeBlockReason, removeTripPlayer, isPlaceholderPlayer, PLACEHOLDER_PATCH } from './roster.js'
 
 const DETROIT = 'America/Detroit'
 const trip = { start_date: '2026-11-05', end_date: '2026-11-08' }
@@ -37,20 +37,20 @@ test('block reasons: locked roster and the commissioner', () => {
   assert.equal(rosterChangeBlockReason({ player: {}, rosterLocked: false }), null)
 })
 
-// ── replacementPatch ─────────────────────────────────────────────
-test('replacement keeps the slot (no team/pairing fields) and resets identity + claim', () => {
-  const p = replacementPatch({ first_name: ' Sam ', last_name: 'Lee', handicap_index: '12.4', email: ' s@x.com ', phone: '' })
-  assert.deepEqual(p, {
-    first_name: 'Sam', last_name: 'Lee', guest_name: null, handicap_index: 12.4,
-    email: 's@x.com', phone: null, user_id: null, claimed_user_id: null, is_claimed: false, is_captain: false,
-  })
-  assert.equal('team_id' in p, false)
+// ── placeholder spot ─────────────────────────────────────────────
+test('placeholder patch wipes the person but not the slot (team stays)', () => {
+  assert.equal('team_id' in PLACEHOLDER_PATCH, false)
+  assert.equal(PLACEHOLDER_PATCH.is_claimed, false)
+  assert.equal(PLACEHOLDER_PATCH.user_id, null)
+  assert.equal(PLACEHOLDER_PATCH.claimed_user_id, null)
+  assert.equal(PLACEHOLDER_PATCH.is_captain, false)
 })
 
-test('replacement validation', () => {
-  assert.throws(() => replacementPatch({ first_name: '  ' }), /First name/)
-  assert.throws(() => replacementPatch({ first_name: 'A', handicap_index: '60' }), /between 0 and 54/)
-  assert.equal(replacementPatch({ first_name: 'A', handicap_index: '' }).handicap_index, null)
+test('isPlaceholderPlayer: empty spot vs filled-in spot', () => {
+  assert.equal(isPlaceholderPlayer({ ...PLACEHOLDER_PATCH, team_id: 't1' }), true)
+  assert.equal(isPlaceholderPlayer({ ...PLACEHOLDER_PATCH, first_name: 'Sam' }), false)
+  assert.equal(isPlaceholderPlayer({ ...PLACEHOLDER_PATCH, email: 'sam@x.com' }), false)
+  assert.equal(isPlaceholderPlayer({ ...PLACEHOLDER_PATCH, is_claimed: true }), false)
 })
 
 // ── remove / replace against a fake Supabase client ─────────────
@@ -84,12 +84,17 @@ function fakeClient({ otherSlots = [] } = {}) {
 
 const player = { id: 'tp1', name: 'Pat', claimed_user_id: 'u9', user_id: null }
 
-test('remove: clears pairings, deletes the row, drops group membership', async () => {
+test('remove: clears the row into a placeholder, blanks the flight, drops group membership', async () => {
   const { client, calls } = fakeClient()
   const { error } = await removeTripPlayer(client, { player, groupId: 'g1', rosterLocked: false })
   assert.equal(error, null)
   const ops = calls.map(c => `${c.op}:${c.table}`)
-  assert.deepEqual(ops, ['delete:pairing_players', 'delete:trip_players', 'select:trips', 'select:trip_players', 'delete:group_members'])
+  assert.deepEqual(ops, ['update:trip_players', 'update:flights', 'select:trips', 'select:trip_players', 'delete:group_members'])
+  assert.deepEqual(calls[0].value, PLACEHOLDER_PATCH)
+  assert.deepEqual(calls[0].filters, [['eq', 'id', 'tp1']])
+  // The row is never deleted and pairings are never touched — the spot keeps them.
+  assert.equal(calls.some(c => c.table === 'pairing_players'), false)
+  assert.equal(calls.some(c => c.op === 'delete' && c.table === 'trip_players'), false)
   const gm = calls.at(-1)
   assert.deepEqual(gm.filters, [['eq', 'group_id', 'g1'], ['eq', 'user_id', 'u9'], ['eq', 'role', 'player']])
 })
@@ -100,21 +105,11 @@ test('remove keeps group membership when they have another trip in the group', a
   assert.equal(calls.some(c => c.table === 'group_members'), false)
 })
 
-test('remove/replace refuse a locked roster and write nothing', async () => {
+test('remove refuses a locked roster or the commissioner, and writes nothing', async () => {
   const { client, calls } = fakeClient()
   const r1 = await removeTripPlayer(client, { player, groupId: 'g1', rosterLocked: true })
-  const r2 = await replaceTripPlayer(client, { player, groupId: 'g1', rosterLocked: true, replacement: { first_name: 'Sam' } })
+  const r2 = await removeTripPlayer(client, { player: { ...player, is_commissioner: true }, groupId: 'g1', rosterLocked: false })
   assert.match(r1.error.message, /set once the trip starts/)
-  assert.match(r2.error.message, /set once the trip starts/)
+  assert.match(r2.error.message, /commissioner/)
   assert.equal(calls.length, 0)
-})
-
-test('replace: updates the same row, blanks the flight, never touches pairings', async () => {
-  const { client, calls } = fakeClient()
-  const { error } = await replaceTripPlayer(client, { player, groupId: 'g1', rosterLocked: false, replacement: { first_name: 'Sam', handicap_index: '8' } })
-  assert.equal(error, null)
-  assert.equal(calls[0].op, 'update'); assert.equal(calls[0].table, 'trip_players')
-  assert.deepEqual(calls[0].filters, [['eq', 'id', 'tp1']])
-  assert.equal(calls[1].table, 'flights'); assert.equal(calls[1].op, 'update')
-  assert.equal(calls.some(c => c.table === 'pairing_players'), false)
 })
