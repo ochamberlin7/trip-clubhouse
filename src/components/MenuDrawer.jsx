@@ -615,25 +615,46 @@ function PlayersPage({ data, isCommissioner, currentUserId, onReload, groupId, r
 function InviteNewPlayerModal({ name, inviteToken, onClose }) {
   const [copied, setCopied] = useState(false)
   const url = inviteUrl(inviteToken)
+  const firstName = (name || '').split(' ')[0] || 'them'
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
   async function copy() {
     try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+  async function share() {
+    try { await navigator.share({ title: 'Join the trip', text: `${firstName}, join our golf trip on Trip Clubhouse:`, url }) } catch { /* cancelled */ }
+  }
+  const btn = { flex: 1, border: 'none', borderRadius: 8, padding: '12px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }
   return createPortal(
     <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={onClose}>
-      <div style={{ ...s.modalSheet, maxWidth: 380 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div style={s.modalTitle}>
+      <div style={{ ...s.modalSheet, maxWidth: 360, padding: 22 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={{ ...s.modalTitle, marginBottom: 6 }}>
           <span>Invite {name}</span>
           <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.45 }}>
-          Invite the new player with this link. When they sign in, they're added to the trip automatically.
+        <div style={{ fontSize: 13.5, color: '#5A7290', lineHeight: 1.45 }}>
+          Send {firstName} this link. When they sign in, they're added to the trip automatically.
         </div>
-        <div style={{ marginTop: 14, background: '#EEF2F6', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: '#5A7290', wordBreak: 'break-all' }}>{url}</div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button onClick={onClose} style={{ background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Done</button>
-          <button onClick={copy} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{copied ? 'Copied!' : 'Copy link'}</button>
+
+        {/* One-row link, cut off with an ellipsis; tapping it copies too. */}
+        <button onClick={copy} aria-label="Copy invite link"
+          style={{ marginTop: 16, width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: '#F4F7FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A8FA6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#2C3E50', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {url.replace(/^https?:\/\//, '')}
+          </span>
+        </button>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          {canShare && (
+            <button onClick={share} style={{ ...btn, background: '#E8EDF3', color: '#1B3F6E' }}>Share</button>
+          )}
+          <button onClick={copy} style={{ ...btn, background: copied ? '#0F6E56' : '#1B3F6E', color: '#fff' }}>
+            {copied ? '✓ Copied' : 'Copy link'}
+          </button>
         </div>
       </div>
     </div>,
