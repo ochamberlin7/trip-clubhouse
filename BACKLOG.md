@@ -1,0 +1,66 @@
+# Trip Clubhouse — Backlog
+
+Source of truth for what's done, decided, and next. Update it when a branch merges or a decision changes.
+Merge status verified with `git branch -r --merged origin/main` on 2026-10-23 (main @ `8a29ed3`).
+
+## How we work (priority order)
+- Never merge to main without Owen's explicit approval after he's seen the preview or accepted the tests. Push the branch, report the preview URL, wait.
+- If anything differs from what a prompt or this file assumes (conflicts, extra files touched, a different cause), STOP and report before pushing.
+- One branch per task, `feat/...` or `fix/...`, from current main.
+- Preview URL: `https://<branch with slashes as dashes>--trip-clubhouse.netlify.app`.
+- Non-trivial task → start read-only: find the code, report what exists (6–10 lines), then continue unless something contradicts the plan.
+- One shared function/setting per concept, no parallel copies (`pairingShots`, `getTripPhase`, `teamColors.js`, `roundCourseName`). Display code reads shared logic; it never recomputes scoring or trip phase.
+- Report each time: files changed, before/after of anything that differs, how to see it on a test trip, anything unexpected.
+- Tests pass, no new lint errors (the 6 old ones in `TripDashboard.jsx` are known debt — don't fix unless asked).
+- Never delete files, branches or data without asking. Never print secrets. Never apply a migration without Owen's go-ahead.
+- Owen tests on Netlify previews, not locally, and often can't test time-dependent behavior on demand → rely on unit tests for logic; give short, specific preview checks.
+- Owen is a PM, not a developer: plain language, result first, short reports.
+
+## Core domain rules (decided — don't change without asking)
+- **Match play strokes** = shots off the low within each pairing, via `pairingShots` (`src/lib/scoring.js`). Never absolute playing handicap for composites. Allowance 90% (65% on The Dozen).
+- **Prince of Wales composite:** per hole number, lowest net across all rounds and players on the team. Gross view is correct. Default view Net vs Gross is undecided (currently Net).
+- **The Dozen** (12 holes) is handled; out of scope for new work. Don't touch its hole-count logic.
+- **`rounds.status` is unreliable/vestigial.** "Live" is time-based: today, not complete, now ≥ tee_time_1 − 30 min. Completeness defaults to 18 holes; leave as is.
+- **Tee times** are display strings ("9:06 AM"). Missing tee_time_1 = unknown, not live all day.
+- **Time zone:** `trips.time_zone` (IANA), backfilled for CTI Michigan. Pass it explicitly to `getTripPhase`. Never use the phone's clock for trip "today" (Owen is in Phoenix; trips often aren't).
+- **`getTripPhase`** returns `{ phase, dayNumber, totalDays, todaysRounds, liveRound, nextRound, lastCompletedRound, hasRoundsToday }`; phases: no-trip, before-trip, after-trip, no-round-day, before-first-tee, round-live, between-rounds, after-last-round. Facts only — policy lives in `screenForTripPhase` / `defaultRoundForTrip`.
+
+## Done
+| Item | Branch | Status |
+|---|---|---|
+| Prince of Wales Net uses shots off the low | `fix/prince-of-wales-net-strokes` | ✅ Merged |
+| Schedule & Courses tab (tee times, muted completed rounds, handicap recap, CH/PH hidden on non-18) | `feat/schedule-courses-tab` | ✅ Merged — open check: past days still locked/dimmed? (day-level lock was removed in that branch) |
+| Trip phase foundation | `fix/trip-phase-foundation` | ✅ Merged |
+| Default screen routing, zone-aware | `feat/trip-phase-routing` | ✅ Merged |
+| Home banner, option E (day dots, "Welcome to…", course names, "No rounds today") | `feat/home-banner` (+ `feat/home-banner-timeline`) | ✅ Merged |
+| Default round selection | `feat/default-round-selection` | ✅ Merged |
+| Test mode (dev override) | `feat/test-mode-scoring`, `feat/test-mode-profile-toggle` | ✅ Merged |
+| Live banner team-name fix (fetch team1_id/team2_id; null → neutral label) | `fix/live-banner-team-ids` | ⏳ **Not merged** (1 commit, 14 behind main). Needs visual check before 9pm, then merge. |
+| Team colors (red, blue, green, purple, amber, teal) | `feat/team-colors` | ⏳ **Not merged** (1 commit, 14 behind main). Open check: team-1 red vs scorecard over-par red. |
+
+Routing rule: opens Score only if a round is live, the user is playing it, and it's underway for them (5 min past their tee or a score entered); otherwise Home. Spectators stay on Home with the live round pre-selected.
+
+Default round rules: first round of the day = that round all day until live; 2nd+ round = last completed round until 1 hr before its tee, then the upcoming round; after last round = the round just finished; no-round day = last completed round, else first round of trip; before trip = first round; after trip = last round. User's manual pick always wins.
+
+## Next up (in order unless Owen changes it)
+1. **Remove or replace members in a trip.** Open questions: who can do it; what happens to a removed player's scores, pairings, team slot, points/purse; does a replacement inherit slot + pairings with their own handicap; between rounds only or mid-round; soft-remove to keep history. Must go through one shared function so leaderboard, banner and scorecards agree. Owen's tentative defaults: commissioner only, soft-remove, replacement takes the slot and pairings with their own handicap.
+2. **Daily MVP widget:** longer stats list + swipe between days. Possible rename to "Daily Recap" (undecided); if renamed, decide content first (MVP, team results, top scores, notable holes).
+3. **Landing page when a user has no current trip.** Tentative: past and upcoming trips if any, else "create or join a trip".
+
+## Backlog
+- Leaderboard side by side.
+- Offline score caching when the user has no service.
+- Build out stats; add historical stats.
+- Game types: Stableford; stroke play; no-teams (individual only). One shared format setting, not copies per format × team/individual.
+- Decide Prince of Wales default view (Net or Gross).
+- Live banner hides after 9pm: find the rule, whose clock it uses, and make it follow the trip time zone. Its round-selection memo differs from `getTripPhase`; unifying them is a separate, deliberate decision.
+- Home 18-hole completeness issue (deliberately deferred).
+
+## Housekeeping / deferred
+- Delete stale branches once Owen approves the list. 46 remote branches are already merged into main (incl. `swipe-navigation`, which was merged then reverted in `d573cdd`).
+- Deferred security items: M3, M4, L1, L2, H3, H2 (email confirmation).
+- `sb_secret_` key compatibility for chat-notify and feedback-notify.
+- Lint debt in `TripDashboard.jsx`.
+
+## Cancelled
+- App-wide swipe navigation (merged as `36bf873`, reverted in `d573cdd`; not in the code).

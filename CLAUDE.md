@@ -4,6 +4,8 @@ A mobile-first PWA for golf trips: scheduling, pairings/tee times, live better-b
 match-play scoring, leaderboards, stats, trash-talk chat, and per-trip handicaps.
 Owner/dev: Owen Chamberlin (o.chamberlin@gmail.com).
 
+Read BACKLOG.md at the start of each session; update it when a branch merges or a decision changes.
+
 ## Stack
 - **Frontend:** React 18 + Vite (JavaScript, **not** TypeScript). Plain CSS in `src/index.css` (design tokens as CSS vars) plus inline style objects in components.
 - **Backend:** Supabase (Postgres + RLS + Realtime + Auth). Client in `src/lib/supabase.js`.
