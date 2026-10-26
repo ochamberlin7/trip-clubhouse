@@ -49,7 +49,7 @@ Default round rules: first round of the day = that round all day until live; 2nd
    - **Replacing** = commissioner fills the empty spot with the normal edit form; on save a pop-up shows the invite link with a Copy button; the existing email → phone → name matching in `JoinTrip.jsx` claims it. An empty spot can't be matched by mistake.
    - The removed person's group membership is dropped (only if they have no other trip in that group), so the trip leaves their list.
    - All writes go through `src/lib/roster.js`. Invite matching lives in `src/lib/inviteMatch.js` (unit-tested).
-2. **Daily Leaders (was Daily MVPs)** — built on `feat/daily-leaders` (not merged). Decided 2026-10-26:
+2. **Daily Leaders (was Daily MVPs)** — ✅ merged 2026-10-26 (`feat/daily-leaders`). Decided 2026-10-26:
    - Renamed to **Daily Leaders**. One page per trip day with a completed tournament round; swipe left/right like Weather (shared `useSwipePager`). Opens on the newest day; stays after the trip so every day can be reviewed.
    - Rows: Most Points · Best Net · Most Birdies (Gross, Net) · Most Pars (Gross, Net) · Worst Round (Gross, Net) · Most Drinks. Ties show every name.
    - Math: `src/lib/dailyLeaders.js`, reusing `computePlayerStats` (moved from StatsTab into `src/lib/playerStats.js`, shared with the Stats tab), `analyzeScoring`, `matchPlayPointsByPlayer`. No clock/time-zone logic: days come from round dates.
