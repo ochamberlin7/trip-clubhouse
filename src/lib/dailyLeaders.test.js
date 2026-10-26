@@ -2,6 +2,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildDailyLeaders, leadersOf, LEADER_CATEGORIES } from './dailyLeaders.js'
+import { analyzeScoring } from './scoring.js'
+import { courseHolesFromRounds } from './playerStats.js'
 
 // 18 par-4 holes, stroke index 1..18, neutral tee (CH = index).
 const HOLES18 = Array.from({ length: 18 }, (_, i) => ({ par: 4, handicap: i + 1 }))
@@ -40,21 +42,51 @@ function data({ rounds, scores, drinks = [] }) {
 }
 const leader = (day, key) => day.leaders.find(l => l.key === key).leader
 
-test('one page per day with a completed round; incomplete / practice / future days skipped', () => {
+test('one page per day with a completed round; incomplete / unscored / placeholder days skipped', () => {
   const rounds = [
+    round('RP', '2026-11-04', { round_type: 'practice' }),     // practice counts (flagged)
     round('R1', '2026-11-05'),
     round('R2', '2026-11-06'),                                 // only 9 holes in → not complete
-    round('RP', '2026-11-04', { round_type: 'practice' }),     // practice never counts
     round('R3', '2026-11-07'),                                 // no scores
+    round('RN', '2026-11-08', { round_type: 'none' }),         // "not decided yet" placeholder
   ]
-  const scores = [...fullScores('R1'), ...fullScores('R2', 9), ...fullScores('RP')]
+  const scores = [...fullScores('RP'), ...fullScores('R1'), ...fullScores('R2', 9), ...fullScores('RN')]
   const days = buildDailyLeaders(data({ rounds, scores }), { tripStartDate: '2026-11-05' })
-  assert.equal(days.length, 1)
-  assert.equal(days[0].date, '2026-11-05')
-  assert.equal(days[0].dayNumber, 1)
-  assert.equal(days[0].roundCount, 1)
-  assert.equal(days[0].courseName, 'Club R1')
-  assert.deepEqual(days[0].leaders.map(l => l.key), LEADER_CATEGORIES.map(c => c.key))
+  assert.deepEqual(days.map(d => d.date), ['2026-11-04', '2026-11-05'])
+  assert.equal(days[0].dayNumber, null)        // practice day before the trip starts → shown by date
+  assert.equal(days[0].practice, 'all')
+  assert.equal(days[1].dayNumber, 1)
+  assert.equal(days[1].practice, null)
+  assert.equal(days[1].roundCount, 1)
+  assert.equal(days[1].courseName, 'Club R1')
+  assert.deepEqual(days[1].leaders.map(l => l.key), LEADER_CATEGORIES.map(c => c.key))
+})
+
+test('practice day: stroke stats count, Most Points is empty (practice is not a match)', () => {
+  const [day] = buildDailyLeaders(data({ rounds: [round('RP', '2026-11-04', { round_type: 'practice' })], scores: fullScores('RP') }))
+  assert.equal(day.practice, 'all')
+  assert.equal(leader(day, 'points'), null)
+  assert.deepEqual(leader(day, 'birdiesGross'), { value: 2, ids: ['A'] })
+  assert.deepEqual(leader(day, 'bestNet').ids, ['A'])
+  assert.deepEqual(leader(day, 'worstGross'), { value: 90, ids: ['C'] })
+})
+
+test('a day mixing practice and tournament rounds is flagged "some"', () => {
+  const rounds = [round('R1', '2026-11-05'), round('RP', '2026-11-05', { round_type: 'practice' })]
+  const [day] = buildDailyLeaders(data({ rounds, scores: [...fullScores('R1'), ...fullScores('RP')] }))
+  assert.equal(day.practice, 'some')
+  assert.equal(day.roundCount, 2)
+  assert.deepEqual(leader(day, 'points'), { value: 1, ids: ['A'] }) // points from the tournament round only
+})
+
+test('Best Net on a tournament day equals the shared analyzeScoring net vs par', () => {
+  const rounds = [round('R1', '2026-11-05')]
+  const d = data({ rounds, scores: fullScores('R1') })
+  const { vsParByPlayer } = analyzeScoring({ ...d, courseHoles: courseHolesFromRounds(rounds) }, new Set(['R1']), 100)
+  const [day] = buildDailyLeaders(d)
+  const best = Math.min(...vsParByPlayer.values())
+  assert.equal(leader(day, 'bestNet').value, best)
+  assert.deepEqual(leader(day, 'bestNet').ids, [...vsParByPlayer].filter(([, v]) => v === best).map(([id]) => id))
 })
 
 test('category leaders (gross and net tracked separately)', () => {
