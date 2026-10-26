@@ -13,7 +13,8 @@ import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
 import ChatWidget from '../../components/ChatWidget'
-import DailyMVPCard from '../../components/DailyMVPCard'
+import DailyLeadersCard from '../../components/DailyLeadersCard'
+import { useSwipePager } from '../../lib/useSwipePager'
 import TournamentPurseCard from '../../components/TournamentPurseCard'
 import GettingStartedCard from '../../components/GettingStartedCard'
 import MenuDrawer from '../../components/MenuDrawer'
@@ -170,8 +171,6 @@ function WeatherWidget({ rounds = [], tripName }) {
   const [userIndex, setUserIndex] = useState(null) // session-only swipe; null = follow default
   const [showForecast, setShowForecast] = useState(false) // 10-day forecast modal
   const mountedRef = useRef(true)
-  const cardRef = useRef(null)
-  const swipeRef = useRef({ x0: 0, y0: 0, did: false })
   useEffect(() => () => { mountedRef.current = false }, [])
 
   // Distinct locations across every round with location data, deduped + ordered
@@ -251,41 +250,13 @@ function WeatherWidget({ rounds = [], tripName }) {
     return () => { cancelled = true }
   }, [locationsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function go(delta) {
-    if (locations.length < 2) return
-    const next = Math.min(locations.length - 1, Math.max(0, activeIndex + delta))
-    if (next !== activeIndex) setUserIndex(next)
-  }
-
-  // Trackpad two-finger horizontal swipe (wheel deltaX). Native non-passive
-  // listener so preventDefault stops the browser's back/forward swipe-nav.
-  useEffect(() => {
-    const el = cardRef.current
-    if (!el || locations.length < 2) return
-    let settle, acc = 0
-    function onWheel(e) {
-      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
-      e.preventDefault()
-      acc += e.deltaX
-      clearTimeout(settle)
-      settle = setTimeout(() => { if (Math.abs(acc) > 40) go(acc < 0 ? -1 : 1); acc = 0 }, 90)
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => { el.removeEventListener('wheel', onWheel); clearTimeout(settle) }
-  }, [locationsKey, activeIndex]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Touch / mouse horizontal drag → change location; a tap opens the forecast.
-  function onPointerDownCard(e) { swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false } }
-  function onPointerUpCard(e) {
-    const s = swipeRef.current
-    const dx = e.clientX - s.x0, dy = e.clientY - s.y0
-    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) { s.did = true; go(dx < 0 ? 1 : -1) }
-  }
+  // Swipe / trackpad paging between locations (shared with Daily Leaders); a tap
+  // (not the end of a swipe) opens the forecast.
+  const { ref: pagerRef, onPointerDown, onPointerUp, consumeSwipe } = useSwipePager({ count: locations.length, index: activeIndex, onIndex: setUserIndex })
   function onCardClick() {
-    if (swipeRef.current.did) { swipeRef.current.did = false; return } // was a swipe, not a tap
+    if (consumeSwipe()) return // was a swipe, not a tap
     setShowForecast(true)
   }
-
   // Active-location values — the tap-through 10-day modal follows the active face.
   const activeCurrent = active ? wxByKey[active.key] : null
   const activeLabel = activeCurrent?.label || active?.label || tripName || 'Weather'
@@ -368,7 +339,7 @@ function WeatherWidget({ rounds = [], tripName }) {
           active one — a carousel, not an instant value swap. The threshold gesture
           only changes the index; CSS animates the slide and re-targets cleanly on
           rapid swipes. Dots stay fixed below the track. */}
-      <div ref={cardRef} style={cardStyle} onClick={onCardClick} onPointerDown={onPointerDownCard} onPointerUp={onPointerUpCard} role="button" tabIndex={0} aria-label="Open 10-day forecast">
+      <div ref={pagerRef} style={cardStyle} onClick={onCardClick} onPointerDown={onPointerDown} onPointerUp={onPointerUp} role="button" tabIndex={0} aria-label="Open 10-day forecast">
         <div style={{ display: 'flex', transform: `translateX(-${activeIndex * 100}%)`, transition: 'transform 260ms ease-out', willChange: 'transform' }}>
           {locations.map(loc => {
             const c = wxByKey[loc.key]
@@ -457,9 +428,8 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenu
       {/* Weather */}
       <WeatherWidget rounds={rounds} tripName={trip.name} />
 
-      {/* Daily MVPs — below the chat thread. Hidden behind a feature flag until
-          stats/analytics are built out; component + data fetch are unchanged. */}
-      {FEATURES.dailyMvps && <DailyMVPCard tripId={trip.id} endDate={trip.end_date} />}
+      {/* Daily Leaders — below the weather. One swipeable page per completed trip day. */}
+      {FEATURES.dailyLeaders && <DailyLeadersCard tripId={trip.id} tripStartDate={trip.start_date} allowance={trip.handicap_allowance ?? 100} />}
 
       {/* Tournament Purse — self-hides unless the commissioner enabled it. */}
       <TournamentPurseCard tripId={trip.id} endDate={trip.end_date} allowance={trip.handicap_allowance ?? 100} />
