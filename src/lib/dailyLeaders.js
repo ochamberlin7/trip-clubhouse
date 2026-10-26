@@ -1,12 +1,15 @@
-// Daily Leaders — one page per trip day that has at least one completed
-// tournament round, with the day's leader in each category. Pure (no React,
-// no Supabase); all the math reuses the shared functions:
-//   • completeness + Best Net  → analyzeScoring (scoring.js)
-//   • Most Points               → matchPlayPointsByPlayer (scoring.js)
-//   • birdies / pars / worst    → computePlayerStats (playerStats.js), gross + net
+// Daily Leaders — one page per trip day that has at least one completed round
+// (tournament or practice), with the day's leader in each category. Pure (no
+// React, no Supabase); all the math reuses the shared functions:
+//   • completeness              → analyzeScoring (scoring.js)
+//   • Most Points               → matchPlayPointsByPlayer (scoring.js; tournament
+//                                 rounds only — practice rounds aren't matches)
+//   • Best Net, birdies, pars, worst → computePlayerStats (playerStats.js), which
+//                                 uses the same off-the-low strokes as analyzeScoring
+// Each day says whether its rounds were practice (day.practice).
 // Days come from the rounds' own dates, so there is no "today" or clock here —
 // a day appears once one of its rounds is fully scored, and stays for the trip.
-import { analyzeScoring, matchPlayPointsByPlayer, isTournamentRound, isNoneRound, formatVsPar, roundCourseName } from './scoring.js'
+import { analyzeScoring, matchPlayPointsByPlayer, isPracticeRound, isNoneRound, formatVsPar, roundCourseName } from './scoring.js'
 import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
 
 // Category rows, in display order. `hi` = higher is better (leader is the max).
@@ -46,10 +49,11 @@ function dayNumberOf(date, tripStartDate) {
 
 // data: { rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }
 //   (drinks rows need round_id). Returns days in date order:
-//   [{ date, dayNumber, roundCount, courseName, leaders: [{ ...category, leader }] }]
+//   [{ date, dayNumber, roundCount, courseName, practice, leaders: [{ ...category, leader }] }]
+//   practice: 'all' (every completed round was practice) | 'some' | null
 //   where leader is { value, ids } or null.
 export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null } = {}) {
-  const rounds = (data.rounds || []).filter(r => r && r.date && !isNoneRound(r) && isTournamentRound(r))
+  const rounds = (data.rounds || []).filter(r => r && r.date && !isNoneRound(r))
   const byDate = new Map()
   for (const r of rounds) {
     if (!byDate.has(r.date)) byDate.set(r.date, [])
@@ -66,8 +70,7 @@ export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null 
     const dayRounds = byDate.get(date)
     const dayIds = new Set(dayRounds.map(r => r.id))
     const bundle = { ...base, rounds: dayRounds, courseHoles: courseHolesFromRounds(dayRounds) }
-    // Tallies here only cover complete rounds, so Best Net ignores a round in progress.
-    const { completeRoundIds, vsParByPlayer } = analyzeScoring(bundle, dayIds, allowance)
+    const { completeRoundIds } = analyzeScoring(bundle, dayIds, allowance)
     const complete = dayRounds.filter(r => completeRoundIds.has(r.id))
     if (complete.length === 0) continue
 
@@ -85,7 +88,7 @@ export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null 
     const pick = fn => new Map(tripPlayers.map(p => [p.id, fn(stats.get(p.id))]))
     const values = {
       points,
-      bestNet: vsParByPlayer,
+      bestNet: pick(s => s?.net.vsPar ?? null),
       birdiesGross: pick(s => s?.gross.birdies ?? null),
       birdiesNet: pick(s => s?.net.birdies ?? null),
       parsGross: pick(s => s?.gross.pars ?? null),
@@ -99,6 +102,7 @@ export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null 
       date,
       dayNumber: dayNumberOf(date, tripStartDate),
       roundCount: complete.length,
+      practice: (() => { const n = complete.filter(isPracticeRound).length; return n === 0 ? null : n === complete.length ? 'all' : 'some' })(),
       courseName: complete.length === 1 ? (roundCourseName(complete[0]) || null) : null,
       leaders: LEADER_CATEGORIES.map(c => ({ ...c, leader: leadersOf(values[c.key] || new Map(), c) })),
     })

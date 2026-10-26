@@ -2,28 +2,28 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { useSwipePager } from '../lib/useSwipePager'
-import { playerName, firstName, initialsOf } from '../lib/scoring'
+import { playerName } from '../lib/scoring'
 import { buildDailyLeaders } from '../lib/dailyLeaders'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL, HOME_CARD_TAIL } from './homeCardTokens'
 import HomeCard from './homeCard'
 
 // Daily Leaders (formerly Daily MVPs) — the Home card with one page per trip day
-// that has a completed tournament round. Swipe left/right (like Weather) to see
+// that has a completed round (practice rounds included and labelled in the header). Swipe left/right (like Weather) to see
 // earlier days; it opens on the most recent day and stays after the trip, so by
 // the end you can flip through every day. All math is in src/lib/dailyLeaders.js.
 
 const NAVY = '#1B3F6E'
 const GREY = '#8a96a3'
 const st = {
-  row: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', borderBottom: '1px solid #e5e7eb' },
+  row: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 16px', borderBottom: '1px solid #e5e7eb' },
   rowLast: { borderBottom: 'none' },
   labelCol: { minWidth: 84, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1 },
   label: { fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
   mode: { fontSize: 9, color: '#A9B4C0', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
-  avatar: { width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, flexShrink: 0 },
-  avatarFilled: { background: '#f0f3f7', color: NAVY },
-  avatarEmpty: { background: '#e8eaef', color: GREY },
-  name: { fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  names: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
+  name: { fontSize: 13, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  none: { fontSize: 13, color: GREY },
+  tie: { fontSize: 11, color: GREY, fontWeight: 500 },
   value: { fontSize: 13, fontWeight: 700, color: NAVY, textAlign: 'right', flexShrink: 0 },
   placeholder: { fontSize: 13, color: GREY, fontStyle: 'italic', padding: '14px 16px' },
   dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '8px 0 12px' },
@@ -31,29 +31,23 @@ const st = {
   dotActive: { background: NAVY },
 }
 
-// "Josh" · "Josh & Pat" · "Josh, Pat & Sam" · "Josh, Pat +2"
-function namesLabel(names) {
-  if (names.length <= 1) return names[0] || ''
-  if (names.length === 2) return `${names[0]} & ${names[1]}`
-  if (names.length === 3) return `${names[0]}, ${names[1]} & ${names[2]}`
-  return `${names[0]}, ${names[1]} +${names.length - 2}`
-}
-
+// Winners stack one per line (full names); a tie adds a small "Tied" / "3-way tie"
+// note under them. The value shows once, on the right. No winner → "None".
 function LeaderRow({ cat, nameById, last }) {
   const lead = cat.leader
-  const people = lead ? lead.ids.map(id => nameById.get(id)).filter(Boolean) : []
-  const tie = people.length > 1
+  const people = lead ? lead.ids.map(id => nameById.get(id)).filter(Boolean).sort((a, b) => a.localeCompare(b)) : []
+  const tieNote = people.length === 2 ? 'Tied' : people.length > 2 ? `${people.length}-way tie` : null
   return (
     <div style={{ ...st.row, ...(last ? st.rowLast : null) }}>
       <span style={st.labelCol}>
         <span style={st.label}>{cat.label}</span>
         {cat.mode && <span style={st.mode}>{cat.mode}</span>}
       </span>
-      <div style={{ ...st.avatar, ...(people.length ? st.avatarFilled : st.avatarEmpty) }}>
-        {people.length ? (tie ? `${people.length}` : initialsOf(people[0])) : '—'}
-      </div>
-      <span style={{ ...st.name, color: people.length ? NAVY : GREY }}>
-        {people.length ? namesLabel(people.map(n => (tie ? firstName(n) : n))) : 'Nobody yet'}
+      <span style={st.names}>
+        {people.length
+          ? people.map(n => <span key={n} style={st.name}>{n}</span>)
+          : <span style={st.none}>None</span>}
+        {tieNote && <span style={st.tie}>{tieNote}</span>}
       </span>
       <span style={st.value}>{lead ? cat.format(lead.value) : ''}</span>
     </div>
@@ -65,7 +59,10 @@ function dayLabel(day) {
     ? `Day ${day.dayNumber}`
     : new Date(`${day.date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
   const what = day.roundCount >= 2 ? `${day.roundCount} rounds` : day.courseName
-  return what ? `${when} · ${what}` : when
+  // Practice days say so up top: "Practice" when every round was practice,
+  // "incl. practice" when the day mixed practice and tournament rounds.
+  const practice = day.practice === 'all' ? 'Practice' : day.practice === 'some' ? 'incl. practice' : null
+  return [when, day.practice === 'all' ? practice : null, what, day.practice === 'some' ? practice : null].filter(Boolean).join(' · ')
 }
 
 export default function DailyLeadersCard({ tripId, tripStartDate, allowance = 100 }) {
