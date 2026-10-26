@@ -1,0 +1,107 @@
+// Daily Leaders — one page per trip day that has at least one completed
+// tournament round, with the day's leader in each category. Pure (no React,
+// no Supabase); all the math reuses the shared functions:
+//   • completeness + Best Net  → analyzeScoring (scoring.js)
+//   • Most Points               → matchPlayPointsByPlayer (scoring.js)
+//   • birdies / pars / worst    → computePlayerStats (playerStats.js), gross + net
+// Days come from the rounds' own dates, so there is no "today" or clock here —
+// a day appears once one of its rounds is fully scored, and stays for the trip.
+import { analyzeScoring, matchPlayPointsByPlayer, isTournamentRound, isNoneRound, formatVsPar, roundCourseName } from './scoring.js'
+import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
+
+// Category rows, in display order. `hi` = higher is better (leader is the max).
+// `zeroIsNone`: a best value of 0 means nobody earned it (e.g. no birdies) → no leader.
+export const LEADER_CATEGORIES = [
+  { key: 'points',      label: 'Most Points',  hi: true,  zeroIsNone: false, format: v => `${v} pts` },
+  { key: 'bestNet',     label: 'Best Net',     hi: false, zeroIsNone: false, format: v => formatVsPar(v) },
+  { key: 'birdiesGross', label: 'Most Birdies', mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
+  { key: 'birdiesNet',   label: 'Most Birdies', mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
+  { key: 'parsGross',    label: 'Most Pars',    mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
+  { key: 'parsNet',      label: 'Most Pars',    mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
+  { key: 'worstGross',   label: 'Worst Round',  mode: 'Gross', hi: true, zeroIsNone: false, format: v => `${v}` },
+  { key: 'worstNet',     label: 'Worst Round',  mode: 'Net',   hi: true, zeroIsNone: false, format: v => `${v}` },
+  { key: 'drinks',      label: 'Most Drinks',  hi: true,  zeroIsNone: true,  format: v => `🍺 ${v}` },
+]
+
+// Leader(s) of one category: every player tied at the best value.
+// values: Map(tripPlayerId -> number|null). Returns { value, ids } or null.
+export function leadersOf(values, { hi, zeroIsNone }) {
+  let best = null
+  for (const v of values.values()) {
+    if (v == null) continue
+    if (best == null || (hi ? v > best : v < best)) best = v
+  }
+  if (best == null || (zeroIsNone && best === 0)) return null
+  const ids = [...values].filter(([, v]) => v === best).map(([id]) => id)
+  return { value: best, ids }
+}
+
+function dayNumberOf(date, tripStartDate) {
+  if (!date || !tripStartDate) return null
+  const ms = Date.UTC(...date.split('-').map((n, i) => (i === 1 ? Number(n) - 1 : Number(n)))) -
+    Date.UTC(...tripStartDate.split('-').map((n, i) => (i === 1 ? Number(n) - 1 : Number(n))))
+  const n = Math.round(ms / 86400000) + 1
+  return n >= 1 ? n : null
+}
+
+// data: { rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }
+//   (drinks rows need round_id). Returns days in date order:
+//   [{ date, dayNumber, roundCount, courseName, leaders: [{ ...category, leader }] }]
+//   where leader is { value, ids } or null.
+export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null } = {}) {
+  const rounds = (data.rounds || []).filter(r => r && r.date && !isNoneRound(r) && isTournamentRound(r))
+  const byDate = new Map()
+  for (const r of rounds) {
+    if (!byDate.has(r.date)) byDate.set(r.date, [])
+    byDate.get(r.date).push(r)
+  }
+  const tripPlayers = data.tripPlayers || []
+  const base = {
+    scores: data.scores || [], pairings: data.pairings || [], pairingPlayers: data.pairingPlayers || [],
+    tripPlayers, playerRounds: data.playerRounds || [],
+  }
+
+  const days = []
+  for (const date of [...byDate.keys()].sort()) {
+    const dayRounds = byDate.get(date)
+    const dayIds = new Set(dayRounds.map(r => r.id))
+    const bundle = { ...base, rounds: dayRounds, courseHoles: courseHolesFromRounds(dayRounds) }
+    // Tallies here only cover complete rounds, so Best Net ignores a round in progress.
+    const { completeRoundIds, vsParByPlayer } = analyzeScoring(bundle, dayIds, allowance)
+    const complete = dayRounds.filter(r => completeRoundIds.has(r.id))
+    if (complete.length === 0) continue
+
+    const completeBundle = { ...base, rounds: complete, courseHoles: courseHolesFromRounds(complete) }
+    const points = matchPlayPointsByPlayer(completeBundle, allowance)
+    const { stats } = computePlayerStats({ ...completeBundle, drinks: [] }, allowance)
+
+    // Drinks are a whole-day thing: every round that day, finished or not.
+    const drinks = new Map()
+    for (const d of (data.drinks || [])) {
+      if (!dayIds.has(d.round_id)) continue
+      drinks.set(d.trip_player_id, (drinks.get(d.trip_player_id) || 0) + (d.count || 0))
+    }
+
+    const pick = fn => new Map(tripPlayers.map(p => [p.id, fn(stats.get(p.id))]))
+    const values = {
+      points,
+      bestNet: vsParByPlayer,
+      birdiesGross: pick(s => s?.gross.birdies ?? null),
+      birdiesNet: pick(s => s?.net.birdies ?? null),
+      parsGross: pick(s => s?.gross.pars ?? null),
+      parsNet: pick(s => s?.net.pars ?? null),
+      worstGross: pick(s => s?.gross.worstRound ?? null),
+      worstNet: pick(s => s?.net.worstRound ?? null),
+      drinks,
+    }
+
+    days.push({
+      date,
+      dayNumber: dayNumberOf(date, tripStartDate),
+      roundCount: complete.length,
+      courseName: complete.length === 1 ? (roundCourseName(complete[0]) || null) : null,
+      leaders: LEADER_CATEGORIES.map(c => ({ ...c, leader: leadersOf(values[c.key] || new Map(), c) })),
+    })
+  }
+  return days
+}
