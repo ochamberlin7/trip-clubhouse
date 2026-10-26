@@ -20,6 +20,7 @@ import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
+import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -287,7 +288,7 @@ function CheckIcon() {
   )
 }
 
-function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner, editing, onStartEdit, onCloseEdit, onSaved }) {
+function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner, editing, onStartEdit, onCloseEdit, onSaved, groupId, rosterLocked }) {
   // Who can edit what:
   //   • Commissioner → first name, last name, email, phone, handicap, team.
   //   • The player, on their OWN card only → email + phone.
@@ -302,6 +303,10 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
   })
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
+  const isOpenSpot = isPlaceholderPlayer(player)
+  // Commissioner-only, before the trip starts, never on their own card or an empty spot.
+  const canRemove = isCommissioner && !isOpenSpot && !rosterChangeBlockReason({ player: { is_commissioner: commissioner }, rosterLocked })
 
   // Reset the form to the player's values each time edit mode opens.
   useEffect(() => {
@@ -340,7 +345,9 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
         .eq('team_id', form.team_id).neq('id', player.id)
     }
     setSaving(false)
-    if (!error) onSaved()
+    // Filling an empty spot → the Players page pops up the invite link for them.
+    const filledSpot = isOpenSpot && isCommissioner && !!payload.first_name
+    if (!error) onSaved(filledSpot ? { invite: [payload.first_name, payload.last_name].filter(Boolean).join(' ') } : undefined)
   }
 
   return (
@@ -349,7 +356,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
       <div style={pc.header}>
         <div style={pc.avatar}>{playerInitials(player)}</div>
         <div style={pc.headerMain}>
-          <div style={pc.name}>{player.name}</div>
+          <div style={{ ...pc.name, ...(isOpenSpot ? { color: '#7A8FA6', fontStyle: 'italic' } : null) }}>{isOpenSpot ? PLACEHOLDER_LABEL : player.name}</div>
           {(player.is_claimed || commissioner || player.is_captain) && (
             <div style={pc.metaRow}>
               {player.is_claimed && <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>}
@@ -394,6 +401,15 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
             </div>
           )}
         </div>
+      )}
+      {confirmRemove && (
+        <RemovePlayerModal
+          player={{ ...player, is_commissioner: commissioner }}
+          groupId={groupId}
+          rosterLocked={rosterLocked}
+          onClose={() => setConfirmRemove(false)}
+          onRemoved={() => { setConfirmRemove(false); onSaved() }}
+        />
       )}
 
       {/* Edit panel */}
@@ -453,6 +469,10 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
             <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            {/* Remove lives in edit mode only, bottom-right of the panel. */}
+            {canRemove && (
+              <button onClick={() => setConfirmRemove(true)} disabled={saving} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
+            )}
           </div>
         </div>
       )}
@@ -460,6 +480,36 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
   )
 }
 
+
+// Centered "are you sure" pop-up for removing a player. Portaled to <body> so it
+// sits above the drawer. The write goes through src/lib/roster.js.
+function RemovePlayerModal({ player, groupId, rosterLocked, onClose, onRemoved }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  async function confirm() {
+    setBusy(true); setErr(null)
+    const { error } = await removeTripPlayer(supabase, { player, groupId, rosterLocked })
+    setBusy(false)
+    if (error) setErr(error.message || 'Something went wrong.')
+    else onRemoved()
+  }
+  return createPortal(
+    <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={() => !busy && onClose()}>
+      <div style={{ ...s.modalSheet, maxWidth: 360, textAlign: 'center' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>Remove {player.name}?</div>
+        <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.45 }}>
+          Are you sure? This cannot be undone. Their spot stays in the pairings, empty and unassigned to a team, so you can add a new player.
+        </div>
+        {err && <div style={{ marginTop: 10, fontSize: 12, color: '#C0392B' }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
+          <button onClick={onClose} disabled={busy} style={{ background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={confirm} disabled={busy} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Removing…' : 'Remove'}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
 
 // Quick-glance roster: a 2-column wrapping grid of team cards, each listing its
 // players + handicaps. Colours come from the SAME palette as the scorecard
@@ -518,15 +568,19 @@ const trs = {
   hcp: { fontSize: 11, fontWeight: 700, flexShrink: 0 },
 }
 
-function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
+function PlayersPage({ data, isCommissioner, currentUserId, onReload, groupId, rosterLocked, inviteToken }) {
   const [editingId, setEditingId] = useState(null)
-  if (!data) return <div style={s.muted}>Loading…</div>
+  const [invitee, setInvitee] = useState(null) // name of the player just added to an empty spot
+  const inviteModal = invitee && <InviteNewPlayerModal name={invitee} inviteToken={inviteToken} onClose={() => setInvitee(null)} />
+  if (!data) return <><div style={s.muted}>Loading…</div>{inviteModal}</>
   const { players, teams } = data
 
-  // One commissioner pinned to the top; everyone else sorted alphabetically by first name.
+  // Empty spots first (so the commissioner sees what to fill), then the commissioner,
+  // then everyone else alphabetically by first name.
   const byFirstName = (a, b) => (a.first_name || a.name || '').localeCompare(b.first_name || b.name || '')
+  const openSpots = players.filter(isPlaceholderPlayer)
   const commissioner = players.find(p => p.is_commissioner)
-  const rest = players.filter(p => p !== commissioner).sort(byFirstName)
+  const rest = players.filter(p => p !== commissioner && !isPlaceholderPlayer(p)).sort(byFirstName)
 
   const renderCard = p => (
     <PlayerCard
@@ -539,16 +593,72 @@ function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
       editing={editingId === p.id}
       onStartEdit={() => setEditingId(p.id)}        // only one open at a time
       onCloseEdit={() => setEditingId(null)}
-      onSaved={() => { setEditingId(null); onReload() }}
+      onSaved={info => { setEditingId(null); if (info?.invite) setInvitee(info.invite); onReload() }}
+      groupId={groupId}
+      rosterLocked={rosterLocked}
     />
   )
 
   return (
     <>
       <TeamRosterSummary players={players} teams={teams} />
+      {openSpots.map(renderCard)}
       {commissioner && renderCard(commissioner)}
       {rest.map(renderCard)}
+      {inviteModal}
     </>
+  )
+}
+
+// Pops up right after the commissioner fills an empty spot: the trip invite link
+// to send the new player. Their sign-in matches them to the spot by email/phone/name.
+function InviteNewPlayerModal({ name, inviteToken, onClose }) {
+  const [copied, setCopied] = useState(false)
+  const url = inviteUrl(inviteToken)
+  const firstName = (name || '').split(' ')[0] || 'them'
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+  async function copy() {
+    try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  async function share() {
+    try { await navigator.share({ title: 'Join the trip', text: `${firstName}, join our golf trip on Trip Clubhouse:`, url }) } catch { /* cancelled */ }
+  }
+  const btn = { flex: 1, border: 'none', borderRadius: 8, padding: '12px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }
+  return createPortal(
+    <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={onClose}>
+      <div style={{ ...s.modalSheet, maxWidth: 360, padding: 22 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={{ ...s.modalTitle, marginBottom: 6 }}>
+          <span>Invite {name}</span>
+          <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div style={{ fontSize: 13.5, color: '#5A7290', lineHeight: 1.45 }}>
+          Send {firstName} this link. When they sign in, they're added to the trip automatically.
+        </div>
+
+        {/* One-row link, cut off with an ellipsis; tapping it copies too. */}
+        <button onClick={copy} aria-label="Copy invite link"
+          style={{ marginTop: 16, width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: '#F4F7FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A8FA6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#2C3E50', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {url.replace(/^https?:\/\//, '')}
+          </span>
+        </button>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          {canShare && (
+            <button onClick={share} style={{ ...btn, background: '#E8EDF3', color: '#1B3F6E' }}>Share</button>
+          )}
+          <button onClick={copy} style={{ ...btn, background: copied ? '#0F6E56' : '#1B3F6E', color: '#fff' }}>
+            {copied ? '✓ Copied' : 'Copy link'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -1820,10 +1930,15 @@ function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate, onClose }) 
 
 // "Invite Link" row: a "Copy link" button is always visible; the caret beside it
 // expands the full join URL below.
+// The trip's invite link — one builder for every place it's shown.
+function inviteUrl(inviteToken) {
+  return `https://thetripclubhouse.com/join/${inviteToken || ''}`
+}
+
 function InvitePlayersRow({ inviteToken }) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const url = `https://thetripclubhouse.com/join/${inviteToken || ''}`
+  const url = inviteUrl(inviteToken)
   async function copy() {
     try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
     setCopied(true)
@@ -2374,7 +2489,7 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
+  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
   const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
@@ -2588,7 +2703,7 @@ export default function MenuDrawer({
         const adminIds = new Set((adminRes.data || []).map(m => m.user_id))
         const tps = (tpRes.data || []).map(tp => ({
           ...tp,
-          name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || 'Unnamed Player',
+          name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || (isPlaceholderPlayer(tp) ? PLACEHOLDER_LABEL : 'Unnamed Player'),
           is_commissioner: adminIds.has(tp.user_id) || adminIds.has(tp.claimed_user_id),
         }))
         if (!cancelled) setPlayersData({ players: tps, teams: teamsRes.data || [] })
@@ -3030,7 +3145,7 @@ export default function MenuDrawer({
       )}
       {page === 'players' && (
         <SecondaryPage context={groupName} title="Players & Teams" onBack={backToDrawer}>
-          <PlayersPage data={playersData} isCommissioner={isCommissioner} currentUserId={currentUserId} onReload={() => setPlayersData(null)} />
+          <PlayersPage data={playersData} isCommissioner={isCommissioner} currentUserId={currentUserId} onReload={() => setPlayersData(null)} groupId={groupId} rosterLocked={rosterLocked} inviteToken={inviteToken} />
         </SecondaryPage>
       )}
       {page === 'courses' && (

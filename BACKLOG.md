@@ -43,11 +43,17 @@ Routing rule: opens Score only if a round is live, the user is playing it, and i
 Default round rules: first round of the day = that round all day until live; 2nd+ round = last completed round until 1 hr before its tee, then the upcoming round; after last round = the round just finished; no-round day = last completed round, else first round of trip; before trip = first round; after trip = last round. User's manual pick always wins.
 
 ## Next up (in order unless Owen changes it)
-1. **Remove or replace members in a trip.** Open questions: who can do it; what happens to a removed player's scores, pairings, team slot, points/purse; does a replacement inherit slot + pairings with their own handicap; between rounds only or mid-round; soft-remove to keep history. Must go through one shared function so leaderboard, banner and scorecards agree. Owen's tentative defaults: commissioner only, soft-remove, replacement takes the slot and pairings with their own handicap.
+1. **Remove members from a trip** — built on `feat/roster-remove-replace` (not merged). Decided 2026-10-23:
+   - **Roster is set once the trip starts** (trip-local date, `isRosterLocked` in `scoring.js`). Before that, the commissioner can remove any player except themselves. Test mode unlocks it for Owen's test trips.
+   - **Remove player** (only after tapping the edit pencil; bottom-right of the edit panel) → centered "Are you sure? This cannot be undone." → the player becomes an empty **Player TBD** card (sorted to the top of Players): keeps pairings and tee picks; team set to Unassigned; name, handicap, contact, account link, captain flag and flight wiped.
+   - **Replacing** = commissioner fills the empty spot with the normal edit form; on save a pop-up shows the invite link with a Copy button; the existing email → phone → name matching in `JoinTrip.jsx` claims it. An empty spot can't be matched by mistake.
+   - The removed person's group membership is dropped (only if they have no other trip in that group), so the trip leaves their list.
+   - All writes go through `src/lib/roster.js`.
 2. **Daily MVP widget:** longer stats list + swipe between days. Possible rename to "Daily Recap" (undecided); if renamed, decide content first (MVP, team results, top scores, notable holes).
 3. **Landing page when a user has no current trip.** Tentative: past and upcoming trips if any, else "create or join a trip".
 
 ## Backlog
+- **Mid-trip substitutes** (future): allow replacing an injured/absent player after the trip starts. Today the roster is locked once the trip starts; a mid-trip sub needs rules for the old player's posted scores, points and purse.
 - Leaderboard side by side.
 - Offline score caching when the user has no service.
 - Build out stats; add historical stats.
