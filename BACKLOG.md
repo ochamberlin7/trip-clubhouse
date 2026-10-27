@@ -71,6 +71,8 @@ Default round rules: first round of the day = that round all day until live; 2nd
 - **Mid-trip substitutes** (future): allow replacing an injured/absent player after the trip starts. Today the roster is locked once the trip starts; a mid-trip sub needs rules for the old player's posted scores, points and purse.
 - Leaderboard side by side.
 - Offline score caching when the user has no service.
+- **Career stats page** (added 2026-10-27): the full page behind "Your career → All stats" on the home page — one player's numbers across every trip (the same categories as the Stats tab, gross and net, plus trips played, rounds, points won/defended, best and worst round) and a trip-by-trip history. Built on Historical stats below; reuse `buildCareer` / `computePlayerStats` and the Stats-tab tile style.
+- **Group stats page** (added 2026-10-27): all-time stats for a group of friends across all their trips together — an all-time leaderboard per category (points, birdies, best round, drinks…), trip winners by year, head-to-head records. Same shared stat functions; a "group" is the app's existing `groups` table (the set of trips under one group).
 - **Historical stats** (added 2026-10-27): lifetime / career numbers per player across every trip they've played (trips, rounds, points won, points defended, best round, birdies, etc.) plus trip-by-trip history. Feeds the player home page. Must reuse `computePlayerStats` over all of a player's trips, matching players across trips by their account (unclaimed guest slots can't be linked). Also: keep building out per-trip stats.
 - Game types: Stableford; stroke play; no-teams (individual only). One shared format setting, not copies per format × team/individual.
 - Decide Prince of Wales default view (Net or Gross).
