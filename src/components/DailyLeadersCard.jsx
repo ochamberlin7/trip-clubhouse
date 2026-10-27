@@ -65,13 +65,12 @@ function firstAndInitial(name) {
   return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0]
 }
 
-// One winner → full name. Two or more → first names, A–Z, comma-separated; a
-// player whose first name is shared with someone else on the trip also gets their
-// last initial ("Mike S., Mike T., Owen"), so no name is ambiguous.
+// Winners show by first name, A–Z, comma-separated ("Jeff, Jon, Owen"). A player
+// whose first name is shared with someone else on the trip also gets their last
+// initial ("Mike S., Mike T."), so no name is ambiguous. Same rule for one winner.
 function winnersLabel(cat, nameById) {
   const names = (cat?.leader?.ids || []).map(id => nameById.get(id)).filter(Boolean).sort((a, b) => a.localeCompare(b))
   if (names.length === 0) return null
-  if (names.length === 1) return names[0]
   const firstCounts = new Map()
   for (const n of nameById.values()) { const f = firstOf(n).toLowerCase(); firstCounts.set(f, (firstCounts.get(f) || 0) + 1) }
   return names.map(n => (firstCounts.get(firstOf(n).toLowerCase()) > 1 ? firstAndInitial(n) : firstOf(n))).join(', ')
