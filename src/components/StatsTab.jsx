@@ -105,7 +105,7 @@ function StatTile({ title, icon, players, valueOf, hi, anyScore, span }) {
         <>
           {rows.slice(0, 3).map((row, i) => <StatRow key={row.p.id} i={i} row={row} />)}
           {rows.length > 3 && (
-            <button className="stat-tile-seeall" onClick={() => setOpen(true)}>See all {rows.length} ›</button>
+            <button className="stat-tile-seeall" onClick={() => setOpen(true)}>See all ›</button>
           )}
         </>
       )}
