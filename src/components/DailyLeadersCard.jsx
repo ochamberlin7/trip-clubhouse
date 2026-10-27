@@ -54,12 +54,19 @@ const LAYOUT = [
   { type: 'wide', title: 'Most drinks', tone: 'drinks', key: 'drinks' },
 ]
 
-// One winner → full name; two or more → first names, A–Z, comma-separated.
+// "Jeff Nelson" → "Jeff N." (a single-word name stays as is).
+function firstAndInitial(name) {
+  const parts = name.trim().split(/\s+/)
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0]
+}
+
+// One winner → full name; two or more → first name + last initial, A–Z,
+// comma-separated ("Jeff N., Jon N., Owen C.").
 function winnersLabel(cat, nameById) {
   const names = (cat?.leader?.ids || []).map(id => nameById.get(id)).filter(Boolean).sort((a, b) => a.localeCompare(b))
   if (names.length === 0) return null
   if (names.length === 1) return names[0]
-  return names.map(n => n.trim().split(/\s+/)[0]).join(', ')
+  return names.map(firstAndInitial).join(', ')
 }
 
 function WideTile({ title, tone, cat, nameById }) {
