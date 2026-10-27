@@ -225,7 +225,7 @@ export default function HomePage() {
     <div style={h.page}>
       <div style={h.inner}>
         <div style={h.top}>
-          <div style={h.brand}>Trip Clubhouse</div>
+          <div style={h.brand}>Trip Clubhouse Home</div>
           <ProfileAvatar style={{ position: 'static', top: 'auto', right: 'auto', background: GOLD, borderColor: 'transparent', boxShadow: 'none' }} />
         </div>
 
