@@ -18,38 +18,43 @@ import { inviteTokenFrom } from '../../lib/inviteMatch'
 const NAVY = '#1B3F6E'
 const INK = '#0D1B2A'
 const MUTED = '#8A96A3'
-const LINE = '#E7E3DA'
+const LINE = 'var(--bg3)'
 const SERIF = "'Playfair Display', Georgia, serif"
 
 const h = {
-  page: { minHeight: '100vh', background: '#F7F5F0', padding: '18px 16px 40px', boxSizing: 'border-box' },
+  // Same page background as the rest of the app (--bg0).
+  page: { minHeight: '100vh', background: 'var(--bg0)', padding: '18px 16px 40px', boxSizing: 'border-box' },
   inner: { maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 },
   top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   brand: { fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK },
   hero: { textAlign: 'center', padding: '12px 0 4px' },
+  // Next-trip countdown / live card: light outline, taps through to the trip.
+  heroCard: { display: 'block', width: '100%', textAlign: 'center', padding: '18px 16px 16px', background: '#fff', border: '1px solid var(--bg3)', borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' },
+  heroOpen: { display: 'inline-block', marginTop: 12, fontSize: 13, fontWeight: 700, color: NAVY },
   big: { fontFamily: SERIF, fontSize: 64, fontWeight: 700, lineHeight: 1, color: NAVY },
   eyebrow: { fontSize: 11, letterSpacing: '1.6px', color: MUTED, fontWeight: 700, textTransform: 'uppercase' },
   heroName: { fontFamily: SERIF, fontSize: 22, fontWeight: 700, color: INK, marginTop: 6 },
   heroSub: { fontSize: 13, color: MUTED, marginTop: 2 },
   pills: { display: 'flex', gap: 8 },
-  pill: { flex: 1, padding: '9px 0', borderRadius: 999, border: `1px solid #D9D3C6`, background: '#fff', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  pill: { flex: 1, padding: '9px 0', borderRadius: 999, border: '1px solid var(--bg3)', background: '#fff', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   pillPrimary: { background: NAVY, borderColor: NAVY, color: '#fff' },
   secRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' },
   sec: { fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: INK, margin: 0 },
   link: { background: 'none', border: 'none', padding: 0, color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  seeAll: { display: 'block', width: '100%', padding: 11, background: '#FBFCFD', border: 'none', borderTop: '1px solid var(--bg2)', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   box: { background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, overflow: 'hidden' },
   row: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' },
-  rowLine: { borderTop: '1px solid #EFECE5' },
+  rowLine: { borderTop: '1px solid var(--bg2)' },
   tripName: { fontSize: 15, fontWeight: 700, color: INK },
   tripSub: { fontSize: 12, color: MUTED, marginTop: 2 },
   tag: { marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap' },
-  chev: { color: '#B9B2A3', fontSize: 18, lineHeight: 1 },
-  empty: { border: '1.5px dashed #D9D3C6', borderRadius: 14, padding: 14, textAlign: 'center', fontSize: 13, color: MUTED, lineHeight: 1.45 },
+  chev: { color: '#A9B4C0', fontSize: 18, lineHeight: 1 },
+  empty: { border: '1.5px dashed #C4CEDA', borderRadius: 14, padding: 14, textAlign: 'center', fontSize: 13, color: MUTED, lineHeight: 1.45 },
   stats: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'center', padding: '12px 4px' },
   statNum: { display: 'block', fontSize: 20, fontWeight: 800, color: NAVY },
   statLab: { fontSize: 11, color: MUTED },
   badges: { display: 'flex', gap: 10 },
-  badge: { flex: 1, aspectRatio: '1', borderRadius: '50%', border: '1.5px dashed #CFC9BC', background: '#fff' },
+  badge: { flex: 1, aspectRatio: '1', borderRadius: '50%', border: '1.5px dashed #C4CEDA', background: '#fff' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   sheet: { background: '#fff', borderRadius: 14, padding: 22, width: '100%', maxWidth: 380, boxSizing: 'border-box' },
   input: { width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #DDE3EA', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', marginTop: 12 },
@@ -127,6 +132,7 @@ export default function HomePage() {
   const [showAllPast, setShowAllPast] = useState(false)
   const [joining, setJoining] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [careerSoon, setCareerSoon] = useState(false) // full career page is on the backlog
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
@@ -167,23 +173,24 @@ export default function HomePage() {
   } else if (next && live.includes(next)) {
     const phase = getTripPhase({ trip: next, now, timeZone: next.time_zone || undefined })
     hero = (
-      <div style={h.hero}>
+      <button style={h.heroCard} onClick={() => openTrip(next.id)}>
         <div style={{ ...h.eyebrow, color: '#0F6E56' }}>Live now{phase.dayNumber ? ` · Day ${phase.dayNumber} of ${phase.totalDays}` : ''}</div>
         <div style={{ ...h.heroName, fontSize: 24 }}>{next.name}</div>
         <div style={h.heroSub}>{[fmtRange(next), next.location].filter(Boolean).join(' · ')}</div>
-        <button style={{ ...h.pill, ...h.pillPrimary, flex: 'none', padding: '9px 20px', marginTop: 14 }} onClick={() => openTrip(next.id)}>Back to the trip ›</button>
-      </div>
+        <span style={h.heroOpen}>Back to the trip ›</span>
+      </button>
     )
   } else if (next) {
     const days = daysUntilTrip(next, now)
     const facts = [fmtRange(next), next.golfers ? `${next.golfers} players` : null, next.rounds ? `${next.rounds} rounds` : null].filter(Boolean)
     hero = (
-      <div style={h.hero}>
+      <button style={h.heroCard} onClick={() => openTrip(next.id)}>
         <div style={h.big}>{days ?? '—'}</div>
         <div style={{ ...h.eyebrow, marginTop: 6 }}>{days === 1 ? 'Day until' : 'Days until'}</div>
         <div style={h.heroName}>{next.name}</div>
         <div style={h.heroSub}>{facts.join(' · ')}</div>
-      </div>
+        <span style={h.heroOpen}>Open trip ›</span>
+      </button>
     )
   } else if (past.length) {
     hero = (
@@ -243,19 +250,23 @@ export default function HomePage() {
 
             {past.length > 0 && (
               <>
-                <div style={h.secRow}>
-                  <h2 style={h.sec}>Past trips</h2>
-                  {past.length > 3 && <button style={h.link} onClick={() => setShowAllPast(v => !v)}>{showAllPast ? 'Show less' : 'See all ›'}</button>}
-                </div>
+                <div style={h.secRow}><h2 style={h.sec}>Past trips</h2></div>
                 <div style={h.box}>
                   {pastShown.map((t, i) => <TripRow key={t.id} trip={t} status="past" first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} />)}
+                  {past.length > 3 && (
+                    <button style={h.seeAll} onClick={() => setShowAllPast(v => !v)}>{showAllPast ? 'Show less' : `See all ${past.length} past trips ›`}</button>
+                  )}
                 </div>
               </>
             )}
           </>
         )}
 
-        <div style={h.secRow}><h2 style={h.sec}>Your career</h2></div>
+        <div style={h.secRow}>
+          <h2 style={h.sec}>Your career</h2>
+          {hasCareer && <button style={h.link} onClick={() => setCareerSoon(true)}>See all career stats ›</button>}
+        </div>
+        {careerSoon && <div style={{ fontSize: 12, color: MUTED, marginTop: -8 }}>The full career stats page is coming soon.</div>}
         {hasCareer ? (
           <div style={{ ...h.box, ...h.stats }}>
             <div><b style={h.statNum}>{career.trips}</b><span style={h.statLab}>Trips</span></div>
