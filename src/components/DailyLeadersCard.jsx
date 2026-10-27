@@ -14,42 +14,112 @@ import HomeCard from './homeCard'
 
 const NAVY = '#1B3F6E'
 const GREY = '#8a96a3'
+const MUTED = '#A9B4C0'
 const st = {
-  row: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 16px', borderBottom: '1px solid #e5e7eb' },
-  rowLast: { borderBottom: 'none' },
-  labelCol: { minWidth: 84, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1 },
-  label: { fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
-  mode: { fontSize: 9, color: '#A9B4C0', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
-  names: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
-  name: { fontSize: 13, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  none: { fontSize: 13, color: GREY },
-  tie: { fontSize: 11, color: GREY, fontWeight: 500 },
-  value: { fontSize: 13, fontWeight: 700, color: NAVY, textAlign: 'right', flexShrink: 0 },
+  body: { display: 'flex', flexDirection: 'column', gap: 8, padding: 10 },
+  tile: { border: '1px solid #E3E8EE', borderRadius: 10, overflow: 'hidden', minWidth: 0 },
+  // Light navy title bar across the top of each tile; the title keeps its tone colour.
+  titleBar: { background: '#EEF2F7', padding: '5px 12px' },
+  inner: { padding: '7px 12px 9px' },
+  wideRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  title: { fontSize: 15, fontWeight: 700, lineHeight: 1.3 },
+  who: { fontSize: 13, fontWeight: 500, color: '#5A7290', lineHeight: 1.35 },
+  bigNum: { fontSize: 24, fontWeight: 700, color: NAVY, flexShrink: 0, lineHeight: 1.1 },
+  split: { display: 'grid', gridTemplateColumns: '1fr 1fr' },
+  half: { minWidth: 0 },
+  halfRight: { minWidth: 0, borderLeft: '1px solid #E3E8EE', paddingLeft: 12 },
+  mode: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
+  num: { fontSize: 18, fontWeight: 700, color: NAVY, lineHeight: 1.25 },
+  nm: { fontSize: 12, color: '#5A7290', lineHeight: 1.35 },
+  none: { color: MUTED, fontWeight: 500 },
   placeholder: { fontSize: 13, color: GREY, fontStyle: 'italic', padding: '14px 16px' },
-  dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '8px 0 12px' },
+  dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '2px 0 12px' },
   dot: { width: 7, height: 7, borderRadius: '50%', background: '#C4CEDA', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
   dotActive: { background: NAVY },
 }
 
-// Winners stack one per line (full names); a tie adds a small "Tied" / "3-way tie"
-// note under them. The value shows once, on the right. No winner → "None".
-function LeaderRow({ cat, nameById, last }) {
-  const lead = cat.leader
-  const people = lead ? lead.ids.map(id => nameById.get(id)).filter(Boolean).sort((a, b) => a.localeCompare(b)) : []
-  const tieNote = people.length === 2 ? 'Tied' : people.length > 2 ? `${people.length}-way tie` : null
+// Title colour says what kind of stat it is: green = bragging rights,
+// red = the roast, gold = drinks.
+const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
+
+// Card layout, top to bottom: full-width tiles for Most Points, Points Defended
+// and Most Drinks; Gross | Net split tiles for everything else. Keys are the
+// category keys from src/lib/dailyLeaders.js.
+const LAYOUT = [
+  { type: 'wide', title: 'Most points', tone: 'good', key: 'points' },
+  { type: 'wide', title: 'Points defended', tone: 'good', key: 'defended' },
+  { type: 'split', title: 'Best score', tone: 'good', gross: 'bestGross', net: 'bestNet' },
+  { type: 'split', title: 'Most birdies', tone: 'good', gross: 'birdiesGross', net: 'birdiesNet' },
+  { type: 'split', title: 'Most pars', tone: 'good', gross: 'parsGross', net: 'parsNet' },
+  { type: 'split', title: 'Most bogeys', tone: 'bad', gross: 'bogeysGross', net: 'bogeysNet' },
+  { type: 'split', title: 'Most doubles or worse', tone: 'bad', gross: 'doublesGross', net: 'doublesNet' },
+  { type: 'split', title: 'Worst round', tone: 'bad', gross: 'worstGross', net: 'worstNet' },
+  { type: 'wide', title: 'Most drinks', tone: 'drinks', key: 'drinks' },
+]
+
+const firstOf = name => name.trim().split(/\s+/)[0]
+
+// "Jeff Nelson" → "Jeff N." (a single-word name stays as is).
+function firstAndInitial(name) {
+  const parts = name.trim().split(/\s+/)
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0]
+}
+
+// One winner → full name. Two or more → first names, A–Z, comma-separated; a
+// player whose first name is shared with someone else on the trip also gets their
+// last initial ("Mike S., Mike T., Owen"), so no name is ambiguous.
+function winnersLabel(cat, nameById) {
+  const names = (cat?.leader?.ids || []).map(id => nameById.get(id)).filter(Boolean).sort((a, b) => a.localeCompare(b))
+  if (names.length === 0) return null
+  if (names.length === 1) return names[0]
+  const firstCounts = new Map()
+  for (const n of nameById.values()) { const f = firstOf(n).toLowerCase(); firstCounts.set(f, (firstCounts.get(f) || 0) + 1) }
+  return names.map(n => (firstCounts.get(firstOf(n).toLowerCase()) > 1 ? firstAndInitial(n) : firstOf(n))).join(', ')
+}
+
+function WideTile({ title, tone, cat, nameById }) {
+  const who = winnersLabel(cat, nameById)
   return (
-    <div style={{ ...st.row, ...(last ? st.rowLast : null) }}>
-      <span style={st.labelCol}>
-        <span style={st.label}>{cat.label}</span>
-        {cat.mode && <span style={st.mode}>{cat.mode}</span>}
-      </span>
-      <span style={st.names}>
-        {people.length
-          ? people.map(n => <span key={n} style={st.name}>{n}</span>)
-          : <span style={st.none}>None</span>}
-        {tieNote && <span style={st.tie}>{tieNote}</span>}
-      </span>
-      <span style={st.value}>{lead ? cat.format(lead.value) : ''}</span>
+    <div style={st.tile}>
+      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone] }}>{title}</div>
+      <div style={{ ...st.inner, ...st.wideRow }}>
+        <div style={{ ...st.who, minWidth: 0, ...(who ? null : st.none) }}>{who || 'None'}</div>
+        <div style={{ ...st.bigNum, ...(who ? null : st.none) }}>{who ? cat.format(cat.leader.value) : '—'}</div>
+      </div>
+    </div>
+  )
+}
+
+function SplitHalf({ mode, cat, nameById, right }) {
+  const who = winnersLabel(cat, nameById)
+  return (
+    <div style={right ? st.halfRight : st.half}>
+      <div style={st.mode}>{mode}</div>
+      <div style={{ ...st.num, ...(who ? null : st.none) }}>{who ? cat.format(cat.leader.value) : '—'}</div>
+      <div style={{ ...st.nm, ...(who ? null : st.none) }}>{who || 'None'}</div>
+    </div>
+  )
+}
+
+function SplitTile({ title, tone, gross, net, nameById }) {
+  return (
+    <div style={st.tile}>
+      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone] }}>{title}</div>
+      <div style={{ ...st.inner, ...st.split }}>
+        <SplitHalf mode="Gross" cat={gross} nameById={nameById} />
+        <SplitHalf mode="Net" cat={net} nameById={nameById} right />
+      </div>
+    </div>
+  )
+}
+
+function DayTiles({ day, nameById }) {
+  const byKey = new Map(day.leaders.map(c => [c.key, c]))
+  return (
+    <div style={st.body}>
+      {LAYOUT.map(t => t.type === 'wide'
+        ? <WideTile key={t.key} title={t.title} tone={t.tone} cat={byKey.get(t.key)} nameById={nameById} />
+        : <SplitTile key={t.title} title={t.title} tone={t.tone} gross={byKey.get(t.gross)} net={byKey.get(t.net)} nameById={nameById} />)}
     </div>
   )
 }
@@ -155,9 +225,7 @@ export default function DailyLeadersCard({ tripId, tripStartDate, allowance = 10
               <span style={HOME_CARD_LABEL}>Daily Leaders</span>
               <span style={HOME_CARD_TAIL}>{dayLabel(day)}</span>
             </div>
-            {day.leaders.map((cat, i) => (
-              <LeaderRow key={cat.key} cat={cat} nameById={nameById} last={i === day.leaders.length - 1} />
-            ))}
+            <DayTiles day={day} nameById={nameById} />
           </div>
         ))}
       </div>

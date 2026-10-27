@@ -181,7 +181,7 @@ test('Prince of Wales: a team with no scores has blank cells and a zero/dash tot
 // per-player points (matchPlayPointsByPlayer) and the Standard path
 // (standardMatchTally / standardHolesWonByPlayer) must all agree on the same data.
 import {
-  matchHoleOutcomes, liveMatchTally, matchPlayPointsByPlayer,
+  matchHoleOutcomes, liveMatchTally, matchPlayPointsByPlayer, pointsDefendedByPlayer,
   liveStandardMatchTally, standardHolesWonByPlayer,
 } from './scoring.js'
 
@@ -255,6 +255,36 @@ test('teammates tied for the winning low BOTH score a point (team still wins one
   const pts = matchPlayPointsByPlayer({ ...bundle3, rounds: [round], scores: scoresArrOf(spec), courseHoles: [COURSE_HOLES3[0]] }, 100)
   assert.equal(pts.get('A'), 1) // both teammates credited
   assert.equal(pts.get('B'), 1)
+})
+
+// ── Points Defended ─────────────────────────────────────────────
+test('points defended: sole best net on a halved hole, partner worse', () => {
+  // SPEC: hole 1 T1 wins, hole 2 T2 wins, hole 3 halves 4–4 with A & B tied (no
+  // credit) and D alone on T2's best (C 5) → D defended 1.
+  const d = pointsDefendedByPlayer(bundle3, 100)
+  assert.deepEqual([...d], [['D', 1]])
+})
+
+test('points defended: both sides can each defend the same halved hole', () => {
+  const spec = [{ A: 4, B: 5, C: 4, D: 6 }]
+  const round = { ...ROUND3, holes: [HOLES3[0]], number_of_holes: 1 }
+  const d = pointsDefendedByPlayer({ ...bundle3, rounds: [round], scores: scoresArrOf(spec), courseHoles: [COURSE_HOLES3[0]] }, 100)
+  assert.equal(d.get('A'), 1)
+  assert.equal(d.get('C'), 1)
+  assert.equal(d.get('B') ?? 0, 0)
+})
+
+test('points defended: not on won holes, unfinished holes, solo sides or practice rounds', () => {
+  const one = (spec, extra = {}) => {
+    const round = { ...ROUND3, holes: [HOLES3[0]], number_of_holes: 1, ...extra.round }
+    return pointsDefendedByPlayer({ ...bundle3, rounds: [round], scores: scoresArrOf(spec), courseHoles: [COURSE_HOLES3[0]], ...extra.bundle }, 100)
+  }
+  assert.equal(one([{ A: 3, B: 5, C: 4, D: 6 }]).size, 0)            // T1 won → points, not defended
+  assert.equal(one([{ A: 4, B: 5, C: 4 }]).size, 0)                  // D hasn't scored → undecided
+  assert.equal(one([{ A: 4, B: 5, C: 4, D: 6 }], { round: { round_type: 'practice' } }).size, 0)
+  const solo = one([{ A: 4, C: 4, D: 6 }], { bundle: { pairingPlayers: PP3.filter(pp => pp.trip_player_id !== 'B') } })
+  assert.equal(solo.get('A') ?? 0, 0)                                // A has no partner → can't "defend"
+  assert.equal(solo.get('C'), 1)
 })
 
 test('Standard path (liveStandardMatchTally / standardHolesWonByPlayer) uses the same winners', () => {

@@ -4,26 +4,33 @@
 //   • completeness              → analyzeScoring (scoring.js)
 //   • Most Points               → matchPlayPointsByPlayer (scoring.js; tournament
 //                                 rounds only — practice rounds aren't matches)
-//   • Best Net, birdies, pars, worst → computePlayerStats (playerStats.js), which
-//                                 uses the same off-the-low strokes as analyzeScoring
+//   • best/worst round, birdies, pars, bogeys, doubles+ → computePlayerStats
+//                                 (playerStats.js), gross and net, off-the-low strokes
 // Each day says whether its rounds were practice (day.practice).
 // Days come from the rounds' own dates, so there is no "today" or clock here —
 // a day appears once one of its rounds is fully scored, and stays for the trip.
-import { analyzeScoring, matchPlayPointsByPlayer, isPracticeRound, isNoneRound, formatVsPar, roundCourseName } from './scoring.js'
+import { analyzeScoring, matchPlayPointsByPlayer, isPracticeRound, isNoneRound, roundCourseName } from './scoring.js'
 import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
 
 // Category rows, in display order. `hi` = higher is better (leader is the max).
 // `zeroIsNone`: a best value of 0 means nobody earned it (e.g. no birdies) → no leader.
 export const LEADER_CATEGORIES = [
-  { key: 'points',      label: 'Most Points',  hi: true,  zeroIsNone: false, format: v => `${v} pts` },
-  { key: 'bestNet',     label: 'Best Net',     hi: false, zeroIsNone: false, format: v => formatVsPar(v) },
+  { key: 'points',      label: 'Most Points',  hi: true,  zeroIsNone: false, format: v => `${v}` },
+  { key: 'defended',    label: 'Points Defended', hi: true, zeroIsNone: true, format: v => `${v}` },
+  // Best / worst single 18-hole round that day (not a total across rounds).
+  { key: 'bestGross',   label: 'Best Score',   mode: 'Gross', hi: false, zeroIsNone: false, format: v => `${v}` },
+  { key: 'bestNet',     label: 'Best Score',   mode: 'Net',   hi: false, zeroIsNone: false, format: v => `${v}` },
   { key: 'birdiesGross', label: 'Most Birdies', mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'birdiesNet',   label: 'Most Birdies', mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'parsGross',    label: 'Most Pars',    mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'parsNet',      label: 'Most Pars',    mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
+  { key: 'bogeysGross',  label: 'Most Bogeys',  mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
+  { key: 'bogeysNet',    label: 'Most Bogeys',  mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
+  { key: 'doublesGross', label: 'Most Doubles or Worse', mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
+  { key: 'doublesNet',   label: 'Most Doubles or Worse', mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'worstGross',   label: 'Worst Round',  mode: 'Gross', hi: true, zeroIsNone: false, format: v => `${v}` },
   { key: 'worstNet',     label: 'Worst Round',  mode: 'Net',   hi: true, zeroIsNone: false, format: v => `${v}` },
-  { key: 'drinks',      label: 'Most Drinks',  hi: true,  zeroIsNone: true,  format: v => `🍺 ${v}` },
+  { key: 'drinks',      label: 'Most Drinks',  hi: true,  zeroIsNone: true,  format: v => `${v}` },
 ]
 
 // Leader(s) of one category: every player tied at the best value.
@@ -88,11 +95,17 @@ export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null 
     const pick = fn => new Map(tripPlayers.map(p => [p.id, fn(stats.get(p.id))]))
     const values = {
       points,
-      bestNet: pick(s => s?.net.vsPar ?? null),
+      defended: pick(s => s?.defended ?? null),
+      bestGross: pick(s => s?.gross.bestRound ?? null),
+      bestNet: pick(s => s?.net.bestRound ?? null),
       birdiesGross: pick(s => s?.gross.birdies ?? null),
       birdiesNet: pick(s => s?.net.birdies ?? null),
       parsGross: pick(s => s?.gross.pars ?? null),
       parsNet: pick(s => s?.net.pars ?? null),
+      bogeysGross: pick(s => s?.gross.bogeys ?? null),
+      bogeysNet: pick(s => s?.net.bogeys ?? null),
+      doublesGross: pick(s => (s ? s.gross.doubles + s.gross.triples : null)),
+      doublesNet: pick(s => (s ? s.net.doubles + s.net.triples : null)),
       worstGross: pick(s => s?.gross.worstRound ?? null),
       worstNet: pick(s => s?.net.worstRound ?? null),
       drinks,
