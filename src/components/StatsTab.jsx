@@ -37,13 +37,13 @@ const STAT_TABS = ['Scoring', 'Fire', 'Rounds', 'Drinks']
 const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
 const ME_BG = '#EEF2F7' // the viewer's own row in "See all"
 
-function StatHeaderBar({ title, tone = 'good', onClose, info, infoOpen, onInfo }) {
+function StatHeaderBar({ title, tone = 'good', onClose, info, infoOpen, onInfo, infoRef }) {
   return (
     <div className="stat-tile-header" style={{ color: TONE[tone] }}>
       {/* Title + superscript "i" kept together so the header gap doesn't split them. */}
       <span style={{ display: 'inline-flex', alignItems: 'flex-start' }}>
         <span className="stat-tile-title">{title}</span>
-        {info && <InfoButton open={infoOpen} onToggle={onInfo} color={TONE[tone]} label={`What is ${title}?`} />}
+        {info && <InfoButton ref={infoRef} open={infoOpen} onToggle={onInfo} color={TONE[tone]} label={`What is ${title}?`} />}
       </span>
       {onClose && <button className="stat-modal-close" aria-label="Close" onClick={onClose}>✕</button>}
     </div>
@@ -119,6 +119,7 @@ function SeeAllModal({ title, tone, players, cols, isMe, onClose }) {
 function StatTile({ title, tone, cols, players, anyScore, short, isMe, info }) {
   const [open, setOpen] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
+  const infoRef = useRef(null)
   const split = cols.length > 1
   const nameOf = p => p.name || ''
   // Top 3 skips players with nothing to show (0 or no value) — "Ben 0" isn't a
@@ -126,8 +127,8 @@ function StatTile({ title, tone, cols, players, anyScore, short, isMe, info }) {
   const tops = cols.map(c => rankRows(players, c.valueOf, { hi: c.hi, nameOf }).filter(r => r.v != null && r.v !== 0).slice(0, 3))
   return (
     <div className="stat-tile" style={split ? { gridColumn: '1 / -1' } : undefined}>
-      <StatHeaderBar title={title} tone={tone} info={info} infoOpen={infoOpen} onInfo={() => setInfoOpen(v => !v)} />
-      {info && infoOpen && <InfoBubble>{info}</InfoBubble>}
+      <StatHeaderBar title={title} tone={tone} info={info} infoOpen={infoOpen} onInfo={() => setInfoOpen(v => !v)} infoRef={infoRef} />
+      {info && infoOpen && <InfoBubble anchorRef={infoRef}>{info}</InfoBubble>}
       {!anyScore ? (
         <div className="stat-empty">No data yet</div>
       ) : (

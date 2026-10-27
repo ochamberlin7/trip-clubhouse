@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { useSwipePager } from '../lib/useSwipePager'
@@ -72,13 +72,14 @@ function winnersLabel(cat, nameById) {
 function WideTile({ title, tone, cat, nameById, info }) {
   const who = winnersLabel(cat, nameById)
   const [infoOpen, setInfoOpen] = useState(false)
+  const infoRef = useRef(null)
   return (
     <div style={st.tile}>
       <div style={{ ...st.titleBar, ...st.title, color: TONE[tone], display: 'flex', alignItems: 'flex-start' }}>
         {title}
-        {info && <InfoButton open={infoOpen} onToggle={() => setInfoOpen(v => !v)} color={TONE[tone]} label={`What is ${title}?`} />}
+        {info && <InfoButton ref={infoRef} open={infoOpen} onToggle={() => setInfoOpen(v => !v)} color={TONE[tone]} label={`What is ${title}?`} />}
       </div>
-      {info && infoOpen && <InfoBubble>{info}</InfoBubble>}
+      {info && infoOpen && <InfoBubble anchorRef={infoRef}>{info}</InfoBubble>}
       <div style={{ ...st.inner, ...st.wideRow }}>
         <div style={{ ...st.who, minWidth: 0, ...(who ? null : st.none) }}>{who || 'None'}</div>
         <div style={{ ...st.bigNum, ...(who ? null : st.none) }}>{who ? cat.format(cat.leader.value) : '—'}</div>

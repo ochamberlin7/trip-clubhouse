@@ -1,10 +1,14 @@
+import { forwardRef, useLayoutEffect, useRef, useState } from 'react'
+
 // Small superscript "i" button for a stat title, plus the definition bubble it opens. The
 // bubble renders inline under the title (not floating), so it can't be clipped by
-// the card. The card owns the open/closed state; tap the "i" again to close.
+// the card; its pointer is measured to sit right under the "i". The card owns the
+// open/closed state and passes the same ref to both; tap the "i" again to close.
 
-export function InfoButton({ open, onToggle, color = 'currentColor', label = 'What does this mean?' }) {
+export const InfoButton = forwardRef(function InfoButton({ open, onToggle, color = 'currentColor', label = 'What does this mean?' }, ref) {
   return (
     <button
+      ref={ref}
       type="button"
       aria-label={label}
       aria-expanded={open}
@@ -22,13 +26,27 @@ export function InfoButton({ open, onToggle, color = 'currentColor', label = 'Wh
       i
     </button>
   )
-}
+})
 
-export function InfoBubble({ children }) {
+export function InfoBubble({ anchorRef, children }) {
+  const wrapRef = useRef(null)
+  const [caretLeft, setCaretLeft] = useState(18)
+  // Point the caret at the centre of the "i" (re-measured on resize).
+  useLayoutEffect(() => {
+    function place() {
+      const a = anchorRef?.current, w = wrapRef.current
+      if (!a || !w) return
+      const ar = a.getBoundingClientRect(), wr = w.getBoundingClientRect()
+      setCaretLeft(Math.max(6, Math.min(wr.width - 16, ar.left + ar.width / 2 - wr.left - 5)))
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [anchorRef])
   return (
-    <div style={{ position: 'relative', margin: '8px 12px 2px' }}>
-      {/* little pointer up toward the title */}
-      <span aria-hidden="true" style={{ position: 'absolute', top: -5, left: 18, width: 10, height: 10, background: '#0D1B2A', transform: 'rotate(45deg)', borderRadius: 2 }} />
+    <div ref={wrapRef} style={{ position: 'relative', margin: '8px 12px 2px' }}>
+      {/* little pointer up toward the "i" */}
+      <span aria-hidden="true" style={{ position: 'absolute', top: -5, left: caretLeft, width: 10, height: 10, background: '#0D1B2A', transform: 'rotate(45deg)', borderRadius: 2 }} />
       <div role="note" style={{ position: 'relative', background: '#0D1B2A', color: '#fff', borderRadius: 10, padding: '9px 12px', fontSize: 12.5, lineHeight: 1.45, fontWeight: 500 }}>
         {children}
       </div>
