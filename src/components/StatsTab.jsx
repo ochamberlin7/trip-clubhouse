@@ -30,9 +30,11 @@ import { shortNameResolver } from '../lib/playerNames'
 const STAT_TABS = ['Scoring', 'Fire', 'Rounds', 'Drinks']
 
 // Title colour says what kind of stat it is (same as Daily Leaders): green =
-// bragging rights, red = the roast, gold = drinks. Titles sit on a light navy bar.
+// bragging rights, red = the roast, gold = drinks. Each card gets a 4px stripe
+// of that colour across the top, with the title just under it.
 const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
 const ME_BG = '#EEF2F7' // the viewer's own row in "See all"
+const stripe = tone => ({ borderTop: `4px solid ${TONE[tone]}` })
 
 function StatHeaderBar({ title, tone = 'good', onClose }) {
   return (
@@ -69,7 +71,7 @@ function SeeAllModal({ title, tone, players, cols, isMe, onClose }) {
   const multi = cols.length > 1
   return createPortal(
     <div className="stat-modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="stat-modal-sheet" onClick={e => e.stopPropagation()}>
+      <div className="stat-modal-sheet" style={stripe(tone)} onClick={e => e.stopPropagation()}>
         <StatHeaderBar title={title} tone={tone} onClose={onClose} />
         <div className="stat-modal-list">
           <table className="stat-table">
@@ -113,9 +115,11 @@ function StatTile({ title, tone, cols, players, anyScore, short, isMe }) {
   const [open, setOpen] = useState(false)
   const split = cols.length > 1
   const nameOf = p => p.name || ''
-  const tops = cols.map(c => rankRows(players, c.valueOf, { hi: c.hi, nameOf }).slice(0, 3))
+  // Top 3 skips players with nothing to show (0 or no value) — "Ben 0" isn't a
+  // leader. "See all" still lists everyone.
+  const tops = cols.map(c => rankRows(players, c.valueOf, { hi: c.hi, nameOf }).filter(r => r.v != null && r.v !== 0).slice(0, 3))
   return (
-    <div className="stat-tile" style={split ? { gridColumn: '1 / -1' } : undefined}>
+    <div className="stat-tile" style={{ ...stripe(tone), ...(split ? { gridColumn: '1 / -1' } : null) }}>
       <StatHeaderBar title={title} tone={tone} />
       {!anyScore ? (
         <div className="stat-empty">No data yet</div>
@@ -125,7 +129,9 @@ function StatTile({ title, tone, cols, players, anyScore, short, isMe }) {
             {cols.map((c, i) => (
               <div key={c.key} className={split ? 'stat-split-col' : undefined}>
                 {split && <div className="stat-split-mode">{c.label}</div>}
-                {tops[i].map(row => <TopRow key={row.item.id} row={row} short={short} />)}
+                {tops[i].length
+                  ? tops[i].map(row => <TopRow key={row.item.id} row={row} short={short} />)
+                  : <div className="stat-empty">None</div>}
               </div>
             ))}
           </div>
@@ -403,7 +409,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
           ))}
 
           {tabName === 'Drinks' && (
-            <div className="stat-tile" style={{ gridColumn: '1 / -1' }}>
+            <div className="stat-tile" style={{ gridColumn: '1 / -1', ...stripe('drinks') }}>
               <StatHeaderBar title="Drink Leaderboard" tone="drinks" />
               {drinkRows.map((p, i) => {
                 const editable = canEditDrinks(p)
