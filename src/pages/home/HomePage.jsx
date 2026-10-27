@@ -29,9 +29,8 @@ const h = {
   top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   brand: { fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK },
   hero: { textAlign: 'center', padding: '12px 0 4px' },
-  // Next-trip countdown / live card: light outline, taps through to the trip.
+  // Next-trip countdown / live card: light outline; tapping anywhere opens the trip.
   heroCard: { display: 'block', width: '100%', textAlign: 'center', padding: '18px 16px 16px', background: '#fff', border: '1px solid var(--bg3)', borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' },
-  heroOpen: { display: 'inline-block', marginTop: 12, fontSize: 13, fontWeight: 700, color: NAVY },
   big: { fontFamily: SERIF, fontSize: 64, fontWeight: 700, lineHeight: 1, color: NAVY },
   eyebrow: { fontSize: 11, letterSpacing: '1.6px', color: MUTED, fontWeight: 700, textTransform: 'uppercase' },
   heroName: { fontFamily: SERIF, fontSize: 22, fontWeight: 700, color: INK, marginTop: 6 },
@@ -185,7 +184,6 @@ export default function HomePage() {
         <div style={{ ...h.eyebrow, color: '#0F6E56' }}>Live now{phase.dayNumber ? ` · Day ${phase.dayNumber} of ${phase.totalDays}` : ''}</div>
         <div style={{ ...h.heroName, fontSize: 24 }}>{next.name}</div>
         <div style={h.heroSub}>{[fmtRange(next), next.location].filter(Boolean).join(' · ')}</div>
-        <span style={h.heroOpen}>Back to the trip ›</span>
       </button>
     )
   } else if (next) {
@@ -197,7 +195,6 @@ export default function HomePage() {
         <div style={{ ...h.eyebrow, marginTop: 6 }}>{days === 1 ? 'Day until' : 'Days until'}</div>
         <div style={h.heroName}>{next.name}</div>
         <div style={h.heroSub}>{facts.join(' · ')}</div>
-        <span style={h.heroOpen}>Open trip ›</span>
       </button>
     )
   } else if (past.length) {
