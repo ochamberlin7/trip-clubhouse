@@ -6,6 +6,8 @@ import { playerName, firstName } from '../lib/scoring'
 import { computePlayerStats } from '../lib/playerStats'
 import { rankRows } from '../lib/statRanks'
 import { shortNameResolver } from '../lib/playerNames'
+import { STAT_INFO } from '../lib/statDefinitions'
+import { InfoButton, InfoBubble } from './InfoTip'
 
 // ── Trip Stats ────────────────────────────────────────────────────
 // All scoring reuses src/lib/scoring.js — no duplicate/divergent logic:
@@ -35,10 +37,11 @@ const STAT_TABS = ['Scoring', 'Fire', 'Rounds', 'Drinks']
 const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
 const ME_BG = '#EEF2F7' // the viewer's own row in "See all"
 
-function StatHeaderBar({ title, tone = 'good', onClose }) {
+function StatHeaderBar({ title, tone = 'good', onClose, info, infoOpen, onInfo }) {
   return (
     <div className="stat-tile-header" style={{ color: TONE[tone] }}>
       <span className="stat-tile-title">{title}</span>
+      {info && <InfoButton open={infoOpen} onToggle={onInfo} color={TONE[tone]} label={`What is ${title}?`} />}
       {onClose && <button className="stat-modal-close" aria-label="Close" onClick={onClose}>✕</button>}
     </div>
   )
@@ -110,8 +113,9 @@ function SeeAllModal({ title, tone, players, cols, isMe, onClose }) {
 // One stat tile. `cols` = [{ key, label, valueOf, hi }]: one column for a single
 // stat (Points Won, Fire…), two (Gross, Net) for a split stat. Shows each column's
 // top 3 and a "See all ›" link. `anyScore` gates it to "No data yet".
-function StatTile({ title, tone, cols, players, anyScore, short, isMe }) {
+function StatTile({ title, tone, cols, players, anyScore, short, isMe, info }) {
   const [open, setOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
   const split = cols.length > 1
   const nameOf = p => p.name || ''
   // Top 3 skips players with nothing to show (0 or no value) — "Ben 0" isn't a
@@ -119,7 +123,8 @@ function StatTile({ title, tone, cols, players, anyScore, short, isMe }) {
   const tops = cols.map(c => rankRows(players, c.valueOf, { hi: c.hi, nameOf }).filter(r => r.v != null && r.v !== 0).slice(0, 3))
   return (
     <div className="stat-tile" style={split ? { gridColumn: '1 / -1' } : undefined}>
-      <StatHeaderBar title={title} tone={tone} />
+      <StatHeaderBar title={title} tone={tone} info={info} infoOpen={infoOpen} onInfo={() => setInfoOpen(v => !v)} />
+      {info && infoOpen && <InfoBubble>{info}</InfoBubble>}
       {!anyScore ? (
         <div className="stat-empty">No data yet</div>
       ) : (
@@ -319,7 +324,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   const scoringTiles = [
     { key: 'primary', title: primaryCard.title, tone: 'good', cols: single(one('primary')) },
     // Halved holes a player saved alone (net, like Points Won).
-    { key: 'defended', title: 'Points Defended', tone: 'good', cols: single(one('defended')) },
+    { key: 'defended', title: 'Points Defended', tone: 'good', cols: single(one('defended')), info: STAT_INFO.defended },
     { key: 'eagles', title: 'Eagles', tone: 'good', cols: both('eagles') },
     { key: 'birdies', title: 'Birdies', tone: 'good', cols: both('birdies') },
     { key: 'pars', title: 'Pars', tone: 'good', cols: both('pars') },
@@ -404,7 +409,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
       <>
         <div className="stat-tiles-grid">
           {tiles.map(t => (
-            <StatTile key={t.key} title={t.title} tone={t.tone} cols={t.cols} anyScore={anyScore} players={players} short={short} isMe={isMe} />
+            <StatTile key={t.key} title={t.title} tone={t.tone} cols={t.cols} anyScore={anyScore} players={players} short={short} isMe={isMe} info={t.info} />
           ))}
 
           {tabName === 'Drinks' && (
