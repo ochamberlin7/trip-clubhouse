@@ -348,7 +348,9 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   // tab on release — so a swipe reads as physically dragging the page.
   function onTilesPointerDown(e) {
     swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false, decided: false, horiz: false }
-    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* older browsers */ }
+    // Don't capture the pointer here: capturing on touch-down retargets the tap to
+    // this container, so buttons inside ("See all", drink +/-) never got the click.
+    // Capture only once the gesture is clearly a horizontal swipe (below).
   }
   function onTilesPointerMove(e) {
     const s = swipeRef.current
@@ -360,7 +362,10 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
       if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
       s.decided = true
       s.horiz = Math.abs(dx) > Math.abs(dy)
-      if (s.horiz) setDragging(true)
+      if (s.horiz) {
+        setDragging(true)
+        try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* older browsers */ }
+      }
     }
     if (!s.horiz) return
     // Rubber-band resistance when dragging past the first/last tab.
