@@ -14,9 +14,11 @@ export const SWIPE_OPEN = 76 // px of red delete action revealed when a row is s
 const outer = { position: 'relative', overflow: 'hidden' }
 const action = { position: 'absolute', top: 0, right: 0, bottom: 0, width: SWIPE_OPEN, background: '#C0392B', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }
 
-function TrashIcon() {
+// The trash icon on the swipe action — also used by the Clubhouse "Deleted" footer
+// so both read as the same thing.
+export function TrashIcon({ size = 20, color = '#fff' }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>

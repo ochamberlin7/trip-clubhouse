@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import ProfileAvatar from '../../components/ProfileAvatar'
-import SwipeDeleteRow from '../../components/SwipeDeleteRow'
+import SwipeDeleteRow, { TrashIcon } from '../../components/SwipeDeleteRow'
 import { loadMyTrips, splitTrips, daysUntilTrip, restoreDaysLeft } from '../../lib/myTrips'
 import { loadCareerData, buildCareer } from '../../lib/careerStats'
 import { getTripPhase } from '../../lib/scoring'
@@ -42,7 +42,8 @@ const h = {
   secRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' },
   sec: { fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: INK, margin: 0 },
   link: { background: 'none', border: 'none', padding: 0, color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  footLink: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, margin: '4px auto 0', background: 'none', border: 'none', color: MUTED, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
+  // Left-aligned with the section headings, like a footnote.
+  footLink: { display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', margin: '4px 0 0', padding: 0, background: 'none', border: 'none', color: MUTED, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
   seeAll: { display: 'block', width: '100%', padding: 11, background: '#FBFCFD', border: 'none', borderTop: '1px solid var(--bg2)', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   box: { background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, overflow: 'hidden' },
   row: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' },
@@ -296,9 +297,7 @@ export default function HomePage() {
         {/* Subtle footer — only when there's something to restore. */}
         {deleted.length > 0 && (
           <button style={h.footLink} onClick={() => setShowDeleted(true)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-            </svg>
+            <TrashIcon size={14} color="currentColor" />
             Deleted ({deleted.length})
           </button>
         )}
