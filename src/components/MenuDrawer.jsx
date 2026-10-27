@@ -21,6 +21,7 @@ import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
 import { loadMyTrips } from '../lib/myTrips'
+import SwipeDeleteRow from './SwipeDeleteRow'
 import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -2103,8 +2104,6 @@ function fmtLedgerDate(startIso, endIso) {
   return d.getFullYear() === thisYear ? `${MD_MONTHS[d.getMonth()]} ${d.getDate()}` : `${MD_MONTHS[d.getMonth()]} ${yr(d.getFullYear())}`
 }
 
-const SWIPE_OPEN = 76 // px of red delete action revealed when a row is swiped left
-
 const sw = {
   // The SecondaryPage frame already shows the "Switch Trip" title; this is just
   // the ledger's "N trips · viewing X" subtitle beneath it.
@@ -2123,11 +2122,6 @@ const sw = {
   golfers: { display: 'block', fontSize: 12, color: '#8A98A8', marginTop: 1, fontVariantNumeric: 'tabular-nums' },
   empty: { padding: '6px 16px 10px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
   loading: { padding: '16px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
-  // Swipe-to-delete: the red action sits behind the row; the row slides left to
-  // reveal it. Outer clips the slide; the foreground row carries the PAGE bg (not
-  // white) so rows blend into the screen and only cover the red until swiped.
-  swipeOuter: { position: 'relative', overflow: 'hidden', background: '#F0F4F8' },
-  swipeDelete: { position: 'absolute', top: 0, right: 0, bottom: 0, width: SWIPE_OPEN, background: '#C0392B', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 },
   createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '18px 16px', padding: '13px', borderRadius: 8, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   // Recently Deleted — set off from the trip groups by a heavier top border.
   deletedWrap: { borderTop: '3px solid #E1E7EE', marginTop: 14 },
@@ -2148,122 +2142,14 @@ function CaretIcon() {
   )
 }
 
-function TrashIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-    </svg>
-  )
-}
-
-// iMessage-style swipe-to-delete row. Drag left (touch or mouse) OR two-finger
-// swipe left on a trackpad to reveal a red trash button; tapping it deletes. A tap
-// (no drag) selects the trip; keyboard Enter/Space also selects (it's a real
-// <button>). Vertical gestures fall through to page scroll. When the trip can't be
-// deleted, renders a plain button.
+// Swipe-to-delete trip row — shared component (also used on the Clubhouse page).
 function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
-  const [dx, setDx] = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const st = useRef({ x0: 0, y0: 0, base: 0, axis: null, drag: false })
-  const dxRef = useRef(0)              // current dx, readable in the native wheel handler
-  const fgRef = useRef(null)          // foreground row element (wheel target)
-
-  useEffect(() => { dxRef.current = dx }, [dx])
-
-  // Two-finger trackpad swipe: horizontal wheel events (deltaX). A native,
-  // non-passive listener is required so preventDefault() can stop the browser's
-  // back/forward swipe-navigation; React's synthetic onWheel is passive. Only
-  // horizontal-dominant gestures are hijacked, so vertical scroll still works;
-  // the row snaps open/closed ~140ms after the gesture settles.
-  useEffect(() => {
-    const el = fgRef.current
-    if (!el) return
-    let settle
-    function onWheel(e) {
-      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return // vertical → scroll
-      e.preventDefault()
-      setDragging(true)
-      const next = Math.max(-SWIPE_OPEN, Math.min(0, dxRef.current - e.deltaX))
-      dxRef.current = next
-      setDx(next)
-      clearTimeout(settle)
-      settle = setTimeout(() => {
-        const snapped = dxRef.current < -SWIPE_OPEN / 2 ? -SWIPE_OPEN : 0
-        dxRef.current = snapped
-        setDragging(false)
-        setDx(snapped)
-      }, 140)
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => { el.removeEventListener('wheel', onWheel); clearTimeout(settle) }
-  }, [canDelete])
-
-  // Every row sits on the same plain background — the current trip is marked only
-  // by its green dot and its "This Trip" group, not a row highlight.
   const rowStyle = { ...sw.row, ...(divider ? sw.rowDivider : null) }
-
-  if (!canDelete) {
-    return <button style={rowStyle} onClick={onPick}>{children}</button>
-  }
-
-  // The drag-active guard lives in the ref, NOT the `dragging` state: setDragging
-  // is async, so a mouse (which fires pointermove immediately, unlike touch) would
-  // have its first moves dropped by a stale state closure — that's why the swipe
-  // worked on mobile but not desktop. The state only toggles the CSS transition.
-  function down(e) {
-    st.current = { x0: e.clientX, y0: e.clientY, base: dx, axis: null, drag: false, active: true }
-    setDragging(true)
-  }
-  function move(e) {
-    const s = st.current
-    if (!s.active) return
-    const ddx = e.clientX - s.x0, ddy = e.clientY - s.y0
-    if (!s.axis && (Math.abs(ddx) > 6 || Math.abs(ddy) > 6)) {
-      s.axis = Math.abs(ddx) > Math.abs(ddy) ? 'x' : 'y'
-      // Capture only once we've committed to a horizontal swipe, so vertical
-      // drags keep scrolling the list normally.
-      if (s.axis === 'x') e.currentTarget.setPointerCapture?.(e.pointerId)
-    }
-    if (s.axis !== 'x') return // vertical → let the list scroll
-    s.drag = true
-    setDx(Math.max(-SWIPE_OPEN, Math.min(0, s.base + ddx)))
-  }
-  function end() {
-    const s = st.current
-    if (!s.active) return
-    s.active = false
-    setDragging(false)
-    if (s.axis === 'x') setDx(prev => (prev < -SWIPE_OPEN / 2 ? -SWIPE_OPEN : 0))
-  }
-  function click(e) {
-    // Suppress the click that follows a horizontal drag; otherwise tap = select
-    // (when closed) or close (when open).
-    if (st.current.drag) { e.preventDefault(); st.current.drag = false; return }
-    if (dx !== 0) { setDx(0); return }
-    onPick()
-  }
-
   return (
-    <div style={{ ...sw.swipeOuter, ...(divider ? sw.rowDivider : null) }}>
-      {/* Only mount the red action while the row is actually swiped — otherwise a
-          1px sliver of its left edge shows as a vertical line at rest. */}
-      {dx !== 0 && <button style={sw.swipeDelete} onClick={onDelete} aria-label="Delete trip"><TrashIcon /></button>}
-      <button
-        ref={fgRef}
-        style={{ ...rowStyle, borderBottom: 'none',
-          // Opaque page-coloured background so the row blends into the screen yet
-          // fully hides the red delete action until swiped left (base sw.row bg is
-          // transparent, which would let the red show through at rest).
-          background: '#F0F4F8',
-          transform: `translateX(${dx}px)`, transition: dragging ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y', willChange: 'transform',
-          userSelect: 'none', WebkitUserSelect: 'none' }}
-        onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onClick={click}
-        onDragStart={e => e.preventDefault()}
-      >
-        {children}
-      </button>
-    </div>
+    <SwipeDeleteRow canDelete={canDelete} rowStyle={rowStyle} outerStyle={divider ? sw.rowDivider : undefined}
+      coverBg="#F0F4F8" onPick={onPick} onDelete={onDelete}>
+      {children}
+    </SwipeDeleteRow>
   )
 }
 

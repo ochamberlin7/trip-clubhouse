@@ -5,7 +5,8 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import ProfileAvatar from '../../components/ProfileAvatar'
-import { loadMyTrips, splitTrips, daysUntilTrip } from '../../lib/myTrips'
+import SwipeDeleteRow from '../../components/SwipeDeleteRow'
+import { loadMyTrips, splitTrips, daysUntilTrip, restoreDaysLeft } from '../../lib/myTrips'
 import { loadCareerData, buildCareer } from '../../lib/careerStats'
 import { getTripPhase } from '../../lib/scoring'
 import { inviteTokenFrom } from '../../lib/inviteMatch'
@@ -41,6 +42,7 @@ const h = {
   secRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' },
   sec: { fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: INK, margin: 0 },
   link: { background: 'none', border: 'none', padding: 0, color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  footLink: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, margin: '4px auto 0', background: 'none', border: 'none', color: MUTED, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
   seeAll: { display: 'block', width: '100%', padding: 11, background: '#FBFCFD', border: 'none', borderTop: '1px solid var(--bg2)', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   box: { background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, overflow: 'hidden' },
   row: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' },
@@ -79,10 +81,13 @@ function fmtRange(t) {
   return `${s.toLocaleDateString('en-US', opts)} – ${end}, ${year}`
 }
 
-function TripRow({ trip, status, first, unread, onOpen }) {
+// One trip row. The trip's commissioner can swipe left to delete it (soft delete,
+// restorable for 30 days); everyone else just taps to open it.
+function TripRow({ trip, status, first, unread, onOpen, onDelete }) {
   const parts = [fmtRange(trip), trip.location].filter(Boolean)
   return (
-    <button style={{ ...h.row, ...(first ? null : h.rowLine) }} onClick={() => onOpen(trip.id)}>
+    <SwipeDeleteRow canDelete={!!trip.canDelete} rowStyle={{ ...h.row, ...(first ? null : h.rowLine) }} outerStyle={first ? undefined : h.rowLine}
+      coverBg="#fff" onPick={() => onOpen(trip.id)} onDelete={() => onDelete(trip)}>
       <span style={{ minWidth: 0 }}>
         <div style={h.tripName}>
           {trip.name}
@@ -93,7 +98,7 @@ function TripRow({ trip, status, first, unread, onOpen }) {
       {status === 'live' && <span style={{ ...h.tag, ...TAG.live }}>Live</span>}
       {status === 'upcoming' && <span style={{ ...h.tag, ...TAG.upcoming }}>Upcoming</span>}
       <span style={{ ...h.chev, ...(status === 'past' ? { marginLeft: 'auto' } : null) }}>›</span>
-    </button>
+    </SwipeDeleteRow>
   )
 }
 
@@ -124,7 +129,7 @@ function JoinTripModal({ onClose, onJoin }) {
 
 export default function HomePage() {
   const { user } = useAuth()
-  const { switchTrip, restoreTrip, unreadTripIds } = useGroup()
+  const { switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
   const navigate = useNavigate()
   const [trips, setTrips] = useState(null) // null = loading
   const [deleted, setDeleted] = useState([])
@@ -133,6 +138,8 @@ export default function HomePage() {
   const [joining, setJoining] = useState(false)
   const [copied, setCopied] = useState(false)
   const [careerSoon, setCareerSoon] = useState(false) // full career page is on the backlog
+  const [pendingDelete, setPendingDelete] = useState(null) // trip awaiting the delete confirm
+  const [showDeleted, setShowDeleted] = useState(false)
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
@@ -241,7 +248,7 @@ export default function HomePage() {
             {activeAndUpcoming.length ? (
               <div style={h.box}>
                 {activeAndUpcoming.map((t, i) => (
-                  <TripRow key={t.id} trip={t} status={live.includes(t) ? 'live' : 'upcoming'} first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} />
+                  <TripRow key={t.id} trip={t} status={live.includes(t) ? 'live' : 'upcoming'} first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />
                 ))}
               </div>
             ) : (
@@ -252,7 +259,7 @@ export default function HomePage() {
               <>
                 <div style={h.secRow}><h2 style={h.sec}>Past trips</h2></div>
                 <div style={h.box}>
-                  {pastShown.map((t, i) => <TripRow key={t.id} trip={t} status="past" first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} />)}
+                  {pastShown.map((t, i) => <TripRow key={t.id} trip={t} status="past" first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />)}
                   {past.length > 3 && (
                     <button style={h.seeAll} onClick={() => setShowAllPast(v => !v)}>{showAllPast ? 'Show less' : `See all ${past.length} past trips ›`}</button>
                   )}
@@ -286,18 +293,69 @@ export default function HomePage() {
           {[0, 1, 2, 3].map(i => <span key={i} style={h.badge} />)}
         </div>
 
+        {/* Subtle footer — only when there's something to restore. */}
         {deleted.length > 0 && (
-          <div style={{ fontSize: 12, color: MUTED, textAlign: 'center', marginTop: 4 }}>
-            Recently deleted:{' '}
-            {deleted.map((t, i) => (
-              <span key={t.id}>
-                {i > 0 && ', '}
-                {t.name} <button style={{ ...h.link, fontSize: 12 }} onClick={async () => { await restoreTrip(t.id); setReload(x => x + 1) }}>Restore</button>
-              </span>
-            ))}
-          </div>
+          <button style={h.footLink} onClick={() => setShowDeleted(true)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            </svg>
+            Deleted ({deleted.length})
+          </button>
         )}
       </div>
+
+      {pendingDelete && createPortal(
+        <div style={h.overlay} onClick={() => setPendingDelete(null)}>
+          <div style={h.sheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK }}>Delete this trip?</div>
+            <div style={{ fontSize: 14, color: '#2C3E50', marginTop: 8, lineHeight: 1.5 }}>
+              <b>{pendingDelete.name}</b> will be deleted for everyone on it. You'll have 30 days to restore it before it's gone for good.
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+              <button style={{ ...h.pill, flex: 1 }} onClick={() => setPendingDelete(null)}>Cancel</button>
+              <button style={{ ...h.pill, flex: 1, background: '#C0392B', borderColor: '#C0392B', color: '#fff' }}
+                onClick={async () => {
+                  const t = pendingDelete
+                  setPendingDelete(null)
+                  const { error } = await softDeleteTrip(t.id)
+                  if (error) window.alert('Delete failed — please try again.')
+                  setReload(x => x + 1)
+                }}>Delete</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {showDeleted && createPortal(
+        <div style={h.overlay} onClick={() => setShowDeleted(false)}>
+          <div style={h.sheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK }}>Recently deleted</div>
+                <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>Trips can be restored for 30 days.</div>
+              </div>
+              <button onClick={() => setShowDeleted(false)} aria-label="Close" style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--bg2)', color: '#7A8FA6', fontSize: 14, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              {deleted.map((t, i) => {
+                const left = restoreDaysLeft(t.deleted_at)
+                return (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', ...(i ? { borderTop: '1px solid var(--bg2)' } : null) }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{t.name}</div>
+                      {left != null && <div style={{ fontSize: 12, color: MUTED }}>{left} day{left === 1 ? '' : 's'} left</div>}
+                    </div>
+                    <button style={{ ...h.pill, flex: 'none', marginLeft: 'auto', padding: '6px 14px' }}
+                      onClick={async () => { await restoreTrip(t.id); setReload(x => x + 1); if (deleted.length <= 1) setShowDeleted(false) }}>Restore</button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {joining && <JoinTripModal onClose={() => setJoining(false)} onJoin={token => { setJoining(false); navigate(`/join/${token}`) }} />}
     </div>

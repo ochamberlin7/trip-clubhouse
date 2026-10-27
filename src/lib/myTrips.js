@@ -21,6 +21,13 @@ export function daysUntilTrip(trip, now = new Date()) {
   return Math.max(0, Math.round((utc(trip.start_date) - utc(todayIso)) / 86400000))
 }
 
+// Days left to restore a soft-deleted trip (30-day window), never below 0.
+export function restoreDaysLeft(deletedAt, now = new Date()) {
+  if (!deletedAt) return null
+  const gone = Math.floor((now.getTime() - new Date(deletedAt).getTime()) / 86400000)
+  return Math.max(0, 30 - gone)
+}
+
 // Split + sort: live (soonest end first), upcoming (soonest start first), past
 // (most recent first).
 export function splitTrips(trips = [], now = new Date()) {
@@ -82,6 +89,6 @@ export async function loadMyTrips(client, userId, { currentTripId = null } = {})
       rounds: roundsByTrip.get(t.id) || 0,
       canDelete: adminGroupIds.has(t.group_id),
     }))
-  const deleted = (deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name }))
+  const deleted = (deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name, deleted_at: t.deleted_at }))
   return { rows, deleted }
 }

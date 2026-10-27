@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildCareer } from './careerStats.js'
-import { tripTimeStatus, daysUntilTrip, splitTrips } from './myTrips.js'
+import { tripTimeStatus, daysUntilTrip, splitTrips, restoreDaysLeft } from './myTrips.js'
 
 const HOLES = n => Array.from({ length: n }, (_, i) => ({ par: 4, handicap: i + 1 }))
 const round = (id, holes = 18) => ({ id, round_type: 'tournament', holes: HOLES(holes), slope_rating: 113, course_rating: 72, par_total: 4 * holes })
@@ -63,4 +63,12 @@ test('trip status, days until, and the live / upcoming / past split', () => {
   assert.deepEqual(live.map(t => t.id), ['now'])
   assert.deepEqual(upcoming.map(t => t.id), ['next', 'later'])
   assert.deepEqual(past.map(t => t.id), ['old', 'older'])
+})
+
+test('restoreDaysLeft: 30-day window, never negative', () => {
+  const now = new Date('2026-10-27T12:00:00Z')
+  assert.equal(restoreDaysLeft('2026-10-27T09:00:00Z', now), 30)
+  assert.equal(restoreDaysLeft('2026-10-19T12:00:00Z', now), 22)
+  assert.equal(restoreDaysLeft('2026-09-01T12:00:00Z', now), 0)
+  assert.equal(restoreDaysLeft(null, now), null)
 })
