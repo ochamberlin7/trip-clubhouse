@@ -337,6 +337,38 @@ export function isRosterLocked({ trip, now = new Date(), timeZone, devOverride =
 // Every non-live phase (before/after trip, no-round-day, before-first-tee,
 // between-rounds, after-last-round) opens Home — the hub with the countdown, tee times
 // and banners — which is where those states read best.
+// ── Where the app opens: a trip, or the player home page ─────────────────────
+// The app opens ON a trip from LANDING_DAYS_BEFORE days before it starts through
+// LANDING_DAYS_AFTER days after it ends (trip-local dates); otherwise it opens on
+// the player home page. One shared setting — change the numbers here.
+export const LANDING_DAYS_BEFORE = 14
+export const LANDING_DAYS_AFTER = 7
+
+// Is `trip` inside its open-on-the-trip window right now (trip's own time zone)?
+export function tripInLandingWindow(trip, now = new Date()) {
+  if (!trip?.start_date || !trip?.end_date) return false
+  const { todayIso } = zonedTodayAndMinutes(now, trip.time_zone || undefined)
+  const today = isoDateToUTC(todayIso)
+  const DAY = 86400000
+  return today >= isoDateToUTC(trip.start_date) - LANDING_DAYS_BEFORE * DAY
+    && today <= isoDateToUTC(trip.end_date) + LANDING_DAYS_AFTER * DAY
+}
+
+// The trip the app should open on, or null for the home page. Several trips in
+// their window → the one closest to today (an ongoing trip first, then the
+// nearest start or most recent finish), earlier start breaking ties.
+export function landingTrip(trips = [], now = new Date()) {
+  const inWindow = trips.filter(t => tripInLandingWindow(t, now))
+  if (!inWindow.length) return null
+  const distance = t => {
+    const today = isoDateToUTC(zonedTodayAndMinutes(now, t.time_zone || undefined).todayIso)
+    const s = isoDateToUTC(t.start_date), e = isoDateToUTC(t.end_date)
+    if (today >= s && today <= e) return 0
+    return today < s ? s - today : today - e
+  }
+  return inWindow.slice().sort((a, b) => distance(a) - distance(b) || (a.start_date || '').localeCompare(b.start_date || ''))[0]
+}
+
 export function screenForTripPhase(phase, opts = {}) {
   if (phase === 'no-trip') return 'no-trip'
   if (phase === 'round-live' && opts.playingLiveUnderway) return 'scores'

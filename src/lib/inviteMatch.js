@@ -49,3 +49,12 @@ export function matchInviteSlot({ user, players = [] }) {
 
   return { kind: 'none', diag: { e, p, n: named.length ? '1' : '0' } }
 }
+
+// Pulls the invite token out of a pasted link ("…/join/<token>", with or without
+// https://) or a bare token. Returns null if it isn't one. (Home page "Join trip".)
+export function inviteTokenFrom(text) {
+  const s = (text || '').trim()
+  const m = s.match(/\/join\/([A-Za-z0-9-]+)/)
+  if (m) return m[1]
+  return /^[A-Za-z0-9-]{8,}$/.test(s) ? s : null
+}

@@ -2,10 +2,11 @@ import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
+import { landingTrip } from '../../lib/scoring'
 
 export default function GroupSelector() {
   const { user, loading: authLoading } = useAuth()
-  const { allTrips, loading, tripsLoaded } = useGroup()
+  const { allTrips, loading, tripsLoaded, switchTrip } = useGroup()
   const navigate = useNavigate()
   const redirected = useRef(false)
 
@@ -26,13 +27,15 @@ export default function GroupSelector() {
     if (loading || !tripsLoaded) return
 
     redirected.current = true
-    if (allTrips.length > 0) {
-      // Logged in + has at least one trip → dashboard (context auto-selects the
-      // best trip by priority / last-selected).
+    // Open ON a trip from 14 days before it starts through 7 days after it ends
+    // (landingTrip, trip-local dates); otherwise the player home page — which also
+    // welcomes brand-new users who have no trips yet.
+    const trip = landingTrip(allTrips)
+    if (trip) {
+      switchTrip(trip.id)
       navigate('/dashboard', { replace: true })
     } else {
-      // Logged in + no trips → onboarding wizard (create a trip).
-      navigate('/onboarding/trip', { replace: true })
+      navigate('/home', { replace: true })
     }
   }, [authLoading, user, loading, tripsLoaded, allTrips]) // eslint-disable-line react-hooks/exhaustive-deps
 

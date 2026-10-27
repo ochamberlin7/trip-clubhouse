@@ -2,7 +2,7 @@
 // Run: `npm test`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { matchInviteSlot } from './inviteMatch.js'
+import { matchInviteSlot, inviteTokenFrom } from './inviteMatch.js'
 import { PLACEHOLDER_PATCH } from './roster.js'
 
 const user = (over = {}) => ({ id: 'u-new', email: 'josh@x.com', user_metadata: { phone: '(602) 555-0101', display_name: 'Josh Smith' }, ...over })
@@ -62,4 +62,13 @@ test('no-match diagnostic codes', () => {
   const players = [slot('a', { email: 'a@x.com', phone: '1112223333', first_name: 'Zed' })]
   const r = matchInviteSlot({ user: user({ email: 'b@x.com', user_metadata: { display_name: 'Josh Smith' } }), players })
   assert.deepEqual(r, { kind: 'none', diag: { e: '1', p: '1', n: '1' } })
+})
+
+test('inviteTokenFrom: pasted link, link without https, bare token, junk', () => {
+  const tok = '28d7efc2-14ea-4195-8003-5cf98f097993'
+  assert.equal(inviteTokenFrom(`https://thetripclubhouse.com/join/${tok}`), tok)
+  assert.equal(inviteTokenFrom(`  thetripclubhouse.com/join/${tok}?x=1 `), tok)
+  assert.equal(inviteTokenFrom(tok), tok)
+  assert.equal(inviteTokenFrom('hello there'), null)
+  assert.equal(inviteTokenFrom(''), null)
 })
