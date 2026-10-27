@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import ProfileAvatar from '../../components/ProfileAvatar'
 import SwipeDeleteRow, { TrashIcon } from '../../components/SwipeDeleteRow'
-import { loadMyTrips, splitTrips, daysUntilTrip, restoreDaysLeft } from '../../lib/myTrips'
-import { loadCareerData, buildCareer } from '../../lib/careerStats'
+import { splitTrips, daysUntilTrip, restoreDaysLeft } from '../../lib/myTrips'
+import { useMyCareer } from '../../lib/useMyCareer'
+import { BADGES } from '../../lib/badges'
+import BadgeMedallion from '../../components/BadgeMedallion'
 import { getTripPhase } from '../../lib/scoring'
 import { inviteTokenFrom } from '../../lib/inviteMatch'
 
@@ -60,8 +61,10 @@ const h = {
   stats: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'center', padding: '12px 4px' },
   statNum: { display: 'block', fontSize: 20, fontWeight: 800, color: NAVY },
   statLab: { fontSize: 11, color: MUTED },
-  badges: { display: 'flex', gap: 10 },
-  badge: { flex: 1, aspectRatio: '1', borderRadius: '50%', border: '1.5px dashed rgba(216,192,138,0.55)', background: 'transparent' },
+  shelf: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', width: '100%' },
+  shelfCell: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 },
+  shelfName: { fontSize: 11, fontWeight: 600, color: '#fff', textAlign: 'center', lineHeight: 1.25 },
+  badge: { width: 58, height: 58, borderRadius: '50%', border: '1.5px dashed rgba(216,192,138,0.55)', boxSizing: 'border-box' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   sheet: { background: '#fff', borderRadius: 14, padding: 22, width: '100%', maxWidth: 380, boxSizing: 'border-box' },
   input: { width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #DDE3EA', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', marginTop: 12 },
@@ -136,29 +139,14 @@ export default function HomePage() {
   const { user } = useAuth()
   const { switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
   const navigate = useNavigate()
-  const [trips, setTrips] = useState(null) // null = loading
-  const [deleted, setDeleted] = useState([])
-  const [career, setCareer] = useState(null)
+  // Trips, career totals and badges — shared loader with the Trophy Room.
+  const { trips, deleted, career, badges, reload } = useMyCareer(user?.id)
   const [showAllPast, setShowAllPast] = useState(false)
   const [joining, setJoining] = useState(false)
   const [copied, setCopied] = useState(false)
   const [careerSoon, setCareerSoon] = useState(false) // full career page is on the backlog
   const [pendingDelete, setPendingDelete] = useState(null) // trip awaiting the delete confirm
   const [showDeleted, setShowDeleted] = useState(false)
-  const [reload, setReload] = useState(0)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      const { rows, deleted: gone } = await loadMyTrips(supabase, user?.id)
-      if (cancelled) return
-      setTrips(rows)
-      setDeleted(gone)
-      const perTrip = await loadCareerData(supabase, rows.map(t => t.id))
-      if (!cancelled) setCareer(buildCareer(perTrip, user?.id))
-    })()
-    return () => { cancelled = true }
-  }, [user?.id, reload])
 
   const now = new Date()
   const { live, upcoming, past } = useMemo(() => splitTrips(trips || [], now), [trips]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -290,11 +278,32 @@ export default function HomePage() {
 
         <div style={h.secRow}>
           <h2 style={h.sec}>Badges</h2>
-          <span style={{ fontSize: 13, color: ON_NAVY }}>Coming soon</span>
+          <button style={h.link} onClick={() => navigate('/trophies')}>Trophy Room ›</button>
         </div>
-        <div style={h.badges} aria-hidden="true">
-          {[0, 1, 2, 3].map(i => <span key={i} style={h.badge} />)}
-        </div>
+        {/* Shelf: your 4 most recent badges, or faint placeholders until you earn some. */}
+        <button style={h.shelf} onClick={() => navigate('/trophies')} aria-label="Open the Trophy Room">
+          {(() => {
+            const earned = badges
+              ? BADGES.filter(b => badges.get(b.id)?.earned)
+                  .map(b => ({ b, st: badges.get(b.id), when: badges.get(b.id).events?.[0]?.date || '' }))
+                  .sort((x, y) => y.when.localeCompare(x.when))
+                  .slice(0, 4)
+              : []
+            const cells = earned.map(({ b, st }) => (
+              <span key={b.id} style={h.shelfCell}>
+                <BadgeMedallion badge={b} state={st} size={58} />
+                <span style={h.shelfName}>{b.name}</span>
+              </span>
+            ))
+            while (cells.length < 4) cells.push(<span key={`ph${cells.length}`} style={h.shelfCell}><span style={h.badge} /><span style={h.shelfName}>&nbsp;</span></span>)
+            return cells
+          })()}
+        </button>
+        {badges && (
+          <div style={{ fontSize: 12, color: ON_NAVY, marginTop: -8 }}>
+            {BADGES.filter(b => badges.get(b.id)?.earned).length} of {BADGES.length} earned
+          </div>
+        )}
 
         {/* Subtle footer — only when there's something to restore. */}
         {deleted.length > 0 && (
@@ -320,7 +329,7 @@ export default function HomePage() {
                   setPendingDelete(null)
                   const { error } = await softDeleteTrip(t.id)
                   if (error) window.alert('Delete failed — please try again.')
-                  setReload(x => x + 1)
+                  reload()
                 }}>Delete</button>
             </div>
           </div>
@@ -348,7 +357,7 @@ export default function HomePage() {
                       {left != null && <div style={{ fontSize: 12, color: MUTED }}>{left} day{left === 1 ? '' : 's'} left</div>}
                     </div>
                     <button style={{ ...h.pill, flex: 'none', marginLeft: 'auto', padding: '6px 14px' }}
-                      onClick={async () => { await restoreTrip(t.id); setReload(x => x + 1); if (deleted.length <= 1) setShowDeleted(false) }}>Restore</button>
+                      onClick={async () => { await restoreTrip(t.id); reload(); if (deleted.length <= 1) setShowDeleted(false) }}>Restore</button>
                   </div>
                 )
               })}
