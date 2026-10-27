@@ -32,8 +32,10 @@ const h = {
   top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   brand: { fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: GOLD_SOFT },
   // Next-trip countdown / live card: light outline; tapping anywhere opens the trip.
-  heroCard: { display: 'block', width: '100%', textAlign: 'center', padding: '18px 16px 16px', background: '#fff', border: `1px solid ${GOLD}`, borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' },
-  big: { fontFamily: SERIF, fontSize: 64, fontWeight: 700, lineHeight: 1.15, color: INK },
+  heroCard: { display: 'block', width: '100%', textAlign: 'center', padding: '20px 16px', background: '#fff', border: `1px solid ${GOLD}`, borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' },
+  // Lining (capital-height) figures so the serif digits sit on the baseline — the
+  // default old-style 9 dips below it and leaves extra space above.
+  big: { fontFamily: SERIF, fontSize: 64, fontWeight: 700, lineHeight: 1, color: INK, fontVariantNumeric: 'lining-nums', fontFeatureSettings: '"lnum" 1' },
   eyebrow: { fontSize: 11, letterSpacing: '1.6px', color: MUTED, fontWeight: 700, textTransform: 'uppercase' },
   heroName: { fontFamily: SERIF, fontSize: 22, fontWeight: 700, color: INK, marginTop: 6 },
   heroSub: { fontSize: 13, color: MUTED, marginTop: 2 },
