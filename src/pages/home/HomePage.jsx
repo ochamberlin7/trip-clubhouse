@@ -27,10 +27,11 @@ const NAVY_LINE = '#2C5F8A'   // card borders on navy
 const SERIF = "'Playfair Display', Georgia, serif"
 
 const h = {
-  page: { minHeight: '100vh', background: 'var(--navy)', padding: '18px 16px 40px', boxSizing: 'border-box' },
+  // Clear the phone's status bar / notch (time, Wi-Fi, battery) and home bar.
+  page: { minHeight: '100vh', background: 'var(--navy)', padding: '18px 16px 40px', paddingTop: 'calc(env(safe-area-inset-top) + 18px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)', boxSizing: 'border-box' },
   inner: { maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 },
   top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  brand: { fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: GOLD_SOFT },
+  brand: { fontFamily: SERIF, fontSize: 30, fontWeight: 700, lineHeight: 1.1, letterSpacing: '0.3px', color: GOLD_SOFT },
   // Next-trip countdown / live card: light outline; tapping anywhere opens the trip.
   heroCard: { display: 'block', width: '100%', textAlign: 'center', padding: '20px 16px', background: '#fff', border: `1px solid ${GOLD}`, borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' },
   // Lining (capital-height) figures so the serif digits sit on the baseline — the
@@ -299,7 +300,7 @@ export default function HomePage() {
         {deleted.length > 0 && (
           <button style={h.footLink} onClick={() => setShowDeleted(true)}>
             <TrashIcon size={14} color="currentColor" />
-            Deleted ({deleted.length})
+            Deleted trips ({deleted.length})
           </button>
         )}
       </div>
