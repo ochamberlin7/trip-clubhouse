@@ -20,6 +20,7 @@ import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
+import { loadMyTrips } from '../lib/myTrips'
 import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -2319,64 +2320,10 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
   // the initial load AND after a restore/delete so the This Trip/Upcoming/Past
   // list reflects the change immediately, without a page refresh.
   const load = useCallback(async () => {
-    if (!userId) { setRows([]); setDeleted([]); return }
-    // 1. Groups the user belongs to.
-    const { data: gm } = await supabase
-      .from('group_members')
-      .select('role, group_id, groups(id, name)')
-      .eq('user_id', userId)
-    const groupIds = [...new Set((gm || []).map(m => m.group_id ?? m.groups?.id).filter(Boolean))]
-    // Groups where the user is the commissioner (admin) — only these trips can be
-    // deleted (matches the trips RLS), so swipe-to-delete is gated on them.
-    const adminGroupIds = new Set((gm || []).filter(m => m.role === 'admin').map(m => m.group_id ?? m.groups?.id).filter(Boolean))
-    if (!groupIds.length) { if (mountedRef.current) { setRows([]); setDeleted([]) } return }
-
-    // 2. Active + soft-deleted trips in those groups, and the trips the user
-    //    actually belongs to (membership).
-    const cutoff = new Date(Date.now() - 30 * 86400000).toISOString()
-    const [activeRes, deletedRes, tpRes] = await Promise.all([
-      supabase.from('trips').select('id, group_id, name, start_date, end_date').in('group_id', groupIds).is('deleted_at', null),
-      supabase.from('trips').select('id, group_id, name, deleted_at').in('group_id', groupIds).not('deleted_at', 'is', null).gte('deleted_at', cutoff).order('deleted_at', { ascending: false }),
-      supabase.from('trip_players').select('trip_id').or(`user_id.eq.${userId},claimed_user_id.eq.${userId}`),
-    ])
+    const { rows: list, deleted: gone } = await loadMyTrips(supabase, userId, { currentTripId })
     if (!mountedRef.current) return
-    const myTripIds = new Set((tpRes.data || []).map(r => r.trip_id))
-
-    // 3. Location (from rounds) + golfer counts (from trip_players), keyed by
-    //    trip_id, for the active trips we'll show.
-    const tripIds = (activeRes.data || []).map(t => t.id)
-    const [roundRes, countRes] = tripIds.length
-      ? await Promise.all([
-          supabase.from('rounds').select('trip_id, date, location_city, location_state').in('trip_id', tripIds),
-          supabase.from('trip_players').select('trip_id').in('trip_id', tripIds),
-        ])
-      : [{ data: [] }, { data: [] }]
-    if (!mountedRef.current) return
-
-    // Earliest located round per trip → "City, ST".
-    const locByTrip = new Map()
-    ;(roundRes.data || [])
-      .filter(r => r.location_city || r.location_state)
-      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-      .forEach(r => {
-        if (locByTrip.has(r.trip_id)) return
-        locByTrip.set(r.trip_id, [r.location_city, r.location_state].filter(Boolean).join(', '))
-      })
-
-    // Golfer count per trip.
-    const countByTrip = new Map()
-    ;(countRes.data || []).forEach(r => countByTrip.set(r.trip_id, (countByTrip.get(r.trip_id) || 0) + 1))
-
-    const list = (activeRes.data || [])
-      .filter(t => myTripIds.has(t.id) || t.id === currentTripId)
-      .map(t => ({
-        id: t.id, name: t.name, start_date: t.start_date, end_date: t.end_date,
-        location: locByTrip.get(t.id) || '',
-        golfers: countByTrip.get(t.id) || 0,
-        canDelete: adminGroupIds.has(t.group_id),
-      }))
     setRows(list)
-    setDeleted((deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name })))
+    setDeleted(gone)
   }, [userId, currentTripId])
 
   useEffect(() => { load() }, [load])
@@ -3075,17 +3022,18 @@ export default function MenuDrawer({
               <span style={{ ...s.itemSub, display: 'block' }}>Manage your profile</span>
             </span>
           </button>
-          {/* Trip switcher — styled like the other menu rows; opens the switcher page */}
-          <button style={s.item} onClick={() => setPage('switch-trip')}>
+          {/* Your Clubhouse — the player home page (all your trips, career stats).
+              Replaces the old "Trips" switcher row; keeps its unread dot. */}
+          <button style={s.item} onClick={() => { onClose(); navigate('/home') }}>
             <span style={{ ...s.iconBox, position: 'relative' }}>
-              <svg {...svgProps}><path d="M8 3 4 7l4 4" /><path d="M4 7h16" /><path d="m16 21 4-4-4-4" /><path d="M20 17H4" /></svg>
+              <svg {...svgProps}><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M10 21v-6h4v6" /></svg>
               {otherTripUnread && <span className="unread-dot" aria-label="Unread messages in another trip" />}
             </span>
             <span>
-              <span style={{ ...s.itemLabel, display: 'block' }}>Trips</span>
-              <span style={{ ...s.itemSub, display: 'block' }}>Switch or manage trips</span>
+              <span style={{ ...s.itemLabel, display: 'block' }}>Your Clubhouse</span>
+              <span style={{ ...s.itemSub, display: 'block' }}>All your trips and career stats</span>
             </span>
-            <span style={{ marginLeft: 'auto', color: '#7A8FA6', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>Switch ›</span>
+            <span style={{ marginLeft: 'auto', color: '#7A8FA6', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>›</span>
           </button>
           {[...(isCommissioner ? [COMMISSIONER_ITEM] : []), ...MENU_ITEMS]
             .filter(item => item.id !== 'archives' || FEATURES.archives)
