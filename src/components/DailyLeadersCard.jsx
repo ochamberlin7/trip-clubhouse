@@ -74,7 +74,7 @@ function WideTile({ title, tone, cat, nameById, info }) {
   const [infoOpen, setInfoOpen] = useState(false)
   return (
     <div style={st.tile}>
-      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone], display: 'flex', alignItems: 'center' }}>
+      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone], display: 'flex', alignItems: 'flex-start' }}>
         {title}
         {info && <InfoButton open={infoOpen} onToggle={() => setInfoOpen(v => !v)} color={TONE[tone]} label={`What is ${title}?`} />}
       </div>

@@ -40,8 +40,11 @@ const ME_BG = '#EEF2F7' // the viewer's own row in "See all"
 function StatHeaderBar({ title, tone = 'good', onClose, info, infoOpen, onInfo }) {
   return (
     <div className="stat-tile-header" style={{ color: TONE[tone] }}>
-      <span className="stat-tile-title">{title}</span>
-      {info && <InfoButton open={infoOpen} onToggle={onInfo} color={TONE[tone]} label={`What is ${title}?`} />}
+      {/* Title + superscript "i" kept together so the header gap doesn't split them. */}
+      <span style={{ display: 'inline-flex', alignItems: 'flex-start' }}>
+        <span className="stat-tile-title">{title}</span>
+        {info && <InfoButton open={infoOpen} onToggle={onInfo} color={TONE[tone]} label={`What is ${title}?`} />}
+      </span>
       {onClose && <button className="stat-modal-close" aria-label="Close" onClick={onClose}>✕</button>}
     </div>
   )

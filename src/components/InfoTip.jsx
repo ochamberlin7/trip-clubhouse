@@ -1,4 +1,4 @@
-// Small "i" button for a stat title, plus the definition bubble it opens. The
+// Small superscript "i" button for a stat title, plus the definition bubble it opens. The
 // bubble renders inline under the title (not floating), so it can't be clipped by
 // the card. The card owns the open/closed state; tap the "i" again to close.
 
@@ -11,10 +11,12 @@ export function InfoButton({ open, onToggle, color = 'currentColor', label = 'Wh
       onClick={e => { e.stopPropagation(); onToggle() }}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 18, height: 18, borderRadius: '50%', padding: 0, marginLeft: 6, flexShrink: 0,
-        border: `1.5px solid ${color}`, background: open ? color : 'transparent',
-        color: open ? '#fff' : color, fontSize: 11, fontWeight: 800, fontStyle: 'italic',
-        fontFamily: 'Georgia, serif', lineHeight: 1, cursor: 'pointer', verticalAlign: 'middle', opacity: open ? 1 : 0.8,
+        width: 13, height: 13, borderRadius: '50%', padding: 0, marginLeft: 2, flexShrink: 0,
+        // Superscript: sits up against the end of the title, not centred beside it.
+        alignSelf: 'flex-start', position: 'relative', top: -2, verticalAlign: 'super',
+        border: `1.2px solid ${color}`, background: open ? color : 'transparent',
+        color: open ? '#fff' : color, fontSize: 8.5, fontWeight: 800, fontStyle: 'italic',
+        fontFamily: 'Georgia, serif', lineHeight: 1, cursor: 'pointer', opacity: open ? 1 : 0.8,
       }}
     >
       i
