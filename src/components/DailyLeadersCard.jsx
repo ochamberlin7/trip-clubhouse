@@ -4,6 +4,7 @@ import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { useSwipePager } from '../lib/useSwipePager'
 import { playerName } from '../lib/scoring'
 import { buildDailyLeaders } from '../lib/dailyLeaders'
+import { shortNameResolver } from '../lib/playerNames'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL, HOME_CARD_TAIL } from './homeCardTokens'
 import HomeCard from './homeCard'
 
@@ -23,14 +24,14 @@ const st = {
   inner: { padding: '7px 12px 9px' },
   wideRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   title: { fontSize: 15, fontWeight: 700, lineHeight: 1.3 },
-  who: { fontSize: 13, fontWeight: 500, color: '#5A7290', lineHeight: 1.35 },
+  who: { fontSize: 14, fontWeight: 600, color: '#2C3E50', lineHeight: 1.35 },
   bigNum: { fontSize: 24, fontWeight: 700, color: NAVY, flexShrink: 0, lineHeight: 1.1 },
   split: { display: 'grid', gridTemplateColumns: '1fr 1fr' },
   half: { minWidth: 0 },
   halfRight: { minWidth: 0, borderLeft: '1px solid #E3E8EE', paddingLeft: 12 },
   mode: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
   num: { fontSize: 18, fontWeight: 700, color: NAVY, lineHeight: 1.25 },
-  nm: { fontSize: 12, color: '#5A7290', lineHeight: 1.35 },
+  nm: { fontSize: 13, fontWeight: 600, color: '#2C3E50', lineHeight: 1.35 },
   none: { color: MUTED, fontWeight: 500 },
   placeholder: { fontSize: 13, color: GREY, fontStyle: 'italic', padding: '14px 16px' },
   dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '2px 0 12px' },
@@ -57,24 +58,13 @@ const LAYOUT = [
   { type: 'wide', title: 'Most drinks', tone: 'drinks', key: 'drinks' },
 ]
 
-const firstOf = name => name.trim().split(/\s+/)[0]
-
-// "Jeff Nelson" → "Jeff N." (a single-word name stays as is).
-function firstAndInitial(name) {
-  const parts = name.trim().split(/\s+/)
-  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0]
-}
-
-// One winner → full name. Two or more → first names, A–Z, comma-separated; a
-// player whose first name is shared with someone else on the trip also gets their
-// last initial ("Mike S., Mike T., Owen"), so no name is ambiguous.
+// Winners show by short name (first name; last initial only when a first name is
+// shared on the trip — src/lib/playerNames.js), A–Z, comma-separated.
 function winnersLabel(cat, nameById) {
   const names = (cat?.leader?.ids || []).map(id => nameById.get(id)).filter(Boolean).sort((a, b) => a.localeCompare(b))
   if (names.length === 0) return null
-  if (names.length === 1) return names[0]
-  const firstCounts = new Map()
-  for (const n of nameById.values()) { const f = firstOf(n).toLowerCase(); firstCounts.set(f, (firstCounts.get(f) || 0) + 1) }
-  return names.map(n => (firstCounts.get(firstOf(n).toLowerCase()) > 1 ? firstAndInitial(n) : firstOf(n))).join(', ')
+  const short = shortNameResolver([...nameById.values()])
+  return names.map(short).join(', ')
 }
 
 function WideTile({ title, tone, cat, nameById }) {
