@@ -41,8 +41,8 @@ const h = {
   secRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' },
   sec: { fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: INK, margin: 0 },
   link: { background: 'none', border: 'none', padding: 0, color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  // Left-aligned with the section headings, like a footnote.
-  footLink: { display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', margin: '4px 0 0', padding: 0, background: 'none', border: 'none', color: MUTED, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
+  // Bottom-right footnote.
+  footLink: { display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-end', margin: '4px 0 0', padding: 0, background: 'none', border: 'none', color: MUTED, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
   seeAll: { display: 'block', width: '100%', padding: 11, background: '#FBFCFD', border: 'none', borderTop: '1px solid var(--bg2)', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   box: { background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, overflow: 'hidden' },
   row: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' },
