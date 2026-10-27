@@ -14,42 +14,91 @@ import HomeCard from './homeCard'
 
 const NAVY = '#1B3F6E'
 const GREY = '#8a96a3'
+const MUTED = '#A9B4C0'
 const st = {
-  row: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 16px', borderBottom: '1px solid #e5e7eb' },
-  rowLast: { borderBottom: 'none' },
-  labelCol: { minWidth: 84, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1 },
+  body: { display: 'flex', flexDirection: 'column', gap: 8, padding: 10 },
+  tile: { border: '1px solid #E3E8EE', borderRadius: 10, padding: '9px 12px', minWidth: 0 },
+  wideRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   label: { fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
-  mode: { fontSize: 9, color: '#A9B4C0', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
-  names: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
-  name: { fontSize: 13, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  none: { fontSize: 13, color: GREY },
-  tie: { fontSize: 11, color: GREY, fontWeight: 500 },
-  value: { fontSize: 13, fontWeight: 700, color: NAVY, textAlign: 'right', flexShrink: 0 },
+  who: { fontSize: 13, fontWeight: 600, color: NAVY, lineHeight: 1.35 },
+  bigNum: { fontSize: 24, fontWeight: 700, color: NAVY, flexShrink: 0, lineHeight: 1.1 },
+  split: { display: 'grid', gridTemplateColumns: '1fr 1fr', marginTop: 6 },
+  half: { minWidth: 0 },
+  halfRight: { minWidth: 0, borderLeft: '1px solid #E3E8EE', paddingLeft: 12 },
+  mode: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
+  num: { fontSize: 18, fontWeight: 700, color: NAVY, lineHeight: 1.25 },
+  nm: { fontSize: 12, color: '#5A7290', lineHeight: 1.35 },
+  none: { color: MUTED, fontWeight: 500 },
   placeholder: { fontSize: 13, color: GREY, fontStyle: 'italic', padding: '14px 16px' },
-  dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '8px 0 12px' },
+  dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '2px 0 12px' },
   dot: { width: 7, height: 7, borderRadius: '50%', background: '#C4CEDA', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
   dotActive: { background: NAVY },
 }
 
-// Winners stack one per line (full names); a tie adds a small "Tied" / "3-way tie"
-// note under them. The value shows once, on the right. No winner → "None".
-function LeaderRow({ cat, nameById, last }) {
-  const lead = cat.leader
-  const people = lead ? lead.ids.map(id => nameById.get(id)).filter(Boolean).sort((a, b) => a.localeCompare(b)) : []
-  const tieNote = people.length === 2 ? 'Tied' : people.length > 2 ? `${people.length}-way tie` : null
+// Card layout, top to bottom: full-width tiles for Most Points, Points Defended
+// and Most Drinks; Gross | Net split tiles for everything else. Keys are the
+// category keys from src/lib/dailyLeaders.js.
+const LAYOUT = [
+  { type: 'wide', title: 'Most Points', key: 'points' },
+  { type: 'wide', title: 'Points Defended', key: 'defended' },
+  { type: 'split', title: 'Best to Par', gross: 'bestGross', net: 'bestNet' },
+  { type: 'split', title: 'Most Birdies', gross: 'birdiesGross', net: 'birdiesNet' },
+  { type: 'split', title: 'Most Pars', gross: 'parsGross', net: 'parsNet' },
+  { type: 'split', title: 'Worst Round', gross: 'worstGross', net: 'worstNet' },
+  { type: 'wide', title: 'Most Drinks', key: 'drinks' },
+]
+
+// One winner → full name; two or more → first names, A–Z, comma-separated.
+function winnersLabel(cat, nameById) {
+  const names = (cat?.leader?.ids || []).map(id => nameById.get(id)).filter(Boolean).sort((a, b) => a.localeCompare(b))
+  if (names.length === 0) return null
+  if (names.length === 1) return names[0]
+  return names.map(n => n.trim().split(/\s+/)[0]).join(', ')
+}
+
+function WideTile({ title, cat, nameById }) {
+  const who = winnersLabel(cat, nameById)
   return (
-    <div style={{ ...st.row, ...(last ? st.rowLast : null) }}>
-      <span style={st.labelCol}>
-        <span style={st.label}>{cat.label}</span>
-        {cat.mode && <span style={st.mode}>{cat.mode}</span>}
-      </span>
-      <span style={st.names}>
-        {people.length
-          ? people.map(n => <span key={n} style={st.name}>{n}</span>)
-          : <span style={st.none}>None</span>}
-        {tieNote && <span style={st.tie}>{tieNote}</span>}
-      </span>
-      <span style={st.value}>{lead ? cat.format(lead.value) : ''}</span>
+    <div style={{ ...st.tile, ...st.wideRow }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={st.label}>{title}</div>
+        <div style={{ ...st.who, ...(who ? null : st.none) }}>{who || 'None'}</div>
+      </div>
+      <div style={{ ...st.bigNum, ...(who ? null : st.none) }}>{who ? cat.format(cat.leader.value) : '—'}</div>
+    </div>
+  )
+}
+
+function SplitHalf({ mode, cat, nameById, right }) {
+  const who = winnersLabel(cat, nameById)
+  return (
+    <div style={right ? st.halfRight : st.half}>
+      <div style={st.mode}>{mode}</div>
+      <div style={{ ...st.num, ...(who ? null : st.none) }}>{who ? cat.format(cat.leader.value) : '—'}</div>
+      <div style={{ ...st.nm, ...(who ? null : st.none) }}>{who || 'None'}</div>
+    </div>
+  )
+}
+
+function SplitTile({ title, gross, net, nameById }) {
+  return (
+    <div style={st.tile}>
+      <div style={st.label}>{title}</div>
+      <div style={st.split}>
+        <SplitHalf mode="Gross" cat={gross} nameById={nameById} />
+        <SplitHalf mode="Net" cat={net} nameById={nameById} right />
+      </div>
+    </div>
+  )
+}
+
+function DayTiles({ day, nameById }) {
+  const byKey = new Map(day.leaders.map(c => [c.key, c]))
+  return (
+    <div style={st.body}>
+      {LAYOUT.map(t => t.type === 'wide'
+        ? <WideTile key={t.key} title={t.title} cat={byKey.get(t.key)} nameById={nameById} />
+        : <SplitTile key={t.title} title={t.title} gross={byKey.get(t.gross)} net={byKey.get(t.net)} nameById={nameById} />)}
     </div>
   )
 }
@@ -155,9 +204,7 @@ export default function DailyLeadersCard({ tripId, tripStartDate, allowance = 10
               <span style={HOME_CARD_LABEL}>Daily Leaders</span>
               <span style={HOME_CARD_TAIL}>{dayLabel(day)}</span>
             </div>
-            {day.leaders.map((cat, i) => (
-              <LeaderRow key={cat.key} cat={cat} nameById={nameById} last={i === day.leaders.length - 1} />
-            ))}
+            <DayTiles day={day} nameById={nameById} />
           </div>
         ))}
       </div>

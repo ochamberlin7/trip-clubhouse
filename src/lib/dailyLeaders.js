@@ -15,9 +15,10 @@ import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
 // Category rows, in display order. `hi` = higher is better (leader is the max).
 // `zeroIsNone`: a best value of 0 means nobody earned it (e.g. no birdies) → no leader.
 export const LEADER_CATEGORIES = [
-  { key: 'points',      label: 'Most Points',  hi: true,  zeroIsNone: false, format: v => `${v} pts` },
+  { key: 'points',      label: 'Most Points',  hi: true,  zeroIsNone: false, format: v => `${v}` },
   { key: 'defended',    label: 'Points Defended', hi: true, zeroIsNone: true, format: v => `${v}` },
-  { key: 'bestNet',     label: 'Best Net',     hi: false, zeroIsNone: false, format: v => formatVsPar(v) },
+  { key: 'bestGross',   label: 'Best to Par', mode: 'Gross', hi: false, zeroIsNone: false, format: v => formatVsPar(v) },
+  { key: 'bestNet',     label: 'Best to Par', mode: 'Net',   hi: false, zeroIsNone: false, format: v => formatVsPar(v) },
   { key: 'birdiesGross', label: 'Most Birdies', mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'birdiesNet',   label: 'Most Birdies', mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'parsGross',    label: 'Most Pars',    mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
@@ -90,6 +91,7 @@ export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null 
     const values = {
       points,
       defended: pick(s => s?.defended ?? null),
+      bestGross: pick(s => s?.gross.vsPar ?? null),
       bestNet: pick(s => s?.net.vsPar ?? null),
       birdiesGross: pick(s => s?.gross.birdies ?? null),
       birdiesNet: pick(s => s?.net.birdies ?? null),

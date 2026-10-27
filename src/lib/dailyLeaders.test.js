@@ -98,6 +98,7 @@ test('category leaders (gross and net tracked separately)', () => {
   const [day] = buildDailyLeaders(data({ rounds: [round('R1', '2026-11-05')], scores: fullScores('R1'), drinks }))
   assert.deepEqual(leader(day, 'points'), { value: 1, ids: ['A'] })   // A wins hole 2; the rest halve on net
   assert.deepEqual(leader(day, 'bestNet').ids, ['A'])
+  assert.deepEqual(leader(day, 'bestGross'), { value: -2, ids: ['A'] })   // A 70 gross on par 72
   // Holes 1 and 3–18 halve on net. T1: A & B tie on 3–18 (no credit); hole 1 A alone (3 vs B 4).
   // T2: C's net 4 alone on 3–18 (D 5) → 16; hole 1 D alone (3 vs C 4). Hole 2 T1 won.
   assert.deepEqual(leader(day, 'defended'), { value: 16, ids: ['C'] })
