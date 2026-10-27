@@ -1,9 +1,11 @@
-import { forwardRef, useLayoutEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
-// Small superscript "i" button for a stat title, plus the definition bubble it opens. The
-// bubble renders inline under the title (not floating), so it can't be clipped by
-// the card; its pointer is measured to sit right under the "i". The card owns the
-// open/closed state and passes the same ref to both; tap the "i" again to close.
+// Small superscript "i" button for a stat title, plus the definition bubble it opens.
+// The bubble floats over the card (it doesn't push the player list down) and is
+// rendered on <body> so no card edge can clip it; its pointer comes straight out
+// of the "i". The card owns open/closed and passes the same ref to both. Closes on
+// a second tap of the "i", a tap anywhere else, a scroll, or a resize.
 
 export const InfoButton = forwardRef(function InfoButton({ open, onToggle, color = 'currentColor', label = 'What does this mean?' }, ref) {
   return (
@@ -28,28 +30,50 @@ export const InfoButton = forwardRef(function InfoButton({ open, onToggle, color
   )
 })
 
-export function InfoBubble({ anchorRef, children }) {
-  const wrapRef = useRef(null)
-  const [caretLeft, setCaretLeft] = useState(18)
-  // Point the caret at the centre of the "i" (re-measured on resize).
+const BUBBLE_W = 280
+
+export function InfoBubble({ anchorRef, onClose, children }) {
+  const bubbleRef = useRef(null)
+  const [pos, setPos] = useState(null) // { top, left, width, caret }
+
+  // Place the bubble just under the "i", kept on screen, with the caret under it.
   useLayoutEffect(() => {
-    function place() {
-      const a = anchorRef?.current, w = wrapRef.current
-      if (!a || !w) return
-      const ar = a.getBoundingClientRect(), wr = w.getBoundingClientRect()
-      setCaretLeft(Math.max(6, Math.min(wr.width - 16, ar.left + ar.width / 2 - wr.left - 5)))
-    }
-    place()
-    window.addEventListener('resize', place)
-    return () => window.removeEventListener('resize', place)
+    const a = anchorRef?.current
+    if (!a) return
+    const r = a.getBoundingClientRect()
+    const vw = window.innerWidth
+    const width = Math.min(BUBBLE_W, vw - 24)
+    const centre = r.left + r.width / 2
+    const left = Math.max(12, Math.min(vw - width - 12, centre - 24))
+    setPos({ top: r.bottom + 9, left, width, caret: Math.max(8, Math.min(width - 18, centre - left - 5)) })
   }, [anchorRef])
-  return (
-    <div ref={wrapRef} style={{ position: 'relative', margin: '8px 12px 2px' }}>
-      {/* little pointer up toward the "i" */}
-      <span aria-hidden="true" style={{ position: 'absolute', top: -5, left: caretLeft, width: 10, height: 10, background: '#0D1B2A', transform: 'rotate(45deg)', borderRadius: 2 }} />
-      <div role="note" style={{ position: 'relative', background: '#0D1B2A', color: '#fff', borderRadius: 10, padding: '9px 12px', fontSize: 12.5, lineHeight: 1.45, fontWeight: 500 }}>
+
+  // Tap anywhere else (not the "i", which toggles itself) → close. Scroll/resize → close.
+  useEffect(() => {
+    function onDown(e) {
+      if (anchorRef?.current?.contains(e.target)) return
+      if (bubbleRef.current?.contains(e.target)) return
+      onClose?.()
+    }
+    const close = () => onClose?.()
+    document.addEventListener('pointerdown', onDown, true)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [anchorRef, onClose])
+
+  if (!pos) return null
+  return createPortal(
+    <div ref={bubbleRef} role="note" style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 1100 }}>
+      <span aria-hidden="true" style={{ position: 'absolute', top: -5, left: pos.caret, width: 10, height: 10, background: '#0D1B2A', transform: 'rotate(45deg)', borderRadius: 2 }} />
+      <div style={{ position: 'relative', background: '#0D1B2A', color: '#fff', borderRadius: 10, padding: '9px 12px', fontSize: 12.5, lineHeight: 1.45, fontWeight: 500, boxShadow: '0 8px 24px rgba(13,27,42,0.28)' }}>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

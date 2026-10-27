@@ -128,7 +128,7 @@ function StatTile({ title, tone, cols, players, anyScore, short, isMe, info }) {
   return (
     <div className="stat-tile" style={split ? { gridColumn: '1 / -1' } : undefined}>
       <StatHeaderBar title={title} tone={tone} info={info} infoOpen={infoOpen} onInfo={() => setInfoOpen(v => !v)} infoRef={infoRef} />
-      {info && infoOpen && <InfoBubble anchorRef={infoRef}>{info}</InfoBubble>}
+      {info && infoOpen && <InfoBubble anchorRef={infoRef} onClose={() => setInfoOpen(false)}>{info}</InfoBubble>}
       {!anyScore ? (
         <div className="stat-empty">No data yet</div>
       ) : (

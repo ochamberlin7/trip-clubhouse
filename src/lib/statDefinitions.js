@@ -3,5 +3,5 @@
 export const STAT_INFO = {
   // Written like a Rules of Golf definition: short and exact.
   defended:
-    'A hole halved in which the player\'s net score equals the opponents\' best net score and is lower than the partner\'s.',
+    'A halved hole on which only one player\'s net score matched the opponents\' best ball.',
 }

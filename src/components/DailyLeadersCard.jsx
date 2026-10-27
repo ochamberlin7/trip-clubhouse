@@ -79,7 +79,7 @@ function WideTile({ title, tone, cat, nameById, info }) {
         {title}
         {info && <InfoButton ref={infoRef} open={infoOpen} onToggle={() => setInfoOpen(v => !v)} color={TONE[tone]} label={`What is ${title}?`} />}
       </div>
-      {info && infoOpen && <InfoBubble anchorRef={infoRef}>{info}</InfoBubble>}
+      {info && infoOpen && <InfoBubble anchorRef={infoRef} onClose={() => setInfoOpen(false)}>{info}</InfoBubble>}
       <div style={{ ...st.inner, ...st.wideRow }}>
         <div style={{ ...st.who, minWidth: 0, ...(who ? null : st.none) }}>{who || 'None'}</div>
         <div style={{ ...st.bigNum, ...(who ? null : st.none) }}>{who ? cat.format(cat.leader.value) : '—'}</div>
