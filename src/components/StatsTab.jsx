@@ -4,6 +4,8 @@ import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { playerName, firstName } from '../lib/scoring'
 import { computePlayerStats } from '../lib/playerStats'
+import { rankRows } from '../lib/statRanks'
+import { shortNameResolver } from '../lib/playerNames'
 
 // ── Trip Stats ────────────────────────────────────────────────────
 // All scoring reuses src/lib/scoring.js — no duplicate/divergent logic:
@@ -27,103 +29,112 @@ import { computePlayerStats } from '../lib/playerStats'
 // Category tabs (Drinks last). Each tab shows a 2-col grid of stat tiles.
 const STAT_TABS = ['Scoring', 'Fire', 'Rounds', 'Drinks']
 
-// Custom stat icon set — defined once as <symbol>s, referenced via <use>. White
-// on the navy tile header (stroke: currentColor). "+1" (Points Won) is text, not
-// an icon.
-function StatSymbols() {
-  return (
-    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-      <symbol id="ic-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20.5V3" /><path d="M12 4l7 2.6-7 2.6z" /><path d="M8.3 20.5h7.4" /></symbol>
-      <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5l7 2.7v5.3c0 4.6-2.9 7.3-7 8.5-4.1-1.2-7-3.9-7-8.5V6.2l7-2.7z" /></symbol>
-      <symbol id="ic-shieldcheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5l7 2.7v5.3c0 4.6-2.9 7.3-7 8.5-4.1-1.2-7-3.9-7-8.5V6.2l7-2.7z" /><path d="M8.7 12.3l2.2 2.2 4.4-4.4" /></symbol>
-      <symbol id="ic-circle1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="7.5" /></symbol>
-      <symbol id="ic-dcircle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="12" r="8.2" /><circle cx="12" cy="12" r="5.2" /></symbol>
-      <symbol id="ic-square1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5" /></symbol>
-      <symbol id="ic-dsquare" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="4.3" y="4.3" width="15.4" height="15.4" rx="1.8" /><rect x="7.5" y="7.5" width="9" height="9" rx="1.2" /></symbol>
-      <symbol id="ic-xsquare" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5" /><path d="M7.3 7.3l9.4 9.4M16.7 7.3l-9.4 9.4" /></symbol>
-      <symbol id="ic-chartup" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 16.5l6-6 4 4 8-8.5" /><path d="M14.5 6h6.5v6.5" /></symbol>
-      <symbol id="ic-chartdown" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7.5l6 6 4-4 8 8.5" /><path d="M14.5 18h6.5v-6.5" /></symbol>
-      <symbol id="ic-flameplain" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21.5c-4.2 0-7-2.9-7-6.8 0-2.7 1.7-4.6 2.8-6.3.2 1.8 1 2.9 2 2.9-.3-3.4-.6-5.6 1.6-8.8 1 3.2 3.8 5 3.8 8.6 0 1.1 1 1.9 1.9.9 1.2 2.9-.9 9.5-5.1 9.5z" /></symbol>
-      <symbol id="ic-flamestreak" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 21.5c-4.2 0-7-2.9-7-6.8 0-2.7 1.7-4.6 2.8-6.3.2 1.8 1 2.9 2 2.9-.3-3.4-.6-5.6 1.6-8.8 1 3.2 3.8 5 3.8 8.6 0 1.1 1 1.9 1.9.9 1.2 2.9-.9 9.5-5.1 9.5z" /><path d="M.3 9.8h6" /><path d="M3.3 14.3h3" /><path d="M.3 18.8h6" /></symbol>
-      <symbol id="ic-cocktail" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M5.3 7.3h12l-6 8.3z" /><path d="M11.3 15.6v5.7" /><path d="M7.8 21.3h7" /><path d="M17.2 4.3a3.2 3.2 0 0 1 3.2 3.2h-3.2z" /><path d="M17.9 6.9l1.8-1.8" /></symbol>
-    </svg>
-  )
-}
+// Title colour says what kind of stat it is (same as Daily Leaders): green =
+// bragging rights, red = the roast, gold = drinks. Titles sit on a light navy bar.
+const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
+const ME_BG = '#EEF2F7' // the viewer's own row in "See all"
 
-// The skinny navy header's icon: "+1" renders as bold white text; anything else
-// references a <symbol> by id.
-function StatIcon({ icon }) {
-  if (icon === '+1') return <span className="stat-tile-plus">+1</span>
-  return <svg className="stat-tile-icon" viewBox="0 0 24 24" aria-hidden="true"><use href={`#${icon}`} /></svg>
-}
-
-function StatHeaderBar({ icon, title }) {
+function StatHeaderBar({ title, tone = 'good', onClose }) {
   return (
-    <div className="stat-tile-header">
-      <StatIcon icon={icon} />
+    <div className="stat-tile-header" style={{ color: TONE[tone] }}>
       <span className="stat-tile-title">{title}</span>
+      {onClose && <button className="stat-modal-close" aria-label="Close" onClick={onClose}>✕</button>}
     </div>
   )
 }
 
-function StatRow({ i, row }) {
+function TopRow({ row, short }) {
   return (
     <div className="stat-tile-row">
-      <span className="stat-tile-rank">{i + 1}</span>
-      <span className="stat-tile-name">{firstName(row.p.name) || row.p.name}</span>
+      <span className="stat-tile-rank">{row.rank ?? '–'}</span>
+      <span className="stat-tile-name">{short(row.item.name)}</span>
       <span className="stat-tile-val">{row.v == null ? '—' : row.v}</span>
     </div>
   )
 }
 
-// Rank players by a card's value (unchanged from before): high- or low-first per
-// `hi`, null values ("—") last, ties broken alphabetically by first name.
-function rankPlayers(players, valueOf, hi) {
-  const nameOf = p => firstName(p.name) || p.name || ''
-  const rows = players.map(p => ({ p, v: valueOf(p) }))
-  rows.sort((a, b) => {
-    if (a.v == null && b.v == null) return nameOf(a.p).localeCompare(nameOf(b.p))
-    if (a.v == null) return 1
-    if (b.v == null) return -1
-    if (a.v !== b.v) return hi ? b.v - a.v : a.v - b.v
-    return nameOf(a.p).localeCompare(nameOf(b.p))
-  })
-  return rows
+// "See all": every player in one table. Split stats show Gross and Net columns
+// (value + small rank) — tap a header to sort by it. The viewer's row is highlighted.
+function SeeAllModal({ title, tone, players, cols, isMe, onClose }) {
+  const [sortKey, setSortKey] = useState(cols[0].key)
+  const nameOf = p => p.name || ''
+  const ranked = useMemo(() => {
+    const byCol = {}
+    for (const c of cols) {
+      byCol[c.key] = new Map(rankRows(players, c.valueOf, { hi: c.hi, nameOf }).map(r => [r.item.id, r]))
+    }
+    const order = rankRows(players, cols.find(c => c.key === sortKey).valueOf, { hi: cols.find(c => c.key === sortKey).hi, nameOf })
+    return order.map(r => ({ p: r.item, cells: cols.map(c => byCol[c.key].get(r.item.id)) }))
+  }, [players, cols, sortKey])
+  const multi = cols.length > 1
+  return createPortal(
+    <div className="stat-modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="stat-modal-sheet" onClick={e => e.stopPropagation()}>
+        <StatHeaderBar title={title} tone={tone} onClose={onClose} />
+        <div className="stat-modal-list">
+          <table className="stat-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                {cols.map(c => (
+                  <th key={c.key} className={multi && sortKey === c.key ? 'on' : undefined}>
+                    {multi
+                      ? <button className="stat-sort" onClick={() => setSortKey(c.key)}>{c.label}{sortKey === c.key ? ' ▾' : ''}</button>
+                      : c.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ranked.map(({ p, cells }) => (
+                <tr key={p.id} style={isMe(p) ? { background: ME_BG } : undefined}>
+                  <td className="stat-table-name">{p.name}</td>
+                  {cells.map((cell, i) => (
+                    <td key={cols[i].key} className="stat-table-val">
+                      {cell?.v == null ? '—' : cell.v}
+                      {multi && cell?.rank != null && <span className="stat-table-rank">{cell.rank}</span>}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
 }
 
-// One podium tile: skinny navy header + top-3 rows + a "See all N ›" footer that
-// opens a modal with the full ranked list. `anyScore` gates it to "No data yet".
-function StatTile({ title, icon, players, valueOf, hi, anyScore, span }) {
+// One stat tile. `cols` = [{ key, label, valueOf, hi }]: one column for a single
+// stat (Points Won, Fire…), two (Gross, Net) for a split stat. Shows each column's
+// top 3 and a "See all ›" link. `anyScore` gates it to "No data yet".
+function StatTile({ title, tone, cols, players, anyScore, short, isMe }) {
   const [open, setOpen] = useState(false)
-  const rows = rankPlayers(players, valueOf, hi)
+  const split = cols.length > 1
+  const nameOf = p => p.name || ''
+  const tops = cols.map(c => rankRows(players, c.valueOf, { hi: c.hi, nameOf }).slice(0, 3))
   return (
-    <div className="stat-tile" style={span ? { gridColumn: '1 / -1' } : undefined}>
-      <StatHeaderBar icon={icon} title={title} />
+    <div className="stat-tile" style={split ? { gridColumn: '1 / -1' } : undefined}>
+      <StatHeaderBar title={title} tone={tone} />
       {!anyScore ? (
         <div className="stat-empty">No data yet</div>
       ) : (
         <>
-          {rows.slice(0, 3).map((row, i) => <StatRow key={row.p.id} i={i} row={row} />)}
-          {rows.length > 3 && (
+          <div className={split ? 'stat-split' : undefined}>
+            {cols.map((c, i) => (
+              <div key={c.key} className={split ? 'stat-split-col' : undefined}>
+                {split && <div className="stat-split-mode">{c.label}</div>}
+                {tops[i].map(row => <TopRow key={row.item.id} row={row} short={short} />)}
+              </div>
+            ))}
+          </div>
+          {players.length > 3 && (
             <button className="stat-tile-seeall" onClick={() => setOpen(true)}>See all ›</button>
           )}
         </>
       )}
-      {open && createPortal(
-        <div className="stat-modal-overlay" role="dialog" aria-modal="true" onClick={() => setOpen(false)}>
-          <div className="stat-modal-sheet" onClick={e => e.stopPropagation()}>
-            <div className="stat-tile-header" style={{ position: 'relative', paddingRight: 44 }}>
-              <StatIcon icon={icon} />
-              <span className="stat-tile-title">{title}</span>
-              <button className="stat-modal-close" aria-label="Close" onClick={() => setOpen(false)}>✕</button>
-            </div>
-            <div className="stat-modal-list">
-              {rows.map((row, i) => <StatRow key={row.p.id} i={i} row={row} />)}
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+      {open && <SeeAllModal title={title} tone={tone} players={players} cols={cols} isMe={isMe} onClose={() => setOpen(false)} />}
     </div>
   )
 }
@@ -132,7 +143,6 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   const [data, setData] = useState(null)
   const [openDrinkPopup, setOpenDrinkPopup] = useState(null) // trip_player_id
   const [refreshTick, setRefreshTick] = useState(0) // bumped by realtime score changes + resume to refetch
-  const [mode, setMode] = useState('gross') // Gross/Net toggle — scoring/round tiles only
   const [tab, setTab] = useState('Scoring') // category tab (session-only)
   const tilesRef = useRef(null)             // swipe viewport → change tab
   const swipeRef = useRef({ x0: 0, y0: 0, did: false, decided: false, horiz: false })
@@ -252,7 +262,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     panelRefs.current.forEach(el => el && ro?.observe(el))
     window.addEventListener('resize', measure)
     return () => { ro?.disconnect(); window.removeEventListener('resize', measure) }
-  }, [data, mode, tab, openDrinkPopup])
+  }, [data, tab, openDrinkPopup])
 
   const computed = useMemo(() => {
     if (!data) return null
@@ -290,39 +300,41 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     return <div className="empty-state"><span className="empty-state-icon">📊</span>No players on this trip yet.</div>
   }
 
-  // Value accessor for a Gross/Net mode-dependent stat (`dash` → round total that
-  // shows "—" when absent). Mode-independent stats use direct accessors below.
-  const modeValue = (key, dash) => p => {
-    const m = stats.get(p.id)?.[mode]
-    if (!m) return dash ? null : 0
-    return dash ? m[key] : (m[key] ?? 0)
-  }
+  // Accessors. Counting stats default to 0; round totals ("—" when no complete
+  // 18-hole round) stay null.
+  const one = key => p => stats.get(p.id)?.[key] ?? 0
+  const gn = (key, dash) => [
+    { key: 'gross', label: 'Gross', valueOf: p => { const v = stats.get(p.id)?.gross?.[key]; return dash ? (v ?? null) : (v ?? 0) } },
+    { key: 'net', label: 'Net', valueOf: p => { const v = stats.get(p.id)?.net?.[key]; return dash ? (v ?? null) : (v ?? 0) } },
+  ]
+  const single = (valueOf, hi = true) => [{ key: 'v', label: 'Total', valueOf, hi }]
+  const both = (key, hi = true, dash = false) => gn(key, dash).map(c => ({ ...c, hi }))
 
-  // Tile descriptors per tab. Icons per the spec; Points Won uses the "+1" text.
+  // Tiles per tab. Single stats sit two across; Gross | Net tiles run full width.
   const scoringTiles = [
-    { key: 'primary', title: primaryCard.title, icon: '+1', hi: true, valueOf: p => stats.get(p.id)?.primary ?? 0 },
-    // Halved holes a player saved alone (net, like Points Won — the toggle doesn't change it).
-    { key: 'defended', title: 'Points Defended', icon: 'ic-shield', hi: true, valueOf: p => stats.get(p.id)?.defended ?? 0 },
-    { key: 'eagles', title: 'Eagles', icon: 'ic-dcircle', hi: true, valueOf: modeValue('eagles') },
-    { key: 'birdies', title: 'Birdies', icon: 'ic-circle1', hi: true, valueOf: modeValue('birdies') },
-    { key: 'pars', title: 'Pars', icon: 'ic-flag', hi: true, valueOf: modeValue('pars') },
-    { key: 'parsOrBetter', title: 'Pars+', icon: 'ic-shieldcheck', hi: true, valueOf: modeValue('parsOrBetter') },
-    { key: 'bogeys', title: 'Bogeys', icon: 'ic-square1', hi: true, valueOf: modeValue('bogeys') },
-    { key: 'doubles', title: 'Doubles', icon: 'ic-dsquare', hi: true, valueOf: modeValue('doubles') },
-    { key: 'triples', title: 'Triples+', icon: 'ic-xsquare', hi: true, valueOf: modeValue('triples') },
+    { key: 'primary', title: primaryCard.title, tone: 'good', cols: single(one('primary')) },
+    // Halved holes a player saved alone (net, like Points Won).
+    { key: 'defended', title: 'Points Defended', tone: 'good', cols: single(one('defended')) },
+    { key: 'eagles', title: 'Eagles', tone: 'good', cols: both('eagles') },
+    { key: 'birdies', title: 'Birdies', tone: 'good', cols: both('birdies') },
+    { key: 'pars', title: 'Pars', tone: 'good', cols: both('pars') },
+    { key: 'parsOrBetter', title: 'Pars or Better', tone: 'good', cols: both('parsOrBetter') },
+    { key: 'bogeys', title: 'Bogeys', tone: 'bad', cols: both('bogeys') },
+    { key: 'doubles', title: 'Doubles', tone: 'bad', cols: both('doubles') },
+    { key: 'triples', title: 'Triples or Worse', tone: 'bad', cols: both('triples') },
   ]
   const fireTiles = [
-    { key: 'fireStreak', title: 'Longest Fire Streak', icon: 'ic-flamestreak', hi: true, valueOf: p => stats.get(p.id)?.fireStreak ?? 0 },
-    { key: 'fireHoles', title: 'Total Fire Holes', icon: 'ic-flameplain', hi: true, valueOf: p => stats.get(p.id)?.fireHolesTotal ?? 0 },
+    { key: 'fireStreak', title: 'Longest Fire Streak', tone: 'good', cols: single(one('fireStreak')) },
+    { key: 'fireHoles', title: 'Total Fire Holes', tone: 'good', cols: single(one('fireHolesTotal')) },
   ]
   const roundsTiles = [
-    { key: 'bestRound', title: 'Best Round', icon: 'ic-chartup', hi: false, valueOf: modeValue('bestRound', true) },
-    { key: 'worstRound', title: 'Worst Round', icon: 'ic-chartdown', hi: true, valueOf: modeValue('worstRound', true) },
+    { key: 'bestRound', title: 'Best Round', tone: 'good', cols: both('bestRound', false, true) },
+    { key: 'worstRound', title: 'Worst Round', tone: 'bad', cols: both('worstRound', true, true) },
   ]
   // Tiles per tab (Drinks has no podium tiles — it renders its own leaderboard).
   const tilesByTab = { Scoring: scoringTiles, Fire: fireTiles, Rounds: roundsTiles, Drinks: [] }
-  // Gross/Net only affects the counting + round tiles; Fire & Drinks are net-based.
-  const toggleTabs = new Set(['Scoring', 'Rounds'])
+  const short = shortNameResolver(players.map(p => p.name))
+  const isMe = p => !!currentUserId && (p.user_id === currentUserId || p.claimed_user_id === currentUserId)
   const tabIndex = STAT_TABS.indexOf(tab)
 
   function goTab(delta) {
@@ -380,22 +392,14 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     const tiles = tilesByTab[tabName]
     return (
       <>
-        {/* Gross / Net toggle — controls the Scoring counting tiles + Best/Worst
-            Round (not Points Won, Points Defended, Fire, or Drinks). Default Gross. */}
-        {toggleTabs.has(tabName) && (
-          <div className="gross-net-toggle" role="tablist" aria-label="Gross or net stats">
-            <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
-            <button role="tab" aria-selected={mode === 'net'} className={`gn-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
-          </div>
-        )}
         <div className="stat-tiles-grid">
           {tiles.map(t => (
-            <StatTile key={t.key} title={t.title} icon={t.icon} hi={t.hi} anyScore={anyScore} players={players} valueOf={t.valueOf} />
+            <StatTile key={t.key} title={t.title} tone={t.tone} cols={t.cols} anyScore={anyScore} players={players} short={short} isMe={isMe} />
           ))}
 
           {tabName === 'Drinks' && (
             <div className="stat-tile" style={{ gridColumn: '1 / -1' }}>
-              <StatHeaderBar icon="ic-cocktail" title="Drink Leaderboard" />
+              <StatHeaderBar title="Drink Leaderboard" tone="drinks" />
               {drinkRows.map((p, i) => {
                 const editable = canEditDrinks(p)
                 const open = openDrinkPopup === p.id
@@ -444,7 +448,6 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
 
   return (
     <div>
-      <StatSymbols />
 
       {/* Category tabs — ABOVE the Gross/Net selector; horizontal scroll, Drinks last. */}
       <div className="stat-tabs" role="tablist" aria-label="Stat categories">
