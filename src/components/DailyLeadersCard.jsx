@@ -41,9 +41,11 @@ const st = {
 const LAYOUT = [
   { type: 'wide', title: 'Most Points', key: 'points' },
   { type: 'wide', title: 'Points Defended', key: 'defended' },
-  { type: 'split', title: 'Best to Par', gross: 'bestGross', net: 'bestNet' },
+  { type: 'split', title: 'Best Score', gross: 'bestGross', net: 'bestNet' },
   { type: 'split', title: 'Most Birdies', gross: 'birdiesGross', net: 'birdiesNet' },
   { type: 'split', title: 'Most Pars', gross: 'parsGross', net: 'parsNet' },
+  { type: 'split', title: 'Most Bogeys', gross: 'bogeysGross', net: 'bogeysNet' },
+  { type: 'split', title: 'Most Doubles or Worse', gross: 'doublesGross', net: 'doublesNet' },
   { type: 'split', title: 'Worst Round', gross: 'worstGross', net: 'worstNet' },
   { type: 'wide', title: 'Most Drinks', key: 'drinks' },
 ]

@@ -2,8 +2,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildDailyLeaders, leadersOf, LEADER_CATEGORIES } from './dailyLeaders.js'
-import { analyzeScoring } from './scoring.js'
-import { courseHolesFromRounds } from './playerStats.js'
 
 // 18 par-4 holes, stroke index 1..18, neutral tee (CH = index).
 const HOLES18 = Array.from({ length: 18 }, (_, i) => ({ par: 4, handicap: i + 1 }))
@@ -79,16 +77,6 @@ test('a day mixing practice and tournament rounds is flagged "some"', () => {
   assert.deepEqual(leader(day, 'points'), { value: 1, ids: ['A'] }) // points from the tournament round only
 })
 
-test('Best Net on a tournament day equals the shared analyzeScoring net vs par', () => {
-  const rounds = [round('R1', '2026-11-05')]
-  const d = data({ rounds, scores: fullScores('R1') })
-  const { vsParByPlayer } = analyzeScoring({ ...d, courseHoles: courseHolesFromRounds(rounds) }, new Set(['R1']), 100)
-  const [day] = buildDailyLeaders(d)
-  const best = Math.min(...vsParByPlayer.values())
-  assert.equal(leader(day, 'bestNet').value, best)
-  assert.deepEqual(leader(day, 'bestNet').ids, [...vsParByPlayer].filter(([, v]) => v === best).map(([id]) => id))
-})
-
 test('category leaders (gross and net tracked separately)', () => {
   const drinks = [
     { round_id: 'R1', trip_player_id: 'C', count: 2 },
@@ -97,8 +85,12 @@ test('category leaders (gross and net tracked separately)', () => {
   ]
   const [day] = buildDailyLeaders(data({ rounds: [round('R1', '2026-11-05')], scores: fullScores('R1'), drinks }))
   assert.deepEqual(leader(day, 'points'), { value: 1, ids: ['A'] })   // A wins hole 2; the rest halve on net
-  assert.deepEqual(leader(day, 'bestNet').ids, ['A'])
-  assert.deepEqual(leader(day, 'bestGross'), { value: -2, ids: ['A'] })   // A 70 gross on par 72
+  assert.deepEqual(leader(day, 'bestGross'), { value: 70, ids: ['A'] })   // best single round
+  assert.deepEqual(leader(day, 'bestNet'), { value: 70, ids: ['A'] })     // A scratch; C nets 72
+  assert.deepEqual(leader(day, 'bogeysGross'), { value: 18, ids: ['C'] }) // C all 5s
+  assert.deepEqual(leader(day, 'bogeysNet'), { value: 17, ids: ['D'] })   // C's 5s are net pars
+  assert.equal(leader(day, 'doublesGross'), null)                         // nobody made a double
+  assert.equal(leader(day, 'doublesNet'), null)
   // Holes 1 and 3–18 halve on net. T1: A & B tie on 3–18 (no credit); hole 1 A alone (3 vs B 4).
   // T2: C's net 4 alone on 3–18 (D 5) → 16; hole 1 D alone (3 vs C 4). Hole 2 T1 won.
   assert.deepEqual(leader(day, 'defended'), { value: 16, ids: ['C'] })
@@ -119,6 +111,7 @@ test('two complete rounds on one day combine; a later day gets its own page', ()
   assert.equal(days[0].courseName, null) // two rounds → no single course name
   assert.deepEqual(leader(days[0], 'birdiesGross'), { value: 4, ids: ['A'] })
   assert.deepEqual(leader(days[0], 'worstGross'), { value: 90, ids: ['C'] }) // worst SINGLE round, not the day total
+  assert.deepEqual(leader(days[0], 'bestGross'), { value: 70, ids: ['A'] })  // best SINGLE round (not 140)
 })
 
 test('drinks count every round that day, even one still in progress', () => {
@@ -141,4 +134,14 @@ test('leadersOf: ties, lower-is-better, zero means nobody, nulls ignored', () =>
 test('no rounds / no completed rounds → no pages', () => {
   assert.deepEqual(buildDailyLeaders(data({ rounds: [], scores: [] })), [])
   assert.deepEqual(buildDailyLeaders(data({ rounds: [round('R1', '2026-11-05')], scores: fullScores('R1', 17) })), [])
+})
+
+test('Most Doubles or Worse counts doubles and triples+ together', () => {
+  const scores = fullScores('R1').map(s =>
+    s.trip_player_id === 'D' && s.hole_number === 2 ? { ...s, gross_score: 7 }      // triple
+    : s.trip_player_id === 'D' && s.hole_number === 3 ? { ...s, gross_score: 6 }    // double
+    : s)
+  const [day] = buildDailyLeaders(data({ rounds: [round('R1', '2026-11-05')], scores }))
+  assert.deepEqual(leader(day, 'doublesGross'), { value: 2, ids: ['D'] })
+  assert.deepEqual(leader(day, 'doublesNet'), { value: 2, ids: ['D'] })
 })
