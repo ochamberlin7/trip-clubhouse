@@ -3031,9 +3031,8 @@ export default function MenuDrawer({
             </span>
             <span>
               <span style={{ ...s.itemLabel, display: 'block' }}>Your Clubhouse</span>
-              <span style={{ ...s.itemSub, display: 'block' }}>All your trips and career stats</span>
+              <span style={{ ...s.itemSub, display: 'block' }}>Trips and career stats</span>
             </span>
-            <span style={{ marginLeft: 'auto', color: '#7A8FA6', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>›</span>
           </button>
           {[...(isCommissioner ? [COMMISSIONER_ITEM] : []), ...MENU_ITEMS]
             .filter(item => item.id !== 'archives' || FEATURES.archives)
