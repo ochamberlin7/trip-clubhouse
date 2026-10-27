@@ -54,19 +54,24 @@ const LAYOUT = [
   { type: 'wide', title: 'Most drinks', tone: 'drinks', key: 'drinks' },
 ]
 
+const firstOf = name => name.trim().split(/\s+/)[0]
+
 // "Jeff Nelson" → "Jeff N." (a single-word name stays as is).
 function firstAndInitial(name) {
   const parts = name.trim().split(/\s+/)
   return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0]
 }
 
-// One winner → full name; two or more → first name + last initial, A–Z,
-// comma-separated ("Jeff N., Jon N., Owen C.").
+// One winner → full name. Two or more → first names, A–Z, comma-separated; a
+// player whose first name is shared with someone else on the trip also gets their
+// last initial ("Mike S., Mike T., Owen"), so no name is ambiguous.
 function winnersLabel(cat, nameById) {
   const names = (cat?.leader?.ids || []).map(id => nameById.get(id)).filter(Boolean).sort((a, b) => a.localeCompare(b))
   if (names.length === 0) return null
   if (names.length === 1) return names[0]
-  return names.map(firstAndInitial).join(', ')
+  const firstCounts = new Map()
+  for (const n of nameById.values()) { const f = firstOf(n).toLowerCase(); firstCounts.set(f, (firstCounts.get(f) || 0) + 1) }
+  return names.map(n => (firstCounts.get(firstOf(n).toLowerCase()) > 1 ? firstAndInitial(n) : firstOf(n))).join(', ')
 }
 
 function WideTile({ title, tone, cat, nameById }) {
