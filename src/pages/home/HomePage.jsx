@@ -19,44 +19,46 @@ import { inviteTokenFrom } from '../../lib/inviteMatch'
 const NAVY = '#1B3F6E'
 const INK = '#0D1B2A'
 const MUTED = '#8A96A3'
-const LINE = 'var(--bg3)'
+// Clubhouse look ("3A"): the app's navy page, white cards, gold accents.
+const GOLD = '#B08A3E'        // fills: New trip pill, initials circle, card edge
+const GOLD_SOFT = '#D8C08A'   // text on navy: brand, section titles, links
+const ON_NAVY = '#C7D6EA'     // quiet text on navy
+const NAVY_LINE = '#2C5F8A'   // card borders on navy
 const SERIF = "'Playfair Display', Georgia, serif"
 
 const h = {
-  // Same page background as the rest of the app (--bg0).
-  page: { minHeight: '100vh', background: 'var(--bg0)', padding: '18px 16px 40px', boxSizing: 'border-box' },
+  page: { minHeight: '100vh', background: 'var(--navy)', padding: '18px 16px 40px', boxSizing: 'border-box' },
   inner: { maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 },
   top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  brand: { fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK },
-  hero: { textAlign: 'center', padding: '12px 0 4px' },
+  brand: { fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: GOLD_SOFT },
   // Next-trip countdown / live card: light outline; tapping anywhere opens the trip.
-  heroCard: { display: 'block', width: '100%', textAlign: 'center', padding: '18px 16px 16px', background: '#fff', border: '1px solid var(--bg3)', borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' },
-  big: { fontFamily: SERIF, fontSize: 64, fontWeight: 700, lineHeight: 1, color: NAVY },
+  heroCard: { display: 'block', width: '100%', textAlign: 'center', padding: '18px 16px 16px', background: '#fff', border: `1px solid ${GOLD}`, borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' },
+  big: { fontFamily: SERIF, fontSize: 64, fontWeight: 700, lineHeight: 1.15, color: INK },
   eyebrow: { fontSize: 11, letterSpacing: '1.6px', color: MUTED, fontWeight: 700, textTransform: 'uppercase' },
   heroName: { fontFamily: SERIF, fontSize: 22, fontWeight: 700, color: INK, marginTop: 6 },
   heroSub: { fontSize: 13, color: MUTED, marginTop: 2 },
   pills: { display: 'flex', gap: 8 },
-  pill: { flex: 1, padding: '9px 0', borderRadius: 999, border: '1px solid var(--bg3)', background: '#fff', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  pillPrimary: { background: NAVY, borderColor: NAVY, color: '#fff' },
+  pill: { flex: 1, padding: '9px 0', borderRadius: 999, border: `1px solid ${NAVY_LINE}`, background: '#fff', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  pillPrimary: { background: GOLD, borderColor: GOLD, color: '#fff' },
   secRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' },
-  sec: { fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: INK, margin: 0 },
-  link: { background: 'none', border: 'none', padding: 0, color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  sec: { fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: GOLD_SOFT, margin: 0 },
+  link: { background: 'none', border: 'none', padding: 0, color: GOLD_SOFT, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   // Bottom-right footnote.
-  footLink: { display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-end', margin: '4px 0 0', padding: 0, background: 'none', border: 'none', color: MUTED, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
+  footLink: { display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-end', margin: '4px 0 0', padding: 0, background: 'none', border: 'none', color: ON_NAVY, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
   seeAll: { display: 'block', width: '100%', padding: 11, background: '#FBFCFD', border: 'none', borderTop: '1px solid var(--bg2)', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  box: { background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, overflow: 'hidden' },
+  box: { background: '#fff', border: `1px solid ${NAVY_LINE}`, borderRadius: 14, overflow: 'hidden' },
   row: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' },
   rowLine: { borderTop: '1px solid var(--bg2)' },
   tripName: { fontSize: 15, fontWeight: 700, color: INK },
   tripSub: { fontSize: 12, color: MUTED, marginTop: 2 },
   tag: { marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap' },
   chev: { color: '#A9B4C0', fontSize: 18, lineHeight: 1 },
-  empty: { border: '1.5px dashed #C4CEDA', borderRadius: 14, padding: 14, textAlign: 'center', fontSize: 13, color: MUTED, lineHeight: 1.45 },
+  empty: { border: '1.5px dashed rgba(199,214,234,0.45)', borderRadius: 14, padding: 14, textAlign: 'center', fontSize: 13, color: ON_NAVY, lineHeight: 1.45 },
   stats: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'center', padding: '12px 4px' },
   statNum: { display: 'block', fontSize: 20, fontWeight: 800, color: NAVY },
   statLab: { fontSize: 11, color: MUTED },
   badges: { display: 'flex', gap: 10 },
-  badge: { flex: 1, aspectRatio: '1', borderRadius: '50%', border: '1.5px dashed #C4CEDA', background: '#fff' },
+  badge: { flex: 1, aspectRatio: '1', borderRadius: '50%', border: '1.5px dashed rgba(216,192,138,0.55)', background: 'transparent' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   sheet: { background: '#fff', borderRadius: 14, padding: 22, width: '100%', maxWidth: 380, boxSizing: 'border-box' },
   input: { width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #DDE3EA', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', marginTop: 12 },
@@ -176,7 +178,7 @@ export default function HomePage() {
 
   let hero
   if (trips == null) {
-    hero = <div style={{ ...h.hero, ...h.heroSub, padding: '30px 0' }}>Loading…</div>
+    hero = <div style={{ ...h.heroCard, ...h.heroSub, cursor: 'default', padding: '30px 0' }}>Loading…</div>
   } else if (next && live.includes(next)) {
     const phase = getTripPhase({ trip: next, now, timeZone: next.time_zone || undefined })
     hero = (
@@ -192,21 +194,21 @@ export default function HomePage() {
     hero = (
       <button style={h.heroCard} onClick={() => openTrip(next.id)}>
         <div style={h.big}>{days ?? '—'}</div>
-        <div style={{ ...h.eyebrow, marginTop: 6 }}>{days === 1 ? 'Day until' : 'Days until'}</div>
+        <div style={{ ...h.eyebrow, marginTop: 10 }}>{days === 1 ? 'Day until' : 'Days until'}</div>
         <div style={h.heroName}>{next.name}</div>
         <div style={h.heroSub}>{facts.join(' · ')}</div>
       </button>
     )
   } else if (past.length) {
     hero = (
-      <div style={{ ...h.hero, padding: '18px 0 6px' }}>
+      <div style={{ ...h.heroCard, cursor: 'default' }}>
         <div style={h.eyebrow}>Next trip</div>
         <div style={{ ...h.heroName, fontSize: 26 }}>Not booked yet</div>
       </div>
     )
   } else {
     hero = (
-      <div style={{ ...h.hero, padding: '18px 0 6px' }}>
+      <div style={{ ...h.heroCard, cursor: 'default' }}>
         <div style={{ ...h.heroName, fontSize: 26 }}>Welcome{firstName ? `, ${firstName}` : ''}</div>
         <div style={{ ...h.heroSub, maxWidth: 260, margin: '6px auto 0', lineHeight: 1.45 }}>Run your golf trip in one place: pairings, live scores, leaderboards and the trash talk.</div>
       </div>
@@ -222,7 +224,7 @@ export default function HomePage() {
       <div style={h.inner}>
         <div style={h.top}>
           <div style={h.brand}>Trip Clubhouse</div>
-          <ProfileAvatar style={{ position: 'static', top: 'auto', right: 'auto' }} />
+          <ProfileAvatar style={{ position: 'static', top: 'auto', right: 'auto', background: GOLD, borderColor: 'transparent', boxShadow: 'none' }} />
         </div>
 
         {hero}
@@ -271,7 +273,7 @@ export default function HomePage() {
           <h2 style={h.sec}>Your career</h2>
           {hasCareer && <button style={h.link} onClick={() => setCareerSoon(true)}>See all career stats ›</button>}
         </div>
-        {careerSoon && <div style={{ fontSize: 12, color: MUTED, marginTop: -8 }}>The full career stats page is coming soon.</div>}
+        {careerSoon && <div style={{ fontSize: 12, color: ON_NAVY, marginTop: -8 }}>The full career stats page is coming soon.</div>}
         {hasCareer ? (
           <div style={{ ...h.box, ...h.stats }}>
             <div><b style={h.statNum}>{career.trips}</b><span style={h.statLab}>Trips</span></div>
@@ -285,7 +287,7 @@ export default function HomePage() {
 
         <div style={h.secRow}>
           <h2 style={h.sec}>Badges</h2>
-          <span style={{ fontSize: 13, color: MUTED }}>Coming soon</span>
+          <span style={{ fontSize: 13, color: ON_NAVY }}>Coming soon</span>
         </div>
         <div style={h.badges} aria-hidden="true">
           {[0, 1, 2, 3].map(i => <span key={i} style={h.badge} />)}
