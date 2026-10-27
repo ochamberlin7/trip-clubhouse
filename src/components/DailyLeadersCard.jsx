@@ -19,8 +19,8 @@ const st = {
   body: { display: 'flex', flexDirection: 'column', gap: 8, padding: 10 },
   tile: { border: '1px solid #E3E8EE', borderRadius: 10, padding: '9px 12px', minWidth: 0 },
   wideRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
-  label: { fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
-  who: { fontSize: 13, fontWeight: 600, color: NAVY, lineHeight: 1.35 },
+  title: { fontSize: 15, fontWeight: 700, lineHeight: 1.3 },
+  who: { fontSize: 13, fontWeight: 500, color: '#5A7290', lineHeight: 1.35 },
   bigNum: { fontSize: 24, fontWeight: 700, color: NAVY, flexShrink: 0, lineHeight: 1.1 },
   split: { display: 'grid', gridTemplateColumns: '1fr 1fr', marginTop: 6 },
   half: { minWidth: 0 },
@@ -35,19 +35,23 @@ const st = {
   dotActive: { background: NAVY },
 }
 
+// Title colour says what kind of stat it is: green = bragging rights,
+// red = the roast, gold = drinks.
+const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
+
 // Card layout, top to bottom: full-width tiles for Most Points, Points Defended
 // and Most Drinks; Gross | Net split tiles for everything else. Keys are the
 // category keys from src/lib/dailyLeaders.js.
 const LAYOUT = [
-  { type: 'wide', title: 'Most Points', key: 'points' },
-  { type: 'wide', title: 'Points Defended', key: 'defended' },
-  { type: 'split', title: 'Best Score', gross: 'bestGross', net: 'bestNet' },
-  { type: 'split', title: 'Most Birdies', gross: 'birdiesGross', net: 'birdiesNet' },
-  { type: 'split', title: 'Most Pars', gross: 'parsGross', net: 'parsNet' },
-  { type: 'split', title: 'Most Bogeys', gross: 'bogeysGross', net: 'bogeysNet' },
-  { type: 'split', title: 'Most Doubles or Worse', gross: 'doublesGross', net: 'doublesNet' },
-  { type: 'split', title: 'Worst Round', gross: 'worstGross', net: 'worstNet' },
-  { type: 'wide', title: 'Most Drinks', key: 'drinks' },
+  { type: 'wide', title: 'Most points', tone: 'good', key: 'points' },
+  { type: 'wide', title: 'Points defended', tone: 'good', key: 'defended' },
+  { type: 'split', title: 'Best score', tone: 'good', gross: 'bestGross', net: 'bestNet' },
+  { type: 'split', title: 'Most birdies', tone: 'good', gross: 'birdiesGross', net: 'birdiesNet' },
+  { type: 'split', title: 'Most pars', tone: 'good', gross: 'parsGross', net: 'parsNet' },
+  { type: 'split', title: 'Most bogeys', tone: 'bad', gross: 'bogeysGross', net: 'bogeysNet' },
+  { type: 'split', title: 'Most doubles or worse', tone: 'bad', gross: 'doublesGross', net: 'doublesNet' },
+  { type: 'split', title: 'Worst round', tone: 'bad', gross: 'worstGross', net: 'worstNet' },
+  { type: 'wide', title: 'Most drinks', tone: 'drinks', key: 'drinks' },
 ]
 
 // One winner → full name; two or more → first names, A–Z, comma-separated.
@@ -58,12 +62,12 @@ function winnersLabel(cat, nameById) {
   return names.map(n => n.trim().split(/\s+/)[0]).join(', ')
 }
 
-function WideTile({ title, cat, nameById }) {
+function WideTile({ title, tone, cat, nameById }) {
   const who = winnersLabel(cat, nameById)
   return (
     <div style={{ ...st.tile, ...st.wideRow }}>
       <div style={{ minWidth: 0 }}>
-        <div style={st.label}>{title}</div>
+        <div style={{ ...st.title, color: TONE[tone] }}>{title}</div>
         <div style={{ ...st.who, ...(who ? null : st.none) }}>{who || 'None'}</div>
       </div>
       <div style={{ ...st.bigNum, ...(who ? null : st.none) }}>{who ? cat.format(cat.leader.value) : '—'}</div>
@@ -82,10 +86,10 @@ function SplitHalf({ mode, cat, nameById, right }) {
   )
 }
 
-function SplitTile({ title, gross, net, nameById }) {
+function SplitTile({ title, tone, gross, net, nameById }) {
   return (
     <div style={st.tile}>
-      <div style={st.label}>{title}</div>
+      <div style={{ ...st.title, color: TONE[tone] }}>{title}</div>
       <div style={st.split}>
         <SplitHalf mode="Gross" cat={gross} nameById={nameById} />
         <SplitHalf mode="Net" cat={net} nameById={nameById} right />
@@ -99,8 +103,8 @@ function DayTiles({ day, nameById }) {
   return (
     <div style={st.body}>
       {LAYOUT.map(t => t.type === 'wide'
-        ? <WideTile key={t.key} title={t.title} cat={byKey.get(t.key)} nameById={nameById} />
-        : <SplitTile key={t.title} title={t.title} gross={byKey.get(t.gross)} net={byKey.get(t.net)} nameById={nameById} />)}
+        ? <WideTile key={t.key} title={t.title} tone={t.tone} cat={byKey.get(t.key)} nameById={nameById} />
+        : <SplitTile key={t.title} title={t.title} tone={t.tone} gross={byKey.get(t.gross)} net={byKey.get(t.net)} nameById={nameById} />)}
     </div>
   )
 }
