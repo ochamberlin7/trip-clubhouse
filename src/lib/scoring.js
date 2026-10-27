@@ -1306,7 +1306,12 @@ export function standardHolesWonByPlayer(
 //     that side's best (so both teammates score when tied for low).
 // Practice / none rounds never count. Takes the same data bundle as
 // analyzeScoring. Returns Map(trip_player_id -> points).
-export function matchPlayPointsByPlayer(
+// Every decided-or-not hole of every tournament pairing, from the shared helpers
+// (pairingShots + matchHoleOutcomes) — the SAME decisions as the scorecard badges,
+// the leaderboard and Standard holes-won. Returns [{ roundId, t1, t2, outcomes }].
+// matchPlayPointsByPlayer and pointsDefendedByPlayer both read this, so they can't
+// disagree about who won, halved or lost a hole.
+export function matchPairingOutcomes(
   { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds = [] },
   allowance = 100
 ) {
@@ -1337,8 +1342,7 @@ export function matchPlayPointsByPlayer(
     ppByPairing.get(pp.pairing_id).push(pp)
   }
 
-  const points = new Map()
-  const credit = tp => points.set(tp, (points.get(tp) || 0) + 1)
+  const result = []
 
   for (const r of rounds) {
     if (!isTournamentRound(r)) continue
@@ -1360,14 +1364,41 @@ export function matchPlayPointsByPlayer(
       // each winning-side player whose own net equals that side's best (both if tied).
       const playing = pairingShots(round, [...t1, ...t2], id => hcpByPlayer.get(id), id => teeRowByRoundPlayer.get(`${r.id}:${id}`), allowance)
       const outcomes = matchHoleOutcomes({ roundId: r.id, t1Players: t1, t2Players: t2, shots: playing, scoresMap: scoreMap, holes })
-      for (const o of outcomes) {
-        if (o.winner === 'T1') o.t1Winners.forEach(credit)
-        else if (o.winner === 'T2') o.t2Winners.forEach(credit)
-        // halve / undecided → no points
-      }
+      result.push({ roundId: r.id, t1, t2, outcomes })
+    }
+  }
+  return result
+}
+
+export function matchPlayPointsByPlayer(bundle, allowance = 100) {
+  const points = new Map()
+  const credit = tp => points.set(tp, (points.get(tp) || 0) + 1)
+  for (const { outcomes } of matchPairingOutcomes(bundle, allowance)) {
+    for (const o of outcomes) {
+      if (o.winner === 'T1') o.t1Winners.forEach(credit)
+      else if (o.winner === 'T2') o.t2Winners.forEach(credit)
+      // halve / undecided → no points
     }
   }
   return points
+}
+
+// Points Defended: holes your side HALVED only because of you — you were your
+// side's sole best net and your partner's net was worse, so without your score
+// the other side would have won the point. Not counted when both partners tie for
+// the side's best (nobody saved it alone), on holes your side won (already a
+// point), or when you have no partner on that side. Tournament rounds only.
+export function pointsDefendedByPlayer(bundle, allowance = 100) {
+  const defended = new Map()
+  const credit = tp => defended.set(tp, (defended.get(tp) || 0) + 1)
+  for (const { t1, t2, outcomes } of matchPairingOutcomes(bundle, allowance)) {
+    for (const o of outcomes) {
+      if (o.winner !== 'halve') continue
+      if (t1.length >= 2 && o.t1Winners.length === 1) credit(o.t1Winners[0])
+      if (t2.length >= 2 && o.t2Winners.length === 1) credit(o.t2Winners[0])
+    }
+  }
+  return defended
 }
 
 // Per-player "on fire" stats across all rounds — matches the scorecard's fire

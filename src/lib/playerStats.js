@@ -3,13 +3,14 @@
 // day's completed rounds) plus the trip's rows. Pure; unit-testable in Node.
 //
 //   • primary: net best-ball match-play points (matchPlayPointsByPlayer).
+//   • defended: Points Defended — halved holes saved alone (pointsDefendedByPlayer).
 //   • gross / net: eagles, birdies, pars, pars-or-better, bogeys, doubles,
 //     triples+, best and worst round — tracked independently per mode. Net uses
 //     the scorecard's off-the-low match shots, so net birdies agree with the dots.
 //   • best / worst round: complete 18-hole rounds only.
 //   • vsPar: total strokes vs par over every scored hole that has a par (per mode).
 import {
-  matchPlayPointsByPlayer, fireStatsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, effectiveAllowance, shotsGivenFromCourseHandicaps,
+  matchPlayPointsByPlayer, pointsDefendedByPlayer, fireStatsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, effectiveAllowance, shotsGivenFromCourseHandicaps,
 } from './scoring.js'
 
 // Off-low (match-play) shots per player per round, grouped by pairing — identical
@@ -77,6 +78,7 @@ export function computePlayerStats({ rounds, scores, pairings, pairingPlayers, t
   // decided hole the winning side's best-net player(s) score (both when tied).
   const bundle = { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds }
   const primaryByPlayer = matchPlayPointsByPlayer(bundle, allowance)
+  const defendedByPlayer = pointsDefendedByPlayer(bundle, allowance)
   // Fire stats (mode-independent, net-based) — matches the scorecard's fire display.
   const fireByPlayer = fireStatsByPlayer(bundle, allowance)
 
@@ -114,9 +116,10 @@ export function computePlayerStats({ rounds, scores, pairings, pairingPlayers, t
   // Six vs-par categories + best/worst round, tracked separately for gross and
   // net (never derived from each other).
   const emptyMode = () => ({ eagles: 0, birdies: 0, pars: 0, parsOrBetter: 0, bogeys: 0, doubles: 0, triples: 0, bestRound: null, worstRound: null, vsPar: null })
-  const blank = () => ({ primary: 0, fireStreak: 0, fireHolesTotal: 0, gross: emptyMode(), net: emptyMode() })
+  const blank = () => ({ primary: 0, defended: 0, fireStreak: 0, fireHolesTotal: 0, gross: emptyMode(), net: emptyMode() })
   const stats = new Map(tripPlayers.map(p => [p.id, blank()]))
   for (const [tp, v] of primaryByPlayer) { if (stats.has(tp)) stats.get(tp).primary = v }
+  for (const [tp, v] of defendedByPlayer) { if (stats.has(tp)) stats.get(tp).defended = v }
   for (const [tp, f] of fireByPlayer) { if (stats.has(tp)) { stats.get(tp).fireStreak = f.maxStreak; stats.get(tp).fireHolesTotal = f.fireHolesTotal } }
 
   const bucket = (m, diff) => {

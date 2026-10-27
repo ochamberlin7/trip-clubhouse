@@ -34,6 +34,7 @@ function StatSymbols() {
   return (
     <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
       <symbol id="ic-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20.5V3" /><path d="M12 4l7 2.6-7 2.6z" /><path d="M8.3 20.5h7.4" /></symbol>
+      <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5l7 2.7v5.3c0 4.6-2.9 7.3-7 8.5-4.1-1.2-7-3.9-7-8.5V6.2l7-2.7z" /></symbol>
       <symbol id="ic-shieldcheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5l7 2.7v5.3c0 4.6-2.9 7.3-7 8.5-4.1-1.2-7-3.9-7-8.5V6.2l7-2.7z" /><path d="M8.7 12.3l2.2 2.2 4.4-4.4" /></symbol>
       <symbol id="ic-circle1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="7.5" /></symbol>
       <symbol id="ic-dcircle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="12" r="8.2" /><circle cx="12" cy="12" r="5.2" /></symbol>
@@ -300,6 +301,8 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   // Tile descriptors per tab. Icons per the spec; Points Won uses the "+1" text.
   const scoringTiles = [
     { key: 'primary', title: primaryCard.title, icon: '+1', hi: true, valueOf: p => stats.get(p.id)?.primary ?? 0 },
+    // Halved holes a player saved alone (net, like Points Won — the toggle doesn't change it).
+    { key: 'defended', title: 'Points Defended', icon: 'ic-shield', hi: true, valueOf: p => stats.get(p.id)?.defended ?? 0 },
     { key: 'eagles', title: 'Eagles', icon: 'ic-dcircle', hi: true, valueOf: modeValue('eagles') },
     { key: 'birdies', title: 'Birdies', icon: 'ic-circle1', hi: true, valueOf: modeValue('birdies') },
     { key: 'pars', title: 'Pars', icon: 'ic-flag', hi: true, valueOf: modeValue('pars') },
@@ -378,7 +381,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     return (
       <>
         {/* Gross / Net toggle — controls the Scoring counting tiles + Best/Worst
-            Round (not Points Won, Fire, or Drinks). Default Gross. */}
+            Round (not Points Won, Points Defended, Fire, or Drinks). Default Gross. */}
         {toggleTabs.has(tabName) && (
           <div className="gross-net-toggle" role="tablist" aria-label="Gross or net stats">
             <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>

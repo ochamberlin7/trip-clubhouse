@@ -16,6 +16,7 @@ import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
 // `zeroIsNone`: a best value of 0 means nobody earned it (e.g. no birdies) → no leader.
 export const LEADER_CATEGORIES = [
   { key: 'points',      label: 'Most Points',  hi: true,  zeroIsNone: false, format: v => `${v} pts` },
+  { key: 'defended',    label: 'Points Defended', hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'bestNet',     label: 'Best Net',     hi: false, zeroIsNone: false, format: v => formatVsPar(v) },
   { key: 'birdiesGross', label: 'Most Birdies', mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'birdiesNet',   label: 'Most Birdies', mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
@@ -88,6 +89,7 @@ export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null 
     const pick = fn => new Map(tripPlayers.map(p => [p.id, fn(stats.get(p.id))]))
     const values = {
       points,
+      defended: pick(s => s?.defended ?? null),
       bestNet: pick(s => s?.net.vsPar ?? null),
       birdiesGross: pick(s => s?.gross.birdies ?? null),
       birdiesNet: pick(s => s?.net.birdies ?? null),
