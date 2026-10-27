@@ -534,7 +534,8 @@ select {
 .stat-tab{flex-shrink:0;padding:8px 18px;border-radius:999px;background:#fff;color:#5B6B84;border:1px solid #E5E7EB;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background 0.15s,color 0.15s,border-color 0.15s}
 .stat-tab.active{background:#1B3F6E;color:#fff;border-color:#1B3F6E}
 .stat-tiles-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.stat-tile{background:#fff;border-radius:16px;box-shadow:0 10px 20px -12px rgba(15,30,51,.22);overflow:hidden}
+/* Thin border so the light title bar reads as the top of the card on the grey page. */
+.stat-tile{background:#fff;border:1px solid #D5DEE8;border-radius:16px;box-shadow:0 10px 20px -12px rgba(15,30,51,.22);overflow:hidden}
 /* Skinny navy header bar (shorter than the Home-widget bar) — white icon + label. */
 /* Same title bar as the Daily Leaders tiles: light navy bar, 15px bold title in
    green / red / gold (colour set inline per stat). */
