@@ -17,12 +17,15 @@ const GREY = '#8a96a3'
 const MUTED = '#A9B4C0'
 const st = {
   body: { display: 'flex', flexDirection: 'column', gap: 8, padding: 10 },
-  tile: { border: '1px solid #E3E8EE', borderRadius: 10, padding: '9px 12px', minWidth: 0 },
+  tile: { border: '1px solid #E3E8EE', borderRadius: 10, overflow: 'hidden', minWidth: 0 },
+  // Light navy title bar across the top of each tile; the title keeps its tone colour.
+  titleBar: { background: '#EEF2F7', padding: '5px 12px' },
+  inner: { padding: '7px 12px 9px' },
   wideRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   title: { fontSize: 15, fontWeight: 700, lineHeight: 1.3 },
   who: { fontSize: 13, fontWeight: 500, color: '#5A7290', lineHeight: 1.35 },
   bigNum: { fontSize: 24, fontWeight: 700, color: NAVY, flexShrink: 0, lineHeight: 1.1 },
-  split: { display: 'grid', gridTemplateColumns: '1fr 1fr', marginTop: 6 },
+  split: { display: 'grid', gridTemplateColumns: '1fr 1fr' },
   half: { minWidth: 0 },
   halfRight: { minWidth: 0, borderLeft: '1px solid #E3E8EE', paddingLeft: 12 },
   mode: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
@@ -77,12 +80,12 @@ function winnersLabel(cat, nameById) {
 function WideTile({ title, tone, cat, nameById }) {
   const who = winnersLabel(cat, nameById)
   return (
-    <div style={{ ...st.tile, ...st.wideRow }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ ...st.title, color: TONE[tone] }}>{title}</div>
-        <div style={{ ...st.who, ...(who ? null : st.none) }}>{who || 'None'}</div>
+    <div style={st.tile}>
+      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone] }}>{title}</div>
+      <div style={{ ...st.inner, ...st.wideRow }}>
+        <div style={{ ...st.who, minWidth: 0, ...(who ? null : st.none) }}>{who || 'None'}</div>
+        <div style={{ ...st.bigNum, ...(who ? null : st.none) }}>{who ? cat.format(cat.leader.value) : '—'}</div>
       </div>
-      <div style={{ ...st.bigNum, ...(who ? null : st.none) }}>{who ? cat.format(cat.leader.value) : '—'}</div>
     </div>
   )
 }
@@ -101,8 +104,8 @@ function SplitHalf({ mode, cat, nameById, right }) {
 function SplitTile({ title, tone, gross, net, nameById }) {
   return (
     <div style={st.tile}>
-      <div style={{ ...st.title, color: TONE[tone] }}>{title}</div>
-      <div style={st.split}>
+      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone] }}>{title}</div>
+      <div style={{ ...st.inner, ...st.split }}>
         <SplitHalf mode="Gross" cat={gross} nameById={nameById} />
         <SplitHalf mode="Net" cat={net} nameById={nameById} right />
       </div>
