@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { useSwipePager } from '../lib/useSwipePager'
 import { playerName } from '../lib/scoring'
 import { buildDailyLeaders } from '../lib/dailyLeaders'
 import { shortNameResolver } from '../lib/playerNames'
+import { STAT_INFO } from '../lib/statDefinitions'
+import { InfoButton, InfoBubble } from './InfoTip'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL, HOME_CARD_TAIL } from './homeCardTokens'
 import HomeCard from './homeCard'
 
@@ -48,7 +50,7 @@ const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
 // category keys from src/lib/dailyLeaders.js.
 const LAYOUT = [
   { type: 'wide', title: 'Most points', tone: 'good', key: 'points' },
-  { type: 'wide', title: 'Points defended', tone: 'good', key: 'defended' },
+  { type: 'wide', title: 'Points defended', tone: 'good', key: 'defended', info: STAT_INFO.defended },
   { type: 'split', title: 'Best score', tone: 'good', gross: 'bestGross', net: 'bestNet' },
   { type: 'split', title: 'Most birdies', tone: 'good', gross: 'birdiesGross', net: 'birdiesNet' },
   { type: 'split', title: 'Most pars', tone: 'good', gross: 'parsGross', net: 'parsNet' },
@@ -67,11 +69,17 @@ function winnersLabel(cat, nameById) {
   return names.map(short).join(', ')
 }
 
-function WideTile({ title, tone, cat, nameById }) {
+function WideTile({ title, tone, cat, nameById, info }) {
   const who = winnersLabel(cat, nameById)
+  const [infoOpen, setInfoOpen] = useState(false)
+  const infoRef = useRef(null)
   return (
     <div style={st.tile}>
-      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone] }}>{title}</div>
+      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone], display: 'flex', alignItems: 'flex-start' }}>
+        {title}
+        {info && <InfoButton ref={infoRef} open={infoOpen} onToggle={() => setInfoOpen(v => !v)} color={TONE[tone]} label={`What is ${title}?`} />}
+      </div>
+      {info && infoOpen && <InfoBubble anchorRef={infoRef} onClose={() => setInfoOpen(false)}>{info}</InfoBubble>}
       <div style={{ ...st.inner, ...st.wideRow }}>
         <div style={{ ...st.who, minWidth: 0, ...(who ? null : st.none) }}>{who || 'None'}</div>
         <div style={{ ...st.bigNum, ...(who ? null : st.none) }}>{who ? cat.format(cat.leader.value) : '—'}</div>
@@ -108,7 +116,7 @@ function DayTiles({ day, nameById }) {
   return (
     <div style={st.body}>
       {LAYOUT.map(t => t.type === 'wide'
-        ? <WideTile key={t.key} title={t.title} tone={t.tone} cat={byKey.get(t.key)} nameById={nameById} />
+        ? <WideTile key={t.key} title={t.title} tone={t.tone} cat={byKey.get(t.key)} nameById={nameById} info={t.info} />
         : <SplitTile key={t.title} title={t.title} tone={t.tone} gross={byKey.get(t.gross)} net={byKey.get(t.net)} nameById={nameById} />)}
     </div>
   )
