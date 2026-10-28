@@ -3,6 +3,8 @@
 // the app (player pills, score-entry modal badge, leaderboard/pairing headers, live
 // banner, scorecard badges & totals). Stylesheet rules read these via CSS variables
 // published by applyTeamColorVars(); never hardcode a team hex anywhere else.
+// Trips that ended before TEAM_COLORS_CHANGED_ON keep LEGACY_TEAM_COLORS (below);
+// the trip screen picks the palette with setTeamPalette(paletteForTrip(trip)).
 //
 //   1 red · 2 blue · 3 green · 4 purple · 5 amber · 6 teal (5-6 cover future growth).
 //
@@ -20,8 +22,42 @@ export const TEAM_COLORS = {
   6: { solid: '#15808F', pillBg: 'rgba(21,128,143,0.15)', text: '#126C79' },
 }
 
+// The ORIGINAL palette (navy · teal · plum · gold · olive · berry). Trips that ended
+// before the colour change keep it, so their scorecards and leaderboards look the way
+// the group remembers them.
+export const LEGACY_TEAM_COLORS = {
+  1: { solid: '#1B3F6E', pillBg: 'rgba(27,63,110,0.15)', text: '#1B3F6E' },
+  2: { solid: '#0F6E56', pillBg: 'rgba(15,110,86,0.15)', text: '#0F6E56' },
+  3: { solid: '#7B4B94', pillBg: 'rgba(123,75,148,0.15)', text: '#7B4B94' },
+  4: { solid: '#D4A017', pillBg: 'rgba(212,160,23,0.18)', text: '#8A6A00' },
+  5: { solid: '#3C6E1F', pillBg: 'rgba(60,110,31,0.15)', text: '#3C6E1F' },
+  6: { solid: '#8A4A6E', pillBg: 'rgba(138,74,110,0.15)', text: '#8A4A6E' },
+}
+
+// The day the new palette went live. A trip that ENDED before this keeps the old
+// colours; every other trip (including ones that end later) uses TEAM_COLORS.
+export const TEAM_COLORS_CHANGED_ON = '2026-10-27'
+
+// Which palette a trip uses: 'legacy' or 'current'. The ONE rule for this.
+export function paletteForTrip(trip) {
+  return trip?.end_date && trip.end_date < TEAM_COLORS_CHANGED_ON ? 'legacy' : 'current'
+}
+
+// The palette in use right now — set by the trip screen when a trip opens
+// (setTeamPalette), read by teamColor() and the CSS variables below.
+let activePalette = TEAM_COLORS
+
 export function teamColor(index) {
-  return TEAM_COLORS[index] || TEAM_COLORS[1]
+  return activePalette[index] || activePalette[1]
+}
+
+// Switch the active palette ('legacy' | 'current') and republish the CSS variables.
+// Safe to call on every render — it only does work when the palette changes.
+export function setTeamPalette(name) {
+  const next = name === 'legacy' ? LEGACY_TEAM_COLORS : TEAM_COLORS
+  if (next === activePalette) return
+  activePalette = next
+  applyTeamColorVars()
 }
 
 // Publish the solid team colours as CSS custom properties (--team-1 … --team-6) so
@@ -30,7 +66,7 @@ export function teamColor(index) {
 export function applyTeamColorVars(root) {
   const el = root || (typeof document !== 'undefined' ? document.documentElement : null)
   if (!el) return
-  for (const [index, c] of Object.entries(TEAM_COLORS)) {
+  for (const [index, c] of Object.entries(activePalette)) {
     el.style.setProperty(`--team-${index}`, c.solid)
   }
 }

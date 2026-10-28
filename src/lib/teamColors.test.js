@@ -25,3 +25,24 @@ test('applyTeamColorVars publishes --team-1..6 from the palette (single source)'
   assert.equal(set['--team-4'], TEAM_COLORS[4].solid)
   assert.equal(Object.keys(set).length, 6)
 })
+
+// ── Past trips keep the old palette ─────────────────────────────
+import { paletteForTrip, setTeamPalette, LEGACY_TEAM_COLORS, TEAM_COLORS_CHANGED_ON } from './teamColors.js'
+
+test('paletteForTrip: trips that ended before the change keep the old colours', () => {
+  assert.equal(TEAM_COLORS_CHANGED_ON, '2026-10-27')
+  assert.equal(paletteForTrip({ end_date: '2026-10-04' }), 'legacy')   // CTI Michigan
+  assert.equal(paletteForTrip({ end_date: '2026-10-27' }), 'current')  // ends on the day → new
+  assert.equal(paletteForTrip({ end_date: '2026-11-08' }), 'current')
+  assert.equal(paletteForTrip({ end_date: null }), 'current')
+  assert.equal(paletteForTrip(null), 'current')
+})
+
+test('setTeamPalette switches what teamColor returns, and back', () => {
+  setTeamPalette('legacy')
+  assert.equal(teamColor(1).solid, LEGACY_TEAM_COLORS[1].solid) // navy
+  assert.equal(teamColor(2).solid, '#0F6E56')                    // teal
+  setTeamPalette('current')
+  assert.equal(teamColor(1).solid, TEAM_COLORS[1].solid)        // red
+  assert.notEqual(teamColor(1).solid, LEGACY_TEAM_COLORS[1].solid)
+})

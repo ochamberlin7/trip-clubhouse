@@ -5,7 +5,7 @@ import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import { getTripPhase, screenForTripPhase, defaultRoundForTrip, isRoundLiveAt, zonedTodayAndMinutes, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites, isRosterLocked, teamStandings, leaderboardRounds } from '../../lib/scoring'
-import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
+import { teamColor, colorIndexOf, getTeamDisplayName, setTeamPalette, paletteForTrip } from '../../lib/teamColors'
 import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
 import { useResumeRefetch } from '../../lib/useResumeRefetch'
@@ -1618,6 +1618,9 @@ export default function TripDashboard() {
   const now = new Date()
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const devFullOverride = isDevUser && !!trip.test_mode
+  // Team colours: trips that ended before the palette change keep the old colours.
+  // Set before any child renders a team colour (idempotent — only acts on a change).
+  setTeamPalette(paletteForTrip(trip))
   const readOnly = !!(trip.end_date && trip.end_date < todayIso) && !devFullOverride
   const canManage = isCommissioner && !readOnly
   // Players can be removed/replaced only before the trip starts (trip-local date).
