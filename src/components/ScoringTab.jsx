@@ -5,6 +5,8 @@ import { strokesOnHole, netScore, rawCourseHandicapForTee, resolvePlayerTee, sho
 import { teamPillStyle, getTeamDisplayName, teamColor, colorIndexOf } from '../lib/teamColors'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import PullToRefresh from './PullToRefresh'
+import { enqueue, isNetworkError, getQueue, overlayQueue, saveScorecardSnapshot, readScorecardSnapshot } from '../lib/scoreQueue'
+import { setScoreSyncHandlers } from '../lib/useScoreSync'
 
 // Live interactive scorecard — better-ball match play with drink tracking.
 // Scores/drinks keyed by trip_player_id. Pairings use team_slot 1..4
@@ -114,7 +116,7 @@ function MatchCell({ entry, t1Color, t2Color }) {
   )
 }
 
-export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, isDevUser = false, readOnly = false, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage }) {
+export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, isDevUser = false, readOnly = false, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage, offline = false }) {
   const [pairings, setPairings] = useState([])
   const [pairingPlayers, setPairingPlayers] = useState([]) // {id, pairing_id, trip_player_id, team_slot}
   const [playersById, setPlayersById] = useState({})
@@ -149,12 +151,14 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
   async function loadPairings() {
     if (roundIds.length === 0) return
-    const { data: pairs } = await supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds)
+    const { data: pairs, error: pairErr } = await supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds)
+    if (pairErr) return // no signal → keep what's on screen
     const pairList = pairs || []
     const pairIds = pairList.map(p => p.id)
     let pp = []
     if (pairIds.length) {
-      const { data } = await supabase.from('pairing_players').select('id, pairing_id, trip_player_id, team_slot').in('pairing_id', pairIds)
+      const { data, error } = await supabase.from('pairing_players').select('id, pairing_id, trip_player_id, team_slot').in('pairing_id', pairIds)
+      if (error) return
       pp = data || []
     }
     setPairings(pairList)
@@ -164,8 +168,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // Per-player tee selections for every round (drives per-player course handicap).
   async function loadPlayerRounds() {
     if (roundIds.length === 0) return
-    const { data } = await supabase.from('player_rounds')
+    const { data, error } = await supabase.from('player_rounds')
       .select('trip_player_id, round_id, tee_name, slope, rating, par').in('round_id', roundIds)
+    if (error) return
     const m = {}
     ;(data || []).forEach(pr => { m[`${pr.round_id}:${pr.trip_player_id}`] = pr })
     setPlayerRoundsMap(m)
@@ -175,8 +180,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // pairing-assignment dropdown opens, so it always reflects the latest roster
   // and handicap_index (e.g. after a handicap edit on a player card).
   async function loadPlayers() {
-    const { data: tps } = await supabase.from('trip_players')
+    const { data: tps, error: tpErr } = await supabase.from('trip_players')
       .select('id, user_id, claimed_user_id, first_name, last_name, guest_name, handicap_index, team_id').eq('trip_id', trip.id)
+    if (tpErr) return null // no signal → keep what's on screen
     const list = tps || []
     const userIds = list.map(t => t.user_id).filter(Boolean)
     const profMap = {}
@@ -207,12 +213,30 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         supabase.from('scores').select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds),
         supabase.from('drinks').select('round_id, trip_player_id, hole_number, count').in('round_id', roundIds),
       ])
+      if (cancelled) return
+      // No signal: keep the card on screen. On a first open, use the copy saved on
+      // this phone (plus anything still waiting to sync).
+      if (teamRes.error || scoreRes.error || drinkRes.error) {
+        if (!hasLoadedRef.current) {
+          const snap = readScorecardSnapshot(trip.id)
+          if (snap) {
+            const o = overlayQueue(snap.scores, snap.drinks, getQueue())
+            setTeams(snap.teams || []); setScores(o.scores); setDrinks(o.drinks)
+            setPlayersById(snap.playersById || {}); setPairings(snap.pairings || [])
+            setPairingPlayers(snap.pairingPlayers || []); setPlayerRoundsMap(snap.playerRoundsMap || {})
+            hasLoadedRef.current = true
+          }
+        }
+        setLoading(false)
+        return
+      }
       const sMap = {}; (scoreRes.data || []).forEach(s => { if (s.gross_score != null) sMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score })
       const dMap = {}; (drinkRes.data || []).forEach(d => { if (d.count > 0) dMap[`${d.round_id}:${d.trip_player_id}:${d.hole_number}`] = d.count })
-      if (cancelled) return
+      // Scores entered offline that haven't synced yet win over the fetched copy.
+      const o = overlayQueue(sMap, dMap, getQueue())
       setTeams(teamRes.data || [])
-      setScores(sMap)
-      setDrinks(dMap)
+      setScores(o.scores)
+      setDrinks(o.drinks)
       await loadPlayers()
       await loadPairings()
       await loadPlayerRounds()
@@ -332,6 +356,33 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     setReconnectTick(t => t + 1)
     return new Promise(resolve => setTimeout(resolve, 700))
   }
+
+  // Keep a copy of the scorecard on this phone (for opening the Score tab with no
+  // signal). Saved a moment after anything changes, once the card has loaded.
+  useEffect(() => {
+    if (!hasLoadedRef.current) return
+    const id = setTimeout(() => saveScorecardSnapshot(trip.id, { teams, scores, drinks, playersById, pairings, pairingPlayers, playerRoundsMap }), 800)
+    return () => clearTimeout(id)
+  }, [trip.id, teams, scores, drinks, playersById, pairings, pairingPlayers, playerRoundsMap])
+
+  // When queued (offline) scores finally sync, tell everyone else on this round so
+  // their cards update — the same broadcasts a normal save/remove sends. A queued
+  // score the server rejects (e.g. no permission) shows the usual error and reloads.
+  useEffect(() => {
+    setScoreSyncHandlers({
+      onSynced: x => {
+        if (x.round_id !== activeRoundId) return
+        channelRef.current?.send(x.op === 'delete'
+          ? { type: 'broadcast', event: 'score_deleted', payload: { round_id: x.round_id, trip_player_id: x.trip_player_id, hole_number: x.hole_number } }
+          : { type: 'broadcast', event: 'score_changed', payload: { round_id: x.round_id, trip_player_id: x.trip_player_id, hole_number: x.hole_number, gross_score: x.gross_score, count: x.count } })
+      },
+      onRejected: () => {
+        setSaveError('Couldn’t save a score entered offline — you may not have permission for that pairing.')
+        setReloadTick(t => t + 1)
+      },
+    })
+    return () => setScoreSyncHandlers({ onSynced: null, onRejected: null })
+  }, [activeRoundId])
 
   // Report realtime status up so the page header can show the live dot.
   useEffect(() => { onConnStatus?.(connStatus) }, [connStatus, onConnStatus])
@@ -693,11 +744,19 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     })
     setModal(null)
 
-    // 3 — background write; roll both cells back on failure.
+    // 3 — background write. No signal → keep the score on the card and queue it on
+    // this phone (it syncs automatically once the signal is back). A real rejection
+    // rolls both cells back as before.
+    const queued = { op: 'save', round_id: round.id, trip_player_id: tpId, hole_number: hole, gross_score: score, count: drinkCount }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { enqueue(queued); return }
     ;(async () => {
-      const { error } = await supabase.from('scores').upsert(
-        { round_id: round.id, trip_player_id: tpId, hole_number: hole, gross_score: score },
-        { onConflict: 'round_id,trip_player_id,hole_number' })
+      let error
+      try {
+        ;({ error } = await supabase.from('scores').upsert(
+          { round_id: round.id, trip_player_id: tpId, hole_number: hole, gross_score: score },
+          { onConflict: 'round_id,trip_player_id,hole_number' }))
+      } catch (e) { error = e }
+      if (error && isNetworkError(error)) { enqueue(queued); return }
       if (error) {
         setScores(prev => {
           const n = { ...prev }
@@ -846,6 +905,13 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   return (
     <PullToRefresh onRefresh={handlePullRefresh} disabled={!!modal || !!notice || openSlot != null}>
     <div>
+      {/* No signal, or scores still waiting to sync: a calm banner (the live dot in
+          the header turns red too). Goes away once everything has synced. */}
+      {offline && (
+        <div role="status" style={{ margin: '0 0 10px', padding: '9px 12px', borderRadius: 10, background: '#FDECEA', border: '1px solid #F5C2BD', color: '#8E2B21', fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
+          No signal — scores will update when your signal is back.
+        </div>
+      )}
       {/* Round pills */}
       <div className="pill-row">
         {visibleRounds.map(r => (
@@ -1013,11 +1079,22 @@ function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSav
   }
   async function remove() {
     setBusy(true); setErr(null)
+    // No signal → take it off the card now and queue the removal on this phone.
+    const queueIt = () => {
+      enqueue({ op: 'delete', round_id: round.id, trip_player_id: tpId, hole_number: hole })
+      setBusy(false)
+      onRemoved(hole, tpId)
+    }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { queueIt(); return }
     // .select() returns the deleted rows, so we can confirm the DB actually
     // removed something (RLS blocks silently with a 204 / 0 rows).
-    const { data, error } = await supabase.from('scores').delete()
-      .eq('round_id', round.id).eq('trip_player_id', tpId).eq('hole_number', hole)
-      .select()
+    let data, error
+    try {
+      ;({ data, error } = await supabase.from('scores').delete()
+        .eq('round_id', round.id).eq('trip_player_id', tpId).eq('hole_number', hole)
+        .select())
+    } catch (e) { error = e }
+    if (error && isNetworkError(error)) { queueIt(); return }
     if (error) {
       setBusy(false); setErr(error.message)
       // eslint-disable-next-line no-console
