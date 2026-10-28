@@ -10,6 +10,8 @@ import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
 import { useResumeRefetch } from '../../lib/useResumeRefetch'
 import { useScoreSync } from '../../lib/useScoreSync'
+import { saveCopy, readCopy } from '../../lib/offlineCache'
+import { isNetworkError } from '../../lib/scoreQueue'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
@@ -1452,20 +1454,35 @@ export default function TripDashboard() {
       }
 
       const roundList = sortRoundsByTee(roundsRes.data || [])
-      setRounds(roundList)
-      setPlayers(rawPlayers.map(p => ({
+      const playerList = rawPlayers.map(p => ({
         ...p,
         displayName: p.guest_name ?? profileMap[p.user_id] ?? '(unknown)',
         isGuest: !!p.guest_name,
-      })))
+      }))
+      setRounds(roundList)
+      setPlayers(playerList)
       setTeams(teamsRes.data || [])
+      // Keep a copy on this phone for opening the trip with no signal.
+      saveCopy(`trip:${tripData.id}`, { trip: tripData, rounds: roundList, players: playerList, rawPlayers, teams: teamsRes.data || [], meals: mealsRes.data || [], isCommissioner: memberRes.data?.role === 'admin' })
 
       // Determine the round being played right now → auto-open Score on load.
       // Pass the freshly-fetched trip (state `trip` isn't set yet this render) so the
       // phase/liveness use the trip's time zone.
       await computeActiveScoring(roundList, rawPlayers, tripData)
     } catch (err) {
-      setFetchError(err?.message || String(err))
+      // No signal: open the trip from the copy saved on this phone (the Score tab
+      // has its own copy; scores entered now sync when the signal is back).
+      const saved = isNetworkError(err) ? readCopy(`trip:${activeTrip.id}`) : null
+      if (saved?.trip) {
+        setTrip(saved.trip)
+        setRounds(saved.rounds || [])
+        setPlayers(saved.players || [])
+        setTeams(saved.teams || [])
+        setMeals(saved.meals || [])
+        setIsCommissioner(!!saved.isCommissioner)
+      } else {
+        setFetchError(err?.message || String(err))
+      }
     } finally {
       setLoading(false)
     }
@@ -1685,7 +1702,7 @@ export default function TripDashboard() {
           keys must be UNIQUE among siblings — see the banner/drawer below) */}
       <div className="dashboard-content" key={`content-${trip.id}`}>
         {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} onOpenMenuPage={openMenuPage} onNavigateTab={setActiveTab} />}
-        {activeTab === 'scores'      && <ScoringTab key={scoreNavTick} trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} isDevUser={isDevUser} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} offline={scoresUnsynced} />}
+        {activeTab === 'scores'      && <ScoringTab key={scoreNavTick} trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} isDevUser={isDevUser} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} meals={meals} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => sortRoundsByTee(rs.map(r => r.id === id ? { ...r, ...patch } : r)))} />}

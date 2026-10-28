@@ -116,7 +116,7 @@ function MatchCell({ entry, t1Color, t2Color }) {
   )
 }
 
-export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, isDevUser = false, readOnly = false, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage, offline = false }) {
+export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, isDevUser = false, readOnly = false, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage }) {
   const [pairings, setPairings] = useState([])
   const [pairingPlayers, setPairingPlayers] = useState([]) // {id, pairing_id, trip_player_id, team_slot}
   const [playersById, setPlayersById] = useState({})
@@ -905,13 +905,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   return (
     <PullToRefresh onRefresh={handlePullRefresh} disabled={!!modal || !!notice || openSlot != null}>
     <div>
-      {/* No signal, or scores still waiting to sync: a small tab that hangs down from
-          the top of the screen (the live dot in the header turns red too). Slides
-          away once everything has synced. Portaled so it sits above everything. */}
-      {offline && createPortal(
-        <div role="status" className="no-signal-tab">No signal — scores will update when it's back</div>,
-        document.body,
-      )}
+      {/* The "No signal" tab is app-wide now (NoSignalTab in AppShell). */}
       {/* Round pills */}
       <div className="pill-row">
         {visibleRounds.map(r => (

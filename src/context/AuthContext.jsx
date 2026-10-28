@@ -18,6 +18,27 @@ function storedRefreshToken() {
   }
 }
 
+// The session saved on this phone (user + tokens), used when there's no signal to
+// renew it. Without this, opening the app offline more than ~1h after last use
+// would land on the sign-in screen even though you're still signed in.
+function storedSession() {
+  try {
+    const raw = localStorage.getItem('trip-clubhouse-auth')
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const s = parsed?.currentSession || parsed
+    return s?.user ? s : null
+  } catch {
+    return null
+  }
+}
+
+// Did that auth call fail because there's no signal (not because the login is bad)?
+function isOfflineAuthError(error) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true
+  return !!error && (error.status === 0 || error.name === 'AuthRetryableFetchError' || /fetch|load failed|network|offline/i.test(error.message || ''))
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [session, setSession] = useState(null)
@@ -81,6 +102,10 @@ export function AuthProvider({ children }) {
         const { data, error } = await supabase.auth.refreshSession()
         if (!active) return
         if (!error && data?.session) { apply(data.session); return }
+        // No signal to renew it: stay signed in with the session saved on this phone
+        // (it renews automatically when the app comes back online / to the front).
+        const saved = storedSession()
+        if (saved && isOfflineAuthError(error)) { apply(saved); return }
       }
 
       apply(null)

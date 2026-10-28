@@ -9,9 +9,10 @@ import { applyTeamColorVars } from './lib/teamColors'
 // paint team-coloured elements from the single palette in lib/teamColors.js.
 applyTeamColorVars()
 
-// Register the push-only service worker (no caching/fetch handler — see public/sw.js).
-// Harmless on load: it does NOT prompt for notifications (that's requested
-// contextually later) and does nothing on browsers without SW support.
+// Register the service worker (push notifications + a copy of the app so it opens
+// with no signal — network-first for the page, see public/sw.js). It does NOT prompt
+// for notifications (that's requested contextually later) and does nothing on
+// browsers without SW support.
 registerServiceWorker()
 
 const bootMsg = document.getElementById('boot-msg')
