@@ -5,6 +5,7 @@
 //   • Warrior / Workhorse     → pointsDefendedByPlayer / matchPlayPointsByPlayer
 //   • On Fire                 → fireStatsByPlayer
 //   • completeness            → analyzeScoring
+//   • Champion                → teamStandings via tripFinishes (same as the Leaderboard)
 // Rules (Owen, 2026-10-27): scoring badges are GROSS only; practice rounds count;
 // Warrior and Workhorse come per day AND per trip; roast badges are in. Ties: every
 // tied leader earns the badge.
@@ -15,6 +16,7 @@ import {
 import { courseHolesFromRounds } from './playerStats.js'
 import { buildDailyLeaders } from './dailyLeaders.js'
 import { tripTimeStatus } from './myTrips.js'
+import { tripFinishes } from './careerStats.js'
 
 export const BADGE_GROUPS = [
   { id: 'journey', title: 'Journey' },
@@ -53,7 +55,7 @@ export const BADGES = [
   { id: 'workhorse_day', group: 'team', name: 'Workhorse of the Day', mark: 'WH', desc: 'Most points on your team for a day.' },
   { id: 'workhorse_trip', group: 'team', name: 'Trip Workhorse', mark: 'WH', desc: 'Most points on your team for a whole trip.' },
   { id: 'on_fire', group: 'team', name: 'On Fire', mark: 'F', desc: 'A fire streak of 3 or more holes in a round.' },
-  { id: 'champion', group: 'team', name: 'Champion', mark: 'C', desc: 'On the winning team of a trip.', comingSoon: true },
+  { id: 'champion', group: 'team', name: 'Champion', mark: 'C', desc: 'On the winning team of a trip (ties count).' },
 
   { id: 'snowman', group: 'roast', name: 'Snowman', mark: '8', desc: 'An 8 or worse on a hole.' },
   { id: 'wooden_spoon', group: 'roast', name: 'Wooden Spoon', mark: 'WS', desc: 'Worst gross round of a day.' },
@@ -166,6 +168,13 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
       const f = fireStatsByPlayer(bundle([r]), t.allowance ?? 100).get(me.id)
       if (f && f.maxStreak >= 3) add('on_fire', { date: r.date, tripName, detail: `${f.maxStreak} holes` })
     }
+  }
+
+  // Champion: your team finished first (co-champions count) on a finished trip.
+  const finishes = tripFinishes(perTrip, userId, now)
+  for (const t of perTrip) {
+    const f = finishes.get(t.tripId)
+    if (f === 'Champion' || f === 'Co-champion') add('champion', { date: t.trip?.end_date, tripName: t.tripName || '' })
   }
 
   // Milestones count across everything.

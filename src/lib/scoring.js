@@ -1242,6 +1242,95 @@ export function liveStandardMatchTally(round, pairings, pairingPlayers, scoresMa
   })
 }
 
+// ── Team standings: who's winning the trip ────────────────────────────────────
+// The ONE place a trip's team standings are added up — read by the Leaderboard,
+// the Champion badge and the past-trip finish labels so they can never disagree.
+// Rounds that count: not 'none' placeholders, not practice, not "no scoring".
+export function leaderboardRounds(rounds = []) {
+  return rounds.filter(r => r && r.round_type !== 'none' && r.round_type !== 'practice' && !r.no_scoring)
+}
+
+// format: trips.format — 'standard_match_play' (each round's match = 1 / 0.5 / 0)
+//         or Points Match Play (every hole won = 1 point; also legacy 'match_play').
+// Inputs are the Leaderboard's own shapes (scoresMap / hcpByPlayer / teeRowMap).
+// Returns { rounds, perRound: Map(teamId → Map(roundId → { pts, scored, matches, completed })),
+//           total: Map(teamId → pts), ranked: [{ teamId, total, rank }] } — rank is
+//           competition-style (ties share a rank).
+export function teamStandings({ format, rounds, pairings = [], pairingPlayers = [], scoresMap = {}, hcpByPlayer = {}, teeRowMap = {}, allowance = 100, teamIds = [] }) {
+  const lbRounds = leaderboardRounds(rounds)
+  const standard = format === 'standard_match_play'
+  const perRound = new Map(teamIds.map(id => [id, new Map()]))
+  const total = new Map(teamIds.map(id => [id, 0]))
+  const cell = (teamId, roundId) => {
+    if (!perRound.has(teamId)) { perRound.set(teamId, new Map()); total.set(teamId, 0) }
+    const m = perRound.get(teamId)
+    if (!m.has(roundId)) m.set(roundId, { pts: 0, scored: 0, matches: 0, completed: 0 })
+    return m.get(roundId)
+  }
+  for (const r of lbRounds) {
+    for (const id of teamIds) cell(id, r.id)
+    if (standard) {
+      // Each pairing's match result goes to the real team on that side.
+      for (const row of liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)) {
+        if (!row.hasMatch) continue
+        for (const [teamId, side] of [[row.team1_id, 'T1'], [row.team2_id, 'T2']]) {
+          if (!teamId) continue
+          const c = cell(teamId, r.id)
+          c.matches++
+          if (!row.complete) continue
+          c.completed++
+          const pts = row.result === side ? 1 : row.result === 'halve' ? 0.5 : 0
+          c.pts += pts
+          total.set(teamId, total.get(teamId) + pts)
+        }
+      }
+    } else {
+      // Hole wins per side → the real team on that side (team1_id = slots 1&2).
+      for (const row of liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)) {
+        for (const [teamId, pts] of [[row.team1_id, row.t1pts], [row.team2_id, row.t2pts]]) {
+          if (!teamId) continue
+          const c = cell(teamId, r.id)
+          c.pts += pts
+          c.scored += row.holesScored
+          total.set(teamId, total.get(teamId) + pts)
+        }
+      }
+    }
+  }
+  const sorted = [...total].sort((a, b) => b[1] - a[1])
+  let rank = 0
+  const ranked = sorted.map(([teamId, t], i) => {
+    if (i === 0 || t !== sorted[i - 1][1]) rank = i + 1
+    return { teamId, total: t, rank }
+  })
+  return { rounds: lbRounds, perRound, total, ranked }
+}
+
+// Same standings from raw table rows (scores / player_rounds arrays), for places
+// that load rows rather than the Leaderboard's maps (badges, the Home page).
+export function teamStandingsFromRows({ format, rounds, scores = [], pairings = [], pairingPlayers = [], tripPlayers = [], playerRounds = [], allowance = 100, teamIds }) {
+  const scoresMap = {}
+  for (const s of scores) if (s.gross_score != null) scoresMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score
+  const teeRowMap = {}
+  for (const pr of playerRounds) teeRowMap[`${pr.round_id}:${pr.trip_player_id}`] = pr
+  const hcpByPlayer = {}
+  for (const tp of tripPlayers) hcpByPlayer[tp.id] = tp.handicap_index
+  const ids = teamIds || [...new Set(tripPlayers.map(p => p.team_id).filter(Boolean))]
+  return teamStandings({ format, rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance, teamIds: ids })
+}
+
+// "Champion", "Tied for 1st", "2nd place", … for a team's finish (rank from
+// teamStandings). null when the team has no standing.
+export function finishLabel(ranked = [], teamId) {
+  const me = ranked.find(r => r.teamId === teamId)
+  if (!me) return null
+  const tied = ranked.filter(r => r.rank === me.rank).length > 1
+  if (me.rank === 1) return tied ? 'Co-champion' : 'Champion'
+  const n = me.rank
+  const sfx = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'
+  return `${tied ? 'Tied for ' : ''}${n}${sfx}${tied ? '' : ' place'}`
+}
+
 // Per-player count of holes they PERSONALLY won across all Standard Match Play
 // rounds. The winning SIDE per hole is determined by standardMatchTally
 // (identical net/stroke math to the live banner/leaderboard — halved and

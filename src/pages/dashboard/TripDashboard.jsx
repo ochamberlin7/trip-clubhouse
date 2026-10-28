@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getTripPhase, screenForTripPhase, defaultRoundForTrip, isRoundLiveAt, zonedTodayAndMinutes, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites, isRosterLocked } from '../../lib/scoring'
+import { getTripPhase, screenForTripPhase, defaultRoundForTrip, isRoundLiveAt, zonedTodayAndMinutes, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites, isRosterLocked, teamStandings, leaderboardRounds } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
@@ -489,9 +489,9 @@ function PointsLeaderboard({ trip, teams, rounds }) {
   useResumeRefetch(() => setResumeTick(t => t + 1))
 
   const allowance = trip?.handicap_allowance ?? 100
-  // Leaderboard shows only counting rounds: exclude 'none' placeholders, practice
-  // rounds, and "no scoring" (tee-times-only) rounds.
-  const lbRounds = rounds.filter(r => r.round_type !== 'none' && r.round_type !== 'practice' && !r.no_scoring)
+  // Leaderboard shows only counting rounds (shared rule: no 'none' placeholders,
+  // practice rounds, or "no scoring" tee-times-only rounds).
+  const lbRounds = leaderboardRounds(rounds)
   const roundIds = lbRounds.map(r => r.id)
   const roundKey = roundIds.join(',')
 
@@ -560,31 +560,16 @@ function PointsLeaderboard({ trip, teams, rounds }) {
     return () => { cancelled = true; supabase.removeChannel(ch) }
   }, [trip?.id, roundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // roundId -> per-pairing Points Match Play tally (hole-win counts per side).
-  // Empty until the full load lands (data === null), so nothing is computed from
-  // partial inputs.
-  const byRound = useMemo(() => {
-    const m = new Map()
-    if (!data) return m
-    for (const r of lbRounds) {
-      m.set(r.id, liveMatchTally(r, data.pairings, data.pairingPlayers, data.scoresMap, data.hcpByPlayer, allowance, data.teeRowMap))
-    }
-    return m
-  }, [roundKey, data, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Attribute each pairing's hole wins to the REAL team on that side
-  // (team1_id = slots 1&2, team2_id = slots 3&4), so any team can face any other
-  // and a team split across pairings is summed correctly. `scored` only counts
-  // pairings this team is in, so an unplayed team still shows '—' per round.
-  const roundPointsForTeam = (teamId, roundId) => {
-    let pts = 0, scored = 0
-    for (const row of (byRound.get(roundId) || [])) {
-      if (row.team1_id === teamId) { pts += row.t1pts; scored += row.holesScored }
-      else if (row.team2_id === teamId) { pts += row.t2pts; scored += row.holesScored }
-    }
-    return { pts, scored }
-  }
-  const totalForTeam = teamId => lbRounds.reduce((a, r) => a + roundPointsForTeam(teamId, r.id).pts, 0)
+  // Standings come from the ONE shared function (teamStandings in scoring.js) —
+  // the same numbers the Champion badge and past-trip finishes use. Each pairing's
+  // hole wins go to the REAL team on that side; `scored` only counts pairings this
+  // team is in, so an unplayed team still shows '—' per round. Empty until the full
+  // load lands (data === null), so nothing is computed from partial inputs.
+  const standings = useMemo(() => (data
+    ? teamStandings({ format: trip.format, rounds, ...data, allowance, teamIds: teams.map(t => t.id) })
+    : null), [roundKey, data, allowance, teams, trip.format]) // eslint-disable-line react-hooks/exhaustive-deps
+  const roundPointsForTeam = (teamId, roundId) => standings?.perRound.get(teamId)?.get(roundId) || { pts: 0, scored: 0 }
+  const totalForTeam = teamId => standings?.total.get(teamId) ?? 0
   const roundCellTeam = (teamId, roundId) => {
     const { pts, scored } = roundPointsForTeam(teamId, roundId)
     return scored === 0 ? '—' : pts
@@ -715,38 +700,19 @@ function StandardLeaderboard({ trip, teams, rounds }) {
     return () => { cancelled = true; supabase.removeChannel(ch) }
   }, [trip?.id, roundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // roundId -> per-pairing Standard Match Play results. Empty until the full load
-  // lands (data === null), so nothing is computed from partial inputs.
-  const byRound = useMemo(() => {
-    const m = new Map()
-    if (!data) return m
-    for (const r of lbRounds) {
-      m.set(r.id, liveStandardMatchTally(r, data.pairings, data.pairingPlayers, data.scoresMap, data.hcpByPlayer, allowance, data.teeRowMap))
-    }
-    return m
-  }, [roundKey, data, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Standings from the ONE shared function (teamStandings in scoring.js): each
+  // completed round's match is worth 1 / 0.5 / 0 to the real team on that side.
+  // Empty until the full load lands (data === null).
+  const standings = useMemo(() => (data
+    ? teamStandings({ format: 'standard_match_play', rounds, ...data, allowance, teamIds: teams.map(t => t.id) })
+    : null), [roundKey, data, allowance, teams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fmtPts = x => (Number.isInteger(x) ? String(x) : x.toFixed(1))
 
-  // Attribute each pairing's match result to the REAL team on that side
-  // (team1_id -> 'T1', team2_id -> 'T2'). `matches` only counts pairings this
-  // team is in, so a team in exactly one match shows W/H/L while a team split
-  // across two matches in a round shows its summed points.
-  const roundPointsForTeam = (teamId, roundId) => {
-    let pts = 0, matches = 0, completed = 0
-    for (const row of (byRound.get(roundId) || [])) {
-      if (!row.hasMatch) continue
-      const side = row.team1_id === teamId ? 'T1' : row.team2_id === teamId ? 'T2' : null
-      if (!side) continue
-      matches++
-      if (!row.complete) continue
-      completed++
-      if (row.result === side) pts += 1
-      else if (row.result === 'halve') pts += 0.5
-    }
-    return { pts, matches, completed }
-  }
-  const totalForTeam = teamId => lbRounds.reduce((a, r) => a + roundPointsForTeam(teamId, r.id).pts, 0)
+  // `matches` only counts pairings this team is in, so a team in exactly one match
+  // shows W/H/L while a team split across two matches in a round shows its summed points.
+  const roundPointsForTeam = (teamId, roundId) => standings?.perRound.get(teamId)?.get(roundId) || { pts: 0, matches: 0, completed: 0 }
+  const totalForTeam = teamId => standings?.total.get(teamId) ?? 0
   const roundBadge = (teamId, roundId) => {
     const { pts, matches, completed } = roundPointsForTeam(teamId, roundId)
     if (matches === 0 || completed === 0) return '—'

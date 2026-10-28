@@ -4,7 +4,8 @@
 // A player is matched across trips by their account (user_id / claimed_user_id),
 // so a guest slot that was never claimed can't count toward anyone's career.
 import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
-import { roundHoleCount } from './scoring.js'
+import { roundHoleCount, teamStandingsFromRows, finishLabel } from './scoring.js'
+import { tripTimeStatus } from './myTrips.js'
 
 // perTrip: [{ tripId, rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, allowance }]
 // userId:  the account whose career this is.
@@ -37,13 +38,30 @@ export function buildCareer(perTrip = [], userId) {
   return out
 }
 
+// Your team's finish on each finished team trip — "Champion", "2nd place", … —
+// from the shared teamStandings (same math as the Leaderboard). Returns
+// Map(tripId → label); trips with no teams, no team for you, or still going are skipped.
+export function tripFinishes(perTrip = [], userId, now = new Date()) {
+  const out = new Map()
+  for (const t of perTrip) {
+    if (!t.trip?.team_mode || tripTimeStatus(t.trip, now) !== 'past') continue
+    const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
+    if (!me?.team_id) continue
+    const { ranked } = teamStandingsFromRows({ format: t.trip.format, ...t })
+    if (!ranked.some(r => r.total > 0)) continue // nothing scored → no finish yet
+    const label = finishLabel(ranked, me.team_id)
+    if (label) out.set(t.tripId, label)
+  }
+  return out
+}
+
 // Loads every trip's scoring rows in one batch and groups them per trip, ready
 // for buildCareer and computeBadges (badges.js). `trips` = the player's trips ({ id, ... }); allowance comes
 // from each trip row.
 export async function loadCareerData(client, tripIds = []) {
   if (!tripIds.length) return []
   const [tripsRes, roundsRes, playersRes] = await Promise.all([
-    client.from('trips').select('id, name, start_date, end_date, time_zone, handicap_allowance').in('id', tripIds),
+    client.from('trips').select('id, name, start_date, end_date, time_zone, handicap_allowance, format, team_mode').in('id', tripIds),
     client.from('rounds').select('*').in('trip_id', tripIds),
     client.from('trip_players').select('id, trip_id, user_id, claimed_user_id, handicap_index, team_id').in('trip_id', tripIds),
   ])

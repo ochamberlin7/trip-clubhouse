@@ -91,8 +91,8 @@ function fmtRange(t) {
 
 // One trip row. The trip's commissioner can swipe left to delete it (soft delete,
 // restorable for 30 days); everyone else just taps to open it.
-function TripRow({ trip, status, first, unread, onOpen, onDelete }) {
-  const parts = [fmtRange(trip), trip.location].filter(Boolean)
+function TripRow({ trip, status, first, unread, finish, onOpen, onDelete }) {
+  const parts = [fmtRange(trip), finish, trip.location].filter(Boolean)
   return (
     <SwipeDeleteRow canDelete={!!trip.canDelete} rowStyle={{ ...h.row, ...(first ? null : h.rowLine) }} outerStyle={first ? undefined : h.rowLine}
       coverBg="#fff" onPick={() => onOpen(trip.id)} onDelete={() => onDelete(trip)}>
@@ -140,7 +140,7 @@ export default function HomePage() {
   const { switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
   const navigate = useNavigate()
   // Trips, career totals and badges — shared loader with the Trophy Room.
-  const { trips, deleted, career, badges, reload } = useMyCareer(user?.id)
+  const { trips, deleted, career, badges, finishes, reload } = useMyCareer(user?.id)
   const [showAllPast, setShowAllPast] = useState(false)
   const [joining, setJoining] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -250,7 +250,7 @@ export default function HomePage() {
               <>
                 <div style={h.secRow}><h2 style={h.sec}>Past trips</h2></div>
                 <div style={h.box}>
-                  {pastShown.map((t, i) => <TripRow key={t.id} trip={t} status="past" first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />)}
+                  {pastShown.map((t, i) => <TripRow key={t.id} trip={t} status="past" first={i === 0} unread={unreadTripIds?.has(t.id)} finish={finishes?.get(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />)}
                   {past.length > 3 && (
                     <button style={h.seeAll} onClick={() => setShowAllPast(v => !v)}>{showAllPast ? 'Show less' : `See all ${past.length} past trips ›`}</button>
                   )}

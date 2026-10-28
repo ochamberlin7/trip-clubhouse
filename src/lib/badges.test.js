@@ -2,6 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { computeBadges, BADGES } from './badges.js'
+import { tripFinishes } from './careerStats.js'
 
 const HOLES = Array.from({ length: 18 }, (_, i) => ({ par: 4, handicap: i + 1 }))
 const round = (id, date, extra = {}) => ({ id, date, round_type: 'tournament', holes: HOLES, slope_rating: 113, course_rating: 72, par_total: 72, club_name: 'Test GC', ...extra })
@@ -73,7 +74,7 @@ test('Warrior / Workhorse: per day and per trip, only when you lead your team', 
   assert.equal(got(live, 'first_trip').earned, false)
 })
 
-test('repeatable badges count; milestones tier up; Champion stays locked', () => {
+test('repeatable badges count; milestones tier up; no Champion without teams', () => {
   const gross = (p, h) => (p === 'A' ? (h <= 3 ? 3 : 4) : 5)
   const rs = Array.from({ length: 10 }, (_, i) => round(`R${i}`, `2026-10-0${(i % 3) + 1}`))
   const m = computeBadges([trip({ rounds: rs, gross })], 'U', NOW)
@@ -88,4 +89,20 @@ test('repeatable badges count; milestones tier up; Champion stays locked', () =>
 test('nothing earned for someone who is not on the trip', () => {
   const m = computeBadges([trip({ rounds: [round('R1', '2026-10-01')], gross: () => 3 })], 'NOBODY', NOW)
   assert.equal([...m.values()].some(v => v.earned), false)
+})
+
+test('Champion + past-trip finish come from the shared team standings', () => {
+  // T1 (A + B) wins holes 2–18 → T1 champion; my team is TA.
+  const gross = (p, h) => ({ A: h === 1 ? 3 : 4, B: h === 1 ? 4 : 5, C: h === 1 ? 3 : 5, D: 5 })[p]
+  const t = trip({ rounds: [round('R1', '2026-10-01')], gross })
+  t.trip = { ...t.trip, team_mode: true, format: 'point_match_play' }
+  assert.equal(tripFinishes([t], 'U', NOW).get('T'), 'Champion')
+  assert.equal(computeBadges([t], 'U', NOW).get('champion').earned, true)
+  // Same trip seen by a player on the other team → 2nd place, no badge.
+  const other = { ...t, tripPlayers: t.tripPlayers.map(p => (p.id === 'C' ? { ...p, user_id: 'X', claimed_user_id: 'X' } : p)) }
+  assert.equal(tripFinishes([other], 'X', NOW).get('T'), '2nd place')
+  assert.equal(computeBadges([other], 'X', NOW).get('champion').earned, false)
+  // Trip still going → no finish yet.
+  const live = { ...t, trip: { ...t.trip, start_date: '2026-10-26', end_date: '2026-10-29' } }
+  assert.equal(tripFinishes([live], 'U', NOW).has('T'), false)
 })
