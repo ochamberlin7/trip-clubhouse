@@ -40,9 +40,9 @@ function statusLine(badge, state) {
     return next ? `${have}${n} of ${next} ${badge.unit} for ${TIER_NAMES[badge.tiers.indexOf(next)]}.` : `${have}${n} ${badge.unit}. Top tier reached.`
   }
   if (!state?.earned) return 'Not earned yet.'
-  const latest = state.events[0]
-  const when = latest ? ` Latest: ${[fmtDate(latest.date), latest.tripName].filter(Boolean).join(', ')}.` : ''
-  return `${state.count > 1 ? `Earned ${state.count} times.` : 'Earned.'}${when}`
+  const first = state.events[0]
+  const where = first ? [fmtDate(first.date), first.tripName].filter(Boolean).join(', ') : ''
+  return where ? `Earned ${where}.` : 'Earned.'
 }
 
 export default function TrophyRoomPage() {

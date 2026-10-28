@@ -7,8 +7,9 @@
 //   • completeness            → analyzeScoring
 //   • Champion                → teamStandings via tripFinishes (same as the Leaderboard)
 // Rules (Owen, 2026-10-27): scoring badges are GROSS only; practice rounds count;
-// Warrior and Workhorse come per day AND per trip; roast badges are in. Ties: every
-// tied leader earns the badge.
+// Warrior and Workhorse come per day AND per trip; roast badges are in. Every badge
+// is earned ONCE (no repeat counts); milestones level up bronze/silver/gold. Ties:
+// every tied leader earns a daily/team badge, except Champion (outright wins only).
 import {
   analyzeScoring, matchPlayPointsByPlayer, pointsDefendedByPlayer, fireStatsByPlayer,
   roundHoleCount, isNoneRound,
@@ -40,9 +41,10 @@ export const BADGES = [
   { id: 'par_machine', group: 'scoring', name: 'Par Machine', mark: 'P5', desc: '5 or more pars in a round (gross).' },
   { id: 'par_train', group: 'scoring', name: 'Par Train', mark: 'P10', desc: '10 or more pars in a round (gross).' },
   { id: 'bogey_free', group: 'scoring', name: 'Bogey-Free', mark: 'BF', desc: 'A full round with no bogeys or worse (gross).' },
-  { id: 'broke_100', group: 'scoring', name: 'Broke 100', mark: '99', desc: 'An 18-hole round under 100 (gross).' },
-  { id: 'broke_90', group: 'scoring', name: 'Broke 90', mark: '89', desc: 'An 18-hole round under 90 (gross).' },
-  { id: 'broke_80', group: 'scoring', name: 'Broke 80', mark: '79', desc: 'An 18-hole round under 80 (gross).' },
+  { id: 'broke_100', group: 'scoring', name: 'Broke 100', mark: '90s', desc: 'An 18-hole round under 100 (gross).' },
+  { id: 'broke_90', group: 'scoring', name: 'Broke 90', mark: '80s', desc: 'An 18-hole round under 90 (gross).' },
+  { id: 'broke_80', group: 'scoring', name: 'Broke 80', mark: '70s', desc: 'An 18-hole round under 80 (gross).' },
+  { id: 'broke_70', group: 'scoring', name: 'Broke 70', mark: '60s', desc: 'An 18-hole round under 70 (gross).' },
   { id: 'eagle', group: 'scoring', name: 'Eagle', mark: 'E', desc: 'Two or more under par on a hole (gross).' },
   { id: 'hole_in_one', group: 'scoring', name: 'Hole in One', mark: 'H1', desc: 'An ace.' },
 
@@ -55,7 +57,7 @@ export const BADGES = [
   { id: 'workhorse_day', group: 'team', name: 'Workhorse of the Day', mark: 'WH', desc: 'Most points on your team for a day.' },
   { id: 'workhorse_trip', group: 'team', name: 'Trip Workhorse', mark: 'WH', desc: 'Most points on your team for a whole trip.' },
   { id: 'on_fire', group: 'team', name: 'On Fire', mark: 'F', desc: 'A fire streak of 3 or more holes in a round.' },
-  { id: 'champion', group: 'team', name: 'Champion', mark: 'C', desc: 'On the winning team of a trip (ties count).' },
+  { id: 'champion', group: 'team', name: 'Champion', mark: 'C', desc: 'On the team that won a trip outright (a tie for first doesn\'t count).' },
 
   { id: 'snowman', group: 'roast', name: 'Snowman', mark: '8', desc: 'An 8 or worse on a hole.' },
   { id: 'wooden_spoon', group: 'roast', name: 'Wooden Spoon', mark: 'WS', desc: 'Worst gross round of a day.' },
@@ -65,6 +67,7 @@ export const BADGES = [
 // perTrip: [{ tripId, tripName, trip: { start_date, end_date, time_zone }, allowance,
 //             rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }]
 // Returns Map(badgeId → { earned, count, tier, events: [{ date, tripName, detail }] }).
+// One-time badges: events holds only the FIRST time it was earned (count is 0 or 1).
 // `tier` is 0/1/2 (bronze/silver/gold) for tiered badges, else null.
 export function computeBadges(perTrip = [], userId, now = new Date()) {
   const ev = new Map(BADGES.map(b => [b.id, []]))
@@ -123,6 +126,7 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
         if (total < 100) add('broke_100', { date: r.date, tripName, detail: `${total}` })
         if (total < 90) add('broke_90', { date: r.date, tripName, detail: `${total}` })
         if (total < 80) add('broke_80', { date: r.date, tripName, detail: `${total}` })
+        if (total < 70) add('broke_70', { date: r.date, tripName, detail: `${total}` })
       }
     }
 
@@ -170,11 +174,10 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
     }
   }
 
-  // Champion: your team finished first (co-champions count) on a finished trip.
+  // Champion: your team won a finished trip outright — a tie for first doesn't count.
   const finishes = tripFinishes(perTrip, userId, now)
   for (const t of perTrip) {
-    const f = finishes.get(t.tripId)
-    if (f === 'Champion' || f === 'Co-champion') add('champion', { date: t.trip?.end_date, tripName: t.tripName || '' })
+    if (finishes.get(t.tripId) === 'Champion') add('champion', { date: t.trip?.end_date, tripName: t.tripName || '' })
   }
 
   // Milestones count across everything.
@@ -195,7 +198,9 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
       out.set(b.id, { earned: tier != null, count, tier, events: [] })
       continue
     }
-    out.set(b.id, { earned: events.length > 0, count: events.length, tier: null, events: events.sort((a, b2) => (b2.date || '').localeCompare(a.date || '')) })
+    // One-time badge: earned the first time it happens; keep that first occasion.
+    const first = events.slice().sort((a, b2) => (a.date || '').localeCompare(b2.date || ''))[0]
+    out.set(b.id, { earned: !!first, count: first ? 1 : 0, tier: null, events: first ? [first] : [] })
   }
   return out
 }

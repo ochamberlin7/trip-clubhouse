@@ -36,7 +36,7 @@ test('scoring badges are gross: birdies, back-to-back, pars, bogey-free, broke 8
   // A: ace on 1 (par 4 → also an eagle), birdies 2–6, pars 7–18 → 65.
   const gross = (p, h) => (p === 'A' ? (h === 1 ? 1 : h <= 6 ? 3 : 4) : 5)
   const m = computeBadges([trip({ rounds: [round('R1', '2026-10-01')], gross })], 'U', NOW)
-  for (const id of ['hat_trick', 'birdie_bonanza', 'back_to_back', 'par_machine', 'par_train', 'bogey_free', 'broke_100', 'broke_90', 'broke_80', 'eagle', 'hole_in_one']) {
+  for (const id of ['hat_trick', 'birdie_bonanza', 'back_to_back', 'par_machine', 'par_train', 'bogey_free', 'broke_100', 'broke_90', 'broke_80', 'broke_70', 'eagle', 'hole_in_one']) {
     assert.equal(got(m, id).earned, true, id)
   }
   assert.equal(got(m, 'snowman').earned, false)
@@ -74,11 +74,13 @@ test('Warrior / Workhorse: per day and per trip, only when you lead your team', 
   assert.equal(got(live, 'first_trip').earned, false)
 })
 
-test('repeatable badges count; milestones tier up; no Champion without teams', () => {
+test('badges are earned once (first time kept); milestones tier up; no Champion without teams', () => {
   const gross = (p, h) => (p === 'A' ? (h <= 3 ? 3 : 4) : 5)
   const rs = Array.from({ length: 10 }, (_, i) => round(`R${i}`, `2026-10-0${(i % 3) + 1}`))
   const m = computeBadges([trip({ rounds: rs, gross })], 'U', NOW)
-  assert.equal(got(m, 'hat_trick').count, 10)
+  assert.equal(got(m, 'hat_trick').count, 1)                 // once, however many times it happened
+  assert.equal(got(m, 'hat_trick').events.length, 1)
+  assert.equal(got(m, 'hat_trick').events[0].date, '2026-10-01') // the first time
   assert.equal(got(m, 'rounds').count, 10)
   assert.equal(got(m, 'rounds').tier, 0)        // bronze at 10
   assert.equal(got(m, 'first_trip').earned, true)
@@ -105,4 +107,18 @@ test('Champion + past-trip finish come from the shared team standings', () => {
   // Trip still going → no finish yet.
   const live = { ...t, trip: { ...t.trip, start_date: '2026-10-26', end_date: '2026-10-29' } }
   assert.equal(tripFinishes([live], 'U', NOW).has('T'), false)
+})
+
+test('a tie for first is not a Champion', () => {
+  // Both teams win the same number of holes → tied for first.
+  const gross = (p, h) => ({ A: h % 2 ? 3 : 5, B: 5, C: h % 2 ? 5 : 3, D: 5 })[p]
+  const t = trip({ rounds: [round('R1', '2026-10-01', { holes: HOLES.slice(0, 18) })], gross })
+  t.trip = { ...t.trip, team_mode: true, format: 'point_match_play' }
+  assert.equal(tripFinishes([t], 'U', NOW).get('T'), 'Co-champion')
+  assert.equal(computeBadges([t], 'U', NOW).get('champion').earned, false)
+})
+
+test('Broke-N medallions read 90s / 80s / 70s / 60s', () => {
+  const marks = Object.fromEntries(BADGES.filter(b => b.id.startsWith('broke_')).map(b => [b.id, b.mark]))
+  assert.deepEqual(marks, { broke_100: '90s', broke_90: '80s', broke_80: '70s', broke_70: '60s' })
 })
