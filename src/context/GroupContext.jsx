@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { fetchUnreadByTrip, setAppBadgeCount } from '../lib/push'
+import { saveCopy, readCopy } from '../lib/offlineCache'
 
 const GroupContext = createContext({})
 
@@ -95,19 +96,30 @@ export function GroupProvider({ children }) {
       .select('role, groups(id, name)')
       .eq('user_id', user.id)
 
-    const groups = (!error && data)
+    let groups = (!error && data)
       ? data.map(m => ({ ...m.groups, role: m.role })).filter(g => g && g.id)
       : []
-    setUserGroups(groups)
 
     const groupIds = groups.map(g => g.id)
     let trips = []
+    let tripsErr = null
     if (groupIds.length) {
       // Soft-deleted trips (deleted_at set) are excluded everywhere except the
       // Switch Trip screen's "Recently Deleted" section.
-      const { data: tripRows } = await supabase.from('trips').select('*').in('group_id', groupIds).is('deleted_at', null)
+      const { data: tripRows, error: tErr } = await supabase.from('trips').select('*').in('group_id', groupIds).is('deleted_at', null)
       trips = tripRows || []
+      tripsErr = tErr
     }
+    // No signal: use the copy saved on this phone so the app still opens on your
+    // trips (instead of looking like you have none). Otherwise save a fresh copy.
+    const copyKey = `groups:${user.id}`
+    if (error || tripsErr) {
+      const saved = readCopy(copyKey)
+      if (saved) { groups = saved.groups || []; trips = saved.trips || [] }
+    } else {
+      saveCopy(copyKey, { groups, trips })
+    }
+    setUserGroups(groups)
     setAllTrips(trips)
 
     // Keep a still-valid in-session selection across refetches; on a fresh load

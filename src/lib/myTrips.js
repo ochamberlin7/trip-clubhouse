@@ -42,13 +42,15 @@ export function splitTrips(trips = [], now = new Date()) {
 
 // Loads the trips this user is on (plus `currentTripId`), with location, golfer
 // count and whether they can delete it; and their soft-deleted trips (< 30 days).
+// Returns { rows, deleted, offline } — offline: true when it couldn't reach the server.
 // Takes the Supabase client so the pure helpers above stay testable in Node.
 export async function loadMyTrips(client, userId, { currentTripId = null } = {}) {
   if (!userId) return { rows: [], deleted: [] }
-  const { data: gm } = await client
+  const { data: gm, error: gmErr } = await client
     .from('group_members')
     .select('role, group_id, groups(id, name)')
     .eq('user_id', userId)
+  if (gmErr) return { rows: [], deleted: [], offline: true } // no signal → caller uses its saved copy
   const groupIds = [...new Set((gm || []).map(m => m.group_id ?? m.groups?.id).filter(Boolean))]
   // Only the commissioner (group admin) may delete a trip (matches trips RLS).
   const adminGroupIds = new Set((gm || []).filter(m => m.role === 'admin').map(m => m.group_id ?? m.groups?.id).filter(Boolean))
@@ -60,6 +62,7 @@ export async function loadMyTrips(client, userId, { currentTripId = null } = {})
     client.from('trips').select('id, group_id, name, deleted_at').in('group_id', groupIds).not('deleted_at', 'is', null).gte('deleted_at', cutoff).order('deleted_at', { ascending: false }),
     client.from('trip_players').select('trip_id').or(`user_id.eq.${userId},claimed_user_id.eq.${userId}`),
   ])
+  if (activeRes.error || tpRes.error) return { rows: [], deleted: [], offline: true }
   const myTripIds = new Set((tpRes.data || []).map(r => r.trip_id))
 
   // Location (earliest located round → "City, ST") and golfer counts per trip.
