@@ -5,8 +5,8 @@ import assert from 'node:assert/strict'
 import { TEAM_COLORS, teamColor, applyTeamColorVars } from './teamColors.js'
 
 test('teams 1-4 are red / blue / green / purple and all distinct', () => {
-  assert.equal(TEAM_COLORS[1].solid, '#C62828') // red
-  assert.equal(TEAM_COLORS[2].solid, '#1C64A6') // blue
+  assert.equal(TEAM_COLORS[1].solid, '#B22234') // red
+  assert.equal(TEAM_COLORS[2].solid, '#003399') // blue
   assert.equal(TEAM_COLORS[3].solid, '#1E7A46') // green
   assert.equal(TEAM_COLORS[4].solid, '#7A3F9E') // purple
   const solids = [1, 2, 3, 4, 5, 6].map(i => TEAM_COLORS[i].solid)
