@@ -905,12 +905,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   return (
     <PullToRefresh onRefresh={handlePullRefresh} disabled={!!modal || !!notice || openSlot != null}>
     <div>
-      {/* No signal, or scores still waiting to sync: a calm banner (the live dot in
-          the header turns red too). Goes away once everything has synced. */}
-      {offline && (
-        <div role="status" style={{ margin: '0 0 10px', padding: '9px 12px', borderRadius: 10, background: '#FDECEA', border: '1px solid #F5C2BD', color: '#8E2B21', fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
-          No signal — scores will update when your signal is back.
-        </div>
+      {/* No signal, or scores still waiting to sync: a small tab that hangs down from
+          the top of the screen (the live dot in the header turns red too). Slides
+          away once everything has synced. Portaled so it sits above everything. */}
+      {offline && createPortal(
+        <div role="status" className="no-signal-tab">No signal — scores will update when it's back</div>,
+        document.body,
       )}
       {/* Round pills */}
       <div className="pill-row">

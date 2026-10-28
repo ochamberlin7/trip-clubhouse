@@ -575,3 +575,10 @@ select {
    (WebKit date/time inputs otherwise center/right-align their value). */
 .flight-field-input::-webkit-datetime-edit{text-align:left;padding:0}
 .flight-field-input::-webkit-date-and-time-value{text-align:left}
+
+/* Offline score sync — small tab hanging from the top edge (below the status bar). */
+.no-signal-tab{position:fixed;top:env(safe-area-inset-top);left:50%;transform:translateX(-50%);z-index:600;
+  background:#C0392B;color:#fff;font-size:11.5px;font-weight:700;letter-spacing:.1px;white-space:nowrap;
+  padding:5px 12px 6px;border-radius:0 0 10px 10px;box-shadow:0 4px 12px rgba(0,0,0,.18);
+  animation:no-signal-drop .25s ease-out;pointer-events:none}
+@keyframes no-signal-drop{from{transform:translate(-50%,-100%)}to{transform:translate(-50%,0)}}
