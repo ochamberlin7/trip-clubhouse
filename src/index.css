@@ -8,7 +8,7 @@
   --bg3:    #DDE3EA;
   --navy:   #1B3F6E;
   --navy2:  #2C5F8A;
-  --teal:   #0F6E56;   /* Team 2 color — canonical (see src/lib/teamColors.js) */
+  --teal:   #0F6E56;   /* green accent (meal pills). Team colours live in src/lib/teamColors.js (--team-1 … --team-6, injected at startup). */
   --cream:  #0D1B2A;
   --cream2: #2C3E50;
   --muted:  #7A8FA6;
@@ -283,8 +283,8 @@ select {
 /* ── Leaderboard team cards — CTI .lb-team-card ── */
 .lb-team-card { border-radius: var(--card-radius); overflow: hidden; box-shadow: var(--shadow-card); margin-bottom: 14px; }
 .lb-team-header { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; }
-.lb-team-header.t1 { background: var(--navy); }
-.lb-team-header.t2 { background: var(--teal); }
+.lb-team-header.t1 { background: var(--team-1); }
+.lb-team-header.t2 { background: var(--team-2); }
 .lb-team-name { font-size: 16px; font-weight: 800; color: #fff; }
 .lb-team-pts  { font-size: 28px; font-weight: 900; color: #fff; }
 .lb-rounds { background: var(--bg1); border-radius: 0 0 var(--card-radius) var(--card-radius); }
@@ -404,8 +404,8 @@ select {
 .sc-head { margin-bottom: 4px; }
 .sc-head .sc-h { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; text-align: center; padding-bottom: 4px; }
 .sc-th-name { font-size: 10px; font-weight: 700; color: #fff; text-align: center; padding: 4px 2px; border-radius: 4px 4px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sc-th-t1 { background: var(--navy); }
-.sc-th-t2 { background: #0F6E56; }
+.sc-th-t1 { background: var(--team-1); }
+.sc-th-t2 { background: var(--team-2); }
 .sc-hole-row { border-bottom: 1px solid var(--bg2); }
 .sc-hole-row.nine-divider { border-top: 2px solid var(--bg3); }
 .sc-cell-hole { font-size: 13px; font-weight: 700; color: var(--cream2); text-align: center; }
@@ -447,15 +447,15 @@ select {
 /* Point Match Play: filled 48px circular hole-winner badge (one per hole).
    navy = Team 1 (Owen/Monty), green = Team 2 (Nicole/Robert), grey = halved. */
 .sc-pts-badge { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; font-size: 13px; font-weight: 700; color: #fff; line-height: 1; }
-.sc-pts-badge.t1 { background: #1B3F6E; }
-.sc-pts-badge.t2 { background: #047857; }
+.sc-pts-badge.t1 { background: var(--team-1); }
+.sc-pts-badge.t2 { background: var(--team-2); }
 .sc-pts-badge.halve { background: #8a96a3; }
 .sc-pts-badge.empty { background: transparent; }
 /* Standard Match Play: filled 52px circular running-status badge (one per hole),
    coloured by the leading team (Option 9 — large number + tiny inline "UP"). */
 .sc-match-badge { width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; color: #fff; line-height: 1; }
-.sc-match-badge.t1 { background: #1B3F6E; }
-.sc-match-badge.t2 { background: #047857; }
+.sc-match-badge.t1 { background: var(--team-1); }
+.sc-match-badge.t2 { background: var(--team-2); }
 .sc-match-badge.as { background: #8a96a3; }
 .sc-match-badge.empty { background: transparent; }
 .sc-match-inner { display: inline-flex; align-items: baseline; line-height: 1; }
@@ -473,8 +473,8 @@ select {
 .sc-sub-label { font-size: 11px; font-weight: 700; color: var(--navy); text-align: center; }
 .sc-sub-par { font-size: 11px; color: var(--muted); text-align: center; }
 .sc-sub-score { font-size: 13px; font-weight: 800; text-align: center; }
-.sc-sub-score.t1 { color: var(--navy); }
-.sc-sub-score.t2 { color: #0F6E56; }
+.sc-sub-score.t1 { color: var(--team-1); }
+.sc-sub-score.t2 { color: var(--team-2); }
 .sc-sub-pts { font-size: 11px; font-weight: 800; color: var(--cream); text-align: center; }
 
 /* ── Misc ── */
@@ -494,8 +494,8 @@ select {
 .match-banner-row{display:flex;align-items:center;gap:6px}
 .match-banner-pair-label{font-size:10px;color:var(--muted);min-width:56px;font-weight:600}
 .match-banner-status{font-size:13px;font-weight:800;color:var(--cream);flex:1}
-.match-banner-status.t1lead{color:var(--navy)}
-.match-banner-status.t2lead{color:var(--teal)}
+.match-banner-status.t1lead{color:var(--team-1)}
+.match-banner-status.t2lead{color:var(--team-2)}
 .match-banner-status.tied{color:var(--cream2)}
 .match-banner-thru{font-size:11px;color:var(--muted);text-align:right;min-width:38px}
 
