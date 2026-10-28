@@ -41,7 +41,7 @@ Frontend reads these `VITE_` vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 - **Test mode (dev override):** `trips.test_mode` (migration `20260674`, applied). When ON and the signed-in email is `o.chamberlin@gmail.com`, that account can score ANY pairing and edit even past trips (read-only bypass). Toggle is on the **Profile page** (dev-only row). Nobody else benefits; real trips (`test_mode=false`) unaffected. Email is hardcoded in `can_write_score` and `TripDashboard.jsx` (`DEV_USER_EMAIL`).
 - **Time zone:** `trips.time_zone` (IANA, migration `20260673`, applied). `getTripPhase` reads it so out-of-zone viewers (Owen in Phoenix, trips in Michigan/Eastern) see the trip's day. Callers pass `trip.time_zone`.
 - **The Dozen:** a real 12-hole round. Completion/stroke logic must use the round's own hole count, never a hard-coded 18 for display math. (`isRoundComplete` keeps an 18 *default* for back-compat; pass the real count where it matters.)
-- **Team colors:** `src/lib/teamColors.js` — index-keyed palette (single source). NOTE: a redesign to red/blue/green/purple exists on the **unmerged** `feat/team-colors` branch.
+- **Team colors:** `src/lib/teamColors.js` — index-keyed palette (single source): red / blue / green / purple / amber / teal, injected as CSS vars (merged 2026-10-27).
 
 ## Working conventions (how Owen wants changes made)
 - **Proceed directly — don't ask permission before making changes.** Only ask when a decision is genuinely the user's (product/security trade-offs). Pick sensible defaults and report them.
@@ -55,9 +55,7 @@ Frontend reads these `VITE_` vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 ## Current state (as of 2026-10-23, `main` @ `0df8024`)
 Recently merged to `main`: trip-phase foundation (`getTripPhase`), phase-driven **routing** (`screenForTripPhase`, zone-aware default screen), **Schedule & Courses** tab (tee times, completed-round shading, post-round handicap recap), **Home day-strip banner** (dots at the bottom, connected by a line), **test mode**, and **default round selection** (`defaultRoundForTrip`).
 
-**Two branches are built, pushed, and NOT merged** (Owen may still want them):
-- `feat/team-colors` — team palette → red/blue/green/purple, injected as CSS vars from one source; replaces hardcoded team hexes.
-- `fix/live-banner-team-ids` — fixes the live banner showing wrong team names/colours (it wasn't fetching `team1_id/team2_id`).
+Since then (2026-10-23 → 10-27) everything below is merged; see BACKLOG.md for the full list: member removal (Player TBD), Daily Leaders, Points Defended, Stats redesign, Trip Clubhouse Home (`/home`, opens on a trip 14 days before → 7 after), badges / Trophy Room (`/trophies`), shared `teamStandings`, live-banner team fix, team colors.
 
 ## Gotchas
 - **`src/components/MenuDrawer.jsx` has 20 PRE-EXISTING lint errors** (as of `main` @ `043071f`). Same rule: count only new ones.

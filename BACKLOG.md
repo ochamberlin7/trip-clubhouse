@@ -35,8 +35,8 @@ Merge status verified with `git branch -r --merged origin/main` on 2026-10-23 (m
 | Home banner, option E (day dots, "Welcome to…", course names, "No rounds today") | `feat/home-banner` (+ `feat/home-banner-timeline`) | ✅ Merged |
 | Default round selection | `feat/default-round-selection` | ✅ Merged |
 | Test mode (dev override) | `feat/test-mode-scoring`, `feat/test-mode-profile-toggle` | ✅ Merged |
-| Live banner team-name fix (fetch team1_id/team2_id; null → neutral label) | `fix/live-banner-team-ids` | ⏳ **Not merged** (1 commit, 14 behind main). Needs visual check before 9pm, then merge. |
-| Team colors (red, blue, green, purple, amber, teal) | `feat/team-colors` | ⏳ **Not merged** (1 commit, 14 behind main). Open check: team-1 red vs scorecard over-par red. |
+| Live banner team-name fix (fetch team1_id/team2_id; null → neutral label) | `fix/live-banner-team-ids` | ✅ Merged 2026-10-27 |
+| Team colors (red, blue, green, purple, amber, teal) | `feat/team-colors` | ✅ Merged 2026-10-27 |
 
 Routing rule: opens Score only if a round is live, the user is playing it, and it's underway for them (5 min past their tee or a score entered); otherwise Home. Spectators stay on Home with the live round pre-selected.
 
