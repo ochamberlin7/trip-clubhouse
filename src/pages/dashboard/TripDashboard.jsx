@@ -11,6 +11,7 @@ import { mealTypeLabel } from '../../lib/meals'
 import { useResumeRefetch } from '../../lib/useResumeRefetch'
 import { useScoreSync } from '../../lib/useScoreSync'
 import { saveCopy, readCopy } from '../../lib/offlineCache'
+import { loadLeaderboardData, withUnsyncedScores } from '../../lib/leaderboardData'
 import { isNetworkError } from '../../lib/scoreQueue'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
@@ -502,46 +503,12 @@ function PointsLeaderboard({ trip, teams, rounds }) {
     if (!trip?.id || roundIds.length === 0) return
     let cancelled = false
 
-    // Pure fetches (return the map) so the initial load can set scores + tees in ONE
-    // atomic batch — never an intermediate render with scores but no tees, which made
-    // liveMatchTally fall back to the round's default tee and compute wrong results.
-    async function fetchScores() {
-      const { data } = await supabase.from('scores')
-        .select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds)
-      const m = {}; (data || []).forEach(s => { if (s.gross_score != null) m[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score })
-      return m
-    }
-    async function fetchTees() {
-      const { data } = await supabase.from('player_rounds')
-        .select('trip_player_id, round_id, slope, rating, par').in('round_id', roundIds)
-      const m = {}; (data || []).forEach(pr => { m[`${pr.round_id}:${pr.trip_player_id}`] = pr })
-      return m
-    }
-    // Targeted realtime refetches merge one slice into the existing object. The
-    // `d ? … : d` guard makes them no-ops until the first full load lands (data is
-    // still null), so they never create a partial object.
-    async function loadScores() { const m = await fetchScores(); if (!cancelled) setData(d => d ? { ...d, scoresMap: m } : d) }
-    async function loadTees() { const m = await fetchTees(); if (!cancelled) setData(d => d ? { ...d, teeRowMap: m } : d) }
+    // One shared loader for both leaderboard formats: all inputs land together (no
+    // partial-combination render), a copy is saved on this phone, and with no signal
+    // the saved copy is shown instead (null until the first full load → skeleton).
     async function loadAll() {
-      const [pairRes, tpRes, sMap, tMap] = await Promise.all([
-        supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds),
-        supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
-        fetchScores(),
-        fetchTees(),
-      ])
-      const pairs = pairRes.data || []
-      const pairIds = pairs.map(p => p.id)
-      let pp = []
-      if (pairIds.length) {
-        const { data } = await supabase.from('pairing_players').select('pairing_id, trip_player_id, team_slot').in('pairing_id', pairIds)
-        pp = data || []
-      }
-      if (cancelled) return
-      const hcp = {}; (tpRes.data || []).forEach(tp => { hcp[tp.id] = tp.handicap_index })
-      // One atomic set — every input lands together, so byRound never computes on a
-      // partial combination. (We never reset data to null on resume, so a background
-      // refetch keeps showing the current numbers instead of flashing the skeleton.)
-      setData({ pairings: pairs, pairingPlayers: pp, hcpByPlayer: hcp, scoresMap: sMap, teeRowMap: tMap })
+      const { data: d } = await loadLeaderboardData(supabase, trip.id, roundIds)
+      if (!cancelled && d) setData(d)
     }
 
     loadAll()
@@ -550,11 +517,11 @@ function PointsLeaderboard({ trip, teams, rounds }) {
     const ch = supabase.channel(uniqueChannelName(`points-lb:${roundKey}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, payload => {
         const rid = payload.new?.round_id ?? payload.old?.round_id
-        if (rid && roundIds.includes(rid)) loadScores()
+        if (rid && roundIds.includes(rid)) loadAll()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_rounds' }, payload => {
         const rid = payload.new?.round_id ?? payload.old?.round_id
-        if (rid && roundIds.includes(rid)) loadTees()
+        if (rid && roundIds.includes(rid)) loadAll()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pairing_players' }, () => loadAll())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_players', filter: `trip_id=eq.${trip.id}` }, () => loadAll())
@@ -568,9 +535,11 @@ function PointsLeaderboard({ trip, teams, rounds }) {
   // hole wins go to the REAL team on that side; `scored` only counts pairings this
   // team is in, so an unplayed team still shows '—' per round. Empty until the full
   // load lands (data === null), so nothing is computed from partial inputs.
+  // Scores entered on this phone with no signal (not yet synced) count too.
+  const { pending: unsynced } = useScoreSync()
   const standings = useMemo(() => (data
-    ? teamStandings({ format: trip.format, rounds, ...data, allowance, teamIds: teams.map(t => t.id) })
-    : null), [roundKey, data, allowance, teams, trip.format]) // eslint-disable-line react-hooks/exhaustive-deps
+    ? teamStandings({ format: trip.format, rounds, ...withUnsyncedScores(data), allowance, teamIds: teams.map(t => t.id) })
+    : null), [roundKey, data, allowance, teams, trip.format, unsynced]) // eslint-disable-line react-hooks/exhaustive-deps
   const roundPointsForTeam = (teamId, roundId) => standings?.perRound.get(teamId)?.get(roundId) || { pts: 0, scored: 0 }
   const totalForTeam = teamId => standings?.total.get(teamId) ?? 0
   const roundCellTeam = (teamId, roundId) => {
@@ -660,26 +629,10 @@ function StandardLeaderboard({ trip, teams, rounds }) {
     if (!trip?.id || roundIds.length === 0) return
     let cancelled = false
 
+    // Shared loader (see PointsLeaderboard): saved copy on this phone, used with no signal.
     async function loadAll() {
-      const [pairRes, tpRes, scoreRes, prRes] = await Promise.all([
-        supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds),
-        supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
-        supabase.from('scores').select('round_id, trip_player_id, hole_number, gross_score').in('round_id', roundIds),
-        supabase.from('player_rounds').select('trip_player_id, round_id, slope, rating, par').in('round_id', roundIds),
-      ])
-      const pairs = pairRes.data || []
-      const pairIds = pairs.map(p => p.id)
-      let pp = []
-      if (pairIds.length) {
-        const { data } = await supabase.from('pairing_players').select('pairing_id, trip_player_id, team_slot').in('pairing_id', pairIds)
-        pp = data || []
-      }
-      if (cancelled) return
-      const hcp = {}; (tpRes.data || []).forEach(tp => { hcp[tp.id] = tp.handicap_index })
-      const sMap = {}; (scoreRes.data || []).forEach(s => { if (s.gross_score != null) sMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score })
-      const tMap = {}; (prRes.data || []).forEach(pr => { tMap[`${pr.round_id}:${pr.trip_player_id}`] = pr })
-      // One atomic set — all inputs land together (no partial-combination render).
-      setData({ pairings: pairs, pairingPlayers: pp, hcpByPlayer: hcp, scoresMap: sMap, teeRowMap: tMap })
+      const { data: d } = await loadLeaderboardData(supabase, trip.id, roundIds)
+      if (!cancelled && d) setData(d)
     }
 
     loadAll()
@@ -706,9 +659,11 @@ function StandardLeaderboard({ trip, teams, rounds }) {
   // Standings from the ONE shared function (teamStandings in scoring.js): each
   // completed round's match is worth 1 / 0.5 / 0 to the real team on that side.
   // Empty until the full load lands (data === null).
+  // Scores entered on this phone with no signal (not yet synced) count too.
+  const { pending: unsynced } = useScoreSync()
   const standings = useMemo(() => (data
-    ? teamStandings({ format: 'standard_match_play', rounds, ...data, allowance, teamIds: teams.map(t => t.id) })
-    : null), [roundKey, data, allowance, teams]) // eslint-disable-line react-hooks/exhaustive-deps
+    ? teamStandings({ format: 'standard_match_play', rounds, ...withUnsyncedScores(data), allowance, teamIds: teams.map(t => t.id) })
+    : null), [roundKey, data, allowance, teams, unsynced]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fmtPts = x => (Number.isInteger(x) ? String(x) : x.toFixed(1))
 
