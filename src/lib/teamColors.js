@@ -7,6 +7,9 @@
 // the trip screen picks the palette with setTeamPalette(paletteForTrip(trip)).
 //
 //   1 red · 2 blue · 3 green · 4 purple · 5 amber · 6 teal (5-6 cover future growth).
+// Red and blue are the Ryder Cup colours. There's no published Ryder Cup hex code —
+// its logo takes the colours from the two flags — so team 1 is the US flag's
+// "Old Glory Red" (#B22234) and team 2 the EU flag's "Reflex Blue" (#003399).
 //
 // Every `solid` is dark enough to carry WHITE text as a header fill AND to read as text
 // on the app's white/light surfaces (all ≥ ~4.5:1 on white). `pillBg` is the same hue
@@ -14,8 +17,8 @@
 // colours are only ever painted on light backgrounds in the app, so on-navy contrast
 // is not required.
 export const TEAM_COLORS = {
-  1: { solid: '#C62828', pillBg: 'rgba(198,40,40,0.15)', text: '#B02222' },
-  2: { solid: '#1C64A6', pillBg: 'rgba(28,100,166,0.15)', text: '#1A5B96' },
+  1: { solid: '#B22234', pillBg: 'rgba(178,34,52,0.15)', text: '#9E1E2E' },   // Ryder Cup USA red (US flag)
+  2: { solid: '#003399', pillBg: 'rgba(0,51,153,0.13)', text: '#003399' },    // Ryder Cup Europe blue (EU flag)
   3: { solid: '#1E7A46', pillBg: 'rgba(30,122,70,0.15)', text: '#1B6E3F' },
   4: { solid: '#7A3F9E', pillBg: 'rgba(122,63,158,0.15)', text: '#6E3890' },
   5: { solid: '#B5720E', pillBg: 'rgba(181,114,14,0.18)', text: '#8A5609' },

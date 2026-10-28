@@ -36,7 +36,7 @@ Merge status verified with `git branch -r --merged origin/main` on 2026-10-23 (m
 | Default round selection | `feat/default-round-selection` | ✅ Merged |
 | Test mode (dev override) | `feat/test-mode-scoring`, `feat/test-mode-profile-toggle` | ✅ Merged |
 | Live banner team-name fix (fetch team1_id/team2_id; null → neutral label) | `fix/live-banner-team-ids` | ✅ Merged 2026-10-27 |
-| Team colors (red, blue, green, purple, amber, teal) | `feat/team-colors` | ✅ Merged 2026-10-27. Past trips (ended before 2026-10-27, `TEAM_COLORS_CHANGED_ON`) keep the OLD navy/teal/plum/gold palette via `paletteForTrip` + `setTeamPalette` (`fix/legacy-team-colors`). |
+| Team colors (red, blue, green, purple, amber, teal) | `feat/team-colors` | ✅ Merged 2026-10-27. Red/blue changed to the Ryder Cup flag colours (team 1 US "Old Glory Red" #B22234, team 2 EU "Reflex Blue" #003399) on `feat/ryder-cup-colors`. Past trips (ended before 2026-10-27, `TEAM_COLORS_CHANGED_ON`) keep the OLD navy/teal/plum/gold palette via `paletteForTrip` + `setTeamPalette` (`fix/legacy-team-colors`). |
 
 Routing rule: opens Score only if a round is live, the user is playing it, and it's underway for them (5 min past their tee or a score entered); otherwise Home. Spectators stay on Home with the live round pre-selected.
 
