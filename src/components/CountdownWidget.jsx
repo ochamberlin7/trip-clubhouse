@@ -39,13 +39,20 @@ const styles = {
   label: { fontSize: '12px', color: '#C7D6EA', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '6px', fontWeight: 600 },
   message: { fontSize: '17px', color: '#fff', fontWeight: 700, lineHeight: 1.4 },
 
-  // Day-strip layout.
+  // Day-strip layout. The strip sits at the BOTTOM of the banner; dots are connected
+  // by a hairline that runs through their centres (one line per wrapped row, trimmed to
+  // the row's first/last dot).
   welcome: { fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C9D6E8', fontWeight: 600, marginBottom: '12px' },
-  strip: { display: 'grid', gap: '8px', marginBottom: '14px' },
+  strip: { marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' },
+  stripRow: { position: 'relative' },
+  stripLine: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: '2px', borderRadius: '1px', background: 'rgba(255,255,255,0.3)', zIndex: 0 },
+  stripDots: { position: 'relative', zIndex: 1, display: 'grid', gap: '8px' },
   dotCell: { display: 'flex', justifyContent: 'center' },
-  dotBase: { width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', boxSizing: 'border-box' },
+  // Opaque navy base (same as the card) so the connecting line doesn't show through a
+  // dot's centre; the state styles layer on top.
+  dotBase: { width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', boxSizing: 'border-box', background: '#1B3F6E' },
   dotToday: { background: '#E7EDF5', color: '#1B3F6E', fontWeight: 800 },
-  dotPast: { background: 'rgba(255,255,255,0.18)', color: '#DCE5F1', fontWeight: 700 },
+  dotPast: { background: '#446288', color: '#DCE5F1', fontWeight: 700 },
   dotFuture: { border: '1px solid rgba(255,255,255,0.4)', color: '#C9D6E8', fontWeight: 700 },
   title: { fontSize: '20px', fontWeight: 700, color: '#fff', lineHeight: 1.2 },
   courseLine: { fontSize: '15px', color: '#DCE5F1', marginTop: '3px', lineHeight: 1.3 },
@@ -79,23 +86,38 @@ export default function CountdownWidget({ trip, rounds = [] }) {
     )
   }
 
-  // In-trip (and dateless trips) — the day strip.
+  // In-trip (and dateless trips): text first, then the day strip at the BOTTOM.
   const { showWelcome, dots, title, lines } = homeBannerModel(phase)
   const columns = bannerGridColumns(dots.length)
+  // Wrap the dots into rows of `columns` so the connecting line is drawn per row and
+  // never links the end of one row to the start of the next.
+  const dotRows = []
+  for (let i = 0; i < dots.length; i += columns) dotRows.push(dots.slice(i, i + columns))
   return (
     <div style={styles.container}>
       {showWelcome && <div style={styles.welcome}>Welcome to {tripName || 'the trip'}</div>}
+      {title && <div style={styles.title}>{title}</div>}
+      {lines.map((line, i) => <div key={i} style={styles.courseLine}>{line}</div>)}
       {dots.length > 0 && (
-        <div style={{ ...styles.strip, gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
-          {dots.map(d => (
-            <div key={d.n} style={styles.dotCell}>
-              <div style={dotStyle(d.state)}>{d.n}</div>
+        <div style={styles.strip}>
+          {dotRows.map((row, ri) => (
+            <div key={ri} style={styles.stripRow}>
+              {/* Line from the first dot's centre to the last dot's centre in this row.
+                  Dot n sits in grid column n at centre (n + 0.5)/columns of the width. */}
+              {row.length > 1 && (
+                <div style={{ ...styles.stripLine, left: `${(0.5 / columns) * 100}%`, width: `${((row.length - 1) / columns) * 100}%` }} />
+              )}
+              <div style={{ ...styles.stripDots, gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+                {row.map(d => (
+                  <div key={d.n} style={styles.dotCell}>
+                    <div style={dotStyle(d.state)}>{d.n}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
       )}
-      {title && <div style={styles.title}>{title}</div>}
-      {lines.map((line, i) => <div key={i} style={styles.courseLine}>{line}</div>)}
     </div>
   )
 }

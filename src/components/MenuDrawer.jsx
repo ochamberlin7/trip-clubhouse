@@ -20,6 +20,9 @@ import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
+import { loadMyTrips } from '../lib/myTrips'
+import SwipeDeleteRow from './SwipeDeleteRow'
+import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -287,7 +290,7 @@ function CheckIcon() {
   )
 }
 
-function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner, editing, onStartEdit, onCloseEdit, onSaved }) {
+function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner, editing, onStartEdit, onCloseEdit, onSaved, groupId, rosterLocked }) {
   // Who can edit what:
   //   • Commissioner → first name, last name, email, phone, handicap, team.
   //   • The player, on their OWN card only → email + phone.
@@ -302,6 +305,10 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
   })
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
+  const isOpenSpot = isPlaceholderPlayer(player)
+  // Commissioner-only, before the trip starts, never on their own card or an empty spot.
+  const canRemove = isCommissioner && !isOpenSpot && !rosterChangeBlockReason({ player: { is_commissioner: commissioner }, rosterLocked })
 
   // Reset the form to the player's values each time edit mode opens.
   useEffect(() => {
@@ -340,7 +347,9 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
         .eq('team_id', form.team_id).neq('id', player.id)
     }
     setSaving(false)
-    if (!error) onSaved()
+    // Filling an empty spot → the Players page pops up the invite link for them.
+    const filledSpot = isOpenSpot && isCommissioner && !!payload.first_name
+    if (!error) onSaved(filledSpot ? { invite: [payload.first_name, payload.last_name].filter(Boolean).join(' ') } : undefined)
   }
 
   return (
@@ -349,7 +358,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
       <div style={pc.header}>
         <div style={pc.avatar}>{playerInitials(player)}</div>
         <div style={pc.headerMain}>
-          <div style={pc.name}>{player.name}</div>
+          <div style={{ ...pc.name, ...(isOpenSpot ? { color: '#7A8FA6', fontStyle: 'italic' } : null) }}>{isOpenSpot ? PLACEHOLDER_LABEL : player.name}</div>
           {(player.is_claimed || commissioner || player.is_captain) && (
             <div style={pc.metaRow}>
               {player.is_claimed && <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>}
@@ -394,6 +403,15 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
             </div>
           )}
         </div>
+      )}
+      {confirmRemove && (
+        <RemovePlayerModal
+          player={{ ...player, is_commissioner: commissioner }}
+          groupId={groupId}
+          rosterLocked={rosterLocked}
+          onClose={() => setConfirmRemove(false)}
+          onRemoved={() => { setConfirmRemove(false); onSaved() }}
+        />
       )}
 
       {/* Edit panel */}
@@ -453,6 +471,10 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
             <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            {/* Remove lives in edit mode only, bottom-right of the panel. */}
+            {canRemove && (
+              <button onClick={() => setConfirmRemove(true)} disabled={saving} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
+            )}
           </div>
         </div>
       )}
@@ -460,6 +482,36 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
   )
 }
 
+
+// Centered "are you sure" pop-up for removing a player. Portaled to <body> so it
+// sits above the drawer. The write goes through src/lib/roster.js.
+function RemovePlayerModal({ player, groupId, rosterLocked, onClose, onRemoved }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  async function confirm() {
+    setBusy(true); setErr(null)
+    const { error } = await removeTripPlayer(supabase, { player, groupId, rosterLocked })
+    setBusy(false)
+    if (error) setErr(error.message || 'Something went wrong.')
+    else onRemoved()
+  }
+  return createPortal(
+    <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={() => !busy && onClose()}>
+      <div style={{ ...s.modalSheet, maxWidth: 360, textAlign: 'center' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>Remove {player.name}?</div>
+        <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.45 }}>
+          Are you sure? This cannot be undone. Their spot stays in the pairings, empty and unassigned to a team, so you can add a new player.
+        </div>
+        {err && <div style={{ marginTop: 10, fontSize: 12, color: '#C0392B' }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
+          <button onClick={onClose} disabled={busy} style={{ background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={confirm} disabled={busy} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Removing…' : 'Remove'}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
 
 // Quick-glance roster: a 2-column wrapping grid of team cards, each listing its
 // players + handicaps. Colours come from the SAME palette as the scorecard
@@ -518,15 +570,19 @@ const trs = {
   hcp: { fontSize: 11, fontWeight: 700, flexShrink: 0 },
 }
 
-function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
+function PlayersPage({ data, isCommissioner, currentUserId, onReload, groupId, rosterLocked, inviteToken }) {
   const [editingId, setEditingId] = useState(null)
-  if (!data) return <div style={s.muted}>Loading…</div>
+  const [invitee, setInvitee] = useState(null) // name of the player just added to an empty spot
+  const inviteModal = invitee && <InviteNewPlayerModal name={invitee} inviteToken={inviteToken} onClose={() => setInvitee(null)} />
+  if (!data) return <><div style={s.muted}>Loading…</div>{inviteModal}</>
   const { players, teams } = data
 
-  // One commissioner pinned to the top; everyone else sorted alphabetically by first name.
+  // Empty spots first (so the commissioner sees what to fill), then the commissioner,
+  // then everyone else alphabetically by first name.
   const byFirstName = (a, b) => (a.first_name || a.name || '').localeCompare(b.first_name || b.name || '')
+  const openSpots = players.filter(isPlaceholderPlayer)
   const commissioner = players.find(p => p.is_commissioner)
-  const rest = players.filter(p => p !== commissioner).sort(byFirstName)
+  const rest = players.filter(p => p !== commissioner && !isPlaceholderPlayer(p)).sort(byFirstName)
 
   const renderCard = p => (
     <PlayerCard
@@ -539,16 +595,72 @@ function PlayersPage({ data, isCommissioner, currentUserId, onReload }) {
       editing={editingId === p.id}
       onStartEdit={() => setEditingId(p.id)}        // only one open at a time
       onCloseEdit={() => setEditingId(null)}
-      onSaved={() => { setEditingId(null); onReload() }}
+      onSaved={info => { setEditingId(null); if (info?.invite) setInvitee(info.invite); onReload() }}
+      groupId={groupId}
+      rosterLocked={rosterLocked}
     />
   )
 
   return (
     <>
       <TeamRosterSummary players={players} teams={teams} />
+      {openSpots.map(renderCard)}
       {commissioner && renderCard(commissioner)}
       {rest.map(renderCard)}
+      {inviteModal}
     </>
+  )
+}
+
+// Pops up right after the commissioner fills an empty spot: the trip invite link
+// to send the new player. Their sign-in matches them to the spot by email/phone/name.
+function InviteNewPlayerModal({ name, inviteToken, onClose }) {
+  const [copied, setCopied] = useState(false)
+  const url = inviteUrl(inviteToken)
+  const firstName = (name || '').split(' ')[0] || 'them'
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+  async function copy() {
+    try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  async function share() {
+    try { await navigator.share({ title: 'Join the trip', text: `${firstName}, join our golf trip on Trip Clubhouse:`, url }) } catch { /* cancelled */ }
+  }
+  const btn = { flex: 1, border: 'none', borderRadius: 8, padding: '12px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }
+  return createPortal(
+    <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={onClose}>
+      <div style={{ ...s.modalSheet, maxWidth: 360, padding: 22 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={{ ...s.modalTitle, marginBottom: 6 }}>
+          <span>Invite {name}</span>
+          <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div style={{ fontSize: 13.5, color: '#5A7290', lineHeight: 1.45 }}>
+          Send {firstName} this link. When they sign in, they're added to the trip automatically.
+        </div>
+
+        {/* One-row link, cut off with an ellipsis; tapping it copies too. */}
+        <button onClick={copy} aria-label="Copy invite link"
+          style={{ marginTop: 16, width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: '#F4F7FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A8FA6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#2C3E50', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {url.replace(/^https?:\/\//, '')}
+          </span>
+        </button>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          {canShare && (
+            <button onClick={share} style={{ ...btn, background: '#E8EDF3', color: '#1B3F6E' }}>Share</button>
+          )}
+          <button onClick={copy} style={{ ...btn, background: copied ? '#0F6E56' : '#1B3F6E', color: '#fff' }}>
+            {copied ? '✓ Copied' : 'Copy link'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -1820,10 +1932,15 @@ function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate, onClose }) 
 
 // "Invite Link" row: a "Copy link" button is always visible; the caret beside it
 // expands the full join URL below.
+// The trip's invite link — one builder for every place it's shown.
+function inviteUrl(inviteToken) {
+  return `https://thetripclubhouse.com/join/${inviteToken || ''}`
+}
+
 function InvitePlayersRow({ inviteToken }) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const url = `https://thetripclubhouse.com/join/${inviteToken || ''}`
+  const url = inviteUrl(inviteToken)
   async function copy() {
     try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
     setCopied(true)
@@ -1987,8 +2104,6 @@ function fmtLedgerDate(startIso, endIso) {
   return d.getFullYear() === thisYear ? `${MD_MONTHS[d.getMonth()]} ${d.getDate()}` : `${MD_MONTHS[d.getMonth()]} ${yr(d.getFullYear())}`
 }
 
-const SWIPE_OPEN = 76 // px of red delete action revealed when a row is swiped left
-
 const sw = {
   // The SecondaryPage frame already shows the "Switch Trip" title; this is just
   // the ledger's "N trips · viewing X" subtitle beneath it.
@@ -2007,11 +2122,6 @@ const sw = {
   golfers: { display: 'block', fontSize: 12, color: '#8A98A8', marginTop: 1, fontVariantNumeric: 'tabular-nums' },
   empty: { padding: '6px 16px 10px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
   loading: { padding: '16px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
-  // Swipe-to-delete: the red action sits behind the row; the row slides left to
-  // reveal it. Outer clips the slide; the foreground row carries the PAGE bg (not
-  // white) so rows blend into the screen and only cover the red until swiped.
-  swipeOuter: { position: 'relative', overflow: 'hidden', background: '#F0F4F8' },
-  swipeDelete: { position: 'absolute', top: 0, right: 0, bottom: 0, width: SWIPE_OPEN, background: '#C0392B', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 },
   createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '18px 16px', padding: '13px', borderRadius: 8, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   // Recently Deleted — set off from the trip groups by a heavier top border.
   deletedWrap: { borderTop: '3px solid #E1E7EE', marginTop: 14 },
@@ -2032,122 +2142,14 @@ function CaretIcon() {
   )
 }
 
-function TrashIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-    </svg>
-  )
-}
-
-// iMessage-style swipe-to-delete row. Drag left (touch or mouse) OR two-finger
-// swipe left on a trackpad to reveal a red trash button; tapping it deletes. A tap
-// (no drag) selects the trip; keyboard Enter/Space also selects (it's a real
-// <button>). Vertical gestures fall through to page scroll. When the trip can't be
-// deleted, renders a plain button.
+// Swipe-to-delete trip row — shared component (also used on the Clubhouse page).
 function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
-  const [dx, setDx] = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const st = useRef({ x0: 0, y0: 0, base: 0, axis: null, drag: false })
-  const dxRef = useRef(0)              // current dx, readable in the native wheel handler
-  const fgRef = useRef(null)          // foreground row element (wheel target)
-
-  useEffect(() => { dxRef.current = dx }, [dx])
-
-  // Two-finger trackpad swipe: horizontal wheel events (deltaX). A native,
-  // non-passive listener is required so preventDefault() can stop the browser's
-  // back/forward swipe-navigation; React's synthetic onWheel is passive. Only
-  // horizontal-dominant gestures are hijacked, so vertical scroll still works;
-  // the row snaps open/closed ~140ms after the gesture settles.
-  useEffect(() => {
-    const el = fgRef.current
-    if (!el) return
-    let settle
-    function onWheel(e) {
-      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return // vertical → scroll
-      e.preventDefault()
-      setDragging(true)
-      const next = Math.max(-SWIPE_OPEN, Math.min(0, dxRef.current - e.deltaX))
-      dxRef.current = next
-      setDx(next)
-      clearTimeout(settle)
-      settle = setTimeout(() => {
-        const snapped = dxRef.current < -SWIPE_OPEN / 2 ? -SWIPE_OPEN : 0
-        dxRef.current = snapped
-        setDragging(false)
-        setDx(snapped)
-      }, 140)
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => { el.removeEventListener('wheel', onWheel); clearTimeout(settle) }
-  }, [canDelete])
-
-  // Every row sits on the same plain background — the current trip is marked only
-  // by its green dot and its "This Trip" group, not a row highlight.
   const rowStyle = { ...sw.row, ...(divider ? sw.rowDivider : null) }
-
-  if (!canDelete) {
-    return <button style={rowStyle} onClick={onPick}>{children}</button>
-  }
-
-  // The drag-active guard lives in the ref, NOT the `dragging` state: setDragging
-  // is async, so a mouse (which fires pointermove immediately, unlike touch) would
-  // have its first moves dropped by a stale state closure — that's why the swipe
-  // worked on mobile but not desktop. The state only toggles the CSS transition.
-  function down(e) {
-    st.current = { x0: e.clientX, y0: e.clientY, base: dx, axis: null, drag: false, active: true }
-    setDragging(true)
-  }
-  function move(e) {
-    const s = st.current
-    if (!s.active) return
-    const ddx = e.clientX - s.x0, ddy = e.clientY - s.y0
-    if (!s.axis && (Math.abs(ddx) > 6 || Math.abs(ddy) > 6)) {
-      s.axis = Math.abs(ddx) > Math.abs(ddy) ? 'x' : 'y'
-      // Capture only once we've committed to a horizontal swipe, so vertical
-      // drags keep scrolling the list normally.
-      if (s.axis === 'x') e.currentTarget.setPointerCapture?.(e.pointerId)
-    }
-    if (s.axis !== 'x') return // vertical → let the list scroll
-    s.drag = true
-    setDx(Math.max(-SWIPE_OPEN, Math.min(0, s.base + ddx)))
-  }
-  function end() {
-    const s = st.current
-    if (!s.active) return
-    s.active = false
-    setDragging(false)
-    if (s.axis === 'x') setDx(prev => (prev < -SWIPE_OPEN / 2 ? -SWIPE_OPEN : 0))
-  }
-  function click(e) {
-    // Suppress the click that follows a horizontal drag; otherwise tap = select
-    // (when closed) or close (when open).
-    if (st.current.drag) { e.preventDefault(); st.current.drag = false; return }
-    if (dx !== 0) { setDx(0); return }
-    onPick()
-  }
-
   return (
-    <div style={{ ...sw.swipeOuter, ...(divider ? sw.rowDivider : null) }}>
-      {/* Only mount the red action while the row is actually swiped — otherwise a
-          1px sliver of its left edge shows as a vertical line at rest. */}
-      {dx !== 0 && <button style={sw.swipeDelete} onClick={onDelete} aria-label="Delete trip"><TrashIcon /></button>}
-      <button
-        ref={fgRef}
-        style={{ ...rowStyle, borderBottom: 'none',
-          // Opaque page-coloured background so the row blends into the screen yet
-          // fully hides the red delete action until swiped left (base sw.row bg is
-          // transparent, which would let the red show through at rest).
-          background: '#F0F4F8',
-          transform: `translateX(${dx}px)`, transition: dragging ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y', willChange: 'transform',
-          userSelect: 'none', WebkitUserSelect: 'none' }}
-        onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onClick={click}
-        onDragStart={e => e.preventDefault()}
-      >
-        {children}
-      </button>
-    </div>
+    <SwipeDeleteRow canDelete={canDelete} rowStyle={rowStyle} outerStyle={divider ? sw.rowDivider : undefined}
+      coverBg="#F0F4F8" onPick={onPick} onDelete={onDelete}>
+      {children}
+    </SwipeDeleteRow>
   )
 }
 
@@ -2204,64 +2206,10 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
   // the initial load AND after a restore/delete so the This Trip/Upcoming/Past
   // list reflects the change immediately, without a page refresh.
   const load = useCallback(async () => {
-    if (!userId) { setRows([]); setDeleted([]); return }
-    // 1. Groups the user belongs to.
-    const { data: gm } = await supabase
-      .from('group_members')
-      .select('role, group_id, groups(id, name)')
-      .eq('user_id', userId)
-    const groupIds = [...new Set((gm || []).map(m => m.group_id ?? m.groups?.id).filter(Boolean))]
-    // Groups where the user is the commissioner (admin) — only these trips can be
-    // deleted (matches the trips RLS), so swipe-to-delete is gated on them.
-    const adminGroupIds = new Set((gm || []).filter(m => m.role === 'admin').map(m => m.group_id ?? m.groups?.id).filter(Boolean))
-    if (!groupIds.length) { if (mountedRef.current) { setRows([]); setDeleted([]) } return }
-
-    // 2. Active + soft-deleted trips in those groups, and the trips the user
-    //    actually belongs to (membership).
-    const cutoff = new Date(Date.now() - 30 * 86400000).toISOString()
-    const [activeRes, deletedRes, tpRes] = await Promise.all([
-      supabase.from('trips').select('id, group_id, name, start_date, end_date').in('group_id', groupIds).is('deleted_at', null),
-      supabase.from('trips').select('id, group_id, name, deleted_at').in('group_id', groupIds).not('deleted_at', 'is', null).gte('deleted_at', cutoff).order('deleted_at', { ascending: false }),
-      supabase.from('trip_players').select('trip_id').or(`user_id.eq.${userId},claimed_user_id.eq.${userId}`),
-    ])
+    const { rows: list, deleted: gone } = await loadMyTrips(supabase, userId, { currentTripId })
     if (!mountedRef.current) return
-    const myTripIds = new Set((tpRes.data || []).map(r => r.trip_id))
-
-    // 3. Location (from rounds) + golfer counts (from trip_players), keyed by
-    //    trip_id, for the active trips we'll show.
-    const tripIds = (activeRes.data || []).map(t => t.id)
-    const [roundRes, countRes] = tripIds.length
-      ? await Promise.all([
-          supabase.from('rounds').select('trip_id, date, location_city, location_state').in('trip_id', tripIds),
-          supabase.from('trip_players').select('trip_id').in('trip_id', tripIds),
-        ])
-      : [{ data: [] }, { data: [] }]
-    if (!mountedRef.current) return
-
-    // Earliest located round per trip → "City, ST".
-    const locByTrip = new Map()
-    ;(roundRes.data || [])
-      .filter(r => r.location_city || r.location_state)
-      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-      .forEach(r => {
-        if (locByTrip.has(r.trip_id)) return
-        locByTrip.set(r.trip_id, [r.location_city, r.location_state].filter(Boolean).join(', '))
-      })
-
-    // Golfer count per trip.
-    const countByTrip = new Map()
-    ;(countRes.data || []).forEach(r => countByTrip.set(r.trip_id, (countByTrip.get(r.trip_id) || 0) + 1))
-
-    const list = (activeRes.data || [])
-      .filter(t => myTripIds.has(t.id) || t.id === currentTripId)
-      .map(t => ({
-        id: t.id, name: t.name, start_date: t.start_date, end_date: t.end_date,
-        location: locByTrip.get(t.id) || '',
-        golfers: countByTrip.get(t.id) || 0,
-        canDelete: adminGroupIds.has(t.group_id),
-      }))
     setRows(list)
-    setDeleted((deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name })))
+    setDeleted(gone)
   }, [userId, currentTripId])
 
   useEffect(() => { load() }, [load])
@@ -2374,7 +2322,7 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, currentUserId, handicapAllowance, tournamentFormat, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
+  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
   const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
@@ -2588,7 +2536,7 @@ export default function MenuDrawer({
         const adminIds = new Set((adminRes.data || []).map(m => m.user_id))
         const tps = (tpRes.data || []).map(tp => ({
           ...tp,
-          name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || 'Unnamed Player',
+          name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || (isPlaceholderPlayer(tp) ? PLACEHOLDER_LABEL : 'Unnamed Player'),
           is_commissioner: adminIds.has(tp.user_id) || adminIds.has(tp.claimed_user_id),
         }))
         if (!cancelled) setPlayersData({ players: tps, teams: teamsRes.data || [] })
@@ -2960,17 +2908,17 @@ export default function MenuDrawer({
               <span style={{ ...s.itemSub, display: 'block' }}>Manage your profile</span>
             </span>
           </button>
-          {/* Trip switcher — styled like the other menu rows; opens the switcher page */}
-          <button style={s.item} onClick={() => setPage('switch-trip')}>
+          {/* Your Clubhouse — the player home page (all your trips, career stats).
+              Replaces the old "Trips" switcher row; keeps its unread dot. */}
+          <button style={s.item} onClick={() => { onClose(); navigate('/home') }}>
             <span style={{ ...s.iconBox, position: 'relative' }}>
-              <svg {...svgProps}><path d="M8 3 4 7l4 4" /><path d="M4 7h16" /><path d="m16 21 4-4-4-4" /><path d="M20 17H4" /></svg>
+              <svg {...svgProps}><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M10 21v-6h4v6" /></svg>
               {otherTripUnread && <span className="unread-dot" aria-label="Unread messages in another trip" />}
             </span>
             <span>
-              <span style={{ ...s.itemLabel, display: 'block' }}>Trips</span>
-              <span style={{ ...s.itemSub, display: 'block' }}>Switch or manage trips</span>
+              <span style={{ ...s.itemLabel, display: 'block' }}>Your Clubhouse</span>
+              <span style={{ ...s.itemSub, display: 'block' }}>Trips and career stats</span>
             </span>
-            <span style={{ marginLeft: 'auto', color: '#7A8FA6', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>Switch ›</span>
           </button>
           {[...(isCommissioner ? [COMMISSIONER_ITEM] : []), ...MENU_ITEMS]
             .filter(item => item.id !== 'archives' || FEATURES.archives)
@@ -3030,7 +2978,7 @@ export default function MenuDrawer({
       )}
       {page === 'players' && (
         <SecondaryPage context={groupName} title="Players & Teams" onBack={backToDrawer}>
-          <PlayersPage data={playersData} isCommissioner={isCommissioner} currentUserId={currentUserId} onReload={() => setPlayersData(null)} />
+          <PlayersPage data={playersData} isCommissioner={isCommissioner} currentUserId={currentUserId} onReload={() => setPlayersData(null)} groupId={groupId} rosterLocked={rosterLocked} inviteToken={inviteToken} />
         </SecondaryPage>
       )}
       {page === 'courses' && (

@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getLiveRounds, liveMatchTally, liveStandardMatchTally, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites } from '../../lib/scoring'
+import { getTripPhase, screenForTripPhase, defaultRoundForTrip, isRoundLiveAt, zonedTodayAndMinutes, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites, isRosterLocked, teamStandings, leaderboardRounds } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../../lib/teamColors'
 import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
@@ -13,7 +13,8 @@ import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
 import ChatWidget from '../../components/ChatWidget'
-import DailyMVPCard from '../../components/DailyMVPCard'
+import DailyLeadersCard from '../../components/DailyLeadersCard'
+import { useSwipePager } from '../../lib/useSwipePager'
 import TournamentPurseCard from '../../components/TournamentPurseCard'
 import GettingStartedCard from '../../components/GettingStartedCard'
 import MenuDrawer from '../../components/MenuDrawer'
@@ -170,8 +171,6 @@ function WeatherWidget({ rounds = [], tripName }) {
   const [userIndex, setUserIndex] = useState(null) // session-only swipe; null = follow default
   const [showForecast, setShowForecast] = useState(false) // 10-day forecast modal
   const mountedRef = useRef(true)
-  const cardRef = useRef(null)
-  const swipeRef = useRef({ x0: 0, y0: 0, did: false })
   useEffect(() => () => { mountedRef.current = false }, [])
 
   // Distinct locations across every round with location data, deduped + ordered
@@ -251,41 +250,13 @@ function WeatherWidget({ rounds = [], tripName }) {
     return () => { cancelled = true }
   }, [locationsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function go(delta) {
-    if (locations.length < 2) return
-    const next = Math.min(locations.length - 1, Math.max(0, activeIndex + delta))
-    if (next !== activeIndex) setUserIndex(next)
-  }
-
-  // Trackpad two-finger horizontal swipe (wheel deltaX). Native non-passive
-  // listener so preventDefault stops the browser's back/forward swipe-nav.
-  useEffect(() => {
-    const el = cardRef.current
-    if (!el || locations.length < 2) return
-    let settle, acc = 0
-    function onWheel(e) {
-      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
-      e.preventDefault()
-      acc += e.deltaX
-      clearTimeout(settle)
-      settle = setTimeout(() => { if (Math.abs(acc) > 40) go(acc < 0 ? -1 : 1); acc = 0 }, 90)
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => { el.removeEventListener('wheel', onWheel); clearTimeout(settle) }
-  }, [locationsKey, activeIndex]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Touch / mouse horizontal drag → change location; a tap opens the forecast.
-  function onPointerDownCard(e) { swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false } }
-  function onPointerUpCard(e) {
-    const s = swipeRef.current
-    const dx = e.clientX - s.x0, dy = e.clientY - s.y0
-    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) { s.did = true; go(dx < 0 ? 1 : -1) }
-  }
+  // Swipe / trackpad paging between locations (shared with Daily Leaders); a tap
+  // (not the end of a swipe) opens the forecast.
+  const { ref: pagerRef, onPointerDown, onPointerUp, consumeSwipe } = useSwipePager({ count: locations.length, index: activeIndex, onIndex: setUserIndex })
   function onCardClick() {
-    if (swipeRef.current.did) { swipeRef.current.did = false; return } // was a swipe, not a tap
+    if (consumeSwipe()) return // was a swipe, not a tap
     setShowForecast(true)
   }
-
   // Active-location values — the tap-through 10-day modal follows the active face.
   const activeCurrent = active ? wxByKey[active.key] : null
   const activeLabel = activeCurrent?.label || active?.label || tripName || 'Weather'
@@ -368,7 +339,7 @@ function WeatherWidget({ rounds = [], tripName }) {
           active one — a carousel, not an instant value swap. The threshold gesture
           only changes the index; CSS animates the slide and re-targets cleanly on
           rapid swipes. Dots stay fixed below the track. */}
-      <div ref={cardRef} style={cardStyle} onClick={onCardClick} onPointerDown={onPointerDownCard} onPointerUp={onPointerUpCard} role="button" tabIndex={0} aria-label="Open 10-day forecast">
+      <div ref={pagerRef} style={cardStyle} onClick={onCardClick} onPointerDown={onPointerDown} onPointerUp={onPointerUp} role="button" tabIndex={0} aria-label="Open 10-day forecast">
         <div style={{ display: 'flex', transform: `translateX(-${activeIndex * 100}%)`, transition: 'transform 260ms ease-out', willChange: 'transform' }}>
           {locations.map(loc => {
             const c = wxByKey[loc.key]
@@ -457,9 +428,8 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenu
       {/* Weather */}
       <WeatherWidget rounds={rounds} tripName={trip.name} />
 
-      {/* Daily MVPs — below the chat thread. Hidden behind a feature flag until
-          stats/analytics are built out; component + data fetch are unchanged. */}
-      {FEATURES.dailyMvps && <DailyMVPCard tripId={trip.id} endDate={trip.end_date} />}
+      {/* Daily Leaders — below the weather. One swipeable page per completed trip day. */}
+      {FEATURES.dailyLeaders && <DailyLeadersCard tripId={trip.id} tripStartDate={trip.start_date} allowance={trip.handicap_allowance ?? 100} />}
 
       {/* Tournament Purse — self-hides unless the commissioner enabled it. */}
       <TournamentPurseCard tripId={trip.id} endDate={trip.end_date} allowance={trip.handicap_allowance ?? 100} />
@@ -519,9 +489,9 @@ function PointsLeaderboard({ trip, teams, rounds }) {
   useResumeRefetch(() => setResumeTick(t => t + 1))
 
   const allowance = trip?.handicap_allowance ?? 100
-  // Leaderboard shows only counting rounds: exclude 'none' placeholders, practice
-  // rounds, and "no scoring" (tee-times-only) rounds.
-  const lbRounds = rounds.filter(r => r.round_type !== 'none' && r.round_type !== 'practice' && !r.no_scoring)
+  // Leaderboard shows only counting rounds (shared rule: no 'none' placeholders,
+  // practice rounds, or "no scoring" tee-times-only rounds).
+  const lbRounds = leaderboardRounds(rounds)
   const roundIds = lbRounds.map(r => r.id)
   const roundKey = roundIds.join(',')
 
@@ -590,31 +560,16 @@ function PointsLeaderboard({ trip, teams, rounds }) {
     return () => { cancelled = true; supabase.removeChannel(ch) }
   }, [trip?.id, roundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // roundId -> per-pairing Points Match Play tally (hole-win counts per side).
-  // Empty until the full load lands (data === null), so nothing is computed from
-  // partial inputs.
-  const byRound = useMemo(() => {
-    const m = new Map()
-    if (!data) return m
-    for (const r of lbRounds) {
-      m.set(r.id, liveMatchTally(r, data.pairings, data.pairingPlayers, data.scoresMap, data.hcpByPlayer, allowance, data.teeRowMap))
-    }
-    return m
-  }, [roundKey, data, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Attribute each pairing's hole wins to the REAL team on that side
-  // (team1_id = slots 1&2, team2_id = slots 3&4), so any team can face any other
-  // and a team split across pairings is summed correctly. `scored` only counts
-  // pairings this team is in, so an unplayed team still shows '—' per round.
-  const roundPointsForTeam = (teamId, roundId) => {
-    let pts = 0, scored = 0
-    for (const row of (byRound.get(roundId) || [])) {
-      if (row.team1_id === teamId) { pts += row.t1pts; scored += row.holesScored }
-      else if (row.team2_id === teamId) { pts += row.t2pts; scored += row.holesScored }
-    }
-    return { pts, scored }
-  }
-  const totalForTeam = teamId => lbRounds.reduce((a, r) => a + roundPointsForTeam(teamId, r.id).pts, 0)
+  // Standings come from the ONE shared function (teamStandings in scoring.js) —
+  // the same numbers the Champion badge and past-trip finishes use. Each pairing's
+  // hole wins go to the REAL team on that side; `scored` only counts pairings this
+  // team is in, so an unplayed team still shows '—' per round. Empty until the full
+  // load lands (data === null), so nothing is computed from partial inputs.
+  const standings = useMemo(() => (data
+    ? teamStandings({ format: trip.format, rounds, ...data, allowance, teamIds: teams.map(t => t.id) })
+    : null), [roundKey, data, allowance, teams, trip.format]) // eslint-disable-line react-hooks/exhaustive-deps
+  const roundPointsForTeam = (teamId, roundId) => standings?.perRound.get(teamId)?.get(roundId) || { pts: 0, scored: 0 }
+  const totalForTeam = teamId => standings?.total.get(teamId) ?? 0
   const roundCellTeam = (teamId, roundId) => {
     const { pts, scored } = roundPointsForTeam(teamId, roundId)
     return scored === 0 ? '—' : pts
@@ -745,38 +700,19 @@ function StandardLeaderboard({ trip, teams, rounds }) {
     return () => { cancelled = true; supabase.removeChannel(ch) }
   }, [trip?.id, roundKey, resumeTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // roundId -> per-pairing Standard Match Play results. Empty until the full load
-  // lands (data === null), so nothing is computed from partial inputs.
-  const byRound = useMemo(() => {
-    const m = new Map()
-    if (!data) return m
-    for (const r of lbRounds) {
-      m.set(r.id, liveStandardMatchTally(r, data.pairings, data.pairingPlayers, data.scoresMap, data.hcpByPlayer, allowance, data.teeRowMap))
-    }
-    return m
-  }, [roundKey, data, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Standings from the ONE shared function (teamStandings in scoring.js): each
+  // completed round's match is worth 1 / 0.5 / 0 to the real team on that side.
+  // Empty until the full load lands (data === null).
+  const standings = useMemo(() => (data
+    ? teamStandings({ format: 'standard_match_play', rounds, ...data, allowance, teamIds: teams.map(t => t.id) })
+    : null), [roundKey, data, allowance, teams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fmtPts = x => (Number.isInteger(x) ? String(x) : x.toFixed(1))
 
-  // Attribute each pairing's match result to the REAL team on that side
-  // (team1_id -> 'T1', team2_id -> 'T2'). `matches` only counts pairings this
-  // team is in, so a team in exactly one match shows W/H/L while a team split
-  // across two matches in a round shows its summed points.
-  const roundPointsForTeam = (teamId, roundId) => {
-    let pts = 0, matches = 0, completed = 0
-    for (const row of (byRound.get(roundId) || [])) {
-      if (!row.hasMatch) continue
-      const side = row.team1_id === teamId ? 'T1' : row.team2_id === teamId ? 'T2' : null
-      if (!side) continue
-      matches++
-      if (!row.complete) continue
-      completed++
-      if (row.result === side) pts += 1
-      else if (row.result === 'halve') pts += 0.5
-    }
-    return { pts, matches, completed }
-  }
-  const totalForTeam = teamId => lbRounds.reduce((a, r) => a + roundPointsForTeam(teamId, r.id).pts, 0)
+  // `matches` only counts pairings this team is in, so a team in exactly one match
+  // shows W/H/L while a team split across two matches in a round shows its summed points.
+  const roundPointsForTeam = (teamId, roundId) => standings?.perRound.get(teamId)?.get(roundId) || { pts: 0, matches: 0, completed: 0 }
+  const totalForTeam = teamId => standings?.total.get(teamId) ?? 0
   const roundBadge = (teamId, roundId) => {
     const { pts, matches, completed } = roundPointsForTeam(teamId, roundId)
     if (matches === 0 || completed === 0) return '—'
@@ -1403,8 +1339,13 @@ const TABS = [
   { id: 'menu',        label: 'Menu'        },
 ]
 
+// Dev/testing account that may toggle a trip's test_mode and enter scores for any
+// pairing on a test-mode trip (mirrors the email in migration 20260674 / can_write_score).
+const DEV_USER_EMAIL = 'o.chamberlin@gmail.com'
+
 export default function TripDashboard() {
   const { user } = useAuth()
+  const isDevUser = (user?.email || '').toLowerCase() === DEV_USER_EMAIL
   const { activeTrip, activeGroup, tripsLoaded, activeTripId, unreadTripIds } = useGroup()
   // Menu-icon red dot: any trip OTHER than the active one has unread trash-talk.
   const otherTripUnread = [...unreadTripIds].some(id => id !== activeTripId)
@@ -1516,7 +1457,9 @@ export default function TripDashboard() {
       setTeams(teamsRes.data || [])
 
       // Determine the round being played right now → auto-open Score on load.
-      await computeActiveScoring(roundList, rawPlayers)
+      // Pass the freshly-fetched trip (state `trip` isn't set yet this render) so the
+      // phase/liveness use the trip's time zone.
+      await computeActiveScoring(roundList, rawPlayers, tripData)
     } catch (err) {
       setFetchError(err?.message || String(err))
     } finally {
@@ -1524,9 +1467,11 @@ export default function TripDashboard() {
     }
   }
 
-  // Build the maps getActiveRound needs, find the active round + the user's
-  // pairing, and (once) auto-navigate to the Score tab.
-  async function computeActiveScoring(roundList, rawPlayers) {
+  // Build the maps the trip-phase computation needs, find the live round + the user's
+  // pairing, and (once) auto-navigate using the shared routing policy. `tripRow`
+  // defaults to state but is passed explicitly on first load (where `trip` state is
+  // still null) so the trip's time zone is available for phase/liveness.
+  async function computeActiveScoring(roundList, rawPlayers, tripRow = trip) {
     const roundIds = roundList.map(r => r.id)
     if (roundIds.length === 0) return
     const [pairRes, scoreRes] = await Promise.all([
@@ -1549,8 +1494,22 @@ export default function TripDashboard() {
       ;(holesByRoundPlayer[k] ??= new Set()).add(sc.hole_number)
     })
 
-    // Live rounds right now, most-recently-started first.
-    const liveRounds = getLiveRounds(roundList, { assignedByRound, holesByRoundPlayer })
+    // Today/now in the TRIP's zone (not the phone's), so an out-of-zone viewer sees
+    // the trip's day — e.g. Phoenix at 11 PM still reads Michigan's correct date. Until
+    // a trip has a stored zone, time_zone is null → the device zone is used (unchanged).
+    const ctx = { assignedByRound, holesByRoundPlayer }
+    const tz = tripRow?.time_zone ?? undefined
+    const { todayIso, nowMinutes } = zonedTodayAndMinutes(new Date(), tz)
+
+    // The one classification of "where are we in the trip", shared with Home/banners.
+    const phaseResult = getTripPhase({ trip: tripRow, rounds: roundList, now: new Date(), timeZone: tz, completeness: ctx })
+    const phase = phaseResult.phase
+
+    // Live rounds right now via the shared live-window predicate (zone-aware),
+    // most-recently-started first — same ordering getLiveRounds uses.
+    const liveRounds = roundList
+      .filter(r => isRoundLiveAt(r, ctx, todayIso, nowMinutes))
+      .sort((a, b) => parseTeeTimeToMinutes(b.tee_time_1) - parseTeeTimeToMinutes(a.tee_time_1))
 
     // The user's trip_player — matched by their account OR a claimed guest slot.
     const myTp = rawPlayers.find(p => p.user_id === user?.id || p.claimed_user_id === user?.id)?.id
@@ -1568,28 +1527,34 @@ export default function TripDashboard() {
       if (pid) { active = r; myPairingId = pid; userInLive = true; break }
     }
     if (!active) active = liveRounds[0] || null
-    if (!active) { setScoringInit(null); return }
+    // Nothing live: pre-select the shared DEFAULT round (by phase + trip-zone now) so the
+    // Score tab opens on the right round instead of the trip's first round. This only
+    // seeds ScoringTab's initial round — it never changes which screen opens (no live
+    // round → screenForTripPhase stays Home) and a manual pick still wins for the session.
+    if (!active) {
+      const def = defaultRoundForTrip(phaseResult, roundList, todayIso, nowMinutes)
+      setScoringInit(def ? { roundId: def.id, pairingNum: 1 } : null)
+      return
+    }
 
     const pairingNum = pairings.find(p => p.id === myPairingId)?.pairing_number || 1
     setScoringInit({ roundId: active.id, pairingNum })
 
-    // Auto-open Score ONLY for a user actually playing a live round. Open when it's
-    // underway for them — ≥5 min past their own tee time (tee_time_N, else _1), or
-    // their own pairing already has a score. On background→resume this re-runs; the
+    // Is the live round underway FOR THIS USER — ≥5 min past their own tee time
+    // (tee_time_N, else _1, in the trip zone), or their own pairing already has a
+    // score? Only then does the routing policy send a playing user to the Score tab.
+    const teeStr = active[`tee_time_${pairingNum}`] || active.tee_time_1
+    const teeMinutes = parseTeeTimeToMinutes(teeStr)
+    const pastTeeThreshold = teeMinutes > 0 && nowMinutes >= teeMinutes + 5
+    const myPairPlayers = myPairingId ? pp.filter(x => x.pairing_id === myPairingId).map(x => x.trip_player_id) : []
+    const myPairingHasScores = myPairPlayers.some(tp => (holesByRoundPlayer[`${active.id}:${tp}`]?.size ?? 0) > 0)
+    const playingLiveUnderway = userInLive && (pastTeeThreshold || myPairingHasScores)
+
+    // Shared routing policy decides the screen. On background→resume this re-runs; the
     // lastActiveRoundRef guard means we redirect to a NEWLY-live round but don't
     // re-yank someone who navigated away during the SAME round. The nav tick forces
     // ScoringTab to remount onto the new round even if they're already on the tab.
-    if (!userInLive) return
-    const teeStr = active[`tee_time_${pairingNum}`] || active.tee_time_1
-    const teeMinutes = parseTeeTimeToMinutes(teeStr)
-    const now = new Date()
-    const nowMinutes = now.getHours() * 60 + now.getMinutes()
-    const pastTeeThreshold = teeMinutes > 0 && nowMinutes >= teeMinutes + 5
-
-    const myPairPlayers = myPairingId ? pp.filter(x => x.pairing_id === myPairingId).map(x => x.trip_player_id) : []
-    const myPairingHasScores = myPairPlayers.some(tp => (holesByRoundPlayer[`${active.id}:${tp}`]?.size ?? 0) > 0)
-
-    if ((pastTeeThreshold || myPairingHasScores) && lastActiveRoundRef.current !== active.id) {
+    if (screenForTripPhase(phase, { playingLiveUnderway }) === 'scores' && lastActiveRoundRef.current !== active.id) {
       lastActiveRoundRef.current = active.id
       setScoreNavTick(t => t + 1)
       setActiveTab('scores')
@@ -1647,10 +1612,16 @@ export default function TripDashboard() {
 
   // Read-only mode: a trip whose end date is in the past. Editing is disabled
   // everywhere and commissioner tools are hidden (users are viewing history).
+  // Dev/testing: the designated account, on a test-mode trip, bypasses read-only so a
+  // past/completed test trip stays fully editable (DB already permits it — the dev is
+  // the trip's admin and has the can_write_score override).
   const now = new Date()
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const readOnly = !!(trip.end_date && trip.end_date < todayIso)
+  const devFullOverride = isDevUser && !!trip.test_mode
+  const readOnly = !!(trip.end_date && trip.end_date < todayIso) && !devFullOverride
   const canManage = isCommissioner && !readOnly
+  // Players can be removed/replaced only before the trip starts (trip-local date).
+  const rosterLocked = isRosterLocked({ trip, now, timeZone: trip.time_zone ?? undefined, devOverride: devFullOverride })
 
   return (
     <div className="dashboard-page">
@@ -1705,7 +1676,7 @@ export default function TripDashboard() {
           keys must be UNIQUE among siblings — see the banner/drawer below) */}
       <div className="dashboard-content" key={`content-${trip.id}`}>
         {activeTab === 'dashboard'   && <TabHome trip={trip} rounds={rounds} userId={user?.id} displayName={players.find(p => p.user_id === user?.id)?.displayName ?? user?.email?.split('@')[0] ?? 'You'} isCommissioner={canManage} onOpenMenuPage={openMenuPage} onNavigateTab={setActiveTab} />}
-        {activeTab === 'scores'      && <ScoringTab key={scoreNavTick} trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
+        {activeTab === 'scores'      && <ScoringTab key={scoreNavTick} trip={trip} rounds={rounds} currentUserId={user?.id} isCommissioner={isCommissioner} isDevUser={isDevUser} readOnly={readOnly} initialRoundId={scoringInit?.roundId} initialPairingNum={scoringInit?.pairingNum} onConnStatus={setScoreConnStatus} onOpenMenuPage={openMenuPage} />}
         {activeTab === 'leaderboard' && <TabLeaderboard trip={trip} teams={teams} rounds={rounds} />}
         {activeTab === 'stats'       && <StatsTab trip={trip} rounds={rounds} isCommissioner={canManage} currentUserId={user?.id} />}
         {activeTab === 'tee-times'   && <TabTeeTimes rounds={rounds} meals={meals} trip={trip} isCommissioner={canManage} playerCount={players.length} onUpdateRound={(id, patch) => setRounds(rs => sortRoundsByTee(rs.map(r => r.id === id ? { ...r, ...patch } : r)))} />}
@@ -1734,6 +1705,7 @@ export default function TripDashboard() {
         inviteToken={trip.invite_token}
         isCommissioner={canManage}
         readOnly={readOnly}
+        rosterLocked={rosterLocked}
         currentUserId={user?.id}
         handicapAllowance={trip.handicap_allowance ?? 100}
         tournamentFormat={trip.format}
