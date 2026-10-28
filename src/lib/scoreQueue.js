@@ -13,11 +13,20 @@ const STORAGE_KEY = 'tc-score-queue:v1'
 export const cellKey = (roundId, tpId, hole) => `${roundId}:${tpId}:${hole}`
 
 // Does this error mean "couldn't reach the server" (vs. a real rejection)?
+// A real rejection from the database always carries an error code (e.g. 42501 for
+// "no permission", PGRST… for request problems). When the request never got an
+// answer — no signal, airplane mode, a timeout — the Supabase library returns an
+// EMPTY code (and status 0), and the message wording varies by phone/browser
+// ("Load failed", "Failed to fetch", "The Internet connection appears to be
+// offline", …). So: no code ⇒ no signal. A thrown exception (no code) counts too.
 export function isNetworkError(error, online = typeof navigator !== 'undefined' ? navigator.onLine : true) {
   if (!error) return false
   if (online === false) return true
+  if (error.status === 0) return true
+  const code = error.code == null ? '' : String(error.code).trim()
+  if (!code) return true
   const msg = `${error.message || ''} ${error.details || ''}`.toLowerCase()
-  return /failed to fetch|load failed|network|networkerror|timeout|timed out|offline|internet connection/.test(msg)
+  return /failed to fetch|load failed|networkerror|network connection|internet connection|timed out/.test(msg)
 }
 
 // item: { op: 'save', round_id, trip_player_id, hole_number, gross_score, count }

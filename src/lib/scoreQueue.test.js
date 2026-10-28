@@ -26,10 +26,17 @@ test('overlayQueue: unsynced edits win over fetched data', () => {
 })
 
 test('isNetworkError: connection failures yes, real rejections no', () => {
-  assert.equal(isNetworkError({ message: 'TypeError: Failed to fetch' }, true), true)
-  assert.equal(isNetworkError({ message: 'Load failed' }, true), true)          // Safari
-  assert.equal(isNetworkError({ message: 'anything' }, false), true)            // phone says offline
+  // Shapes the Supabase library returns when the request never got an answer.
+  assert.equal(isNetworkError({ message: 'TypeError: Failed to fetch', code: '' }, true), true)
+  assert.equal(isNetworkError({ message: 'TypeError: Load failed', code: '' }, true), true)          // iPhone Safari
+  assert.equal(isNetworkError({ message: 'TypeError: The Internet connection appears to be offline.', code: '' }, true), true)
+  assert.equal(isNetworkError({ message: 'Something unexpected', code: '' }, true), true)            // any wording, no code
+  assert.equal(isNetworkError({ message: 'x', code: 'PGRST301', status: 0 }, true), true)           // status 0 = no answer
+  assert.equal(isNetworkError(new TypeError('Load failed'), true), true)                             // thrown, no code
+  assert.equal(isNetworkError({ message: 'anything', code: '42501' }, false), true)                 // phone says offline
+  // Real rejections from the database carry a code.
   assert.equal(isNetworkError({ message: 'new row violates row-level security policy', code: '42501' }, true), false)
+  assert.equal(isNetworkError({ message: 'duplicate key', code: '23505' }, true), false)
   assert.equal(isNetworkError(null, true), false)
 })
 
@@ -39,7 +46,7 @@ function fakeClient(plan) {
   let i = 0
   const result = () => {
     const f = plan[i++] ?? null
-    return Promise.resolve({ error: f === 'network' ? { message: 'Failed to fetch' } : f === 'reject' ? { message: 'permission denied', code: '42501' } : null })
+    return Promise.resolve({ error: f === 'network' ? { message: 'TypeError: Load failed', code: '', status: 0 } : f === 'reject' ? { message: 'permission denied', code: '42501' } : null })
   }
   const chain = (table, op) => {
     const q = { eq: () => q, then: (res, rej) => { calls.push(`${op}:${table}`); return result().then(res, rej) } }
