@@ -181,7 +181,7 @@ test('Prince of Wales: a team with no scores has blank cells and a zero/dash tot
 // per-player points (matchPlayPointsByPlayer) and the Standard path
 // (standardMatchTally / standardHolesWonByPlayer) must all agree on the same data.
 import {
-  matchHoleOutcomes, liveMatchTally, matchPlayPointsByPlayer,
+  matchHoleOutcomes, liveMatchTally, matchPlayPointsByPlayer, pointsDefendedByPlayer,
   liveStandardMatchTally, standardHolesWonByPlayer,
 } from './scoring.js'
 
@@ -255,6 +255,36 @@ test('teammates tied for the winning low BOTH score a point (team still wins one
   const pts = matchPlayPointsByPlayer({ ...bundle3, rounds: [round], scores: scoresArrOf(spec), courseHoles: [COURSE_HOLES3[0]] }, 100)
   assert.equal(pts.get('A'), 1) // both teammates credited
   assert.equal(pts.get('B'), 1)
+})
+
+// ── Points Defended ─────────────────────────────────────────────
+test('points defended: sole best net on a halved hole, partner worse', () => {
+  // SPEC: hole 1 T1 wins, hole 2 T2 wins, hole 3 halves 4–4 with A & B tied (no
+  // credit) and D alone on T2's best (C 5) → D defended 1.
+  const d = pointsDefendedByPlayer(bundle3, 100)
+  assert.deepEqual([...d], [['D', 1]])
+})
+
+test('points defended: both sides can each defend the same halved hole', () => {
+  const spec = [{ A: 4, B: 5, C: 4, D: 6 }]
+  const round = { ...ROUND3, holes: [HOLES3[0]], number_of_holes: 1 }
+  const d = pointsDefendedByPlayer({ ...bundle3, rounds: [round], scores: scoresArrOf(spec), courseHoles: [COURSE_HOLES3[0]] }, 100)
+  assert.equal(d.get('A'), 1)
+  assert.equal(d.get('C'), 1)
+  assert.equal(d.get('B') ?? 0, 0)
+})
+
+test('points defended: not on won holes, unfinished holes, solo sides or practice rounds', () => {
+  const one = (spec, extra = {}) => {
+    const round = { ...ROUND3, holes: [HOLES3[0]], number_of_holes: 1, ...extra.round }
+    return pointsDefendedByPlayer({ ...bundle3, rounds: [round], scores: scoresArrOf(spec), courseHoles: [COURSE_HOLES3[0]], ...extra.bundle }, 100)
+  }
+  assert.equal(one([{ A: 3, B: 5, C: 4, D: 6 }]).size, 0)            // T1 won → points, not defended
+  assert.equal(one([{ A: 4, B: 5, C: 4 }]).size, 0)                  // D hasn't scored → undecided
+  assert.equal(one([{ A: 4, B: 5, C: 4, D: 6 }], { round: { round_type: 'practice' } }).size, 0)
+  const solo = one([{ A: 4, C: 4, D: 6 }], { bundle: { pairingPlayers: PP3.filter(pp => pp.trip_player_id !== 'B') } })
+  assert.equal(solo.get('A') ?? 0, 0)                                // A has no partner → can't "defend"
+  assert.equal(solo.get('C'), 1)
 })
 
 test('Standard path (liveStandardMatchTally / standardHolesWonByPlayer) uses the same winners', () => {
@@ -480,6 +510,28 @@ for (const row of LENGTH_TABLE) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Routing policy — screenForTripPhase turns a phase into the default screen. Score is
+// reached ONLY when the signed-in user is playing the live round AND it's underway.
+import { screenForTripPhase } from './scoring.js'
+
+test('screenForTripPhase: no-trip routes to the no-trip landing', () => {
+  assert.equal(screenForTripPhase('no-trip'), 'no-trip')
+  assert.equal(screenForTripPhase('no-trip', { playingLiveUnderway: true }), 'no-trip')
+})
+
+test('screenForTripPhase: round-live opens Score only for a playing user who is underway', () => {
+  assert.equal(screenForTripPhase('round-live', { playingLiveUnderway: true }), 'scores')
+  assert.equal(screenForTripPhase('round-live', { playingLiveUnderway: false }), 'dashboard') // spectator/commissioner
+  assert.equal(screenForTripPhase('round-live'), 'dashboard')                                 // no user context
+})
+
+test('screenForTripPhase: every non-live phase opens Home, even if the user is "underway"', () => {
+  for (const phase of ['before-trip', 'after-trip', 'no-round-day', 'before-first-tee', 'between-rounds', 'after-last-round']) {
+    assert.equal(screenForTripPhase(phase, { playingLiveUnderway: true }), 'dashboard', phase)
+    assert.equal(screenForTripPhase(phase), 'dashboard', phase)
+  }
+})
+// ─────────────────────────────────────────────────────────────────────────────
 // Home banner (day strip) view-model — homeBannerModel + bannerGridColumns. Pure:
 // fed a getTripPhase()-shaped object, returns { showWelcome, dots, title, lines }.
 import { homeBannerModel, bannerGridColumns, roundCourseName } from './scoring.js'
@@ -640,4 +692,97 @@ test('null team ids resolve to null (no team) — not teams[0]/teams[1]', () => 
   assert.equal(team1, null) // the component then shows generic "Team 1" + neutral colour
   assert.equal(team2, null)
   assert.equal(getTeamDisplayName(team1) || 'Team 1', 'Team 1')
+})
+
+// Default round selection — defaultRoundForTrip reads a getTripPhase() result + the
+// trip's rounds + the trip-zone today/now, and returns the round a round-based screen
+// should default to (when nothing is live and the user hasn't chosen one).
+import { defaultRoundForTrip } from './scoring.js'
+
+const DR = (id, date, tee = null, extra = {}) => ({ id, date, tee_time_1: tee, round_type: 'tournament', ...extra })
+// A 3-day, one-round-per-day trip.
+const D1 = DR('d1', '2026-07-01', '9:00 AM')
+const D2 = DR('d2', '2026-07-02', '9:00 AM')
+const D3 = DR('d3', '2026-07-03', '9:00 AM')
+const TRIP3 = [D1, D2, D3]
+const idOf = r => (r ? r.id : null)
+
+// Straightforward phase → round mappings.
+const PHASE_ROWS = [
+  { name: 'no-trip → null', phase: { phase: 'no-trip' }, rounds: TRIP3, expect: null },
+  { name: 'no rounds → null', phase: { phase: 'before-trip' }, rounds: [], expect: null },
+  { name: 'before-trip → first of trip', phase: { phase: 'before-trip' }, rounds: TRIP3, expect: 'd1' },
+  { name: 'after-trip → last of trip', phase: { phase: 'after-trip' }, rounds: TRIP3, expect: 'd3' },
+  { name: 'round-live → the live round', phase: { phase: 'round-live', liveRound: D2 }, rounds: TRIP3, expect: 'd2' },
+  { name: 'before-first-tee → today\'s first (upcoming) round', phase: { phase: 'before-first-tee', nextRound: D2 }, rounds: TRIP3, expect: 'd2' },
+  { name: 'after-last-round → the round that just finished', phase: { phase: 'after-last-round', lastCompletedRound: D2 }, rounds: TRIP3, expect: 'd2' },
+  { name: 'no-round-day mid-trip → last completed of trip', phase: { phase: 'no-round-day', lastCompletedRound: D1 }, rounds: TRIP3, expect: 'd1' },
+  { name: 'no-round-day before any completed → first of trip', phase: { phase: 'no-round-day', lastCompletedRound: null }, rounds: TRIP3, expect: 'd1' },
+]
+for (const row of PHASE_ROWS) {
+  test(`defaultRoundForTrip: ${row.name}`, () => {
+    assert.equal(idOf(defaultRoundForTrip(row.phase, row.rounds, '2026-07-02', 12 * 60)), row.expect)
+  })
+}
+
+test('defaultRoundForTrip: between-rounds switches to the upcoming round 60 min before its tee', () => {
+  const AM = DR('am', '2026-07-02', '7:00 AM')   // tee 420, completed
+  const PM = DR('pm', '2026-07-02', '1:00 PM')   // tee 780, upcoming
+  const rounds = [AM, PM]
+  const phase = { phase: 'between-rounds', lastCompletedRound: AM, nextRound: PM }
+  const at = m => idOf(defaultRoundForTrip(phase, rounds, '2026-07-02', m))
+  assert.equal(at(780 - 61), 'am')  // just before the 60-min mark → last completed
+  assert.equal(at(780 - 60), 'pm')  // exactly 60 min before tee → upcoming
+  assert.equal(at(780 - 45), 'pm')  // between −60 and −30: upcoming shown (not yet live)
+  assert.equal(at(780 - 20), 'pm')  // past the 30-min live window boundary → still upcoming
+})
+
+test('defaultRoundForTrip: three rounds in a day — stays on the just-finished round until the next 60-min mark', () => {
+  const AM = DR('am', '2026-07-02', '7:00 AM')
+  const MID = DR('mid', '2026-07-02', '11:00 AM') // tee 660
+  const PM = DR('pm', '2026-07-02', '3:00 PM')    // tee 900
+  const rounds = [AM, MID, PM]
+  // After AM, MID is next.
+  const afterAM = { phase: 'between-rounds', lastCompletedRound: AM, nextRound: MID }
+  assert.equal(idOf(defaultRoundForTrip(afterAM, rounds, '2026-07-02', 660 - 90)), 'am') // >90 before MID → AM
+  assert.equal(idOf(defaultRoundForTrip(afterAM, rounds, '2026-07-02', 660 - 30)), 'mid') // within 60 → MID
+  // After MID, PM is next.
+  const afterMID = { phase: 'between-rounds', lastCompletedRound: MID, nextRound: PM }
+  assert.equal(idOf(defaultRoundForTrip(afterMID, rounds, '2026-07-02', 900 - 61)), 'mid')
+  assert.equal(idOf(defaultRoundForTrip(afterMID, rounds, '2026-07-02', 900 - 59)), 'pm')
+})
+
+test('defaultRoundForTrip: between-rounds with a next round that has no tee time stays on last completed', () => {
+  const AM = DR('am', '2026-07-02', '7:00 AM')
+  const PM = DR('pm', '2026-07-02', null) // no tee time
+  const phase = { phase: 'between-rounds', lastCompletedRound: AM, nextRound: PM }
+  assert.equal(idOf(defaultRoundForTrip(phase, [AM, PM], '2026-07-02', 23 * 60)), 'am') // any time → last completed
+})
+
+test('defaultRoundForTrip: one-round trip and a practice last-completed round', () => {
+  const only = DR('only', '2026-07-01', '9:00 AM')
+  assert.equal(idOf(defaultRoundForTrip({ phase: 'before-trip' }, [only], '2026-07-02', 600)), 'only')
+  assert.equal(idOf(defaultRoundForTrip({ phase: 'after-trip' }, [only], '2026-07-02', 600)), 'only')
+  const prac = DR('prac', '2026-07-01', '8:00 AM', { round_type: 'practice', no_scoring: true })
+  assert.equal(idOf(defaultRoundForTrip({ phase: 'no-round-day', lastCompletedRound: prac }, [prac, D2], '2026-07-02', 600)), 'prac')
+})
+
+test('defaultRoundForTrip: date ties order by tee_time_1, missing tee sorts last', () => {
+  const noTee = DR('noTee', '2026-07-01', null)
+  const teed = DR('teed', '2026-07-01', '8:00 AM')
+  const rounds = [noTee, teed] // same day; teed has a tee, noTee doesn't
+  assert.equal(idOf(defaultRoundForTrip({ phase: 'before-trip' }, rounds, '2026-07-02', 600)), 'teed')  // first = has tee
+  assert.equal(idOf(defaultRoundForTrip({ phase: 'after-trip' }, rounds, '2026-07-02', 600)), 'noTee')  // last = missing tee
+  // 'none' placeholder rounds are ignored entirely.
+  const none = DR('none1', '2026-06-30', '6:00 AM', { round_type: 'none' })
+  assert.equal(idOf(defaultRoundForTrip({ phase: 'before-trip' }, [none, teed, noTee], '2026-07-02', 600)), 'teed')
+})
+
+test('defaultRoundForTrip is only the DEFAULT — a manual choice wins (component contract)', () => {
+  // The Score tab resolves: manual pick if the user chose one this session, else default.
+  const def = defaultRoundForTrip({ phase: 'before-trip' }, TRIP3, '2026-07-02', 600) // d1
+  assert.equal(idOf(def), 'd1')
+  const manualId = 'd3'
+  const shown = TRIP3.find(r => r.id === manualId) || def
+  assert.equal(idOf(shown), 'd3') // manual overrides the default
 })

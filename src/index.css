@@ -534,10 +534,13 @@ select {
 .stat-tab{flex-shrink:0;padding:8px 18px;border-radius:999px;background:#fff;color:#5B6B84;border:1px solid #E5E7EB;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background 0.15s,color 0.15s,border-color 0.15s}
 .stat-tab.active{background:#1B3F6E;color:#fff;border-color:#1B3F6E}
 .stat-tiles-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.stat-tile{background:#fff;border-radius:16px;box-shadow:0 10px 20px -12px rgba(15,30,51,.22);overflow:hidden}
+/* Thin border so the light title bar reads as the top of the card on the grey page. */
+.stat-tile{background:#fff;border:1px solid #D5DEE8;border-radius:16px;box-shadow:0 10px 20px -12px rgba(15,30,51,.22);overflow:hidden}
 /* Skinny navy header bar (shorter than the Home-widget bar) — white icon + label. */
-.stat-tile-header{background:#1B3F6E;padding:7px 16px;display:flex;align-items:center;gap:8px}
-.stat-tile-title{color:#fff;font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+/* Same title bar as the Daily Leaders tiles: light navy bar, 15px bold title in
+   green / red / gold (colour set inline per stat). */
+.stat-tile-header{background:#EEF2F7;padding:5px 14px;display:flex;align-items:center;gap:8px;position:relative}
+.stat-tile-title{color:inherit;font-size:15px;font-weight:700;line-height:1.3}
 .stat-tile-icon{width:16px;height:16px;color:#fff;flex-shrink:0;display:block}
 .stat-tile-plus{color:#fff;font-size:13px;font-weight:800;line-height:1}
 .stat-tile-row{display:flex;align-items:center;gap:10px;padding:10px 14px}
@@ -550,7 +553,24 @@ select {
 .stat-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
 .stat-modal-sheet{display:flex;flex-direction:column;background:#fff;border-radius:16px;width:100%;max-width:400px;max-height:calc(100vh - 40px);overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.25)}
 .stat-modal-list{overflow-y:auto}
-.stat-modal-close{position:absolute;top:50%;right:10px;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:#fff;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+/* Gross | Net split tile: two top-3 columns side by side. */
+.stat-split{display:grid;grid-template-columns:1fr 1fr}
+.stat-split-col{min-width:0}
+.stat-split-col + .stat-split-col{border-left:1px solid #EEF2F6}
+.stat-split-mode{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#A9B4C0;padding:8px 14px 0}
+.stat-split .stat-tile-row{padding:7px 14px;gap:8px}
+.stat-split .stat-tile-name,.stat-split .stat-tile-val{font-size:14px}
+/* "See all" table: every player, Gross / Net columns, sortable. */
+.stat-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}
+.stat-table th{position:sticky;top:0;background:#fff;font-size:11px;font-weight:700;color:#7A8FA6;text-align:right;padding:8px 14px;border-bottom:1px solid #E3E8EE;letter-spacing:.04em;text-transform:uppercase}
+.stat-table th:first-child{text-align:left;width:52%}
+.stat-table th.on{color:#1B3F6E}
+.stat-sort{background:none;border:none;padding:0;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
+.stat-table td{padding:8px 14px;border-bottom:1px solid #F2F4F7;color:#0F1E33}
+.stat-table-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-table-val{text-align:right;font-weight:800;color:#1B3F6E;white-space:nowrap}
+.stat-table-rank{font-size:11px;font-weight:600;color:#A9B4C0;margin-left:5px;display:inline-block;min-width:14px;text-align:left}
+.stat-modal-close{position:absolute;top:50%;right:10px;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;border:none;background:#DDE4EC;color:#5A7290;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 /* Flights page — keep entered date/time values left-aligned like the text fields
    (WebKit date/time inputs otherwise center/right-align their value). */
 .flight-field-input::-webkit-datetime-edit{text-align:left;padding:0}

@@ -7,6 +7,8 @@ import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
 import InviteAccept from './pages/auth/InviteAccept'
 import GroupSelector from './pages/home/GroupSelector'
+import HomePage from './pages/home/HomePage'
+import TrophyRoomPage from './pages/home/TrophyRoomPage'
 import TripWizard from './pages/onboarding/TripWizard'
 import TripDashboard from './pages/dashboard/TripDashboard'
 import JoinTrip from './pages/JoinTrip'
@@ -27,6 +29,8 @@ export default function App() {
             <Route path="/join/:inviteToken" element={<JoinTrip />} />
             <Route element={<AppShell />}>
               <Route path="/groups" element={<GroupSelector />} />
+              <Route path="/home" element={<HomePage />} />
+              <Route path="/trophies" element={<TrophyRoomPage />} />
               <Route path="/onboarding/trip" element={<TripWizard />} />
               <Route path="/dashboard" element={<TripDashboard />} />
               <Route path="/profile" element={<ProfilePage />} />

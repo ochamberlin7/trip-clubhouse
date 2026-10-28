@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { findNameMatch } from '../lib/nameMatch'
+import { matchInviteSlot } from '../lib/inviteMatch'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroup } from '../context/GroupContext'
@@ -11,9 +11,6 @@ import { useGroup } from '../context/GroupContext'
 // and enter the trip as a player. No match → a "contact your commissioner" screen.
 // It never routes a new user into the onboarding wizard.
 
-const norm = s => (s || '').toLowerCase().trim()
-const digitsOf = s => (s || '').replace(/\D/g, '')
-const nameOf = p => [p.first_name, p.last_name].filter(Boolean).join(' ') || p.guest_name || ''
 
 export default function JoinTrip() {
   const { inviteToken } = useParams()
@@ -65,64 +62,18 @@ export default function JoinTrip() {
       const players = await loadGuestList()
       if (cancelled) return
 
-      // Already a member of this trip → straight to the dashboard.
-      if (players.some(p => p.claimed_user_id === user.id)) {
-        await enterDashboard(tripRow)
-        return
-      }
-
-      // Matching chain runs against the UNCLAIMED slots only.
-      const unclaimedSlots = players.filter(p => !p.is_claimed)
-
-      // TIER 1 — email match (normalize both sides: lowercase + trim). A slot with
-      // a null/empty email is skipped gracefully (the `p.email &&` guard short-
-      // circuits before norm), so it never throws and the chain continues to phone.
-      const myEmail = norm(user.email)
-      const byEmail = unclaimedSlots.find(p => p.email && norm(p.email) === myEmail)
-      if (byEmail) { await claimSlot(byEmail.id, tripRow); return }
-      const anyEmailOnFile = unclaimedSlots.some(p => p.email && p.email.trim())
-      const eResult = anyEmailOnFile ? '1' : '0' // '✓' unreachable here (would have claimed)
-
-      // TIER 2 — phone match. Strip ALL non-digits on BOTH sides, then compare the
-      // last 10 digits (ignores country codes). Auto-claims — phone is specific.
-      const myPhone = digitsOf(user.user_metadata?.phone)
-      const slotPhones = unclaimedSlots.map(p => digitsOf(p.phone))
-      const byPhone = myPhone.length >= 10
-        ? unclaimedSlots.find(p => {
-            const d = digitsOf(p.phone)
-            return d.length >= 10 && d.slice(-10) === myPhone.slice(-10)
-          })
-        : null
-      if (byPhone) { await claimSlot(byPhone.id, tripRow); return }
-      const anyPhoneOnFile = slotPhones.some(d => d.length > 0)
-      const pResult = anyPhoneOnFile ? '1' : '0'
-
-      // TIER 3 — name match. An EXACT name (case-insensitive, trimmed) auto-claims
-      // with no confirmation; otherwise a fuzzy hit (fuse.js, threshold 0.3) shows
-      // a confirmation screen (names aren't unique enough to auto-claim a fuzzy hit).
-      const myName = (user.user_metadata?.display_name || '').trim()
-      const myNameNorm = norm(myName)
-      const named = unclaimedSlots
-        .map(p => ({ id: p.id, name: nameOf(p) }))
-        .filter(x => x.name)
-
-      // Exact (normalized) name match → auto-claim, no confirmation screen.
-      const byExactName = myNameNorm ? named.find(x => norm(x.name) === myNameNorm) : null
-      if (byExactName) { await claimSlot(byExactName.id, tripRow); return }
-
-      // No exact match — try nickname/fuzzy matching (Jon↔Jonathan, Bob↔Robert,
-      // typos). A hit needs the user to confirm it's them; see src/lib/nameMatch.js.
-      const hit = findNameMatch(myName, named) // { id, name } | null
-      // N: '✓' exact (auto-claimed above, so unreachable on no-match), '~' fuzzy
-      // shown for confirmation, '1' name(s) on file but below threshold, '0' none.
-      const nResult = byExactName ? '✓' : (hit ? '~' : (named.length ? '1' : '0'))
+      // Email → phone → exact name → fuzzy name, on unclaimed slots only
+      // (shared rules in src/lib/inviteMatch.js).
+      const match = matchInviteSlot({ user, players })
+      if (match.kind === 'member') { await enterDashboard(tripRow); return }
+      if (match.kind === 'claim') { await claimSlot(match.slotId, tripRow); return }
 
       // Record per-tier results for the diagnostic support code on the no-match screen.
-      matchDiagRef.current = { e: eResult, p: pResult, n: nResult }
+      matchDiagRef.current = match.diag
 
-      if (hit) {
+      if (match.kind === 'confirm') {
         if (cancelled) return
-        setCandidate({ slotId: hit.id, name: hit.name })
+        setCandidate({ slotId: match.slotId, name: match.name })
         setStatus('confirm')
         return
       }

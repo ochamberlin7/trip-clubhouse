@@ -2,9 +2,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
-import {
-  matchPlayPointsByPlayer, fireStatsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, playerName, firstName, effectiveAllowance, shotsGivenFromCourseHandicaps,
-} from '../lib/scoring'
+import { playerName, firstName } from '../lib/scoring'
+import { computePlayerStats } from '../lib/playerStats'
+import { rankRows } from '../lib/statRanks'
+import { shortNameResolver } from '../lib/playerNames'
+import { STAT_INFO } from '../lib/statDefinitions'
+import { InfoButton, InfoBubble } from './InfoTip'
 
 // ── Trip Stats ────────────────────────────────────────────────────
 // All scoring reuses src/lib/scoring.js — no duplicate/divergent logic:
@@ -22,258 +25,130 @@ import {
 //   • Best/Worst round: 18-hole totals for complete 18-hole rounds only, tracked
 //     independently per mode (best gross round ≠ best net round in general).
 
-// Off-low (match-play) shots per player per round, grouped by pairing — identical
-// to the scorecard/match logic (shotsGivenFromCourseHandicaps): each player's
-// playing handicap MINUS the pairing group's lowest, so the low player plays off
-// scratch (0). Falls back to a single group of everyone who scored the round when
-// no pairings exist. Returns Map(roundId -> Map(tripPlayerId -> shots)).
-function offLowShotsByRound(rounds, { roundById, pairingsByRound, playersByPairing, scores, teeRowByRP, hcpById }, allowance) {
-  const byRound = new Map()
-  for (const r of rounds) {
-    const round = roundById.get(r.id)
-    const prs = pairingsByRound.get(r.id) || []
-    let groups
-    if (prs.length) {
-      groups = prs.map(pr => playersByPairing.get(pr.id) || [])
-    } else {
-      const set = new Set()
-      for (const s of scores) if (s.round_id === r.id && s.gross_score != null) set.add(s.trip_player_id)
-      groups = [[...set]]
-    }
-    const shots = new Map()
-    for (const group of groups) {
-      const entries = group.map(tp => {
-        const tee = resolvePlayerTee(round, teeRowByRP.get(`${r.id}:${tp}`))
-        return { id: tp, ch: rawCourseHandicapForTee(hcpById.get(tp), tee.slope, tee.rating, tee.par) }
-      })
-      const m = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
-      for (const [tp, v] of m) shots.set(tp, v)
-    }
-    byRound.set(r.id, shots)
-  }
-  return byRound
-}
-
-function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance) {
-  // Hole par + stroke index live on rounds.holes — a positional JSON array where
-  // index i is hole i+1 (par via `.par`, stroke index via `.handicap`). This is
-  // the SAME source the scorecard reads. The course_holes table is never
-  // populated by any code, so building hole info from it (as this function used
-  // to) left every round with no holes → the per-round loop skipped everything
-  // and all 12 cards showed "No data yet". Derive the { round_id, hole_number,
-  // par, stroke_index } shape the scoring helpers expect from rounds.holes.
-  const courseHoles = []
-  for (const r of rounds) {
-    if (!Array.isArray(r.holes)) continue
-    r.holes.forEach((h, i) => {
-      courseHoles.push({
-        round_id: r.id,
-        hole_number: i + 1,
-        par: h?.par ?? null,
-        stroke_index: h?.stroke_index ?? h?.handicap ?? h?.strokeIndex ?? null,
-      })
-    })
-  }
-
-  // Card 1 value (mode-independent). Identical net best-ball point calc for both
-  // tournament types — Standard Match Play labels it "Holes Won", Point Match
-  // Play "Points Won". Accrues hole-by-hole across all tournament rounds: on each
-  // decided hole the winning side's best-net player(s) score (both when tied).
-  const bundle = { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds }
-  const primaryByPlayer = matchPlayPointsByPlayer(bundle, allowance)
-  // Fire stats (mode-independent, net-based) — matches the scorecard's fire display.
-  const fireByPlayer = fireStatsByPlayer(bundle, allowance)
-
-  // Lookups.
-  const roundById = new Map(rounds.map(r => [r.id, r]))
-  const hcpById = new Map(tripPlayers.map(p => [p.id, p.handicap_index]))
-  const teeRowByRP = new Map()
-  for (const pr of playerRounds) teeRowByRP.set(`${pr.round_id}:${pr.trip_player_id}`, pr)
-  const holeInfo = new Map() // `${roundId}:${hole}` -> { par, stroke_index }
-  for (const ch of courseHoles) holeInfo.set(`${ch.round_id}:${ch.hole_number}`, ch)
-  const holesByRound = new Map() // roundId -> sorted [hole]
-  for (const ch of courseHoles) {
-    const arr = holesByRound.get(ch.round_id) || []
-    arr.push(ch.hole_number); holesByRound.set(ch.round_id, arr)
-  }
-  for (const arr of holesByRound.values()) arr.sort((a, b) => a - b)
-  const scoreMap = new Map()
-  for (const s of scores) if (s.gross_score != null) scoreMap.set(`${s.round_id}:${s.trip_player_id}:${s.hole_number}`, s.gross_score)
-
-  // Pairing lookups → off-low match shots per round (same basis as the scorecard
-  // dots), so the Net cards below strike Ben on SI 1-7 (off the low man), not on
-  // his full 90% playing handicap.
-  const playersByPairing = new Map()
-  for (const pp of pairingPlayers) {
-    if (!playersByPairing.has(pp.pairing_id)) playersByPairing.set(pp.pairing_id, [])
-    playersByPairing.get(pp.pairing_id).push(pp.trip_player_id)
-  }
-  const pairingsByRound = new Map()
-  for (const pr of pairings) {
-    if (!pairingsByRound.has(pr.round_id)) pairingsByRound.set(pr.round_id, [])
-    pairingsByRound.get(pr.round_id).push(pr)
-  }
-  const shotsByRound = offLowShotsByRound(rounds, { roundById, pairingsByRound, playersByPairing, scores, teeRowByRP, hcpById }, allowance)
-
-  // Six vs-par categories + best/worst round, tracked separately for gross and
-  // net (never derived from each other).
-  const emptyMode = () => ({ eagles: 0, birdies: 0, pars: 0, parsOrBetter: 0, bogeys: 0, doubles: 0, triples: 0, bestRound: null, worstRound: null })
-  const blank = () => ({ primary: 0, fireStreak: 0, fireHolesTotal: 0, gross: emptyMode(), net: emptyMode() })
-  const stats = new Map(tripPlayers.map(p => [p.id, blank()]))
-  for (const [tp, v] of primaryByPlayer) { if (stats.has(tp)) stats.get(tp).primary = v }
-  for (const [tp, f] of fireByPlayer) { if (stats.has(tp)) { stats.get(tp).fireStreak = f.maxStreak; stats.get(tp).fireHolesTotal = f.fireHolesTotal } }
-
-  const bucket = (m, diff) => {
-    if (diff <= -2) m.eagles++
-    else if (diff === -1) m.birdies++
-    else if (diff === 0) m.pars++
-    else if (diff === 1) m.bogeys++
-    else if (diff === 2) m.doubles++
-    else if (diff >= 3) m.triples++
-    if (diff <= 0) m.parsOrBetter++
-  }
-  const noteRound = (m, total) => {
-    if (m.bestRound == null || total < m.bestRound) m.bestRound = total
-    if (m.worstRound == null || total > m.worstRound) m.worstRound = total
-  }
-
-  let anyScore = false
-  for (const r of rounds) {
-    const holes = holesByRound.get(r.id)
-    if (!holes || holes.length === 0) continue
-    const is18 = holes.length === 18
-    for (const tp of tripPlayers) {
-      const st = stats.get(tp.id)
-      const ph = shotsByRound.get(r.id)?.get(tp.id) ?? 0
-      let scoredHoles = 0, grossTotal = 0, netTotal = 0
-      for (const hole of holes) {
-        const gross = scoreMap.get(`${r.id}:${tp.id}:${hole}`)
-        if (gross == null) continue
-        anyScore = true
-        const info = holeInfo.get(`${r.id}:${hole}`)
-        const net = gross - strokesOnHole(ph, info?.stroke_index)
-        scoredHoles++; grossTotal += gross; netTotal += net
-        const par = info?.par
-        if (par == null) continue // can't bucket vs-par without a par (round totals still count)
-        bucket(st.gross, gross - par)
-        bucket(st.net, net - par)
-      }
-      // Best/Worst: complete 18-hole rounds only (round has 18 holes AND the
-      // player scored all 18). Gross and net totals recorded independently, so a
-      // player's best gross round and best net round can be different rounds.
-      if (is18 && scoredHoles === 18) {
-        noteRound(st.gross, grossTotal)
-        noteRound(st.net, netTotal)
-      }
-    }
-  }
-
-  // Drink totals: per-hole drinks + manual tally.
-  const drinkByPlayer = new Map()
-  for (const d of drinks) drinkByPlayer.set(d.trip_player_id, (drinkByPlayer.get(d.trip_player_id) || 0) + (d.count || 0))
-
-  return { stats, drinkByPlayer, anyScore }
-}
+// Per-player stat math lives in src/lib/playerStats.js (shared with the Home
+// Daily Leaders card) — see computePlayerStats there.
 
 // Category tabs (Drinks last). Each tab shows a 2-col grid of stat tiles.
 const STAT_TABS = ['Scoring', 'Fire', 'Rounds', 'Drinks']
 
-// Custom stat icon set — defined once as <symbol>s, referenced via <use>. White
-// on the navy tile header (stroke: currentColor). "+1" (Points Won) is text, not
-// an icon.
-function StatSymbols() {
-  return (
-    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-      <symbol id="ic-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20.5V3" /><path d="M12 4l7 2.6-7 2.6z" /><path d="M8.3 20.5h7.4" /></symbol>
-      <symbol id="ic-shieldcheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5l7 2.7v5.3c0 4.6-2.9 7.3-7 8.5-4.1-1.2-7-3.9-7-8.5V6.2l7-2.7z" /><path d="M8.7 12.3l2.2 2.2 4.4-4.4" /></symbol>
-      <symbol id="ic-circle1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="7.5" /></symbol>
-      <symbol id="ic-dcircle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="12" r="8.2" /><circle cx="12" cy="12" r="5.2" /></symbol>
-      <symbol id="ic-square1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5" /></symbol>
-      <symbol id="ic-dsquare" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="4.3" y="4.3" width="15.4" height="15.4" rx="1.8" /><rect x="7.5" y="7.5" width="9" height="9" rx="1.2" /></symbol>
-      <symbol id="ic-xsquare" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5" /><path d="M7.3 7.3l9.4 9.4M16.7 7.3l-9.4 9.4" /></symbol>
-      <symbol id="ic-chartup" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 16.5l6-6 4 4 8-8.5" /><path d="M14.5 6h6.5v6.5" /></symbol>
-      <symbol id="ic-chartdown" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7.5l6 6 4-4 8 8.5" /><path d="M14.5 18h6.5v-6.5" /></symbol>
-      <symbol id="ic-flameplain" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21.5c-4.2 0-7-2.9-7-6.8 0-2.7 1.7-4.6 2.8-6.3.2 1.8 1 2.9 2 2.9-.3-3.4-.6-5.6 1.6-8.8 1 3.2 3.8 5 3.8 8.6 0 1.1 1 1.9 1.9.9 1.2 2.9-.9 9.5-5.1 9.5z" /></symbol>
-      <symbol id="ic-flamestreak" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 21.5c-4.2 0-7-2.9-7-6.8 0-2.7 1.7-4.6 2.8-6.3.2 1.8 1 2.9 2 2.9-.3-3.4-.6-5.6 1.6-8.8 1 3.2 3.8 5 3.8 8.6 0 1.1 1 1.9 1.9.9 1.2 2.9-.9 9.5-5.1 9.5z" /><path d="M.3 9.8h6" /><path d="M3.3 14.3h3" /><path d="M.3 18.8h6" /></symbol>
-      <symbol id="ic-cocktail" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M5.3 7.3h12l-6 8.3z" /><path d="M11.3 15.6v5.7" /><path d="M7.8 21.3h7" /><path d="M17.2 4.3a3.2 3.2 0 0 1 3.2 3.2h-3.2z" /><path d="M17.9 6.9l1.8-1.8" /></symbol>
-    </svg>
-  )
-}
+// Title colour says what kind of stat it is (same as Daily Leaders): green =
+// bragging rights, red = the roast, gold = drinks. Titles sit on the same light
+// navy bar as the Daily Leaders tiles.
+const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
+const ME_BG = '#EEF2F7' // the viewer's own row in "See all"
 
-// The skinny navy header's icon: "+1" renders as bold white text; anything else
-// references a <symbol> by id.
-function StatIcon({ icon }) {
-  if (icon === '+1') return <span className="stat-tile-plus">+1</span>
-  return <svg className="stat-tile-icon" viewBox="0 0 24 24" aria-hidden="true"><use href={`#${icon}`} /></svg>
-}
-
-function StatHeaderBar({ icon, title }) {
+function StatHeaderBar({ title, tone = 'good', onClose, info, infoOpen, onInfo, infoRef }) {
   return (
-    <div className="stat-tile-header">
-      <StatIcon icon={icon} />
-      <span className="stat-tile-title">{title}</span>
+    <div className="stat-tile-header" style={{ color: TONE[tone] }}>
+      {/* Title + superscript "i" kept together so the header gap doesn't split them. */}
+      <span style={{ display: 'inline-flex', alignItems: 'flex-start' }}>
+        <span className="stat-tile-title">{title}</span>
+        {info && <InfoButton ref={infoRef} open={infoOpen} onToggle={onInfo} color={TONE[tone]} label={`What is ${title}?`} />}
+      </span>
+      {onClose && <button className="stat-modal-close" aria-label="Close" onClick={onClose}>✕</button>}
     </div>
   )
 }
 
-function StatRow({ i, row }) {
+function TopRow({ row, short }) {
   return (
     <div className="stat-tile-row">
-      <span className="stat-tile-rank">{i + 1}</span>
-      <span className="stat-tile-name">{firstName(row.p.name) || row.p.name}</span>
+      <span className="stat-tile-rank">{row.rank ?? '–'}</span>
+      <span className="stat-tile-name">{short(row.item.name)}</span>
       <span className="stat-tile-val">{row.v == null ? '—' : row.v}</span>
     </div>
   )
 }
 
-// Rank players by a card's value (unchanged from before): high- or low-first per
-// `hi`, null values ("—") last, ties broken alphabetically by first name.
-function rankPlayers(players, valueOf, hi) {
-  const nameOf = p => firstName(p.name) || p.name || ''
-  const rows = players.map(p => ({ p, v: valueOf(p) }))
-  rows.sort((a, b) => {
-    if (a.v == null && b.v == null) return nameOf(a.p).localeCompare(nameOf(b.p))
-    if (a.v == null) return 1
-    if (b.v == null) return -1
-    if (a.v !== b.v) return hi ? b.v - a.v : a.v - b.v
-    return nameOf(a.p).localeCompare(nameOf(b.p))
-  })
-  return rows
+// "See all": every player in one table. Split stats show Gross and Net columns
+// (value + small rank) — tap a header to sort by it. The viewer's row is highlighted.
+function SeeAllModal({ title, tone, players, cols, isMe, onClose }) {
+  const [sortKey, setSortKey] = useState(cols[0].key)
+  const nameOf = p => p.name || ''
+  const ranked = useMemo(() => {
+    const byCol = {}
+    for (const c of cols) {
+      byCol[c.key] = new Map(rankRows(players, c.valueOf, { hi: c.hi, nameOf }).map(r => [r.item.id, r]))
+    }
+    const order = rankRows(players, cols.find(c => c.key === sortKey).valueOf, { hi: cols.find(c => c.key === sortKey).hi, nameOf })
+    return order.map(r => ({ p: r.item, cells: cols.map(c => byCol[c.key].get(r.item.id)) }))
+  }, [players, cols, sortKey])
+  const multi = cols.length > 1
+  return createPortal(
+    <div className="stat-modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="stat-modal-sheet" onClick={e => e.stopPropagation()}>
+        <StatHeaderBar title={title} tone={tone} onClose={onClose} />
+        <div className="stat-modal-list">
+          <table className="stat-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                {cols.map(c => (
+                  <th key={c.key} className={multi && sortKey === c.key ? 'on' : undefined}>
+                    {multi
+                      ? <button className="stat-sort" onClick={() => setSortKey(c.key)}>{c.label}{sortKey === c.key ? ' ▾' : ''}</button>
+                      : c.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ranked.map(({ p, cells }) => (
+                <tr key={p.id} style={isMe(p) ? { background: ME_BG } : undefined}>
+                  <td className="stat-table-name">{p.name}</td>
+                  {cells.map((cell, i) => (
+                    <td key={cols[i].key} className="stat-table-val">
+                      {cell?.v == null ? '—' : cell.v}
+                      {multi && cell?.rank != null && <span className="stat-table-rank">{cell.rank}</span>}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
 }
 
-// One podium tile: skinny navy header + top-3 rows + a "See all N ›" footer that
-// opens a modal with the full ranked list. `anyScore` gates it to "No data yet".
-function StatTile({ title, icon, players, valueOf, hi, anyScore, span }) {
+// One stat tile. `cols` = [{ key, label, valueOf, hi }]: one column for a single
+// stat (Points Won, Fire…), two (Gross, Net) for a split stat. Shows each column's
+// top 3 and a "See all ›" link. `anyScore` gates it to "No data yet".
+function StatTile({ title, tone, cols, players, anyScore, short, isMe, info }) {
   const [open, setOpen] = useState(false)
-  const rows = rankPlayers(players, valueOf, hi)
+  const [infoOpen, setInfoOpen] = useState(false)
+  const infoRef = useRef(null)
+  const split = cols.length > 1
+  const nameOf = p => p.name || ''
+  // Top 3 skips players with nothing to show (0 or no value) — "Ben 0" isn't a
+  // leader. "See all" still lists everyone.
+  const tops = cols.map(c => rankRows(players, c.valueOf, { hi: c.hi, nameOf }).filter(r => r.v != null && r.v !== 0).slice(0, 3))
   return (
-    <div className="stat-tile" style={span ? { gridColumn: '1 / -1' } : undefined}>
-      <StatHeaderBar icon={icon} title={title} />
+    <div className="stat-tile" style={split ? { gridColumn: '1 / -1' } : undefined}>
+      <StatHeaderBar title={title} tone={tone} info={info} infoOpen={infoOpen} onInfo={() => setInfoOpen(v => !v)} infoRef={infoRef} />
+      {info && infoOpen && <InfoBubble anchorRef={infoRef} onClose={() => setInfoOpen(false)}>{info}</InfoBubble>}
       {!anyScore ? (
         <div className="stat-empty">No data yet</div>
       ) : (
         <>
-          {rows.slice(0, 3).map((row, i) => <StatRow key={row.p.id} i={i} row={row} />)}
-          {rows.length > 3 && (
-            <button className="stat-tile-seeall" onClick={() => setOpen(true)}>See all {rows.length} ›</button>
+          <div className={split ? 'stat-split' : undefined}>
+            {cols.map((c, i) => (
+              <div key={c.key} className={split ? 'stat-split-col' : undefined}>
+                {split && <div className="stat-split-mode">{c.label}</div>}
+                {tops[i].length
+                  ? tops[i].map(row => <TopRow key={row.item.id} row={row} short={short} />)
+                  : <div className="stat-empty">None</div>}
+              </div>
+            ))}
+          </div>
+          {players.length > 3 && (
+            <button className="stat-tile-seeall" onClick={() => setOpen(true)}>See all ›</button>
           )}
         </>
       )}
-      {open && createPortal(
-        <div className="stat-modal-overlay" role="dialog" aria-modal="true" onClick={() => setOpen(false)}>
-          <div className="stat-modal-sheet" onClick={e => e.stopPropagation()}>
-            <div className="stat-tile-header" style={{ position: 'relative', paddingRight: 44 }}>
-              <StatIcon icon={icon} />
-              <span className="stat-tile-title">{title}</span>
-              <button className="stat-modal-close" aria-label="Close" onClick={() => setOpen(false)}>✕</button>
-            </div>
-            <div className="stat-modal-list">
-              {rows.map((row, i) => <StatRow key={row.p.id} i={i} row={row} />)}
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+      {open && <SeeAllModal title={title} tone={tone} players={players} cols={cols} isMe={isMe} onClose={() => setOpen(false)} />}
     </div>
   )
 }
@@ -282,7 +157,6 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   const [data, setData] = useState(null)
   const [openDrinkPopup, setOpenDrinkPopup] = useState(null) // trip_player_id
   const [refreshTick, setRefreshTick] = useState(0) // bumped by realtime score changes + resume to refetch
-  const [mode, setMode] = useState('gross') // Gross/Net toggle — scoring/round tiles only
   const [tab, setTab] = useState('Scoring') // category tab (session-only)
   const tilesRef = useRef(null)             // swipe viewport → change tab
   const swipeRef = useRef({ x0: 0, y0: 0, did: false, decided: false, horiz: false })
@@ -402,7 +276,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     panelRefs.current.forEach(el => el && ro?.observe(el))
     window.addEventListener('resize', measure)
     return () => { ro?.disconnect(); window.removeEventListener('resize', measure) }
-  }, [data, mode, tab, openDrinkPopup])
+  }, [data, tab, openDrinkPopup])
 
   const computed = useMemo(() => {
     if (!data) return null
@@ -440,37 +314,41 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     return <div className="empty-state"><span className="empty-state-icon">📊</span>No players on this trip yet.</div>
   }
 
-  // Value accessor for a Gross/Net mode-dependent stat (`dash` → round total that
-  // shows "—" when absent). Mode-independent stats use direct accessors below.
-  const modeValue = (key, dash) => p => {
-    const m = stats.get(p.id)?.[mode]
-    if (!m) return dash ? null : 0
-    return dash ? m[key] : (m[key] ?? 0)
-  }
+  // Accessors. Counting stats default to 0; round totals ("—" when no complete
+  // 18-hole round) stay null.
+  const one = key => p => stats.get(p.id)?.[key] ?? 0
+  const gn = (key, dash) => [
+    { key: 'gross', label: 'Gross', valueOf: p => { const v = stats.get(p.id)?.gross?.[key]; return dash ? (v ?? null) : (v ?? 0) } },
+    { key: 'net', label: 'Net', valueOf: p => { const v = stats.get(p.id)?.net?.[key]; return dash ? (v ?? null) : (v ?? 0) } },
+  ]
+  const single = (valueOf, hi = true) => [{ key: 'v', label: 'Total', valueOf, hi }]
+  const both = (key, hi = true, dash = false) => gn(key, dash).map(c => ({ ...c, hi }))
 
-  // Tile descriptors per tab. Icons per the spec; Points Won uses the "+1" text.
+  // Tiles per tab. Single stats sit two across; Gross | Net tiles run full width.
   const scoringTiles = [
-    { key: 'primary', title: primaryCard.title, icon: '+1', hi: true, valueOf: p => stats.get(p.id)?.primary ?? 0 },
-    { key: 'eagles', title: 'Eagles', icon: 'ic-dcircle', hi: true, valueOf: modeValue('eagles') },
-    { key: 'birdies', title: 'Birdies', icon: 'ic-circle1', hi: true, valueOf: modeValue('birdies') },
-    { key: 'pars', title: 'Pars', icon: 'ic-flag', hi: true, valueOf: modeValue('pars') },
-    { key: 'parsOrBetter', title: 'Pars+', icon: 'ic-shieldcheck', hi: true, valueOf: modeValue('parsOrBetter') },
-    { key: 'bogeys', title: 'Bogeys', icon: 'ic-square1', hi: true, valueOf: modeValue('bogeys') },
-    { key: 'doubles', title: 'Doubles', icon: 'ic-dsquare', hi: true, valueOf: modeValue('doubles') },
-    { key: 'triples', title: 'Triples+', icon: 'ic-xsquare', hi: true, valueOf: modeValue('triples') },
+    { key: 'primary', title: primaryCard.title, tone: 'good', cols: single(one('primary')) },
+    // Halved holes a player saved alone (net, like Points Won).
+    { key: 'defended', title: 'Points Defended', tone: 'good', cols: single(one('defended')), info: STAT_INFO.defended },
+    { key: 'eagles', title: 'Eagles', tone: 'good', cols: both('eagles') },
+    { key: 'birdies', title: 'Birdies', tone: 'good', cols: both('birdies') },
+    { key: 'pars', title: 'Pars', tone: 'good', cols: both('pars') },
+    { key: 'parsOrBetter', title: 'Pars or Better', tone: 'good', cols: both('parsOrBetter') },
+    { key: 'bogeys', title: 'Bogeys', tone: 'bad', cols: both('bogeys') },
+    { key: 'doubles', title: 'Doubles', tone: 'bad', cols: both('doubles') },
+    { key: 'triples', title: 'Triples or Worse', tone: 'bad', cols: both('triples') },
   ]
   const fireTiles = [
-    { key: 'fireStreak', title: 'Longest Fire Streak', icon: 'ic-flamestreak', hi: true, valueOf: p => stats.get(p.id)?.fireStreak ?? 0 },
-    { key: 'fireHoles', title: 'Total Fire Holes', icon: 'ic-flameplain', hi: true, valueOf: p => stats.get(p.id)?.fireHolesTotal ?? 0 },
+    { key: 'fireStreak', title: 'Longest Fire Streak', tone: 'good', cols: single(one('fireStreak')) },
+    { key: 'fireHoles', title: 'Total Fire Holes', tone: 'good', cols: single(one('fireHolesTotal')) },
   ]
   const roundsTiles = [
-    { key: 'bestRound', title: 'Best Round', icon: 'ic-chartup', hi: false, valueOf: modeValue('bestRound', true) },
-    { key: 'worstRound', title: 'Worst Round', icon: 'ic-chartdown', hi: true, valueOf: modeValue('worstRound', true) },
+    { key: 'bestRound', title: 'Best Round', tone: 'good', cols: both('bestRound', false, true) },
+    { key: 'worstRound', title: 'Worst Round', tone: 'bad', cols: both('worstRound', true, true) },
   ]
   // Tiles per tab (Drinks has no podium tiles — it renders its own leaderboard).
   const tilesByTab = { Scoring: scoringTiles, Fire: fireTiles, Rounds: roundsTiles, Drinks: [] }
-  // Gross/Net only affects the counting + round tiles; Fire & Drinks are net-based.
-  const toggleTabs = new Set(['Scoring', 'Rounds'])
+  const short = shortNameResolver(players.map(p => p.name))
+  const isMe = p => !!currentUserId && (p.user_id === currentUserId || p.claimed_user_id === currentUserId)
   const tabIndex = STAT_TABS.indexOf(tab)
 
   function goTab(delta) {
@@ -484,7 +362,9 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   // tab on release — so a swipe reads as physically dragging the page.
   function onTilesPointerDown(e) {
     swipeRef.current = { x0: e.clientX, y0: e.clientY, did: false, decided: false, horiz: false }
-    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* older browsers */ }
+    // Don't capture the pointer here: capturing on touch-down retargets the tap to
+    // this container, so buttons inside ("See all", drink +/-) never got the click.
+    // Capture only once the gesture is clearly a horizontal swipe (below).
   }
   function onTilesPointerMove(e) {
     const s = swipeRef.current
@@ -496,7 +376,10 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
       if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
       s.decided = true
       s.horiz = Math.abs(dx) > Math.abs(dy)
-      if (s.horiz) setDragging(true)
+      if (s.horiz) {
+        setDragging(true)
+        try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* older browsers */ }
+      }
     }
     if (!s.horiz) return
     // Rubber-band resistance when dragging past the first/last tab.
@@ -528,22 +411,14 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
     const tiles = tilesByTab[tabName]
     return (
       <>
-        {/* Gross / Net toggle — controls the Scoring counting tiles + Best/Worst
-            Round (not Points Won, Fire, or Drinks). Default Gross. */}
-        {toggleTabs.has(tabName) && (
-          <div className="gross-net-toggle" role="tablist" aria-label="Gross or net stats">
-            <button role="tab" aria-selected={mode === 'gross'} className={`gn-btn ${mode === 'gross' ? 'active' : ''}`} onClick={() => setMode('gross')}>Gross</button>
-            <button role="tab" aria-selected={mode === 'net'} className={`gn-btn ${mode === 'net' ? 'active' : ''}`} onClick={() => setMode('net')}>Net</button>
-          </div>
-        )}
         <div className="stat-tiles-grid">
           {tiles.map(t => (
-            <StatTile key={t.key} title={t.title} icon={t.icon} hi={t.hi} anyScore={anyScore} players={players} valueOf={t.valueOf} />
+            <StatTile key={t.key} title={t.title} tone={t.tone} cols={t.cols} anyScore={anyScore} players={players} short={short} isMe={isMe} info={t.info} />
           ))}
 
           {tabName === 'Drinks' && (
             <div className="stat-tile" style={{ gridColumn: '1 / -1' }}>
-              <StatHeaderBar icon="ic-cocktail" title="Drink Leaderboard" />
+              <StatHeaderBar title="Drink Leaderboard" tone="drinks" />
               {drinkRows.map((p, i) => {
                 const editable = canEditDrinks(p)
                 const open = openDrinkPopup === p.id
@@ -592,7 +467,6 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
 
   return (
     <div>
-      <StatSymbols />
 
       {/* Category tabs — ABOVE the Gross/Net selector; horizontal scroll, Drinks last. */}
       <div className="stat-tabs" role="tablist" aria-label="Stat categories">

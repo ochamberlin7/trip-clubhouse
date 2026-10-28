@@ -218,7 +218,7 @@ function isoDateToUTC(iso) {
 // given IANA zone. timeZone is REQUIRED/explicit — this never reads the phone's zone
 // itself; when it is undefined the JS runtime zone is used by Intl (the documented
 // "callers pass the phone zone for now" path). 'en-CA' formats as YYYY-MM-DD.
-function zonedTodayAndMinutes(now, timeZone) {
+export function zonedTodayAndMinutes(now, timeZone) {
   const dtf = new Intl.DateTimeFormat('en-CA', {
     timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   })
@@ -307,6 +307,119 @@ export function getTripPhase({ trip, rounds = [], now = new Date(), timeZone, ho
   }
 
   return { phase, dayNumber, totalDays, todaysRounds, liveRound, nextRound, lastCompletedRound, hasRoundsToday }
+}
+
+// isRosterLocked — the ONE rule for "can players still be removed or replaced?"
+// The roster is set once the trip starts: only the 'before-trip' phase (trip-local
+// date, via getTripPhase) is unlocked. A trip with no start date hasn't started.
+// devOverride (test mode) unlocks it so a started test trip can still be exercised.
+export function isRosterLocked({ trip, now = new Date(), timeZone, devOverride = false } = {}) {
+  if (!trip) return true
+  if (devOverride) return false
+  if (!trip.start_date) return false
+  return getTripPhase({ trip, now, timeZone }).phase !== 'before-trip'
+}
+
+// ── Routing policy: a trip phase → the screen to open ────────────────────────────
+// The ONE place that turns getTripPhase's facts into a default screen, so every entry
+// point (open app, switch trip, background→resume) lands the user identically instead
+// of re-deciding ad hoc. Returns a dashboard tab id, or 'no-trip' when there is no trip
+// to show (the caller renders its no-current-trip landing for that).
+//
+// Auto-opening the Score tab is deliberately NOT triggered by liveness alone: a
+// spectator or a commissioner who isn't playing stays on Home even while a round is
+// live. So the Score screen is chosen only when the signed-in user is actually playing
+// the live round AND it's underway for them — those user-specific facts are passed in
+// (`playingLiveUnderway`) so this function stays pure and testable.
+//   phase: a getTripPhase().phase value.
+//   opts.playingLiveUnderway: the signed-in user is in the live round's pairing and it
+//     has started for them (past their tee or their pairing already has a score).
+// Every non-live phase (before/after trip, no-round-day, before-first-tee,
+// between-rounds, after-last-round) opens Home — the hub with the countdown, tee times
+// and banners — which is where those states read best.
+// ── Where the app opens: a trip, or the player home page ─────────────────────
+// The app opens ON a trip from LANDING_DAYS_BEFORE days before it starts through
+// LANDING_DAYS_AFTER days after it ends (trip-local dates); otherwise it opens on
+// the player home page. One shared setting — change the numbers here.
+export const LANDING_DAYS_BEFORE = 14
+export const LANDING_DAYS_AFTER = 7
+
+// Is `trip` inside its open-on-the-trip window right now (trip's own time zone)?
+export function tripInLandingWindow(trip, now = new Date()) {
+  if (!trip?.start_date || !trip?.end_date) return false
+  const { todayIso } = zonedTodayAndMinutes(now, trip.time_zone || undefined)
+  const today = isoDateToUTC(todayIso)
+  const DAY = 86400000
+  return today >= isoDateToUTC(trip.start_date) - LANDING_DAYS_BEFORE * DAY
+    && today <= isoDateToUTC(trip.end_date) + LANDING_DAYS_AFTER * DAY
+}
+
+// The trip the app should open on, or null for the home page. Several trips in
+// their window → the one closest to today (an ongoing trip first, then the
+// nearest start or most recent finish), earlier start breaking ties.
+export function landingTrip(trips = [], now = new Date()) {
+  const inWindow = trips.filter(t => tripInLandingWindow(t, now))
+  if (!inWindow.length) return null
+  const distance = t => {
+    const today = isoDateToUTC(zonedTodayAndMinutes(now, t.time_zone || undefined).todayIso)
+    const s = isoDateToUTC(t.start_date), e = isoDateToUTC(t.end_date)
+    if (today >= s && today <= e) return 0
+    return today < s ? s - today : today - e
+  }
+  return inWindow.slice().sort((a, b) => distance(a) - distance(b) || (a.start_date || '').localeCompare(b.start_date || ''))[0]
+}
+
+export function screenForTripPhase(phase, opts = {}) {
+  if (phase === 'no-trip') return 'no-trip'
+  if (phase === 'round-live' && opts.playingLiveUnderway) return 'scores'
+  return 'dashboard'
+}
+
+// ── Default round: which round a round-based screen should show ───────────────────
+// The ONE rule every round-based screen uses to pick a default round when nothing is
+// live and the user hasn't chosen one. Reads a getTripPhase() RESULT (does NOT recompute
+// phase or completeness) plus the trip's rounds and the SAME trip-zone today/now the
+// caller already fed getTripPhase. Returns a round row, or null (no trip / no rounds).
+// Ties on date are ordered by tee_time_1 (missing sorts last), same as getTripPhase.
+//
+//   round-live        → the live round.
+//   before-first-tee  → today's first (upcoming) round — shown all day until it goes live.
+//   between-rounds    → the last completed round until 60 min before the next round's
+//                       tee (tee_time_1 − 60, trip zone); from then on, the upcoming
+//                       round. No next tee → stay on the last completed round. (The live
+//                       window is tee − 30, so between −60 and −30 the upcoming round
+//                       shows but isn't live yet — intended.)
+//   after-last-round  → the round that just finished (the last completed round).
+//   no-round-day      → the trip's last completed round; if none yet, the trip's first.
+//   before-trip       → the trip's first round.
+//   after-trip        → the trip's last round.
+//   no-trip / no rounds → null.
+export function defaultRoundForTrip(phase, rounds = [], todayIso = '', nowMinutes = 0) {
+  const real = (rounds || []).filter(r => r && !isNoneRound(r)).slice().sort(byDateThenTee)
+  if (!phase || real.length === 0) return null
+  const firstOfTrip = real[0]
+  const lastOfTrip = real[real.length - 1]
+  const { liveRound = null, nextRound = null, lastCompletedRound = null } = phase
+
+  switch (phase.phase) {
+    case 'no-trip':          return null
+    case 'before-trip':      return firstOfTrip
+    case 'after-trip':       return lastOfTrip
+    case 'round-live':       return liveRound || null
+    case 'before-first-tee': return nextRound || firstOfTrip
+    case 'after-last-round': return lastCompletedRound || null
+    case 'no-round-day':     return lastCompletedRound || firstOfTrip
+    case 'between-rounds': {
+      if (!nextRound) return lastCompletedRound || null
+      const tee = parseTeeTimeToMinutes(nextRound.tee_time_1)
+      const nextIsToday = nextRound.date === todayIso
+      // From 60 min before the next tee, switch to the upcoming round; before that (or
+      // when the next round has no tee time) stay on the last completed round.
+      if (nextIsToday && tee > 0 && nowMinutes >= tee - 60) return nextRound
+      return lastCompletedRound || nextRound
+    }
+    default:                 return lastCompletedRound || firstOfTrip
+  }
 }
 
 // ── Home banner (day strip) view-model ───────────────────────────────────────────
@@ -1142,6 +1255,95 @@ export function liveStandardMatchTally(round, pairings, pairingPlayers, scoresMa
   })
 }
 
+// ── Team standings: who's winning the trip ────────────────────────────────────
+// The ONE place a trip's team standings are added up — read by the Leaderboard,
+// the Champion badge and the past-trip finish labels so they can never disagree.
+// Rounds that count: not 'none' placeholders, not practice, not "no scoring".
+export function leaderboardRounds(rounds = []) {
+  return rounds.filter(r => r && r.round_type !== 'none' && r.round_type !== 'practice' && !r.no_scoring)
+}
+
+// format: trips.format — 'standard_match_play' (each round's match = 1 / 0.5 / 0)
+//         or Points Match Play (every hole won = 1 point; also legacy 'match_play').
+// Inputs are the Leaderboard's own shapes (scoresMap / hcpByPlayer / teeRowMap).
+// Returns { rounds, perRound: Map(teamId → Map(roundId → { pts, scored, matches, completed })),
+//           total: Map(teamId → pts), ranked: [{ teamId, total, rank }] } — rank is
+//           competition-style (ties share a rank).
+export function teamStandings({ format, rounds, pairings = [], pairingPlayers = [], scoresMap = {}, hcpByPlayer = {}, teeRowMap = {}, allowance = 100, teamIds = [] }) {
+  const lbRounds = leaderboardRounds(rounds)
+  const standard = format === 'standard_match_play'
+  const perRound = new Map(teamIds.map(id => [id, new Map()]))
+  const total = new Map(teamIds.map(id => [id, 0]))
+  const cell = (teamId, roundId) => {
+    if (!perRound.has(teamId)) { perRound.set(teamId, new Map()); total.set(teamId, 0) }
+    const m = perRound.get(teamId)
+    if (!m.has(roundId)) m.set(roundId, { pts: 0, scored: 0, matches: 0, completed: 0 })
+    return m.get(roundId)
+  }
+  for (const r of lbRounds) {
+    for (const id of teamIds) cell(id, r.id)
+    if (standard) {
+      // Each pairing's match result goes to the real team on that side.
+      for (const row of liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)) {
+        if (!row.hasMatch) continue
+        for (const [teamId, side] of [[row.team1_id, 'T1'], [row.team2_id, 'T2']]) {
+          if (!teamId) continue
+          const c = cell(teamId, r.id)
+          c.matches++
+          if (!row.complete) continue
+          c.completed++
+          const pts = row.result === side ? 1 : row.result === 'halve' ? 0.5 : 0
+          c.pts += pts
+          total.set(teamId, total.get(teamId) + pts)
+        }
+      }
+    } else {
+      // Hole wins per side → the real team on that side (team1_id = slots 1&2).
+      for (const row of liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)) {
+        for (const [teamId, pts] of [[row.team1_id, row.t1pts], [row.team2_id, row.t2pts]]) {
+          if (!teamId) continue
+          const c = cell(teamId, r.id)
+          c.pts += pts
+          c.scored += row.holesScored
+          total.set(teamId, total.get(teamId) + pts)
+        }
+      }
+    }
+  }
+  const sorted = [...total].sort((a, b) => b[1] - a[1])
+  let rank = 0
+  const ranked = sorted.map(([teamId, t], i) => {
+    if (i === 0 || t !== sorted[i - 1][1]) rank = i + 1
+    return { teamId, total: t, rank }
+  })
+  return { rounds: lbRounds, perRound, total, ranked }
+}
+
+// Same standings from raw table rows (scores / player_rounds arrays), for places
+// that load rows rather than the Leaderboard's maps (badges, the Home page).
+export function teamStandingsFromRows({ format, rounds, scores = [], pairings = [], pairingPlayers = [], tripPlayers = [], playerRounds = [], allowance = 100, teamIds }) {
+  const scoresMap = {}
+  for (const s of scores) if (s.gross_score != null) scoresMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score
+  const teeRowMap = {}
+  for (const pr of playerRounds) teeRowMap[`${pr.round_id}:${pr.trip_player_id}`] = pr
+  const hcpByPlayer = {}
+  for (const tp of tripPlayers) hcpByPlayer[tp.id] = tp.handicap_index
+  const ids = teamIds || [...new Set(tripPlayers.map(p => p.team_id).filter(Boolean))]
+  return teamStandings({ format, rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance, teamIds: ids })
+}
+
+// "Champion", "Tied for 1st", "2nd place", … for a team's finish (rank from
+// teamStandings). null when the team has no standing.
+export function finishLabel(ranked = [], teamId) {
+  const me = ranked.find(r => r.teamId === teamId)
+  if (!me) return null
+  const tied = ranked.filter(r => r.rank === me.rank).length > 1
+  if (me.rank === 1) return tied ? 'Co-champion' : 'Champion'
+  const n = me.rank
+  const sfx = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'
+  return `${tied ? 'Tied for ' : ''}${n}${sfx}${tied ? '' : ' place'}`
+}
+
 // Per-player count of holes they PERSONALLY won across all Standard Match Play
 // rounds. The winning SIDE per hole is determined by standardMatchTally
 // (identical net/stroke math to the live banner/leaderboard — halved and
@@ -1238,7 +1440,12 @@ export function standardHolesWonByPlayer(
 //     that side's best (so both teammates score when tied for low).
 // Practice / none rounds never count. Takes the same data bundle as
 // analyzeScoring. Returns Map(trip_player_id -> points).
-export function matchPlayPointsByPlayer(
+// Every decided-or-not hole of every tournament pairing, from the shared helpers
+// (pairingShots + matchHoleOutcomes) — the SAME decisions as the scorecard badges,
+// the leaderboard and Standard holes-won. Returns [{ roundId, t1, t2, outcomes }].
+// matchPlayPointsByPlayer and pointsDefendedByPlayer both read this, so they can't
+// disagree about who won, halved or lost a hole.
+export function matchPairingOutcomes(
   { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds = [] },
   allowance = 100
 ) {
@@ -1269,8 +1476,7 @@ export function matchPlayPointsByPlayer(
     ppByPairing.get(pp.pairing_id).push(pp)
   }
 
-  const points = new Map()
-  const credit = tp => points.set(tp, (points.get(tp) || 0) + 1)
+  const result = []
 
   for (const r of rounds) {
     if (!isTournamentRound(r)) continue
@@ -1292,14 +1498,41 @@ export function matchPlayPointsByPlayer(
       // each winning-side player whose own net equals that side's best (both if tied).
       const playing = pairingShots(round, [...t1, ...t2], id => hcpByPlayer.get(id), id => teeRowByRoundPlayer.get(`${r.id}:${id}`), allowance)
       const outcomes = matchHoleOutcomes({ roundId: r.id, t1Players: t1, t2Players: t2, shots: playing, scoresMap: scoreMap, holes })
-      for (const o of outcomes) {
-        if (o.winner === 'T1') o.t1Winners.forEach(credit)
-        else if (o.winner === 'T2') o.t2Winners.forEach(credit)
-        // halve / undecided → no points
-      }
+      result.push({ roundId: r.id, t1, t2, outcomes })
+    }
+  }
+  return result
+}
+
+export function matchPlayPointsByPlayer(bundle, allowance = 100) {
+  const points = new Map()
+  const credit = tp => points.set(tp, (points.get(tp) || 0) + 1)
+  for (const { outcomes } of matchPairingOutcomes(bundle, allowance)) {
+    for (const o of outcomes) {
+      if (o.winner === 'T1') o.t1Winners.forEach(credit)
+      else if (o.winner === 'T2') o.t2Winners.forEach(credit)
+      // halve / undecided → no points
     }
   }
   return points
+}
+
+// Points Defended: holes your side HALVED only because of you — you were your
+// side's sole best net and your partner's net was worse, so without your score
+// the other side would have won the point. Not counted when both partners tie for
+// the side's best (nobody saved it alone), on holes your side won (already a
+// point), or when you have no partner on that side. Tournament rounds only.
+export function pointsDefendedByPlayer(bundle, allowance = 100) {
+  const defended = new Map()
+  const credit = tp => defended.set(tp, (defended.get(tp) || 0) + 1)
+  for (const { t1, t2, outcomes } of matchPairingOutcomes(bundle, allowance)) {
+    for (const o of outcomes) {
+      if (o.winner !== 'halve') continue
+      if (t1.length >= 2 && o.t1Winners.length === 1) credit(o.t1Winners[0])
+      if (t2.length >= 2 && o.t2Winners.length === 1) credit(o.t2Winners[0])
+    }
+  }
+  return defended
 }
 
 // Per-player "on fire" stats across all rounds — matches the scorecard's fire

@@ -114,7 +114,7 @@ function MatchCell({ entry, t1Color, t2Color }) {
   )
 }
 
-export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, readOnly = false, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage }) {
+export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner, isDevUser = false, readOnly = false, initialRoundId, initialPairingNum, onConnStatus, onOpenMenuPage }) {
   const [pairings, setPairings] = useState([])
   const [pairingPlayers, setPairingPlayers] = useState([]) // {id, pairing_id, trip_player_id, team_slot}
   const [playersById, setPlayersById] = useState({})
@@ -127,6 +127,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
   const [openSlot, setOpenSlot] = useState(null) // commissioner header dropdown
+  // Dev/testing: when the designated dev account turns test mode ON for this trip, they
+  // may make ANY change — enter scores/drinks for any pairing AND (via the parent's
+  // read-only bypass) edit even a past trip. Persisted on the trip (single source) so
+  // the DB write rules agree (see migration 20260674).
+  const testMode = !!trip?.test_mode
   const [assignError, setAssignError] = useState(null)
   const [saveError, setSaveError] = useState(null) // transient toast when an optimistic score save fails
   const [notice, setNotice] = useState(null) // guidance modal message (e.g. tapping a score cell before teams are set)
@@ -519,10 +524,14 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // bypass (enforced at the DB too via can_write_score). A user counts as in the
   // pairing by their own account or a claimed guest slot. One such player can still
   // enter for the whole foursome, including guests.
-  const isInPairing = !readOnly && [1, 2, 3, 4].some(s => {
+  // Dev override: the designated dev account, on a test-mode trip, may enter any
+  // pairing's scores (the DB grants the matching write — migration 20260674). readOnly
+  // is already bypassed for this account by the parent, so no !readOnly guard here.
+  const devScoreOverride = isDevUser && testMode
+  const isInPairing = devScoreOverride || (!readOnly && [1, 2, 3, 4].some(s => {
     const p = slotMap[s] && playersById[slotMap[s]]
     return p && (p.user_id === currentUserId || p.claimed_user_id === currentUserId)
-  })
+  }))
 
   // ── commissioner: assign (or clear) a player in a slot ──
   // The pairing's two teams are INFERRED from the players placed, not chosen from
