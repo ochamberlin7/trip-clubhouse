@@ -12,6 +12,7 @@ import { useResumeRefetch } from '../../lib/useResumeRefetch'
 import { useScoreSync } from '../../lib/useScoreSync'
 import { saveCopy, readCopy } from '../../lib/offlineCache'
 import { loadLeaderboardData, withUnsyncedScores } from '../../lib/leaderboardData'
+import TeamScoreboard from '../../components/TeamScoreboard'
 import { isNetworkError } from '../../lib/scoreQueue'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
@@ -540,70 +541,8 @@ function PointsLeaderboard({ trip, teams, rounds }) {
   const standings = useMemo(() => (data
     ? teamStandings({ format: trip.format, rounds, ...withUnsyncedScores(data), allowance, teamIds: teams.map(t => t.id) })
     : null), [roundKey, data, allowance, teams, trip.format, unsynced]) // eslint-disable-line react-hooks/exhaustive-deps
-  const roundPointsForTeam = (teamId, roundId) => standings?.perRound.get(teamId)?.get(roundId) || { pts: 0, scored: 0 }
-  const totalForTeam = teamId => standings?.total.get(teamId) ?? 0
-  const roundCellTeam = (teamId, roundId) => {
-    const { pts, scored } = roundPointsForTeam(teamId, roundId)
-    return scored === 0 ? '—' : pts
-  }
-
-  // Loading state: render the card shells (team names + placeholder scores) until the
-  // full batched load lands, so no provisional total is ever shown — then the real
-  // numbers appear once, with no visible jump.
-  if (!data) {
-    return (
-      <div>
-        {teams.map(team => (
-          <div key={team.id} className="lb-team-card">
-            <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
-              <span className="lb-team-name">{getTeamDisplayName(team)}</span>
-              <span className="lb-team-pts" aria-hidden="true">·</span>
-            </div>
-            <div className="lb-rounds">
-              {lbRounds.map(r => (
-                <div key={r.id} className="lb-round-row">
-                  <span className="lb-round-name">{r.course_name}</span>
-                  <span className="lb-round-score">—</span>
-                </div>
-              ))}
-              {lbRounds.length === 0 && (
-                <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
-                  No rounds yet
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      {teams.map(team => (
-        <div key={team.id} className="lb-team-card">
-          {/* Colour by stable index (1 navy, 2 teal, 3 brown, 4 purple), never by name. */}
-          <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
-            <span className="lb-team-name">{getTeamDisplayName(team)}</span>
-            <span className="lb-team-pts">{totalForTeam(team.id)}</span>
-          </div>
-          <div className="lb-rounds">
-            {lbRounds.map(r => (
-              <div key={r.id} className="lb-round-row">
-                <span className="lb-round-name">{r.course_name}</span>
-                <span className="lb-round-score">{roundCellTeam(team.id, r.id)}</span>
-              </div>
-            ))}
-            {lbRounds.length === 0 && (
-              <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
-                No rounds yet
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+  // Ryder Cup–style side-by-side scoreboard (shared with the Standard board).
+  return <TeamScoreboard trip={trip} teams={teams} rounds={lbRounds} standings={standings} format={trip.format} />
 }
 
 // Standard Match Play standings: each completed round is a match worth 1 (win),
@@ -665,74 +604,8 @@ function StandardLeaderboard({ trip, teams, rounds }) {
     ? teamStandings({ format: 'standard_match_play', rounds, ...withUnsyncedScores(data), allowance, teamIds: teams.map(t => t.id) })
     : null), [roundKey, data, allowance, teams, unsynced]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fmtPts = x => (Number.isInteger(x) ? String(x) : x.toFixed(1))
-
-  // `matches` only counts pairings this team is in, so a team in exactly one match
-  // shows W/H/L while a team split across two matches in a round shows its summed points.
-  const roundPointsForTeam = (teamId, roundId) => standings?.perRound.get(teamId)?.get(roundId) || { pts: 0, matches: 0, completed: 0 }
-  const totalForTeam = teamId => standings?.total.get(teamId) ?? 0
-  const roundBadge = (teamId, roundId) => {
-    const { pts, matches, completed } = roundPointsForTeam(teamId, roundId)
-    if (matches === 0 || completed === 0) return '—'
-    if (matches === 1) return pts === 1 ? 'W' : pts === 0.5 ? 'H' : 'L'
-    return fmtPts(pts) // multiple matches in one round → show the earned points
-  }
-
-  // Loading state: card shells with placeholder scores until the full batched load
-  // lands, so no provisional total shows — then real numbers appear once.
-  if (!data) {
-    return (
-      <div>
-        {teams.map(team => (
-          <div key={team.id} className="lb-team-card">
-            <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
-              <span className="lb-team-name">{getTeamDisplayName(team)}</span>
-              <span className="lb-team-pts" aria-hidden="true">·</span>
-            </div>
-            <div className="lb-rounds">
-              {lbRounds.map(r => (
-                <div key={r.id} className="lb-round-row">
-                  <span className="lb-round-name">{r.course_name}</span>
-                  <span className="lb-round-score">—</span>
-                </div>
-              ))}
-              {lbRounds.length === 0 && (
-                <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
-                  No rounds yet
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      {teams.map(team => (
-        <div key={team.id} className="lb-team-card">
-          <div className="lb-team-header" style={{ background: teamColor(colorIndexOf(team)).solid }}>
-            <span className="lb-team-name">{getTeamDisplayName(team)}</span>
-            <span className="lb-team-pts">{fmtPts(totalForTeam(team.id))}</span>
-          </div>
-          <div className="lb-rounds">
-            {lbRounds.map(r => (
-              <div key={r.id} className="lb-round-row">
-                <span className="lb-round-name">{r.course_name}</span>
-                <span className="lb-round-score">{roundBadge(team.id, r.id)}</span>
-              </div>
-            ))}
-            {lbRounds.length === 0 && (
-              <div className="lb-round-row" style={{ justifyContent: 'center', color: 'var(--muted)', fontStyle: 'italic' }}>
-                No rounds yet
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+  // Ryder Cup–style side-by-side scoreboard: each round's match is worth 1 / ½ / 0.
+  return <TeamScoreboard trip={trip} teams={teams} rounds={lbRounds} standings={standings} format="standard_match_play" />
 }
 
 // ── Prince of Wales (bonus game) ─────────────────────────────────
