@@ -56,7 +56,7 @@ const LAYOUT = [
   { type: 'split', title: 'Most birdies', tone: 'good', gross: 'birdiesGross', net: 'birdiesNet' },
   { type: 'split', title: 'Most pars', tone: 'good', gross: 'parsGross', net: 'parsNet' },
   // Fire is net only, so its two halves are its two stats instead of Gross | Net.
-  { type: 'split', title: 'Fire', tone: 'good', gross: 'fireHoles', net: 'fireStreak', labels: ['Most holes', 'Longest streak'], info: STAT_INFO.fire },
+  { type: 'split', title: 'Fire', tone: 'good', gross: 'fireHoles', net: 'fireStreak', labels: ['Most holes', 'Longest streak'] },
   { type: 'split', title: 'Most bogeys', tone: 'bad', gross: 'bogeysGross', net: 'bogeysNet' },
   { type: 'split', title: 'Most doubles or worse', tone: 'bad', gross: 'doublesGross', net: 'doublesNet' },
   { type: 'split', title: 'Worst round', tone: 'bad', gross: 'worstGross', net: 'worstNet' },
@@ -102,16 +102,10 @@ function SplitHalf({ mode, cat, nameById, right }) {
   )
 }
 
-function SplitTile({ title, tone, gross, net, nameById, labels = ['Gross', 'Net'], info }) {
-  const [infoOpen, setInfoOpen] = useState(false)
-  const infoRef = useRef(null)
+function SplitTile({ title, tone, gross, net, nameById, labels = ['Gross', 'Net'] }) {
   return (
     <div style={st.tile}>
-      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone], display: 'flex', alignItems: 'flex-start' }}>
-        {title}
-        {info && <InfoButton ref={infoRef} open={infoOpen} onToggle={() => setInfoOpen(v => !v)} color={TONE[tone]} label={`What is ${title}?`} />}
-      </div>
-      {info && infoOpen && <InfoBubble anchorRef={infoRef} onClose={() => setInfoOpen(false)}>{info}</InfoBubble>}
+      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone] }}>{title}</div>
       <div style={{ ...st.inner, ...st.split }}>
         <SplitHalf mode={labels[0]} cat={gross} nameById={nameById} />
         <SplitHalf mode={labels[1]} cat={net} nameById={nameById} right />
@@ -126,7 +120,7 @@ function DayTiles({ day, nameById }) {
     <div style={st.body}>
       {LAYOUT.map(t => t.type === 'wide'
         ? <WideTile key={t.key} title={t.title} tone={t.tone} cat={byKey.get(t.key)} nameById={nameById} info={t.info} />
-        : <SplitTile key={t.title} title={t.title} tone={t.tone} gross={byKey.get(t.gross)} net={byKey.get(t.net)} labels={t.labels} info={t.info} nameById={nameById} />)}
+        : <SplitTile key={t.title} title={t.title} tone={t.tone} gross={byKey.get(t.gross)} net={byKey.get(t.net)} labels={t.labels} nameById={nameById} />)}
     </div>
   )
 }
