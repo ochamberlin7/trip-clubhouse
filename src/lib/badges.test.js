@@ -36,7 +36,7 @@ test('scoring badges are gross: birdies, back-to-back, pars, bogey-free, broke 8
   // A: ace on 1 (par 4 → also an eagle), birdies 2–6, pars 7–18 → 65.
   const gross = (p, h) => (p === 'A' ? (h === 1 ? 1 : h <= 6 ? 3 : 4) : 5)
   const m = computeBadges([trip({ rounds: [round('R1', '2026-10-01')], gross })], 'U', NOW)
-  for (const id of ['hat_trick', 'birdie_bonanza', 'back_to_back', 'par_machine', 'par_train', 'bogey_free', 'broke_100', 'broke_90', 'broke_80', 'broke_70', 'eagle', 'hole_in_one']) {
+  for (const id of ['hat_trick', 'birdie_bonanza', 'back_to_back', 'par_machine', 'par_train', 'double_bogey_free', 'bogey_free', 'broke_100', 'broke_90', 'broke_80', 'broke_70', 'eagle', 'hole_in_one']) {
     assert.equal(got(m, id).earned, true, id)
   }
   assert.equal(got(m, 'snowman').earned, false)
@@ -121,4 +121,17 @@ test('a tie for first is not a Champion', () => {
 test('Broke-N medallions read 90s / 80s / 70s / 60s', () => {
   const marks = Object.fromEntries(BADGES.filter(b => b.id.startsWith('broke_')).map(b => [b.id, b.mark]))
   assert.deepEqual(marks, { broke_100: '90s', broke_90: '80s', broke_80: '70s', broke_70: '60s' })
+})
+
+test('Double-Bogey-Free: a full round with bogeys is fine, one double (or a missing hole) is not', () => {
+  const bogeys = (p, h) => (p === 'A' ? (h % 2 ? 5 : 4) : 5)               // bogeys + pars, no doubles
+  let m = computeBadges([trip({ rounds: [round('R1', '2026-10-01')], gross: bogeys })], 'U', NOW)
+  assert.equal(got(m, 'double_bogey_free').earned, true)
+  assert.equal(got(m, 'bogey_free').earned, false)
+  const oneDouble = (p, h) => (p === 'A' ? (h === 9 ? 6 : 5) : 5)
+  m = computeBadges([trip({ rounds: [round('R1', '2026-10-01')], gross: oneDouble })], 'U', NOW)
+  assert.equal(got(m, 'double_bogey_free').earned, false)
+  const unfinished = (p, h) => (p === 'A' && h === 18 ? null : 4)            // 17 holes only
+  m = computeBadges([trip({ rounds: [round('R1', '2026-10-01')], gross: unfinished })], 'U', NOW)
+  assert.equal(got(m, 'double_bogey_free').earned, false)
 })
