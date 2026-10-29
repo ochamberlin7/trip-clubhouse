@@ -40,6 +40,7 @@ export const BADGES = [
   { id: 'back_to_back', group: 'scoring', name: 'Back-to-Back', mark: 'B2B', desc: 'Birdies on two holes in a row (gross).' },
   { id: 'par_machine', group: 'scoring', name: 'Par Machine', mark: 'P5', desc: '5 or more pars in a round (gross).' },
   { id: 'par_train', group: 'scoring', name: 'Par Train', mark: 'P10', desc: '10 or more pars in a round (gross).' },
+  { id: 'double_bogey_free', group: 'scoring', name: 'Double-Bogey-Free', mark: 'DBF', desc: 'A full round with no double bogeys or worse (gross).' },
   { id: 'bogey_free', group: 'scoring', name: 'Bogey-Free', mark: 'BF', desc: 'A full round with no bogeys or worse (gross).' },
   { id: 'broke_100', group: 'scoring', name: 'Broke 100', mark: '90s', desc: 'An 18-hole round under 100 (gross).' },
   { id: 'broke_90', group: 'scoring', name: 'Broke 90', mark: '80s', desc: 'An 18-hole round under 90 (gross).' },
@@ -97,7 +98,7 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
       const n = roundHoleCount(r)
       const full = card.size >= n
       if (full) fullRounds++
-      let birdies = 0, pars = 0, bogeyOrWorse = false, total = 0, prevBirdie = false, b2b = false
+      let birdies = 0, pars = 0, bogeyOrWorse = false, doubleOrWorse = false, total = 0, prevBirdie = false, b2b = false
       for (let h = 1; h <= n; h++) {
         const g = card.get(h)
         const par = holes[h - 1]?.par
@@ -112,6 +113,7 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
         if (isBirdie) birdies++
         if (d === 0) pars++
         if (d >= 1) bogeyOrWorse = true
+        if (d >= 2) doubleOrWorse = true
         if (isBirdie && prevBirdie) b2b = true
         prevBirdie = isBirdie
       }
@@ -121,6 +123,7 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
       if (b2b) add('back_to_back', { date: r.date, tripName, detail })
       if (pars >= 5) add('par_machine', { date: r.date, tripName, detail })
       if (pars >= 10) add('par_train', { date: r.date, tripName, detail })
+      if (full && !doubleOrWorse && holes.length) add('double_bogey_free', { date: r.date, tripName, detail })
       if (full && !bogeyOrWorse && holes.length) add('bogey_free', { date: r.date, tripName, detail })
       if (full && n === 18) {
         if (total < 100) add('broke_100', { date: r.date, tripName, detail: `${total}` })
