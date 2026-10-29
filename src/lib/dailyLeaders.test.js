@@ -145,3 +145,18 @@ test('Most Doubles or Worse counts doubles and triples+ together', () => {
   assert.deepEqual(leader(day, 'doublesGross'), { value: 2, ids: ['D'] })
   assert.deepEqual(leader(day, 'doublesNet'), { value: 2, ids: ['D'] })
 })
+
+test('Fire holes and fire streak: net-only, 3+ par-or-better in a row lights the 3rd hole on', () => {
+  // A and C bogey (net) hole 10, breaking their runs; B stays clean; D never gets going.
+  const scores = fullScores('R1').map(s =>
+    (s.trip_player_id === 'A' || s.trip_player_id === 'C') && s.hole_number === 10 ? { ...s, gross_score: s.gross_score + 2 } : s)
+  const [day] = buildDailyLeaders(data({ rounds: [round('R1', '2026-11-05')], scores }))
+  // B: holes 3–18 lit → 16 fire holes, streak 16. A/C: 3–9 (7) + 13–18 (6) = 13, streak 7.
+  assert.deepEqual(leader(day, 'fireHoles'), { value: 16, ids: ['B'] })
+  assert.deepEqual(leader(day, 'fireStreak'), { value: 16, ids: ['B'] })
+  // Nobody on fire → no leader ("None").
+  const cold = fullScores('R1').map(s => ({ ...s, gross_score: s.hole_number % 2 ? 8 : s.gross_score }))
+  const [coldDay] = buildDailyLeaders(data({ rounds: [round('R1', '2026-11-05')], scores: cold }))
+  assert.equal(leader(coldDay, 'fireHoles'), null)
+  assert.equal(leader(coldDay, 'fireStreak'), null)
+})
