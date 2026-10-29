@@ -61,7 +61,7 @@ function TopRow({ row, short }) {
 }
 
 // "See all": every player in one table. Split stats show Gross and Net columns
-// (value + small rank) — tap a header to sort by it. The viewer's row is highlighted.
+// (values only, no rank numbers) — tap a header to sort by it. The viewer's row is highlighted.
 function SeeAllModal({ title, tone, players, cols, isMe, onClose }) {
   const [sortKey, setSortKey] = useState(cols[0].key)
   const nameOf = p => p.name || ''
@@ -99,7 +99,6 @@ function SeeAllModal({ title, tone, players, cols, isMe, onClose }) {
                   {cells.map((cell, i) => (
                     <td key={cols[i].key} className="stat-table-val">
                       {cell?.v == null ? '—' : cell.v}
-                      {multi && cell?.rank != null && <span className="stat-table-rank">{cell.rank}</span>}
                     </td>
                   ))}
                 </tr>
