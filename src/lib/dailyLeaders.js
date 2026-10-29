@@ -6,6 +6,7 @@
 //                                 rounds only — practice rounds aren't matches)
 //   • best/worst round, birdies, pars, bogeys, doubles+ → computePlayerStats
 //                                 (playerStats.js), gross and net, off-the-low strokes
+//   • fire holes / fire streak  → computePlayerStats (net only, via fireStatsByPlayer)
 // Each day says whether its rounds were practice (day.practice).
 // Days come from the rounds' own dates, so there is no "today" or clock here —
 // a day appears once one of its rounds is fully scored, and stays for the trip.
@@ -24,6 +25,10 @@ export const LEADER_CATEGORIES = [
   { key: 'birdiesNet',   label: 'Most Birdies', mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'parsGross',    label: 'Most Pars',    mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'parsNet',      label: 'Most Pars',    mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
+  // Fire is net-only (matches the scorecard): holes lit once a player has 3+ net
+  // par-or-better in a row; the streak is the longest lit run in one round.
+  { key: 'fireHoles',   label: 'Most Fire Holes',     hi: true, zeroIsNone: true, format: v => `${v}` },
+  { key: 'fireStreak',  label: 'Longest Fire Streak', hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'bogeysGross',  label: 'Most Bogeys',  mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'bogeysNet',    label: 'Most Bogeys',  mode: 'Net',   hi: true, zeroIsNone: true, format: v => `${v}` },
   { key: 'doublesGross', label: 'Most Doubles or Worse', mode: 'Gross', hi: true, zeroIsNone: true, format: v => `${v}` },
@@ -102,6 +107,8 @@ export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null 
       birdiesNet: pick(s => s?.net.birdies ?? null),
       parsGross: pick(s => s?.gross.pars ?? null),
       parsNet: pick(s => s?.net.pars ?? null),
+      fireHoles: pick(s => s?.fireHolesTotal ?? null),
+      fireStreak: pick(s => s?.fireStreak ?? null),
       bogeysGross: pick(s => s?.gross.bogeys ?? null),
       bogeysNet: pick(s => s?.net.bogeys ?? null),
       doublesGross: pick(s => (s ? s.gross.doubles + s.gross.triples : null)),

@@ -45,8 +45,8 @@ const st = {
 // red = the roast, gold = drinks.
 const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
 
-// Card layout, top to bottom: full-width tiles for Most Points, Points Defended
-// and Most Drinks; Gross | Net split tiles for everything else. Keys are the
+// Card layout, top to bottom: full-width tiles for Most Points, Points Defended,
+// the two fire stats (net only) and Most Drinks; Gross | Net split tiles for everything else. Keys are the
 // category keys from src/lib/dailyLeaders.js.
 const LAYOUT = [
   { type: 'wide', title: 'Most points', tone: 'good', key: 'points' },
@@ -54,6 +54,8 @@ const LAYOUT = [
   { type: 'split', title: 'Best score', tone: 'good', gross: 'bestGross', net: 'bestNet' },
   { type: 'split', title: 'Most birdies', tone: 'good', gross: 'birdiesGross', net: 'birdiesNet' },
   { type: 'split', title: 'Most pars', tone: 'good', gross: 'parsGross', net: 'parsNet' },
+  { type: 'wide', title: 'Most fire holes', tone: 'good', key: 'fireHoles', info: STAT_INFO.fireHoles },
+  { type: 'wide', title: 'Longest fire streak', tone: 'good', key: 'fireStreak', info: STAT_INFO.fireStreak },
   { type: 'split', title: 'Most bogeys', tone: 'bad', gross: 'bogeysGross', net: 'bogeysNet' },
   { type: 'split', title: 'Most doubles or worse', tone: 'bad', gross: 'doublesGross', net: 'doublesNet' },
   { type: 'split', title: 'Worst round', tone: 'bad', gross: 'worstGross', net: 'worstNet' },
