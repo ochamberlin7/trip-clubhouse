@@ -18,7 +18,7 @@ Merge status verified with `git branch -r --merged origin/main` on 2026-10-23 (m
 
 ## Core domain rules (decided — don't change without asking)
 - **Match play strokes** = shots off the low within each pairing, via `pairingShots` (`src/lib/scoring.js`). Never absolute playing handicap for composites. Allowance 90% (65% on The Dozen).
-- **Prince of Wales composite:** per hole number, lowest net across all rounds and players on the team. Gross view is correct. Default view Net vs Gross is undecided (currently Net).
+- **Prince of Wales composite:** per hole number, lowest net across all rounds and players on the team. Gross view is correct. Default view is **Net** (decided 2026-10-29; Gross stays one tap away).
 - **The Dozen** (12 holes) is handled; out of scope for new work. Don't touch its hole-count logic.
 - **`rounds.status` is unreliable/vestigial.** "Live" is time-based: today, not complete, now ≥ tee_time_1 − 30 min. Completeness defaults to 18 holes; leave as is.
 - **Tee times** are display strings ("9:06 AM"). Missing tee_time_1 = unknown, not live all day.
@@ -88,7 +88,6 @@ Default round rules: first round of the day = that round all day until live; 2nd
 - **Group stats page** (added 2026-10-27): all-time stats for a group of friends across all their trips together — an all-time leaderboard per category (points, birdies, best round, drinks…), trip winners by year, head-to-head records. Same shared stat functions; a "group" is the app's existing `groups` table (the set of trips under one group).
 - **Historical stats** (added 2026-10-27): lifetime / career numbers per player across every trip they've played (trips, rounds, points won, points defended, best round, birdies, etc.) plus trip-by-trip history. Feeds the player home page. Must reuse `computePlayerStats` over all of a player's trips, matching players across trips by their account (unclaimed guest slots can't be linked). Also: keep building out per-trip stats.
 - Game types: Stableford; stroke play; no-teams (individual only). One shared format setting, not copies per format × team/individual.
-- Decide Prince of Wales default view (Net or Gross).
 - Live banner hides after 9pm: find the rule, whose clock it uses, and make it follow the trip time zone. Its round-selection memo differs from `getTripPhase`; unifying them is a separate, deliberate decision.
 - Home 18-hole completeness issue (deliberately deferred).
 
