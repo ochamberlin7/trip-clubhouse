@@ -45,8 +45,9 @@ const st = {
 // red = the roast, gold = drinks.
 const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
 
-// Card layout, top to bottom: full-width tiles for Most Points, Points Defended,
-// the two fire stats (net only) and Most Drinks; Gross | Net split tiles for everything else. Keys are the
+// Card layout, top to bottom: full-width tiles for Most Points, Points Defended
+// and Most Drinks; Gross | Net split tiles for everything else (Fire splits
+// Most holes | Longest streak instead). Keys are the
 // category keys from src/lib/dailyLeaders.js.
 const LAYOUT = [
   { type: 'wide', title: 'Most points', tone: 'good', key: 'points' },
@@ -54,8 +55,8 @@ const LAYOUT = [
   { type: 'split', title: 'Best score', tone: 'good', gross: 'bestGross', net: 'bestNet' },
   { type: 'split', title: 'Most birdies', tone: 'good', gross: 'birdiesGross', net: 'birdiesNet' },
   { type: 'split', title: 'Most pars', tone: 'good', gross: 'parsGross', net: 'parsNet' },
-  { type: 'wide', title: 'Most fire holes', tone: 'good', key: 'fireHoles', info: STAT_INFO.fireHoles },
-  { type: 'wide', title: 'Longest fire streak', tone: 'good', key: 'fireStreak', info: STAT_INFO.fireStreak },
+  // Fire is net only, so its two halves are its two stats instead of Gross | Net.
+  { type: 'split', title: 'Fire', tone: 'good', gross: 'fireHoles', net: 'fireStreak', labels: ['Most holes', 'Longest streak'], info: STAT_INFO.fire },
   { type: 'split', title: 'Most bogeys', tone: 'bad', gross: 'bogeysGross', net: 'bogeysNet' },
   { type: 'split', title: 'Most doubles or worse', tone: 'bad', gross: 'doublesGross', net: 'doublesNet' },
   { type: 'split', title: 'Worst round', tone: 'bad', gross: 'worstGross', net: 'worstNet' },
@@ -101,13 +102,19 @@ function SplitHalf({ mode, cat, nameById, right }) {
   )
 }
 
-function SplitTile({ title, tone, gross, net, nameById }) {
+function SplitTile({ title, tone, gross, net, nameById, labels = ['Gross', 'Net'], info }) {
+  const [infoOpen, setInfoOpen] = useState(false)
+  const infoRef = useRef(null)
   return (
     <div style={st.tile}>
-      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone] }}>{title}</div>
+      <div style={{ ...st.titleBar, ...st.title, color: TONE[tone], display: 'flex', alignItems: 'flex-start' }}>
+        {title}
+        {info && <InfoButton ref={infoRef} open={infoOpen} onToggle={() => setInfoOpen(v => !v)} color={TONE[tone]} label={`What is ${title}?`} />}
+      </div>
+      {info && infoOpen && <InfoBubble anchorRef={infoRef} onClose={() => setInfoOpen(false)}>{info}</InfoBubble>}
       <div style={{ ...st.inner, ...st.split }}>
-        <SplitHalf mode="Gross" cat={gross} nameById={nameById} />
-        <SplitHalf mode="Net" cat={net} nameById={nameById} right />
+        <SplitHalf mode={labels[0]} cat={gross} nameById={nameById} />
+        <SplitHalf mode={labels[1]} cat={net} nameById={nameById} right />
       </div>
     </div>
   )
@@ -119,7 +126,7 @@ function DayTiles({ day, nameById }) {
     <div style={st.body}>
       {LAYOUT.map(t => t.type === 'wide'
         ? <WideTile key={t.key} title={t.title} tone={t.tone} cat={byKey.get(t.key)} nameById={nameById} info={t.info} />
-        : <SplitTile key={t.title} title={t.title} tone={t.tone} gross={byKey.get(t.gross)} net={byKey.get(t.net)} nameById={nameById} />)}
+        : <SplitTile key={t.title} title={t.title} tone={t.tone} gross={byKey.get(t.gross)} net={byKey.get(t.net)} labels={t.labels} info={t.info} nameById={nameById} />)}
     </div>
   )
 }
