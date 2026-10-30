@@ -27,6 +27,7 @@ import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
 import { loadMyTrips } from '../lib/myTrips'
 import SwipeDeleteRow from './SwipeDeleteRow'
+import TripDatesBody from './TripDatesBody'
 import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -144,7 +145,7 @@ const MENU_ITEMS = [
 // App Info is not a menu row — it lives in the drawer's footer links
 // ("App info · Install guide"), which open the same 'app-info' page.
 
-const COMMISSIONER_ITEM = { id: 'commissioner', label: 'Commissioner Tools', sub: 'Teams, allowance & invites', icon: <g><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></g> }
+const COMMISSIONER_ITEM = { id: 'commissioner', label: 'Commissioner Tools', sub: 'Dates, teams, allowance & invites', icon: <g><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></g> }
 
 // ── small building blocks ─────────────────────────────────────────
 function Chevron({ open }) {
@@ -2101,7 +2102,7 @@ function DeleteTripAction({ tripName, onDelete }) {
   )
 }
 
-function CommissionerPage({ data, tripId, tripName, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
+function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, onDatesChanged, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const teams = data.teams || []
   const teamsValue = teams.length ? teams.map(getTeamDisplayName).join(' vs ') : '—'
@@ -2112,6 +2113,9 @@ function CommissionerPage({ data, tripId, tripName, handicapAllowance, tournamen
   const joined = data.joinedCount ?? 0
   return (
     <div>
+      <Disclosure label="Trip Dates" value={fmtRange(tripStartDate, tripEndDate)}>
+        {({ close }) => <TripDatesBody tripId={tripId} startDate={tripStartDate} endDate={tripEndDate} onSaved={onDatesChanged} onClose={close} />}
+      </Disclosure>
       <Disclosure label="Team Names" value={teamsValue}>
         {({ close }) => <TeamNamesBody teams={teams} onSaved={onTeamsSaved} onClose={close} />}
       </Disclosure>
@@ -2450,7 +2454,7 @@ export default function MenuDrawer({
   const goToProfile = () => { onClose(); navigate('/profile') }
   // First name for the drawer header; falls back to the email's local part.
   const firstName = ((user?.user_metadata?.display_name || '').trim().split(/\s+/)[0]) || (user?.email || '').split('@')[0]
-  const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
+  const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds, patchTrip } = useGroup()
   // "Trips" row red dot: any trip OTHER than the active one has unread trash-talk.
   const otherTripUnread = [...unreadTripIds].some(id => id !== activeTripId)
   const [page, setPage] = useState(null)
@@ -3119,6 +3123,16 @@ export default function MenuDrawer({
             data={commissionerData}
             tripId={tripId}
             tripName={tripName}
+            tripStartDate={tripStartDate}
+            tripEndDate={tripEndDate}
+            onDatesChanged={(start, end) => {
+              // Trip dates + every round/meal/lodging date moved: refresh the
+              // trip and rounds, and drop the cached Schedule page so it reloads.
+              patchTrip?.(tripId, { start_date: start, end_date: end })
+              setCoursesData(null)
+              onTripUpdate?.()
+              onRoundsChanged?.()
+            }}
             handicapAllowance={handicapAllowance}
             tournamentFormat={tournamentFormat}
             tournamentOn={tournamentOn}
