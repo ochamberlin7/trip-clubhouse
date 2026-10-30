@@ -33,7 +33,7 @@ Frontend reads these `VITE_` vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 - **`src/components/LiveScoreBanner.jsx`** — floating live match banner (its own round-selection memo; independent of the phase router).
 - **`src/components/CountdownWidget.jsx`** — the **Home banner** (pre-trip countdown / post-trip thanks / in-trip day-strip with connected dots). Driven by `getTripPhase` + `homeBannerModel`.
 - **`src/components/StatsTab.jsx`, `TeeTimesWidget.jsx`, `ChatWidget.jsx`, `lib/teamColors.js`, `lib/courseApi.js`, `lib/purse.js`.**
-- **`supabase/migrations/*.sql`** — numbered SQL. Applied **by hand in the Supabase SQL editor**, NOT via a migrate tool. Latest: `20260675_trips_format_stableford.sql` (applied).
+- **`supabase/migrations/*.sql`** — numbered SQL. Applied **by hand in the Supabase SQL editor**, NOT via a migrate tool. Latest: `20260676_profile_photos.sql` (applied).
 
 ## Domain concepts you'll hit often
 - **Per-pairing scoring:** sides are slots 1&2 (team1_id) vs 3&4 (team2_id) on a `pairing`. Shots = shots-off-the-low within the pairing. Pairing team ids come from the `pairings` row (`team1_id`/`team2_id`), not array order.

@@ -17,6 +17,7 @@ import { formatMoney } from '../lib/purse'
 import { MAIN_FORMATS } from '../lib/gameFormats'
 import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } from '../lib/meals'
 import { ProfileBadge } from './ProfileAvatar'
+import { useAvatarPicker } from './useAvatarPicker'
 import { useAuth } from '../context/AuthContext'
 import { version as APP_VERSION } from '../../package.json'
 import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
@@ -63,10 +64,12 @@ function fmtRange(s, e) {
 const s = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, transition: 'opacity 0.25s ease' },
   drawer: { position: 'fixed', right: 0, top: 0, bottom: 0, width: '280px', maxWidth: '85vw', background: '#FFFFFF', borderLeft: '1px solid #DDE3EA', zIndex: 301, display: 'flex', flexDirection: 'column', transition: 'transform 0.25s ease', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)' },
-  drawerHeader: { padding: '28px 52px 20px 18px', paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 28px)', borderBottom: '1px solid #E5E7EB', position: 'relative' },
-  profileBtn: { display: 'flex', alignItems: 'center', gap: '14px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%' },
+  drawerHeader: { display: 'flex', alignItems: 'center', gap: '14px', padding: '28px 52px 20px 18px', paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 28px)', borderBottom: '1px solid #E5E7EB', position: 'relative' },
+  profileBtn: { display: 'block', flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' },
+  badgeBtn: { display: 'block', background: 'none', border: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%' },
+  photoErr: { display: 'block', fontSize: '11px', color: '#C0392B', marginTop: '3px', lineHeight: 1.3 },
   profileBadge: { width: 58, height: 58, fontSize: 19, background: '#E7EDF5', color: '#33455E', border: 'none', boxShadow: 'none' },
-  cameraDot: { position: 'absolute', right: -3, bottom: -3, width: 22, height: 22, borderRadius: '50%', background: '#94A3B8', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' },
+  cameraDot: { position: 'absolute', right: -3, bottom: -3, width: 22, height: 22, padding: 0, borderRadius: '50%', background: '#94A3B8', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', cursor: 'pointer' },
   profileName: { display: 'block', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#0F1E33', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   profileLink: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#5B6B84', marginTop: '2px' },
   closeBtn: { position: 'absolute', top: 'max(env(safe-area-inset-top), 12px)', right: '12px', width: '32px', height: '32px', borderRadius: '50%', background: 'none', border: 'none', color: '#94A3B8', fontSize: '17px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
@@ -2428,6 +2431,8 @@ export default function MenuDrawer({
 }) {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const photo = useAvatarPicker()
+  const goToProfile = () => { onClose(); navigate('/profile') }
   // First name for the drawer header; falls back to the email's local part.
   const firstName = ((user?.user_metadata?.display_name || '').trim().split(/\s+/)[0]) || (user?.email || '').split('@')[0]
   const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
@@ -3005,17 +3010,21 @@ export default function MenuDrawer({
             is intentionally not shown here (it's on every screen already). The
             circle is soft gray so the navy Your Clubhouse tile is the one accent. */}
         <div style={s.drawerHeader}>
-          <button style={s.profileBtn} onClick={() => { onClose(); navigate('/profile') }} aria-label="My profile">
-            <span style={{ position: 'relative', flexShrink: 0 }}>
-              <ProfileBadge style={s.profileBadge} />
-              <span style={s.cameraDot} aria-hidden="true">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              </span>
-            </span>
-            <span style={{ minWidth: 0 }}>
-              <span style={s.profileName}>{firstName}</span>
-              <span style={s.profileLink}>My profile ›</span>
-            </span>
+          {/* Photo/initials (→ Profile) with the camera badge (→ photo picker). */}
+          <span style={{ position: 'relative', flexShrink: 0 }}>
+            <button style={s.badgeBtn} onClick={goToProfile} aria-label="My profile">
+              <ProfileBadge style={{ ...s.profileBadge, opacity: photo.busy ? 0.5 : 1 }} />
+            </button>
+            <button style={s.cameraDot} onClick={photo.edit} disabled={photo.busy}
+              aria-label={photo.hasPhoto ? 'Edit profile photo' : 'Add profile photo'}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+            {photo.input}
+          </span>
+          <button style={s.profileBtn} onClick={goToProfile}>
+            <span style={s.profileName}>{firstName}</span>
+            <span style={s.profileLink}>{photo.busy ? 'Uploading photo…' : 'My profile ›'}</span>
+            {photo.error && <span style={s.photoErr}>{photo.error}</span>}
           </button>
           <button style={s.closeBtn} onClick={onClose} aria-label="Close menu">✕</button>
         </div>

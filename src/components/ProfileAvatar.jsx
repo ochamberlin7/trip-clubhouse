@@ -1,7 +1,9 @@
 // Circular initials badge for the logged-in user. Reads the auth account record
 // (not any per-trip player row) so it always reflects who is signed in.
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { accountAvatarUrl } from '../lib/avatar'
 
 // First + last initial from the display name; falls back to the email.
 export function accountInitials(user) {
@@ -29,14 +31,28 @@ const badgeBase = {
   fontWeight: 700,
   letterSpacing: '0.5px',
   flexShrink: 0,
+  overflow: 'hidden',
 }
+
+// The photo if the account has one (falls back to initials if it fails to load),
+// otherwise the initials.
+function BadgeContent({ user }) {
+  const url = accountAvatarUrl(user)
+  const [failedUrl, setFailedUrl] = useState(null)
+  if (url && failedUrl !== url) {
+    return <img src={url} alt="" onError={() => setFailedUrl(url)}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+  }
+  return accountInitials(user)
+}
+
 
 // Non-interactive badge for embedding inside another clickable row (avoids
 // nesting a <button> inside a <button>). Renders just the circle + initials.
 export function ProfileBadge({ style }) {
   const { user } = useAuth()
   if (!user) return null
-  return <span style={{ ...badgeBase, ...style }}>{accountInitials(user)}</span>
+  return <span style={{ ...badgeBase, ...style }}><BadgeContent user={user} /></span>
 }
 
 // Standalone tappable avatar (absolute-positioned in a header corner).
@@ -62,7 +78,7 @@ export default function ProfileAvatar({ style }) {
         ...style,
       }}
     >
-      {accountInitials(user)}
+      <BadgeContent user={user} />
     </button>
   )
 }
