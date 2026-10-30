@@ -61,6 +61,26 @@ export function tripFinishes(perTrip = [], userId, now = new Date()) {
 // Loads every trip's scoring rows in one batch and groups them per trip, ready
 // for buildCareer and computeBadges (badges.js). `trips` = the player's trips ({ id, ... }); allowance comes
 // from each trip row.
+// Every row of a query, in pages. Supabase caps one request at 1,000 rows by
+// default, and career data spans every trip's scores, so one request could come
+// back short (missing badges / stats). The first page also asks for the total;
+// any further pages are fetched in parallel. `build` returns a fresh query with a
+// stable order each call.
+const PAGE = 1000
+export async function selectAllRows(build) {
+  const first = await build({ count: 'exact' }).range(0, PAGE - 1)
+  if (first.error) return first
+  const rows = first.data || []
+  const total = first.count ?? rows.length
+  if (rows.length >= total || rows.length < PAGE) return { data: rows, error: null }
+  const pages = []
+  for (let from = rows.length; from < total; from += PAGE) pages.push(build().range(from, from + PAGE - 1))
+  const rest = await Promise.all(pages)
+  const err = rest.find(r => r.error)
+  if (err) return { data: rows, error: err.error }
+  return { data: rows.concat(...rest.map(r => r.data || [])), error: null }
+}
+
 export async function loadCareerData(client, tripIds = []) {
   if (!tripIds.length) return []
   const [tripsRes, roundsRes, playersRes] = await Promise.all([
@@ -73,7 +93,8 @@ export async function loadCareerData(client, tripIds = []) {
   let scores = [], pairings = [], playerRounds = [], pairingPlayers = [], drinks = []
   if (roundIds.length) {
     const [sc, pr, prr, dr] = await Promise.all([
-      client.from('scores').select('round_id, hole_number, trip_player_id, gross_score').in('round_id', roundIds),
+      selectAllRows(opts => client.from('scores').select('round_id, hole_number, trip_player_id, gross_score', opts).in('round_id', roundIds)
+        .order('round_id').order('trip_player_id').order('hole_number')),
       client.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', roundIds),
       client.from('player_rounds').select('trip_player_id, round_id, tee_name, slope, rating, par').in('round_id', roundIds),
       client.from('drinks').select('round_id, trip_player_id, count').in('round_id', roundIds),

@@ -8,21 +8,31 @@ import { saveCopy, readCopy, mapToJson, jsonToMap } from './offlineCache'
 // The signed-in player's trips, career totals, badges and past-trip finishes — one loader shared by
 // the Clubhouse Home page and the Trophy Room so both show the same numbers.
 // `reload()` refetches (e.g. after a restore).
+const BLANK = { trips: null, deleted: [], career: null, badges: null, finishes: new Map() }
+const copyKeyFor = userId => `home:${userId}`
+function fromCopy(saved) {
+  return { trips: saved.trips || [], deleted: saved.deleted || [], career: saved.career || null, badges: saved.badges ? jsonToMap(saved.badges) : null, finishes: jsonToMap(saved.finishes) }
+}
+
+// Opens instantly from the copy saved on this phone by the last load (Home and the
+// Trophy Room share it), then refreshes from the server in the background and
+// swaps in the new numbers. The first ever visit still waits for the server.
 export function useMyCareer(userId) {
-  const [state, setState] = useState({ trips: null, deleted: [], career: null, badges: null, finishes: new Map() })
+  const [state, setState] = useState(() => {
+    const saved = userId ? readCopy(copyKeyFor(userId)) : null
+    return saved ? fromCopy(saved) : BLANK
+  })
   const [tick, setTick] = useState(0)
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const copyKey = `home:${userId}`
+      const copyKey = copyKeyFor(userId)
       const { rows, deleted, offline } = await loadMyTrips(supabase, userId)
       if (cancelled) return
       // No signal: show the copy saved on this phone from the last good load.
       if (offline) {
         const saved = readCopy(copyKey)
-        setState(s => (saved
-          ? { trips: saved.trips || [], deleted: saved.deleted || [], career: saved.career || null, badges: saved.badges ? jsonToMap(saved.badges) : null, finishes: jsonToMap(saved.finishes) }
-          : { ...s, trips: [], deleted: [] }))
+        setState(s => (saved ? fromCopy(saved) : { ...s, trips: [], deleted: [] }))
         return
       }
       setState(s => ({ ...s, trips: rows, deleted }))
