@@ -31,6 +31,7 @@ export const TIER_NAMES = ['Bronze', 'Silver', 'Gold']
 
 // mark: the short label on the medallion. tiers: milestone thresholds (bronze, silver, gold).
 export const BADGES = [
+  { id: 'joined', group: 'journey', name: 'Joined the Club', mark: 'JC', desc: 'Join your first trip.' },
   { id: 'first_trip', group: 'journey', name: 'First Trip', mark: '1st', desc: 'Finish your first trip.' },
   { id: 'trip_veteran', group: 'journey', name: 'Trip Veteran', mark: 'TV', tiers: [3, 5, 10], unit: 'trips', desc: 'Finish 3, 5 or 10 trips.' },
   { id: 'rounds', group: 'journey', name: 'Rounds', mark: 'R', tiers: [10, 25, 50], unit: 'rounds', desc: 'Play 10, 25 or 50 full rounds.' },
@@ -47,7 +48,8 @@ export const BADGES = [
   { id: 'broke_80', group: 'scoring', name: 'Broke 80', mark: '70s', desc: 'An 18-hole round under 80 (gross).' },
   { id: 'broke_70', group: 'scoring', name: 'Broke 70', mark: '60s', desc: 'An 18-hole round under 70 (gross).' },
   { id: 'eagle', group: 'scoring', name: 'Eagle', mark: 'E', desc: 'Two or more under par on a hole (gross).' },
-  { id: 'hole_in_one', group: 'scoring', name: 'Hole in One', mark: 'H1', desc: 'An ace.' },
+  { id: 'albatross', group: 'scoring', name: 'Albatross', mark: 'A', desc: 'Three or more under par on a hole (gross), like a 2 on a par 5.' },
+  { id: 'hole_in_one', group: 'scoring', name: 'Hole in One', mark: 'HiO', desc: 'An ace.' },
 
   { id: 'low_gross_day', group: 'daily', name: 'Low Gross of the Day', mark: 'LG', desc: 'Best gross round of a day.' },
   { id: 'low_net_day', group: 'daily', name: 'Low Net of the Day', mark: 'LN', desc: 'Best net round of a day.' },
@@ -78,6 +80,8 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
   for (const t of perTrip) {
     const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
     if (!me) continue
+    // Joined the Club: you're on a trip's roster (counts before any score).
+    add('joined', { date: t.trip?.start_date, tripName: t.tripName || '' })
     const rounds = (t.rounds || []).filter(r => r && !isNoneRound(r))
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue
@@ -113,6 +117,7 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
         if (par == null) { prevBirdie = false; continue }
         const d = g - par
         if (d <= -2) add('eagle', { date: r.date, tripName, detail: `Hole ${h}` })
+        if (d <= -3) add('albatross', { date: r.date, tripName, detail: `Hole ${h}` })
         const isBirdie = d <= -1
         if (isBirdie) birdies++
         if (d === 0) pars++
@@ -216,14 +221,16 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
 // Hardest to earn first (Owen, 2026-10-29: Home shows the best trophies, never
 // the roast ones). Badges missing from this list (new ones) sort after it.
 export const BADGE_PRESTIGE = [
-  'hole_in_one', 'champion', 'broke_70', 'eagle', 'broke_80', 'birdie_bonanza', 'bogey_free',
+  'albatross', 'hole_in_one', 'champion', 'broke_70', 'eagle', 'broke_80', 'birdie_bonanza', 'bogey_free',
   'warrior_trip', 'workhorse_trip', 'trip_veteran', 'broke_90', 'par_train', 'back_to_back',
   'hat_trick', 'on_fire', 'low_gross_day', 'low_net_day', 'most_points_day', 'warrior_day',
-  'workhorse_day', 'double_bogey_free', 'rounds', 'par_machine', 'broke_100', 'first_trip',
+  'workhorse_day', 'double_bogey_free', 'rounds', 'par_machine', 'broke_100', 'first_trip', 'joined',
 ]
 // A stronger badge hides the weaker ones on its ladder, so the shelf doesn't
 // show Broke 80 next to Broke 90 and Broke 100.
 const SUPERSEDES = {
+  albatross: ['eagle'],
+  first_trip: ['joined'],
   broke_70: ['broke_80', 'broke_90', 'broke_100'],
   broke_80: ['broke_90', 'broke_100'],
   broke_90: ['broke_100'],

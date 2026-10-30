@@ -73,6 +73,7 @@ const h = {
   shelf: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', width: '100%' },
   shelfCell: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 },
   shelfName: { fontSize: 11, fontWeight: 600, color: '#2C3E50', textAlign: 'center', lineHeight: 1.25 },
+  shelfNote: { margin: '14px 0 0', fontSize: 13, color: MUTED, textAlign: 'center', lineHeight: 1.45 },
   badge: { width: 58, height: 58, borderRadius: '50%', border: `1.5px dashed ${RULE}`, boxSizing: 'border-box' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   sheet: { background: '#fff', borderRadius: 4, padding: 22, width: '100%', maxWidth: 380, boxSizing: 'border-box' },
@@ -317,6 +318,10 @@ export default function HomePage() {
               return cells
             })()}
           </button>
+          {/* No badges yet (once loaded): say how to start. */}
+          {badges && bestBadges(badges, 1).length === 0 && (
+            <p style={h.shelfNote}>Plan or join a trip to start earning badges.</p>
+          )}
         </section>
 
         {/* Subtle footer — only when there's something to restore. */}
