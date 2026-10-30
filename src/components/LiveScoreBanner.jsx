@@ -1,13 +1,15 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
-import { liveMatchTally, liveStandardMatchTally, resolveBannerTeams } from '../lib/scoring'
+import { liveMatchTally, liveStandardMatchTally, resolveBannerTeams, tripGameType, isIndividualGameType } from '../lib/scoring'
+import { liveBannerModel } from '../lib/liveBannerView'
 import { getTeamDisplayName, isDefaultTeamName, teamColor, colorIndexOf } from '../lib/teamColors'
 
 // Floating live-score banner, fixed to the bottom of the screen. Mounted once at
-// the dashboard level so it persists across every tab. Shows a per-pairing
-// better-ball match-play status for the most relevant round with scores —
-// any round type (practice or tournament) qualifies.
+// the dashboard level so it persists across every tab. Match play: a per-pairing
+// better-ball match status. Stableford / Stroke Play: the round's leader and where
+// you stand, or the teams' round totals (wording in lib/liveBannerView.js). Shows
+// the most relevant round with scores — any round type (practice or tournament).
 //
 // Round selection priority (see the selection memo below):
 //   1. Today's date matches a round's scheduled date AND scores exist
@@ -98,8 +100,9 @@ function standardStatus(row, n1, n2) {
   return { text: `${name}${sep}${Math.abs(row.lead)} Up`, side, thru: `Thru ${row.thru}` }
 }
 
-export default function LiveScoreBanner({ trip, rounds, teams }) {
+export default function LiveScoreBanner({ trip, rounds, teams, currentUserId = null }) {
   const [pairings, setPairings] = useState([])
+  const [players, setPlayers] = useState([]) // trip_players (names, teams, accounts) for Stableford / Stroke Play
   const [pairingPlayers, setPairingPlayers] = useState([])
   const [scoresMap, setScoresMap] = useState({})
   const [hcpByPlayer, setHcpByPlayer] = useState({})
@@ -115,6 +118,10 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
 
   const allowance = trip?.handicap_allowance ?? 100
   const isStandard = trip?.format === 'standard_match_play'
+  // Stableford / Stroke Play: no side-vs-side match, so the banner speaks that
+  // format's own language (liveBannerView.js) instead of match-play rows.
+  const gameType = tripGameType(trip)
+  const individual = isIndividualGameType(gameType)
   // Team lookup by id, so each pairing's two sides are resolved from its REAL
   // team1_id/team2_id (the tally carries them) — never a fixed teams[0]/teams[1]
   // order, which is wrong whenever a pairing's sides are flipped.
@@ -169,7 +176,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
     async function loadAll() {
       const [pairRes, tpRes, sMap, tMap] = await Promise.all([
         supabase.from('pairings').select('id, round_id, pairing_number, team1_id, team2_id').in('round_id', allRoundIds),
-        supabase.from('trip_players').select('id, handicap_index').eq('trip_id', trip.id),
+        supabase.from('trip_players').select('id, handicap_index, team_id, first_name, last_name, guest_name, user_id, claimed_user_id').eq('trip_id', trip.id),
         fetchScores(),
         fetchPlayerRounds(),
       ])
@@ -187,6 +194,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       // Tees before scores so no render can ever see scores without tees (React
       // batches these into one render anyway).
       setPairings(pairs)
+      setPlayers(tpRes.data || [])
       setPairingPlayers(pp)
       setHcpByPlayer(hcp)
       setTeeRowMap(tMap)
@@ -235,13 +243,25 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   //   1. Today's scheduled round with scores (prefer in-progress, then most holes)
   //   2. Any in-progress round (scores, not complete), regardless of date
   //      — this also covers "outside trip dates, an in-progress round surfaces"
-  const { round, tallies } = useMemo(() => {
+  const { round, tallies, model } = useMemo(() => {
     // Per-round summary, keeping only rounds that have at least one scored hole.
     // 'none' rounds are placeholders and never surface the banner.
     const summaries = rounds.filter(r => r.round_type !== 'none').map(r => {
       // Guard the format branch: a throw here would otherwise bubble out of render
       // and silently blank the banner. Log it so a format-specific data problem is
       // visible instead of invisible. (Item 3 bug investigation.)
+      if (individual) {
+        // Stableford / Stroke Play: the round's wording model (leader / You / team
+        // totals). "scored" = holes entered, for the same round-picking rules.
+        let m = { started: false, finished: false, rows: [] }
+        try {
+          m = liveBannerModel({ gameType, round: r, players, teams: teams || [], scoresMap, hcpByPlayer, teeRowMap, allowance, meId: currentUserId })
+        } catch (err) {
+          console.error('[LiveScoreBanner] banner model threw', { roundId: r.id, format: trip?.format, err })
+        }
+        const scored = Object.keys(scoresMap).filter(k => k.startsWith(`${r.id}:`)).length
+        return { round: r, tallies: [], model: m, scored: m.started ? scored : 0, complete: m.finished }
+      }
       let t = []
       try {
         t = isStandard
@@ -256,7 +276,7 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
       return { round: r, tallies: t, scored, complete: t.length > 0 && t.every(p => p.complete) }
     }).filter(sum => sum.scored > 0)
 
-    if (summaries.length === 0) return { round: null, tallies: [] }
+    if (summaries.length === 0) return { round: null, tallies: [], model: null }
 
     // In-progress first (complete sorts last), then most holes scored.
     const pickBest = list => list.slice().sort(
@@ -265,27 +285,27 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
 
     // Priority 1: today's scheduled round(s) with scores.
     const todays = summaries.filter(sum => sum.round.date === todayISO)
-    if (todays.length) { const best = pickBest(todays); return { round: best.round, tallies: best.tallies } }
+    if (todays.length) { const best = pickBest(todays); return { round: best.round, tallies: best.tallies, model: best.model ?? null } }
 
     // Priority 2 & 3: any in-progress round with scores, regardless of date.
     const inProgress = summaries.filter(sum => !sum.complete)
-    if (inProgress.length) { const best = pickBest(inProgress); return { round: best.round, tallies: best.tallies } }
+    if (inProgress.length) { const best = pickBest(inProgress); return { round: best.round, tallies: best.tallies, model: best.model ?? null } }
 
-    return { round: null, tallies: [] }
-  }, [rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance, todayISO, isStandard])
+    return { round: null, tallies: [], model: null }
+  }, [rounds, pairings, pairingPlayers, players, teams, scoresMap, hcpByPlayer, teeRowMap, allowance, todayISO, isStandard, individual, gameType, currentUserId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const anyHolesScored = tallies.some(t => t.thru > 0)
+  const anyHolesScored = individual ? !!model?.started : tallies.some(t => t.thru > 0)
 
   // Completed-round results only show during the trip dates; an in-progress
   // round can surface the banner any day.
   const inTripWindow = trip?.start_date && trip?.end_date
     && todayISO >= trip.start_date && todayISO <= trip.end_date
-  const selectedComplete = tallies.length > 0 && tallies.every(t => t.complete)
+  const selectedComplete = individual ? !!model?.finished : (tallies.length > 0 && tallies.every(t => t.complete))
 
   // Whether the banner will actually render (mirrors the two gates below). Used by
   // the measuring effect, which must run unconditionally before any early return.
   const shouldRender = beforeNine && !!round && anyHolesScored && !(selectedComplete && !inTripWindow)
-  const rowCount = tallies.filter(t => t.hasMatch).length
+  const rowCount = individual ? (model?.rows.length ?? 0) : tallies.filter(t => t.hasMatch).length
 
   // Publish the banner's occupied height (its rendered height + fixed bottom
   // offset + a small gap) to a CSS variable so scrollable views can pad their
@@ -318,6 +338,33 @@ export default function LiveScoreBanner({ trip, rounds, teams }) {
   if (selectedComplete && !inTripWindow) return null
 
   const visibleRows = tallies.filter(t => t.hasMatch)
+
+  // Stableford / Stroke Play: "Course · Live" (or "Final"), then the model's rows —
+  // the leader / You, or the teams' round totals. The leader's line takes their
+  // team colour (navy with no teams).
+  if (individual) {
+    const toneOf = row => {
+      if (row.teamId && teamById[row.teamId]) return teamColor(colorIndexOf(teamById[row.teamId])).solid
+      return row.accent ? '#1B3F6E' : 'var(--cream2)'
+    }
+    return (
+      <div ref={bannerRef} className="match-banner-float visible" id="match-banner-float" role="status" aria-label="Live score">
+        <div className="match-banner-round">
+          {round.club_name || round.course_name} · {selectedComplete ? 'Final' : 'Live'}
+          {!selectedComplete && <span className="match-banner-live-dot" aria-hidden="true" />}
+        </div>
+        <div className="match-banner-rows">
+          {model.rows.map(row => (
+            <div className="match-banner-row" key={row.label}>
+              <span className="match-banner-pair-label">{row.label}</span>
+              <span className="match-banner-status" style={{ color: toneOf(row) }}>{row.text}</span>
+              <span className="match-banner-thru">{row.thru}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div ref={bannerRef} className="match-banner-float visible" id="match-banner-float" role="status" aria-label="Live score">
