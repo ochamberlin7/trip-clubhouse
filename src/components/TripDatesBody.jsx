@@ -127,9 +127,7 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
 
       {plan?.ok && (
         <>
-          <div style={rowUI.fieldLabel}>What changes</div>
-          {nothingScheduled && <div style={rowUI.note}>Nothing is scheduled yet — only the trip dates change.</div>}
-          {!nothingScheduled && moves.length === 0 && <div style={rowUI.note}>{cutCount ? 'Everything else' : 'Everything already scheduled'} stays on the same date.</div>}
+          {moves.length > 0 && <div style={rowUI.fieldLabel}>What changes</div>}
           {moves.map(m => (
             <div key={m.key} style={ui.moveRow}>
               <span style={ui.moveName}>{m.name}</span>
@@ -137,11 +135,6 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
             </div>
           ))}
 
-          {!nothingScheduled && plan.removedDays.length > 0 && cutCount === 0 && (
-            <div style={rowUI.note}>
-              Nothing is scheduled on {plan.removedDays.map(fmt).join(', ')}, so nothing is removed.
-            </div>
-          )}
           {cutCount > 0 && (
             <div style={ui.warn}>
               <strong>Removed with the cut {plan.removedDays.length === 1 ? 'day' : 'days'} ({plan.removedDays.map(fmt).join(', ')}):</strong>
@@ -155,7 +148,7 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
           {plan.stays.some(st => st.trimmed) && (
             <div style={rowUI.note}>Lodging now checks out on the new last day.</div>
           )}
-          {plan.addedDays.length > 0 && (
+          {!nothingScheduled && plan.addedDays.length > 0 && (
             <div style={rowUI.info}>
               New {plan.addedDays.length === 1 ? 'day' : 'days'} ({plan.addedDays.map(fmt).join(', ')}) start as “Not Scheduled Yet” — add rounds or meals in Schedule &amp; Courses.
             </div>
