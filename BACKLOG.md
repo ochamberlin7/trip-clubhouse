@@ -28,7 +28,7 @@ Merge status verified with `git branch -r --merged origin/main` on 2026-10-23 (m
 ## Done
 | Item | Branch | Status |
 |---|---|---|
-| Player photos on Players & Teams cards (from `profiles.avatar_url`, matched by `user_id` or `claimed_user_id` via `attachAvatars`; initials if none) | `feat/player-photos` | 🔍 On preview, not merged |
+| Player photos on Players & Teams cards (from `profiles.avatar_url`, matched by `user_id` or `claimed_user_id` via `attachAvatars`; initials if none) | `feat/player-photos` | ✅ Merged 2026-10-29 (scorecard photos: decided no) |
 | Profile photo upload: camera badge in the drawer + photo section on Profile ("Add photo", or "Edit photo" → Change photo / Remove photo pop-up; drawer camera badge does the same) → "Move and scale" crop window (drag, pinch/slider zoom, round cutout; `PhotoCropper.jsx`, react-easy-crop 6.2.4). Cropped 320px JPEG made on the phone → `avatars` bucket (own-folder RLS); URL on the account (`user_metadata.avatar_url`) + `profiles.avatar_url`. Migration `20260676_profile_photos.sql` applied 2026-10-29. Only your own badge shows photos for now; other players' photos (Players, scorecards) = later, reading `profiles.avatar_url` | `feat/profile-photo` | ✅ Merged 2026-10-29 |
 | Menu drawer redesign: name + soft-gray initials circle on top (no trip/group name), featured navy/gold Your Clubhouse (flag-on-the-peak icon), calendar icon for Schedule, App Info moved to a footer signature ("App info · Install guide · v1.0", version from `package.json`, now 1.0.0) | `feat/menu-drawer-redesign` | ✅ Merged 2026-10-29 |
 | Live score banner for Stableford / Stroke Play (each format's own wording, "You" line, today's round) | `feat/live-banner-game-types` | ✅ Merged 2026-10-29 |
