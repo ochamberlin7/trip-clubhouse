@@ -153,3 +153,42 @@ test('Home shelf: best badges first, no roast, weaker ladder steps hidden', () =
   // Every non-roast badge is ranked (so new badges get placed on purpose).
   for (const b of BADGES.filter(b => b.group !== 'roast')) assert.ok(BADGE_PRESTIGE.includes(b.id), b.id)
 })
+
+test('Albatross: three under on a hole (gross); an ace on a par 4 is one too', () => {
+  const par5 = HOLES.map((h, i) => (i === 0 ? { ...h, par: 5 } : h))
+  // A: a 2 on the par-5 1st (albatross, also an eagle), pars after.
+  const m = computeBadges([trip({ rounds: [round('R1', '2026-10-01', { holes: par5 })], gross: (p, h) => (p === 'A' && h === 1 ? 2 : 4) })], 'U', NOW)
+  assert.equal(got(m, 'albatross').earned, true)
+  assert.equal(got(m, 'eagle').earned, true)
+  // A 3 on a par 5 is only an eagle.
+  const e = computeBadges([trip({ rounds: [round('R1', '2026-10-01', { holes: par5 })], gross: (p, h) => (p === 'A' && h === 1 ? 3 : 4) })], 'U', NOW)
+  assert.equal(got(e, 'albatross').earned, false)
+  assert.equal(got(e, 'eagle').earned, true)
+  // Ace on a par 4 = 3 under.
+  const a = computeBadges([trip({ rounds: [round('R1', '2026-10-01')], gross: (p, h) => (p === 'A' && h === 1 ? 1 : 4) })], 'U', NOW)
+  assert.equal(got(a, 'albatross').earned, true)
+  assert.equal(got(a, 'hole_in_one').earned, true)
+})
+
+test('Joined the Club: earned as soon as you are on a trip, before any score', () => {
+  const t = trip({ rounds: [round('R1', '2026-11-20')], gross: () => null, start: '2026-11-20', end: '2026-11-22' })
+  const m = computeBadges([t], 'U', NOW)
+  assert.equal(got(m, 'joined').earned, true)
+  assert.equal(got(m, 'first_trip').earned, false)
+  // Not on the trip → not earned.
+  assert.equal(got(computeBadges([t], 'someone-else', NOW), 'joined').earned, false)
+  // No trips at all → nothing (the Home shelf shows its "plan or join" note).
+  assert.equal(got(computeBadges([], 'U', NOW), 'joined').earned, false)
+})
+
+test('Home shelf: Albatross outranks the ace and hides Eagle; First Trip hides Joined', () => {
+  const earned = ids => new Map(ids.map(id => [id, { earned: true }]))
+  const ids = bs => bs.map(b => b.id)
+  assert.deepEqual(ids(bestBadges(earned(['eagle', 'hole_in_one', 'albatross']))), ['albatross', 'hole_in_one'])
+  assert.deepEqual(ids(bestBadges(earned(['joined', 'first_trip']))), ['first_trip'])
+  assert.deepEqual(ids(bestBadges(earned(['joined']))), ['joined'])
+})
+
+test('Hole in One reads HiO', () => {
+  assert.equal(BADGES.find(b => b.id === 'hole_in_one').mark, 'HiO')
+})
