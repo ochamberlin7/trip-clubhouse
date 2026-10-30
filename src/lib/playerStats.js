@@ -8,8 +8,13 @@
 //     triples+, best and worst round — tracked independently per mode. Net uses
 //     the scorecard's off-the-low match shots, so net birdies agree with the dots.
 //   • best / worst round: complete 18-hole rounds only.
+//   • Stableford / Stroke Play trips (opts.gameType 'stableford' | 'stroke'): there
+//     are no matches, so primary / defended stay 0; net (and fire) use each
+//     player's FULL playing handicap — the same strokes as the Leaderboard; and
+//     `stableford` = net Stableford points over the counting (tournament) rounds.
 import {
   matchPlayPointsByPlayer, pointsDefendedByPlayer, fireStatsByPlayer, resolvePlayerTee, rawCourseHandicapForTee, strokesOnHole, effectiveAllowance, shotsGivenFromCourseHandicaps,
+  isIndividualGameType, playingHandicapForRound, stablefordPoints, leaderboardRounds,
 } from './scoring.js'
 
 // Off-low (match-play) shots per player per round, grouped by pairing — identical
@@ -61,7 +66,8 @@ function offLowShotsByRound(rounds, { roundById, pairingsByRound, playersByPairi
   return byRound
 }
 
-export function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance) {
+export function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance, { gameType = null } = {}) {
+  const individual = isIndividualGameType(gameType)
   // Hole par + stroke index live on rounds.holes — a positional JSON array where
   // index i is hole i+1 (par via `.par`, stroke index via `.handicap`). This is
   // the SAME source the scorecard reads. The course_holes table is never
@@ -76,10 +82,10 @@ export function computePlayerStats({ rounds, scores, pairings, pairingPlayers, t
   // Play "Points Won". Accrues hole-by-hole across all tournament rounds: on each
   // decided hole the winning side's best-net player(s) score (both when tied).
   const bundle = { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds }
-  const primaryByPlayer = matchPlayPointsByPlayer(bundle, allowance)
-  const defendedByPlayer = pointsDefendedByPlayer(bundle, allowance)
+  const primaryByPlayer = individual ? new Map() : matchPlayPointsByPlayer(bundle, allowance)
+  const defendedByPlayer = individual ? new Map() : pointsDefendedByPlayer(bundle, allowance)
   // Fire stats (mode-independent, net-based) — matches the scorecard's fire display.
-  const fireByPlayer = fireStatsByPlayer(bundle, allowance)
+  const fireByPlayer = fireStatsByPlayer(bundle, allowance, { fullHandicap: individual })
 
   // Lookups.
   const roundById = new Map(rounds.map(r => [r.id, r]))
@@ -110,12 +116,16 @@ export function computePlayerStats({ rounds, scores, pairings, pairingPlayers, t
     if (!pairingsByRound.has(pr.round_id)) pairingsByRound.set(pr.round_id, [])
     pairingsByRound.get(pr.round_id).push(pr)
   }
-  const shotsByRound = offLowShotsByRound(rounds, { roundById, pairingsByRound, playersByPairing, scores, teeRowByRP, hcpById }, allowance)
+  const shotsByRound = individual
+    ? new Map(rounds.map(r => [r.id, new Map(tripPlayers.map(p => [p.id, playingHandicapForRound(roundById.get(r.id), teeRowByRP.get(`${r.id}:${p.id}`), p.handicap_index, allowance)]))]))
+    : offLowShotsByRound(rounds, { roundById, pairingsByRound, playersByPairing, scores, teeRowByRP, hcpById }, allowance)
+  // Stableford points only count on the Leaderboard's rounds (not practice).
+  const countingIds = new Set(leaderboardRounds(rounds).map(r => r.id))
 
   // Six vs-par categories + best/worst round, tracked separately for gross and
   // net (never derived from each other).
   const emptyMode = () => ({ eagles: 0, birdies: 0, pars: 0, parsOrBetter: 0, bogeys: 0, doubles: 0, triples: 0, bestRound: null, worstRound: null })
-  const blank = () => ({ primary: 0, defended: 0, fireStreak: 0, fireHolesTotal: 0, gross: emptyMode(), net: emptyMode() })
+  const blank = () => ({ primary: 0, defended: 0, stableford: 0, fireStreak: 0, fireHolesTotal: 0, gross: emptyMode(), net: emptyMode() })
   const stats = new Map(tripPlayers.map(p => [p.id, blank()]))
   for (const [tp, v] of primaryByPlayer) { if (stats.has(tp)) stats.get(tp).primary = v }
   for (const [tp, v] of defendedByPlayer) { if (stats.has(tp)) stats.get(tp).defended = v }
@@ -153,6 +163,7 @@ export function computePlayerStats({ rounds, scores, pairings, pairingPlayers, t
         scoredHoles++; grossTotal += gross; netTotal += net
         const par = info?.par
         if (par == null) continue // can't bucket vs-par without a par (round totals still count)
+        if (gameType === 'stableford' && countingIds.has(r.id)) st.stableford += stablefordPoints(net, par)
         bucket(st.gross, gross - par)
         bucket(st.net, net - par)
       }

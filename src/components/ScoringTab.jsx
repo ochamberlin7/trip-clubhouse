@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
-import { strokesOnHole, netScore, rawCourseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally, matchHoleOutcomes, effectiveAllowance } from '../lib/scoring'
+import { strokesOnHole, netScore, rawCourseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally, matchHoleOutcomes, effectiveAllowance, playingHandicapForRound, stablefordPoints, tripGameType, isIndividualGameType } from '../lib/scoring'
 import { teamPillStyle, getTeamDisplayName, teamColor, colorIndexOf } from '../lib/teamColors'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import PullToRefresh from './PullToRefresh'
@@ -434,15 +434,19 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // every trip_player assigned to any slot in any pairing of this round
   const roundPairingIds = pairings.filter(p => p.round_id === round.id).map(p => p.id)
   const assignedInRound = new Set(pairingPlayers.filter(pp => roundPairingIds.includes(pp.pairing_id)).map(pp => pp.trip_player_id))
-  // Players who can't be placed at all until they're on a team.
-  const noTeamPlayers = Object.values(playersById).filter(p => !p.team_id)
+  // Stableford / Stroke Play: an individual game. Teams are optional, groups can
+  // mix teams freely, and there's no match between the two sides of the card.
+  const gameType = tripGameType(trip)
+  const individual = isIndividualGameType(gameType)
+  // Players who can't be placed at all until they're on a team (match play only).
+  const noTeamPlayers = individual ? [] : Object.values(playersById).filter(p => !p.team_id)
 
   const slotPlayers = [1, 2, 3, 4].map(s => slotMap[s] ? playersById[slotMap[s]] : null)
   // Better-ball match needs at least one player on each side (slots 1&2 = Team 1,
   // 3&4 = Team 2). Works for any split: 1v1, 1v2, 2v1, 2v2.
   const t1MatchTps = [slotMap[1], slotMap[2]].filter(Boolean)
   const t2MatchTps = [slotMap[3], slotMap[4]].filter(Boolean)
-  const matchActive = t1MatchTps.length > 0 && t2MatchTps.length > 0
+  const matchActive = !individual && t1MatchTps.length > 0 && t2MatchTps.length > 0
 
   // How many player columns to show per team. Display only; scoring/handicap math
   // below still uses the full slot set [1,2,3,4].
@@ -466,7 +470,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // palette's team 1 / team 2 when a side's team isn't assigned yet (no hardcoded hex).
   const t1Color = teamColor(colorIndexOf(pairTeam1)).solid
   const t2Color = pairTeam2 ? teamColor(colorIndexOf(pairTeam2)).solid : teamColor(2).solid
-  const midColW = isStandard ? '38px' : '36px'
+  const midColW = individual ? '6px' : isStandard ? '38px' : '36px'
   const scGridCols = `30px 24px 24px ${t1Slots.map(() => '1fr').join(' ')} ${midColW} ${t2Slots.map(() => '1fr').join(' ')}`
   // Whether the visible slots are all filled (for the "assign players" hint only).
   const visibleFilled = [...t1Slots, ...t2Slots].every(s => slotMap[s])
@@ -483,7 +487,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     return { id, ch: rawCourseHandicapForTee(playersById[id]?.handicap_index, tee.slope, tee.rating, tee.par) }
   })
   const shotsByTp = shotsGivenFromCourseHandicaps(chEntries, allowance)
-  const sgOf = tpId => shotsByTp.get(tpId) ?? 0
+  // Stableford / Stroke Play: every player gets strokes off their FULL playing
+  // handicap (own tee × allowance) — the same playingHandicapForRound the
+  // Leaderboard uses — not shots off the low. Dots, nets and fire all follow it.
+  const sgOf = individual
+    ? tpId => playingHandicapForRound(round, playerRoundsMap[`${round.id}:${tpId}`], playersById[tpId]?.handicap_index, trip.handicap_allowance ?? 100)
+    : tpId => shotsByTp.get(tpId) ?? 0
 
   const getScore = (tpId, hole) => scores[`${round.id}:${tpId}:${hole}`] ?? null
   const getDrinks = (tpId, hole) => drinks[`${round.id}:${tpId}:${hole}`] ?? 0
@@ -613,7 +622,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           .insert({ pairing_id: pairing.id, trip_player_id: tripPlayerId, team_slot: slot })
         if (error) throw error
         // Infer this side's team from the placed player (first pick sets it).
-        const teamId = playersById[tripPlayerId]?.team_id ?? null
+        // Individual formats have no sides, so no team is set on the pairing.
+        const teamId = individual ? null : (playersById[tripPlayerId]?.team_id ?? null)
         const currentTeam = side === 0 ? pairing.team1_id : pairing.team2_id
         if (teamId && teamId !== currentTeam) {
           const { error: tErr } = await supabase.from('pairings').update({ [teamCol]: teamId }).eq('id', pairing.id)
@@ -623,7 +633,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         // Cleared this slot: if the side now has no players (sibling empty too),
         // drop the inferred team so the side reopens to all teams.
         const siblingFilled = !!slotMap[siblingSlot]
-        if (!siblingFilled) {
+        if (!siblingFilled && !individual) {
           await supabase.from('pairings').update({ [teamCol]: null }).eq('id', pairing.id)
         }
       }
@@ -656,6 +666,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const otherSideTeam = side === 0 ? activePairing?.team2_id : activePairing?.team1_id
     const current = slotMap[slot]
     return Object.values(playersById).filter(p => {
+      // Individual formats: anyone not already in a group this round.
+      if (individual) return p.id === current || !assignedInRound.has(p.id)
       if (!p.team_id) return false // no team → can't be placed (no team to score for)
       // Already placed this round (incl. the same side's other slot) → unavailable,
       // unless it's the player currently in THIS slot.
@@ -672,9 +684,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     const tp = slotMap[slot] ? playersById[slotMap[slot]] : null
     // Filled → the slot's REAL team colour (the team on this side of the pairing,
     // matching the Players tab); empty → neutral gray.
-    const sideTeam = SLOT_TEAM[slot] === 0 ? pairTeam1 : pairTeam2
+    // Individual formats: the player's own team colour (navy with no teams).
+    const sideTeam = individual
+      ? (tp?.team_id ? teams.find(t => t.id === tp.team_id) : null)
+      : (SLOT_TEAM[slot] === 0 ? pairTeam1 : pairTeam2)
     const fillStyle = tp
-      ? { background: teamColor(colorIndexOf(sideTeam)).solid, color: '#fff' }
+      ? { background: individual && !sideTeam ? '#1B3F6E' : teamColor(colorIndexOf(sideTeam)).solid, color: '#fff' }
       : EMPTY_TH
     if (!canAssign) return <div className="sc-th-name" style={fillStyle}>{tp ? firstName(tp.name) : 'TBD'}</div>
     // '+' whenever a player can be placed here — the first pick on a side lists
@@ -874,11 +889,35 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         <div className="sc-sub-par">{st.parSum ?? '—'}</div><div />
         {t1Slots.map(s => <div key={s} className="sc-sub-score t1">{cell(slotMap[s])}</div>)}
         <div className="sc-sub-pts">
-          {isStandard
+          {individual ? '' : isStandard
             ? (stdTally?.results?.[end - 1]?.statusShort ?? '—')
             : (matchActive ? st.pts : '—')}
         </div>
         {t2Slots.map(s => <div key={s} className="sc-sub-score t2">{cell(slotMap[s])}</div>)}
+      </div>
+    )
+  }
+  // Stableford: each player's points over a hole range. Stroke play: their net
+  // total. Holes not yet played are skipped (Stableford) / show "—" (net total).
+  function GameRow({ start, end }) {
+    const val = tpId => {
+      if (!tpId) return '—'
+      let sum = 0, any = false
+      for (let h = start; h <= end; h++) {
+        const n = netOf(tpId, h)
+        if (n == null) { if (gameType === 'stroke') return '—'; continue }
+        any = true
+        sum += gameType === 'stroke' ? n : (stablefordPoints(n, holes?.[h - 1]?.par) ?? 0)
+      }
+      return any ? sum : '—'
+    }
+    return (
+      <div className="sc-row sc-sub-row" style={{ gridTemplateColumns: scGridCols }}>
+        <div className="sc-sub-label">{gameType === 'stroke' ? 'Net' : 'Pts'}</div>
+        <div className="sc-sub-par" /><div />
+        {t1Slots.map(s => <div key={s} className="sc-sub-score t1">{val(slotMap[s])}</div>)}
+        <div className="sc-sub-pts" />
+        {t2Slots.map(s => <div key={s} className="sc-sub-score t2">{val(slotMap[s])}</div>)}
       </div>
     )
   }
@@ -947,7 +986,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           <div className="sc-h">Par</div>
           <div className="sc-h">S.I.</div>
           {t1Slots.map(s => <HeaderCell key={s} slot={s} />)}
-          <div className="sc-h">{isStandard ? 'Match' : 'Pts'}</div>
+          <div className="sc-h">{individual ? '' : isStandard ? 'Match' : 'Pts'}</div>
           {t2Slots.map(s => <HeaderCell key={s} slot={s} />)}
         </div>
 
@@ -960,15 +999,20 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
                 <div className="sc-cell-par">{holes?.[hole - 1]?.par ?? '—'}</div>
                 <div className="sc-cell-si">{holes?.[hole - 1]?.handicap ?? '—'}</div>
                 {t1Slots.map(s => <ScoreCell key={s} slot={s} hole={hole} shownSet={shownSet} />)}
-                {isStandard
-                  ? <MatchCell entry={stdTally?.results?.[hole - 1]} t1Color={t1Color} t2Color={t2Color} />
-                  : <PointsChip result={holeResult(hole)} t1Color={t1Color} t2Color={t2Color} />}
+                {individual
+                  ? <div />
+                  : isStandard
+                    ? <MatchCell entry={stdTally?.results?.[hole - 1]} t1Color={t1Color} t2Color={t2Color} />
+                    : <PointsChip result={holeResult(hole)} t1Color={t1Color} t2Color={t2Color} />}
                 {t2Slots.map(s => <ScoreCell key={s} slot={s} hole={hole} shownSet={shownSet} />)}
               </div>
               {isEighteen && hole === 9 && <SubRow label="Out" start={1} end={9} />}
+              {isEighteen && hole === 9 && individual && <GameRow start={1} end={9} />}
               {isEighteen && hole === 9 && <DrinkRow label="Drinks" start={1} end={9} />}
               {isEighteen && hole === 18 && <SubRow label="In" start={10} end={18} />}
+              {isEighteen && hole === 18 && individual && <GameRow start={10} end={18} />}
               {hole === holeCount && <SubRow label="Tot" start={1} end={holeCount} />}
+              {hole === holeCount && individual && <GameRow start={1} end={holeCount} />}
               {hole === holeCount && <DrinkRow />}
             </div>
           )
@@ -993,7 +1037,10 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       {modal && (
         <ScoreModal
           modal={modal} round={round} player={playersById[modal.tpId]}
-          teamName={getTeamDisplayName(modal.teamSide === 'T1' ? pairTeam1 : pairTeam2)}
+          teamName={individual
+            ? getTeamDisplayName(teams.find(t => t.id === playersById[modal.tpId]?.team_id))
+            : getTeamDisplayName(modal.teamSide === 'T1' ? pairTeam1 : pairTeam2)}
+          individualTeam={individual ? (teams.find(t => t.id === playersById[modal.tpId]?.team_id) ?? null) : undefined}
           par={holes?.[modal.hole - 1]?.par} si={holes?.[modal.hole - 1]?.handicap}
           courseHcp={sgOf(modal.tpId)} canSave={isInPairing}
           existingScore={getScore(modal.tpId, modal.hole)} existingDrinks={getDrinks(modal.tpId, modal.hole)}
@@ -1058,7 +1105,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 }
 
 // ── Score + drink entry modal ─────────────────────────────────────
-function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSave, existingScore, existingDrinks, onClose, onCommit, onRemoved }) {
+function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, courseHcp, canSave, existingScore, existingDrinks, onClose, onCommit, onRemoved }) {
   const { tpId, hole, teamSide } = modal
   const [score, setScore] = useState(existingScore ?? par ?? 4)
   const [drinkCount, setDrinkCount] = useState(existingDrinks ?? 0)
@@ -1135,7 +1182,10 @@ function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSav
     remove: { width: '100%', padding: 10, background: 'none', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 10, color: '#f08080', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8, fontFamily: 'inherit' },
     cancel: { width: '100%', padding: 10, background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
   }
-  const teamStyle = teamPillStyle(teamSide === 'T1' ? 1 : 2)
+  // individualTeam: undefined = match play (side colours); null = an individual
+  // format with no team (pill hidden); a team row = that player's team colour.
+  const teamStyle = individualTeam ? teamPillStyle(colorIndexOf(individualTeam)) : teamPillStyle(teamSide === 'T1' ? 1 : 2)
+  const showTeamPill = individualTeam !== null
 
   return createPortal(
     <div style={m.overlay} onClick={onClose}>
@@ -1145,7 +1195,7 @@ function ScoreModal({ modal, round, player, teamName, par, si, courseHcp, canSav
         <div style={m.parInfo}>Par {par ?? '—'} · Index {si ?? '—'}{netPar != null ? ` · Net Par ${netPar}` : ''}</div>
 
         <div style={m.playerRow}>
-          <span style={{ ...m.team, ...teamStyle }}>{teamName || (teamSide === 'T1' ? 'Team 1' : 'Team 2')}</span>
+          {showTeamPill && <span style={{ ...m.team, ...teamStyle }}>{teamName || (teamSide === 'T1' ? 'Team 1' : 'Team 2')}</span>}
           <span style={m.name}>{firstName(player?.name)}</span>
           <div style={m.controls}>
             <button style={m.scoreBtn} onClick={() => setScore(s => Math.max(1, s - 1))}>−</button>

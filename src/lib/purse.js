@@ -1,5 +1,5 @@
-import { analyzeScoring, playerName } from './scoring'
-import { getTeamDisplayName } from './teamColors'
+import { analyzeScoring, playerName, teamStandingsFromRows } from './scoring.js'
+import { getTeamDisplayName } from './teamColors.js'
 
 // Tournament purse: the losing team (fewer match-play holes won across completed
 // rounds) pays the purse, split evenly among that team's players.
@@ -7,6 +7,10 @@ import { getTeamDisplayName } from './teamColors'
 // holeWinsByTeam (the same best-ball, complete-tournament-round math the
 // leaderboard uses), so the purse always agrees with the standings shown
 // elsewhere; an in-progress round doesn't count until it's complete.
+
+// Team Stableford / Team Stroke Play: the losing team is the one with the worse
+// team total on the Leaderboard (fewest Stableford points / highest net to par),
+// over completed rounds only — see teamScoresForPurse.
 
 // "$640", "$1,640", "$213.33" — thousands separators; drop a whole-dollar .00.
 export function formatMoney(n) {
@@ -55,12 +59,29 @@ export function computePurse({ teams = [], tripPlayers = [], holeWinsByTeam = ne
   }
 }
 
+// Team Stableford / Team Stroke Play → a "higher is better" score per team, so
+// computePurse's lower-score-pays rule works unchanged. Uses the shared
+// teamStandings (same numbers as the Leaderboard); stroke play totals are net to
+// par where LOWER wins, so they're negated.
+export function teamScoresForPurse(standings) {
+  const out = new Map()
+  for (const [teamId, total] of standings.total) out.set(teamId, standings.lowWins ? -total : total)
+  return out
+}
+
 // Fetch everything needed to compute purse standings for a trip. Returns the raw
 // pieces (callers pass `amount` into computePurse). `hasStandings` is true once a
 // tournament round is complete; `hasRounds` is true if any tournament round exists.
-export async function loadPurseStandings(supabase, tripId, allowance = 100) {
-  const { data: rounds } = await supabase
-    .from('rounds').select('id, date, holes, round_type, course_name, club_name, handicap_allowance').eq('trip_id', tripId)
+// format: trips.format — 'stableford' / 'stroke_play' use team totals; anything
+// else keeps the match-play holes-won rule.
+export async function loadPurseStandings(supabase, tripId, allowance = 100, format = null) {
+  const teamTotals = format === 'stableford' || format === 'stroke_play'
+  // Team totals need every tee field (full course handicaps); match play keeps
+  // reading the same few columns as before.
+  const { data: allRounds } = await supabase.from('rounds').select('*').eq('trip_id', tripId)
+  const rounds = teamTotals
+    ? allRounds
+    : (allRounds || []).map(({ id, date, holes, round_type, course_name, club_name, handicap_allowance }) => ({ id, date, holes, round_type, course_name, club_name, handicap_allowance }))
   const roundIds = (rounds || []).map(r => r.id)
 
   const [teamsRes, tpRes] = await Promise.all([
@@ -107,7 +128,13 @@ export async function loadPurseStandings(supabase, tripId, allowance = 100) {
   }
 
   const bundle = { rounds, scores: scoresRes.data || [], courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds: prRes.data || [] }
-  const { completeRoundIds, holeWinsByTeam } = analyzeScoring(bundle, null, allowance)
+  const { completeRoundIds, holeWinsByTeam: matchHoleWins } = analyzeScoring(bundle, null, allowance)
+  const holeWinsByTeam = teamTotals
+    ? teamScoresForPurse(teamStandingsFromRows({
+        format, rounds: (rounds || []).filter(r => completeRoundIds.has(r.id)), scores: bundle.scores,
+        tripPlayers, playerRounds: bundle.playerRounds, allowance, teamIds: teams.map(t => t.id),
+      }))
+    : matchHoleWins
 
   return {
     teams,

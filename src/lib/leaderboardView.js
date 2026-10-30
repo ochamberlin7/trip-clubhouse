@@ -1,6 +1,7 @@
 // What the side-by-side (Ryder Cup style) Leaderboard says — pure, so it's tested.
 // The numbers themselves come from teamStandings (scoring.js); this only words them.
 import { getTeamDisplayName, isDefaultTeamName } from './teamColors.js'
+import { formatVsPar } from './scoring.js'
 
 // 3 → "3", 1.5 → "1½", 0.5 → "½" (Standard Match Play halves, Ryder Cup style).
 export function fmtPoints(x) {
@@ -11,6 +12,13 @@ export function fmtPoints(x) {
   return x.toFixed(1)
 }
 
+// A team total / round score in the trip's format: stroke play is net to par
+// ("E", "+3", "-2"); every other format is points ("12", "1½").
+export function fmtTotal(format, x) {
+  if (x == null || Number.isNaN(x)) return '—'
+  return format === 'stroke_play' ? formatVsPar(x) : fmtPoints(x)
+}
+
 // Has this team's cell for a round been played at all?
 function cellPlayed(format, c) {
   if (!c) return false
@@ -19,7 +27,7 @@ function cellPlayed(format, c) {
 
 // One team's score for one round: "—" until it's been played.
 export function roundCell(format, c) {
-  return cellPlayed(format, c) ? fmtPoints(c.pts) : '—'
+  return cellPlayed(format, c) ? fmtTotal(format, c.pts) : '—'
 }
 
 // "Day 2" from the trip's start date (null when there are no dates).
@@ -36,7 +44,12 @@ export function leadLine({ format, teams = [], standings, rounds = [] }) {
   const anyPlayed = id => rounds.some(r => cellPlayed(format, standings.perRound.get(id)?.get(r.id)))
   const played = teams.some(t => anyPlayed(t.id))
   if (!played) return 'No scores yet'
-  const left = rounds.filter(r => !teams.some(t => cellPlayed(format, standings.perRound.get(t.id)?.get(r.id)))).length
+  // Rounds still to finish. teamStandings says which rounds are over (every match
+  // decided / every player holed out), so a round in progress isn't "Final" yet.
+  // Older callers without that fall back to "any score counts as played".
+  const left = standings.finished
+    ? rounds.filter(r => !standings.finished.has(r.id)).length
+    : rounds.filter(r => !teams.some(t => cellPlayed(format, standings.perRound.get(t.id)?.get(r.id)))).length
   const tail = left === 0 ? 'Final' : `${left} round${left === 1 ? '' : 's'} left`
   const ranked = standings.ranked.filter(r => teams.some(t => t.id === r.teamId))
   const top = ranked.filter(r => r.rank === 1)
@@ -44,6 +57,48 @@ export function leadLine({ format, teams = [], standings, rounds = [] }) {
   const leader = teams.find(t => t.id === top[0].teamId)
   const name = getTeamDisplayName(leader)
   const verb = isDefaultTeamName(name) ? (left === 0 ? 'wins' : 'leads') : (left === 0 ? 'win' : 'lead')
-  const margin = fmtPoints(top[0].total - ranked.find(r => r.rank > 1).total)
+  // Stroke play: lowest wins, so the margin is the gap the other way round.
+  const margin = fmtPoints(Math.abs(top[0].total - ranked.find(r => r.rank > 1).total))
   return `${name} ${verb} by ${margin} · ${tail}`
+}
+
+// ── Stableford / stroke play player board (layout "A", picked 2026-10-29) ──────
+// Rows for the per-player list under the team blocks. `standings` comes from
+// individualStandings (scoring.js); this only words it.
+//   roundId null → the whole trip: Thru + Today come from the latest round anyone
+//   has scored; Total is the trip total. roundId set → that round only.
+// Stableford values are points ("36"); stroke play is net to par ("-2", "E", "+5")
+// with gross to par alongside. Rank: "1", "T3"; blank until a player has scored.
+export function currentRoundId(standings) {
+  if (!standings) return null
+  for (let i = standings.rounds.length - 1; i >= 0; i--) {
+    const id = standings.rounds[i].id
+    if ([...standings.perRound.values()].some(m => m.has(id))) return id
+  }
+  return null
+}
+
+export function individualBoardRows({ gameType, standings, roundId = null }) {
+  if (!standings) return []
+  const stroke = gameType === 'stroke'
+  const fmt = v => (v == null ? '—' : stroke ? formatVsPar(v) : String(v))
+  const valueOf = res => (res ? (stroke ? res.netToPar : res.points) : null)
+  const thruOf = res => (!res ? '—' : res.complete ? 'F' : String(res.holes))
+  const ranked = roundId ? (standings.rankedByRound.get(roundId) || []) : standings.ranked
+  const countByRank = new Map()
+  for (const r of ranked) if (r.rank != null) countByRank.set(r.rank, (countByRank.get(r.rank) || 0) + 1)
+  const today = roundId || currentRoundId(standings)
+  return ranked.map(r => {
+    const res = today ? standings.perRound.get(r.id)?.get(today) : null
+    const tot = standings.total.get(r.id)
+    const rank = r.rank == null ? '' : `${countByRank.get(r.rank) > 1 ? 'T' : ''}${r.rank}`
+    return {
+      id: r.id,
+      rank,
+      thru: thruOf(res),
+      today: fmt(valueOf(res)),
+      total: roundId ? fmt(valueOf(res)) : fmt(r.value),
+      gross: roundId ? fmt(res?.grossToPar ?? null) : (tot?.holes ? fmt(tot.grossToPar) : '—'),
+    }
+  })
 }

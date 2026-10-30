@@ -14,6 +14,7 @@ import { hasBonusGame } from '../lib/bonusGames'
 import { stripTeeGender, labelTees } from '../lib/tees'
 import { FEATURES } from '../lib/features'
 import { formatMoney } from '../lib/purse'
+import { MAIN_FORMATS } from '../lib/gameFormats'
 import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } from '../lib/meals'
 import { ProfileBadge } from './ProfileAvatar'
 import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
@@ -1777,12 +1778,31 @@ const PRINCE_OF_WALES_RULES = [
   'A Gross and a Net composite are both kept — toggle between them on the Prince of Wales tab',
 ]
 
-function RulesPage({ tripId, isCommissioner, tournamentFormat, bonusGames }) {
-  // Show ONLY the rules for the trip's actual format — hide the other entirely.
-  // Legacy 'match_play' and 'stroke_play' fall through to Points Match Play.
+const STABLEFORD_RULES = [
+  'Every player scores points on each hole from their NET score (gross minus handicap strokes)',
+  'Net double bogey or worse 0 · bogey 1 · par 2 · birdie 3 · eagle 4 · albatross 5',
+  'Strokes come from each player\'s full course handicap with the trip allowance',
+  'Most points wins — per round and for the whole trip',
+  'Teams (if any): a team\'s score is the sum of every member\'s points',
+]
+
+const STROKE_PLAY_RULES = [
+  'Every stroke counts; gross and net totals are both kept',
+  'Net = gross minus handicap strokes from each player\'s full course handicap with the trip allowance',
+  'Lowest net score to par wins — per round and for the whole trip',
+  'Teams (if any): a team\'s score is the sum of every member\'s net score to par; lowest wins',
+]
+
+function RulesPage({ tripId, isCommissioner, tournamentFormat, tournamentOn = true, bonusGames }) {
+  // Show ONLY the rules for the trip's actual format — hide the others entirely.
+  // Legacy 'match_play' (and old "no tournament" 'stroke_play') fall through to
+  // Points Match Play, as before.
   const isStandard = tournamentFormat === 'standard_match_play'
-  const label = tournamentFormatLabel(isStandard ? 'standard_match_play' : 'points_match_play')
-  const rules = isStandard ? STANDARD_MATCH_RULES : POINTS_MATCH_RULES
+  const isStableford = tournamentFormat === 'stableford'
+  const isStroke = tournamentFormat === 'stroke_play' && tournamentOn
+  const key = isStandard ? 'standard_match_play' : isStableford ? 'stableford' : isStroke ? 'stroke_play' : 'points_match_play'
+  const label = tournamentFormatLabel(key)
+  const rules = { standard_match_play: STANDARD_MATCH_RULES, stableford: STABLEFORD_RULES, stroke_play: STROKE_PLAY_RULES }[key] || POINTS_MATCH_RULES
   const showPow = hasBonusGame({ bonus_games: bonusGames }, 'prince_of_wales')
   return (
     <>
@@ -1880,6 +1900,60 @@ function AllowanceBody({ tripId, allowance, onUpdate, onClose }) {
         Strokes are calculated on the fly from this setting.
       </div>
       <SaveLink onClick={save} saving={saving} saved={saved} />
+    </>
+  )
+}
+
+// Expanded body of the "Tournament Format" disclosure. The commissioner can switch
+// the main format (trips.format) until the first score is entered on any round —
+// after that it's locked so standings never change meaning mid-trip. Match play
+// needs teams, so it can't be picked on a trip with none.
+function FormatBody({ tripId, format, teamCount, onUpdate, onClose }) {
+  const [value, setValue] = useState(format || 'standard_match_play')
+  const [locked, setLocked] = useState(null) // null = checking
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data: rs } = await supabase.from('rounds').select('id').eq('trip_id', tripId)
+      const ids = (rs || []).map(r => r.id)
+      if (!ids.length) { if (!cancelled) setLocked(false); return }
+      const { count, error } = await supabase.from('scores').select('round_id', { count: 'exact', head: true }).in('round_id', ids)
+      if (!cancelled) setLocked(error ? true : (count || 0) > 0)
+    })()
+    return () => { cancelled = true }
+  }, [tripId])
+
+  const picked = MAIN_FORMATS.find(f => f.id === value)
+  const needsTeams = picked && !picked.individual && teamCount === 0
+
+  async function save() {
+    setErr('')
+    if (needsTeams) { setErr('Match play needs teams. Add teams first, or pick Stableford or Stroke Play.'); return }
+    setSaving(true)
+    const { error } = await supabase.from('trips').update({ format: value }).eq('id', tripId)
+    setSaving(false)
+    if (error) { setErr(`Save failed: ${error.message || 'unknown error'}`); return }
+    setSaved(true); setTimeout(() => setSaved(false), 2000)
+    onUpdate?.()
+    onClose?.()
+  }
+
+  if (locked == null) return <div style={s.muted}>Checking…</div>
+  if (locked) {
+    return <div style={rowUI.note}>Scores have been entered, so the format is locked for this trip.</div>
+  }
+  return (
+    <>
+      <div style={rowUI.fieldLabel}>Format</div>
+      <select style={rowUI.input} value={value} onChange={e => setValue(e.target.value)}>
+        {MAIN_FORMATS.map(f => <option key={f.id} value={f.id}>{f.individual && teamCount > 0 ? `Team ${f.name}` : f.name}</option>)}
+      </select>
+      <div style={rowUI.note}>{picked?.desc} You can change this until the first score is entered.</div>
+      <SaveLink onClick={save} saving={saving} saved={saved} error={err} />
     </>
   )
 }
@@ -1986,7 +2060,7 @@ function DeleteTripAction({ tripName, onDelete }) {
   )
 }
 
-function CommissionerPage({ data, tripId, tripName, handicapAllowance, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
+function CommissionerPage({ data, tripId, tripName, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const teams = data.teams || []
   const teamsValue = teams.length ? teams.map(getTeamDisplayName).join(' vs ') : '—'
@@ -2000,6 +2074,11 @@ function CommissionerPage({ data, tripId, tripName, handicapAllowance, purseAmou
       <Disclosure label="Team Names" value={teamsValue}>
         {({ close }) => <TeamNamesBody teams={teams} onSaved={onTeamsSaved} onClose={close} />}
       </Disclosure>
+      {tournamentOn && (
+        <Disclosure label="Tournament Format" value={tournamentFormatLabel(tournamentFormat)}>
+          {({ close }) => <FormatBody tripId={tripId} format={tournamentFormat} teamCount={teams.length} onUpdate={onTripUpdate} onClose={close} />}
+        </Disclosure>
+      )}
       <Disclosure label="Tournament Purse" value={purseValue}>
         {({ close }) => <PurseBody tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} onUpdate={onTripUpdate} onClose={close} />}
       </Disclosure>
@@ -2322,7 +2401,7 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
+  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, tournamentOn = true, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
   const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
@@ -2660,7 +2739,9 @@ export default function MenuDrawer({
   async function addRound(date) {
     const { data: existing } = await supabase.from('rounds').select('round_number').eq('trip_id', tripId)
     const nextNum = (existing || []).reduce((m, r) => Math.max(m, r.round_number || 0), 0) + 1
-    const defaultType = tournamentFormat && tournamentFormat !== 'stroke_play' ? 'tournament' : 'practice'
+    // tournamentOn = trips.team_mode (a tournament is set up). Old "no tournament"
+    // trips are stored as format 'stroke_play' with team_mode false.
+    const defaultType = tournamentOn && tournamentFormat ? 'tournament' : 'practice'
     const { error } = await supabase.from('rounds').insert({
       trip_id: tripId, round_number: nextNum, date, course_name: 'TBD', round_type: defaultType, status: 'upcoming',
     })
@@ -2960,6 +3041,8 @@ export default function MenuDrawer({
             tripId={tripId}
             tripName={tripName}
             handicapAllowance={handicapAllowance}
+            tournamentFormat={tournamentFormat}
+            tournamentOn={tournamentOn}
             purseAmount={purseAmount}
             showPurseOnHome={showPurseOnHome}
             inviteToken={inviteToken}
@@ -3006,7 +3089,7 @@ export default function MenuDrawer({
       )}
       {page === 'rules' && (
         <SecondaryPage context={tripName} title="Rules" onBack={backToDrawer}>
-          <RulesPage tripId={tripId} isCommissioner={isCommissioner} tournamentFormat={tournamentFormat} bonusGames={bonusGames} />
+          <RulesPage tripId={tripId} isCommissioner={isCommissioner} tournamentFormat={tournamentFormat} tournamentOn={tournamentOn} bonusGames={bonusGames} />
         </SecondaryPage>
       )}
       {page === 'archives' && (

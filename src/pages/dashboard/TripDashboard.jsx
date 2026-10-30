@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { getTripPhase, screenForTripPhase, defaultRoundForTrip, isRoundLiveAt, zonedTodayAndMinutes, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites, isRosterLocked, teamStandings, leaderboardRounds } from '../../lib/scoring'
+import { getTripPhase, screenForTripPhase, defaultRoundForTrip, isRoundLiveAt, zonedTodayAndMinutes, parseTeeTimeToMinutes, sortRoundsByTee, princeOfWalesComposites, isRosterLocked, teamStandings, leaderboardRounds, tripGameType, isIndividualGameType } from '../../lib/scoring'
 import { teamColor, colorIndexOf, getTeamDisplayName, setTeamPalette, paletteForTrip } from '../../lib/teamColors'
 import { hasBonusGame } from '../../lib/bonusGames'
 import { mealTypeLabel } from '../../lib/meals'
@@ -13,6 +13,8 @@ import { useScoreSync } from '../../lib/useScoreSync'
 import { saveCopy, readCopy } from '../../lib/offlineCache'
 import { loadLeaderboardData, withUnsyncedScores } from '../../lib/leaderboardData'
 import TeamScoreboard from '../../components/TeamScoreboard'
+import IndividualLeaderboard from '../../components/IndividualLeaderboard'
+import LeaderboardPills from '../../components/LeaderboardPills'
 import { isNetworkError } from '../../lib/scoreQueue'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
@@ -434,7 +436,7 @@ function TabHome({ trip, rounds, userId, displayName, isCommissioner, onOpenMenu
       <WeatherWidget rounds={rounds} tripName={trip.name} />
 
       {/* Daily Leaders — below the weather. One swipeable page per completed trip day. */}
-      {FEATURES.dailyLeaders && <DailyLeadersCard tripId={trip.id} tripStartDate={trip.start_date} allowance={trip.handicap_allowance ?? 100} />}
+      {FEATURES.dailyLeaders && <DailyLeadersCard tripId={trip.id} tripStartDate={trip.start_date} allowance={trip.handicap_allowance ?? 100} gameType={tripGameType(trip)} />}
 
       {/* Tournament Purse — self-hides unless the commissioner enabled it. */}
       <TournamentPurseCard tripId={trip.id} endDate={trip.end_date} allowance={trip.handicap_allowance ?? 100} />
@@ -460,19 +462,27 @@ function TabLeaderboard({ trip, teams, rounds }) {
   // Main tournament standings (the existing view), by format. Standard Match Play:
   // each round is a match worth 1 / 0.5 / 0 per team. Points Match Play (and legacy
   // 'match_play'): running hole-point standings.
-  const tournamentView = trip.format === 'standard_match_play'
-    ? <StandardLeaderboard trip={trip} teams={teams} rounds={rounds} />
-    : <PointsLeaderboard trip={trip} teams={teams} rounds={rounds} />
+  // Stableford / Stroke Play: per-player board (+ team blocks when teams exist).
+  const gameType = tripGameType(trip)
+  const tournamentView = isIndividualGameType(gameType)
+    ? <IndividualLeaderboard trip={trip} teams={teams} rounds={rounds} gameType={gameType} />
+    : trip.format === 'standard_match_play'
+      ? <StandardLeaderboard trip={trip} teams={teams} rounds={rounds} />
+      : <PointsLeaderboard trip={trip} teams={teams} rounds={rounds} />
 
   // Without the Prince of Wales bonus game there are no tabs — just the tournament.
   if (!powEnabled) return tournamentView
 
   return (
     <div>
-      <div className="gross-net-toggle" role="tablist" aria-label="Leaderboard view" style={{ marginBottom: 12 }}>
-        <button role="tab" aria-selected={sub === 'tournament'} className={`gn-btn ${sub === 'tournament' ? 'active' : ''}`} onClick={() => setSub('tournament')}>Tournament</button>
-        <button role="tab" aria-selected={sub === 'pow'} className={`gn-btn ${sub === 'pow' ? 'active' : ''}`} onClick={() => setSub('pow')}>Prince of Wales</button>
-      </div>
+      {/* Same tab look as the round tabs on every leaderboard (LeaderboardPills). */}
+      <LeaderboardPills
+        ariaLabel="Leaderboard view"
+        style={{ marginBottom: 12 }}
+        value={sub}
+        onChange={setSub}
+        options={[{ id: 'tournament', label: 'Tournament' }, { id: 'pow', label: 'Prince of Wales' }]}
+      />
       {sub === 'tournament' ? tournamentView : <PrinceOfWalesLeaderboard trip={trip} teams={teams} rounds={rounds} />}
     </div>
   )
@@ -1538,7 +1548,10 @@ export default function TripDashboard() {
       </div>
 
       {/* Floating live-score banner — mounted once here so it persists across tabs */}
-      <LiveScoreBanner key={`banner-${trip.id}`} trip={trip} rounds={rounds} teams={teams} />
+      {/* The floating banner shows a pairing's MATCH (side vs side) — Stableford /
+          Stroke Play have no match, so it's hidden; the Leaderboard has the live
+          standings instead. */}
+      {!isIndividualGameType(tripGameType(trip)) && <LiveScoreBanner key={`banner-${trip.id}`} trip={trip} rounds={rounds} teams={teams} />}
 
       {/* Persistent feedback FAB — visible on every tab, floats above the tab bar
           and (when shown) the live-score banner. */}
@@ -1563,6 +1576,7 @@ export default function TripDashboard() {
         currentUserId={user?.id}
         handicapAllowance={trip.handicap_allowance ?? 100}
         tournamentFormat={trip.format}
+        tournamentOn={!!trip.team_mode}
         bonusGames={trip.bonus_games}
         purseAmount={trip.purse_amount}
         showPurseOnHome={trip.show_purse_on_home}
