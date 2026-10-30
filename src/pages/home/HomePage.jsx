@@ -161,7 +161,6 @@ export default function HomePage() {
   const [showAllPast, setShowAllPast] = useState(false)
   const [joining, setJoining] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [careerSoon, setCareerSoon] = useState(false) // full career page is on the backlog
   const [pendingDelete, setPendingDelete] = useState(null) // trip awaiting the delete confirm
   const [showDeleted, setShowDeleted] = useState(false)
 
@@ -286,8 +285,8 @@ export default function HomePage() {
         )}
 
         <section>
-          {/* Title is the link (like Trophy room) once there are stats; the full career page is still to come. */}
-          <SectionHead style={{ marginBottom: 4 }} onClick={hasCareer ? () => setCareerSoon(true) : undefined}>Career</SectionHead>
+          {/* Title is the link (like Trophy room) to the full Career page once there are stats. */}
+          <SectionHead style={{ marginBottom: 4 }} onClick={hasCareer ? () => navigate('/career') : undefined}>Career</SectionHead>
           {hasCareer ? (
             <>
               <div style={h.stats}>
@@ -296,7 +295,6 @@ export default function HomePage() {
                 <div style={h.statLine}><b style={h.statNum}>{career.points}</b><span style={h.statLab}>Points</span></div>
                 <div style={h.statLine}><b style={h.statNum}>{career.bestRound ?? '—'}</b><span style={h.statLab}>Best</span></div>
               </div>
-              {careerSoon && <div style={{ fontSize: 12, color: MUTED, textAlign: 'center', marginTop: 6 }}>The full career stats page is coming soon.</div>}
             </>
           ) : (
             <div style={{ ...h.empty, marginTop: 6 }}>{career == null && trips != null && !isNew ? 'Adding up your stats…' : 'Your stats start with your first round.'}</div>

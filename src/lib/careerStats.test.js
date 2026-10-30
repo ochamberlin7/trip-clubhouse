@@ -43,8 +43,9 @@ test('unfinished round is not a round played; trips with no scores do not count'
   const unfinished = buildCareer([trip('T1', 'R1', { playedHoles: 9 })], 'U')
   assert.equal(unfinished.trips, 1)
   assert.equal(unfinished.rounds, 0)
+  assert.equal(unfinished.holes, 9)  // holes played still count the unfinished round
   const notMe = buildCareer([trip('T1', 'R1')], 'NOBODY')
-  assert.deepEqual(notMe, { trips: 0, rounds: 0, points: 0, bestRound: null })
+  assert.deepEqual(notMe, { trips: 0, rounds: 0, holes: 0, points: 0, bestRound: null })
 })
 
 const T = (id, s, e, tz = 'America/Phoenix') => ({ id, start_date: s, end_date: e, time_zone: tz })

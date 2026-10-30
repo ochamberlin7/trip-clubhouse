@@ -9,16 +9,18 @@ import { tripTimeStatus } from './myTrips.js'
 
 // perTrip: [{ tripId, rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, allowance }]
 // userId:  the account whose career this is.
-// Returns { trips, rounds, points, bestRound } — bestRound is the lowest gross
+// Returns { trips, rounds, holes, points, bestRound } — holes = every hole with a
+// gross score (partial and 12-hole rounds count); bestRound is the lowest gross
 // 18-hole total (null if none).
 export function buildCareer(perTrip = [], userId) {
-  const out = { trips: 0, rounds: 0, points: 0, bestRound: null }
+  const out = { trips: 0, rounds: 0, holes: 0, points: 0, bestRound: null }
   for (const t of perTrip) {
     const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
     if (!me) continue
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue // signed up but never played → not a trip played yet
     out.trips++
+    out.holes += myScores.length
 
     // Rounds played: every hole of the round scored.
     const holesByRound = new Map()
@@ -86,7 +88,7 @@ export async function loadCareerData(client, tripIds = []) {
   const [tripsRes, roundsRes, playersRes] = await Promise.all([
     client.from('trips').select('id, name, start_date, end_date, time_zone, handicap_allowance, format, team_mode').in('id', tripIds),
     client.from('rounds').select('*').in('trip_id', tripIds),
-    client.from('trip_players').select('id, trip_id, user_id, claimed_user_id, handicap_index, team_id').in('trip_id', tripIds),
+    client.from('trip_players').select('id, trip_id, user_id, claimed_user_id, handicap_index, team_id, first_name, last_name, guest_name').in('trip_id', tripIds),
   ])
   const rounds = roundsRes.data || []
   const roundIds = rounds.map(r => r.id)

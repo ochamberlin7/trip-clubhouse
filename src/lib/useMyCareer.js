@@ -3,15 +3,17 @@ import { supabase } from './supabase'
 import { loadMyTrips } from './myTrips'
 import { loadCareerData, buildCareer, tripFinishes } from './careerStats'
 import { computeBadges } from './badges'
+import { buildCareerDetail } from './careerDetail'
 import { saveCopy, readCopy, mapToJson, jsonToMap } from './offlineCache'
 
-// The signed-in player's trips, career totals, badges and past-trip finishes — one loader shared by
-// the Clubhouse Home page and the Trophy Room so both show the same numbers.
+// The signed-in player's trips, career totals, badges, past-trip finishes and the full
+// Career page numbers (`detail`) — one loader shared by the Clubhouse Home page, the
+// Trophy Room and the Career page so all three show the same numbers.
 // `reload()` refetches (e.g. after a restore).
-const BLANK = { trips: null, deleted: [], career: null, badges: null, finishes: new Map() }
+const BLANK = { trips: null, deleted: [], career: null, badges: null, finishes: new Map(), detail: null }
 const copyKeyFor = userId => `home:${userId}`
 function fromCopy(saved) {
-  return { trips: saved.trips || [], deleted: saved.deleted || [], career: saved.career || null, badges: saved.badges ? jsonToMap(saved.badges) : null, finishes: jsonToMap(saved.finishes) }
+  return { trips: saved.trips || [], deleted: saved.deleted || [], career: saved.career || null, badges: saved.badges ? jsonToMap(saved.badges) : null, finishes: jsonToMap(saved.finishes), detail: saved.detail || null }
 }
 
 // Opens instantly from the copy saved on this phone by the last load (Home and the
@@ -41,8 +43,9 @@ export function useMyCareer(userId) {
       const career = buildCareer(perTrip, userId)
       const badges = computeBadges(perTrip, userId)
       const finishes = tripFinishes(perTrip, userId)
-      setState(s => ({ ...s, career, badges, finishes }))
-      saveCopy(copyKey, { trips: rows, deleted, career, badges: mapToJson(badges), finishes: mapToJson(finishes) })
+      const detail = buildCareerDetail(perTrip, userId)
+      setState(s => ({ ...s, career, badges, finishes, detail }))
+      saveCopy(copyKey, { trips: rows, deleted, career, badges: mapToJson(badges), finishes: mapToJson(finishes), detail })
     })()
     return () => { cancelled = true }
   }, [userId, tick])
