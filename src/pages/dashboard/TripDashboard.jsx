@@ -14,6 +14,7 @@ import { saveCopy, readCopy } from '../../lib/offlineCache'
 import { loadLeaderboardData, withUnsyncedScores } from '../../lib/leaderboardData'
 import TeamScoreboard from '../../components/TeamScoreboard'
 import IndividualLeaderboard from '../../components/IndividualLeaderboard'
+import LeaderboardPills from '../../components/LeaderboardPills'
 import { isNetworkError } from '../../lib/scoreQueue'
 import TripHeader from '../../components/TripHeader'
 import CountdownWidget from '../../components/CountdownWidget'
@@ -474,10 +475,14 @@ function TabLeaderboard({ trip, teams, rounds }) {
 
   return (
     <div>
-      <div className="gross-net-toggle" role="tablist" aria-label="Leaderboard view" style={{ marginBottom: 12 }}>
-        <button role="tab" aria-selected={sub === 'tournament'} className={`gn-btn ${sub === 'tournament' ? 'active' : ''}`} onClick={() => setSub('tournament')}>Tournament</button>
-        <button role="tab" aria-selected={sub === 'pow'} className={`gn-btn ${sub === 'pow' ? 'active' : ''}`} onClick={() => setSub('pow')}>Prince of Wales</button>
-      </div>
+      {/* Same tab look as the round tabs on every leaderboard (LeaderboardPills). */}
+      <LeaderboardPills
+        ariaLabel="Leaderboard view"
+        style={{ marginBottom: 12 }}
+        value={sub}
+        onChange={setSub}
+        options={[{ id: 'tournament', label: 'Tournament' }, { id: 'pow', label: 'Prince of Wales' }]}
+      />
       {sub === 'tournament' ? tournamentView : <PrinceOfWalesLeaderboard trip={trip} teams={teams} rounds={rounds} />}
     </div>
   )

@@ -7,6 +7,7 @@ import { loadLeaderboardData, withUnsyncedScores } from '../lib/leaderboardData'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import { useScoreSync } from '../lib/useScoreSync'
 import TeamScoreboard from './TeamScoreboard'
+import LeaderboardPills from './LeaderboardPills'
 
 // Stableford / Stroke Play Leaderboard (layout "A", picked 2026-10-29): the
 // Ryder Cup–style team blocks on top when the trip has teams (team score = sum of
@@ -16,9 +17,6 @@ import TeamScoreboard from './TeamScoreboard'
 // teamStandings); wording from leaderboardView.js. Live: refetches on any score,
 // tee, pairing or handicap change (same pattern as the match-play boards).
 const st = {
-  pills: { display: 'flex', gap: 6, overflowX: 'auto', margin: '14px 0 10px', paddingBottom: 2 },
-  pill: { flexShrink: 0, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--bg3)', background: 'var(--bg1)', color: 'var(--muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
-  pillOn: { background: '#1B3F6E', borderColor: '#1B3F6E', color: '#fff' },
   card: { background: 'var(--bg1)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow-card)' },
   row: { display: 'grid', alignItems: 'center', padding: '10px 12px', fontSize: 14 },
   head: { fontSize: 10, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--muted)', padding: '8px 12px' },
@@ -104,14 +102,13 @@ export default function IndividualLeaderboard({ trip, teams = [], rounds, gameTy
       )}
 
       {lbRounds.length > 1 && (
-        <div style={st.pills} role="tablist" aria-label="Leaderboard round">
-          <button role="tab" aria-selected={!viewRound} style={{ ...st.pill, ...(!viewRound ? st.pillOn : null) }} onClick={() => setView(null)}>Trip Total</button>
-          {lbRounds.map((r, i) => (
-            <button key={r.id} role="tab" aria-selected={viewRound === r.id} style={{ ...st.pill, ...(viewRound === r.id ? st.pillOn : null) }} onClick={() => setView(r.id)}>
-              {roundCourseName(r) || r.course_name || `Round ${i + 1}`}
-            </button>
-          ))}
-        </div>
+        <LeaderboardPills
+          ariaLabel="Leaderboard round"
+          style={{ margin: '14px 0 10px' }}
+          value={viewRound}
+          onChange={setView}
+          options={[{ id: null, label: 'Trip Total' }, ...lbRounds.map((r, i) => ({ id: r.id, label: roundCourseName(r) || r.course_name || `Round ${i + 1}` }))]}
+        />
       )}
       {lbRounds.length <= 1 && <div style={{ height: 12 }} />}
 
