@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { individualStandings, teamStandings, leaderboardRounds, playerName, roundCourseName } from '../lib/scoring'
-import { individualBoardRows, dayLabel } from '../lib/leaderboardView'
+import { individualBoardRows } from '../lib/leaderboardView'
 import { teamColor, colorIndexOf } from '../lib/teamColors'
 import { loadLeaderboardData, withUnsyncedScores } from '../lib/leaderboardData'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
@@ -11,8 +11,8 @@ import TeamScoreboard from './TeamScoreboard'
 // Stableford / Stroke Play Leaderboard (layout "A", picked 2026-10-29): the
 // Ryder Cup–style team blocks on top when the trip has teams (team score = sum of
 // members' Stableford points, or members' net to par for stroke play), then one
-// ranked player list — Thru · Today · Total. Pills switch between the whole trip
-// and a single round. All numbers come from scoring.js (individualStandings /
+// ranked player list — Thru · Today · Total. Pills switch between the trip total
+// and a single round (labelled by course). All numbers come from scoring.js (individualStandings /
 // teamStandings); wording from leaderboardView.js. Live: refetches on any score,
 // tee, pairing or handicap change (same pattern as the match-play boards).
 const st = {
@@ -105,10 +105,10 @@ export default function IndividualLeaderboard({ trip, teams = [], rounds, gameTy
 
       {lbRounds.length > 1 && (
         <div style={st.pills} role="tablist" aria-label="Leaderboard round">
-          <button role="tab" aria-selected={!viewRound} style={{ ...st.pill, ...(!viewRound ? st.pillOn : null) }} onClick={() => setView(null)}>Trip</button>
+          <button role="tab" aria-selected={!viewRound} style={{ ...st.pill, ...(!viewRound ? st.pillOn : null) }} onClick={() => setView(null)}>Trip Total</button>
           {lbRounds.map((r, i) => (
             <button key={r.id} role="tab" aria-selected={viewRound === r.id} style={{ ...st.pill, ...(viewRound === r.id ? st.pillOn : null) }} onClick={() => setView(r.id)}>
-              {dayLabel(r, trip?.start_date) || `Round ${i + 1}`} · {roundCourseName(r) || r.course_name || 'Round'}
+              {roundCourseName(r) || r.course_name || `Round ${i + 1}`}
             </button>
           ))}
         </div>

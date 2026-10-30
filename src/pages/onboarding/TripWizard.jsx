@@ -72,8 +72,8 @@ const cal = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, textAlign: 'center' },
   dow: { fontSize: 10, fontWeight: 700, letterSpacing: '1.4px', color: '#8C97A6', padding: '4px 0 6px' },
   day: { border: 'none', background: 'none', borderRadius: 2, padding: '9px 0', fontSize: 14, fontWeight: 500, color: '#0D1B2A', cursor: 'pointer', fontFamily: 'inherit' },
-  inrange: { background: 'rgba(27,63,110,0.10)', borderRadius: 0 },
-  endpoint: { background: '#1B3F6E', color: '#fff', fontWeight: 700 },
+  // Every date in the trip (start, end and the days between) is solid navy.
+  selected: { background: '#1B3F6E', color: '#fff', fontWeight: 700 },
 }
 
 function RangeCalendar({ startDate, endDate, onSelect }) {
@@ -102,14 +102,13 @@ function RangeCalendar({ startDate, endDate, onSelect }) {
         {cells.map((d, i) => {
           if (d == null) return <span key={i} />
           const iso = isoOf(new Date(year, month, d))
-          const isEndpoint = iso === startDate || iso === endDate
-          const inRange = startDate && endDate && iso > startDate && iso < endDate
+          const isSelected = iso === startDate || iso === endDate || (startDate && endDate && iso > startDate && iso < endDate)
           return (
             <button
               type="button"
               key={i}
               onClick={() => onSelect(iso)}
-              style={{ ...cal.day, ...(inRange ? cal.inrange : null), ...(isEndpoint ? cal.endpoint : null) }}
+              style={{ ...cal.day, ...(isSelected ? cal.selected : null) }}
             >
               {d}
             </button>
@@ -275,7 +274,7 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <p className="wz-intro">Add your golf rounds. Not sure yet? Leave a day as Unknown and fill it in later.</p>
+      <p className="wz-intro">Schedule each day’s activity, or leave it Unknown and fill it in later.</p>
       <div>
       <p className="wz-stripe">
         Your days
@@ -326,7 +325,7 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
                           onQueryChange={text => updateCourseName(idx, rIdx, text)}
                           onCourseSelected={data => setRoundCourse(idx, rIdx, data)}
                         />
-                        <p className="wz-hint">Can’t find it? You can add the course by hand later.</p>
+                        <p className="wz-hint">Can’t find the course you’re looking for? You can add it manually later.</p>
                       </>
                     )}
                   </div>
@@ -610,7 +609,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
 
 // ── Main Wizard ───────────────────────────────────────────────────
 
-const STEP_TITLES = ['Create a Trip', 'Day Schedule', 'Add Players', 'Set Up a Tournament']
+const STEP_TITLES = ['Create a Trip', 'Daily Schedule', 'Add Players', 'Set Up a Tournament']
 
 export default function TripWizard() {
   const { user } = useAuth()
@@ -853,6 +852,16 @@ export default function TripWizard() {
 
   const progressPct = ((step + 1) / STEP_TITLES.length) * 100
 
+  // Cancel: leave the wizard without creating anything. Asks first once anything
+  // has been entered. Goes back to wherever the wizard was opened from (Home, the
+  // menu, the dashboard); with no in-app history (e.g. opened directly), Home.
+  function handleCancel() {
+    const started = step > 0 || tripName.trim() || startDate
+    if (started && !window.confirm('Cancel creating this trip? Nothing will be saved.')) return
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1)
+    else navigate('/home', { replace: true })
+  }
+
   return (
     <div className="wizard-page">
       <div className="wizard-header">
@@ -861,7 +870,10 @@ export default function TripWizard() {
             <p className="wizard-brand">Trip Clubhouse</p>
             <p className="wizard-title">{STEP_TITLES[step]}</p>
           </div>
-          <span className="wizard-step-indicator">{step + 1} / {STEP_TITLES.length}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button type="button" className="wz-cancel" onClick={handleCancel} disabled={loading}>Cancel</button>
+            <span className="wizard-step-indicator">{step + 1} / {STEP_TITLES.length}</span>
+          </div>
         </div>
         <div className="wizard-progress-track">
           <div className="wizard-progress-fill" style={{ width: `${progressPct}%` }} />
