@@ -9,6 +9,7 @@ import { WIZARD_CHOICES } from '../../lib/gameFormats'
 import { formatPhone } from '../../lib/formatPhone'
 import RangeCalendar from '../../components/RangeCalendar'
 import { nextRange } from '../../lib/tripDates'
+import { validTeamCounts } from '../../lib/teamCount'
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -40,15 +41,6 @@ function uid() {
   return Math.random().toString(36).slice(2)
 }
 
-// Supported team counts: 2 (default), 3, or 4 — only those that divide the players
-// into equal teams.
-function getValidTeamCounts(n) {
-  const counts = []
-  for (let i = 2; i <= Math.min(4, Math.floor(n / 2)); i++) {
-    if (n % i === 0) counts.push(i)
-  }
-  return counts
-}
 
 // ── Step 0: Trip Details ──────────────────────────────────────────
 // Change 1: groupName field added as first field
@@ -442,7 +434,7 @@ function FormatRow({ name, desc, on, onClick }) {
 }
 
 function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams, setNumTeams, tournamentFormat, setTournamentFormat, bonusGames, setBonusGames, onBack, onFinish, loading, submitError }) {
-  const validCounts = getValidTeamCounts(playerCount)
+  const validCounts = validTeamCounts(playerCount)
   // Create Trip is available once a choice is made — when there aren't enough
   // players for teams yet, they can be assigned later.
   const canFinish = hasTournament !== null

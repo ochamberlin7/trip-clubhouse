@@ -28,6 +28,7 @@ import SupportForm from './SupportForm'
 import { loadMyTrips } from '../lib/myTrips'
 import SwipeDeleteRow from './SwipeDeleteRow'
 import TripDatesBody from './TripDatesBody'
+import TeamCountBody from './TeamCountBody'
 import { StripePage, StripeSection, StripeRow, StripeInviteRow, StripeDanger, TripNameBody } from './StripeRows'
 import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
 
@@ -2082,7 +2083,7 @@ function DeleteTripAction({ tripName, onDelete }) {
 // Commissioner Tools (redesign "1C", 2026-10-30): wizard-style grey stripes
 // grouping The Trip / Players & Teams / The Game, with Fraunces + Inter.
 // Each row expands in place to edit; Roster opens Players & Teams.
-function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, onDatesChanged, onNameChanged, onOpenPlayers, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
+function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, onDatesChanged, onNameChanged, onOpenPlayers, onTeamCountChanged, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const teams = data.teams || []
   const joined = data.joinedCount ?? 0
@@ -2102,6 +2103,11 @@ function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, 
 
       <StripeSection title="Players & teams" detail={total ? `${joined} of ${total} joined` : null}>
         <StripeRow label="Roster" value={`${total} player${total === 1 ? '' : 's'}`} detail="Players & Teams" onClick={onOpenPlayers} />
+        {teams.length > 0 && (
+          <StripeRow label="Number of teams" value={`${teams.length} teams`}>
+            {({ close }) => <TeamCountBody tripId={tripId} teams={teams} onSaved={onTeamCountChanged} onClose={close} />}
+          </StripeRow>
+        )}
         {teams.length > 0 && (
           <StripeRow label="Team names" value={teams.map(getTeamDisplayName).join(' vs ')}>
             {({ close }) => <TeamNamesBody teams={teams} onSaved={onTeamsSaved} onClose={close} />}
@@ -2435,7 +2441,7 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, tournamentOn = true, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
+  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, tournamentOn = true, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, onTeamsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -3116,6 +3122,13 @@ export default function MenuDrawer({
             tripStartDate={tripStartDate}
             tripEndDate={tripEndDate}
             onOpenPlayers={() => setPage('players')}
+            onTeamCountChanged={() => {
+              // Teams added/removed (players may be unassigned): reload this page,
+              // the Players tab and the trip screen's teams.
+              setCommissionerData(null)
+              setPlayersData(null)
+              onTeamsChanged?.()
+            }}
             onNameChanged={name => { patchTrip?.(tripId, { name }); onTripUpdate?.() }}
             onDatesChanged={(start, end) => {
               // Trip dates + every round/meal/lodging date moved: refresh the

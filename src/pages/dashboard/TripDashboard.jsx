@@ -1426,6 +1426,13 @@ export default function TripDashboard() {
     if (data) setTrip(data)
   }
 
+  // Re-fetch teams after the commissioner changes the number of teams.
+  async function refreshTeams() {
+    if (!trip?.id) return
+    const { data } = await supabase.from('teams').select('*').eq('trip_id', trip.id).order('team_index')
+    if (data) setTeams(data)
+  }
+
   // Re-fetch rounds into shared state so every consumer (tee times, weather,
   // scoring, courses) updates instantly after a course change.
   async function refreshRounds() {
@@ -1579,6 +1586,7 @@ export default function TripDashboard() {
         showPurseOnHome={trip.show_purse_on_home}
         onTripUpdate={refetchTrip}
         onRoundsChanged={refreshRounds}
+        onTeamsChanged={refreshTeams}
       />
     </div>
   )
