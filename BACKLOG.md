@@ -28,6 +28,7 @@ Merge status verified with `git branch -r --merged origin/main` on 2026-10-23 (m
 ## Done
 | Item | Branch | Status |
 |---|---|---|
+| Menu drawer redesign: name + soft-gray initials circle on top (no trip/group name), featured navy/gold Your Clubhouse (flag-on-the-peak icon), calendar icon for Schedule, App Info moved to a footer signature ("App info · Install guide · v1.0", version from `package.json`, now 1.0.0) | `feat/menu-drawer-redesign` | 🔍 On preview, not merged |
 | Live score banner for Stableford / Stroke Play (each format's own wording, "You" line, today's round) | `feat/live-banner-game-types` | ✅ Merged 2026-10-29 |
 | Login landing: Home by default, invite link → straight into the trip, one tested rule (`loginLanding.js`) | `fix/login-landing` | ✅ Merged 2026-10-29 |
 | Game types Phase 1: Stableford + Stroke Play (team and individual), trip wizard redesign (editorial style, grey section stripes, Cancel, Daily Schedule), shared leaderboard tabs, "Final" fix | `feat/game-types` | ✅ Merged 2026-10-29 |
@@ -103,6 +104,8 @@ Default round rules: first round of the day = that round all day until live; 2nd
   - Later maybe: Nassau.
 - Live banner hides after 9pm: find the rule, whose clock it uses, and make it follow the trip time zone. Its round-selection memo differs from `getTripPhase`; unifying them is a separate, deliberate decision.
 - Home 18-hole completeness issue (deliberately deferred).
+
+- **Profile photo upload** (decided 2026-10-29 with the drawer redesign): tap the camera badge on the drawer / Profile page to upload; photo replaces initials everywhere. Needs a Supabase Storage bucket + `avatar_url` (migration, Owen applies). Drawer camera badge is decorative until then.
 
 ## Housekeeping / deferred
 - Delete stale branches once Owen approves the list. 46 remote branches are already merged into main (incl. `swipe-navigation`, which was merged then reverted in `d573cdd`).
