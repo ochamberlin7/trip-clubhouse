@@ -35,12 +35,12 @@ const CAPS = { fontWeight: 700, letterSpacing: '1.6px', textTransform: 'uppercas
 const h = {
   page: { minHeight: '100vh', background: 'var(--bg0)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)', boxSizing: 'border-box' },
   // Masthead: clears the phone's status bar / notch.
-  mast: { background: NAVY, padding: '26px 16px 30px', paddingTop: 'calc(env(safe-area-inset-top) + 26px)', display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  brand: { margin: 0, fontFamily: SERIF, fontSize: 40, fontWeight: 700, lineHeight: 1.05, letterSpacing: '0.2px', color: GOLD_TEXT, textAlign: 'center' },
+  mast: { background: NAVY, padding: '18px 16px 22px', paddingTop: 'calc(env(safe-area-inset-top) + 18px)', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  brand: { margin: 0, fontFamily: SERIF, fontSize: 36, fontWeight: 700, lineHeight: 1.05, letterSpacing: '0.2px', color: GOLD_TEXT, textAlign: 'center' },
   // Large profile photo (initials if none) in a gold ring; opens the Profile page.
-  avatar: { position: 'static', top: 'auto', right: 'auto', marginTop: 22, width: 84, height: 84, fontSize: 26, border: `2px solid ${GOLD}`, boxShadow: `0 0 0 4px ${NAVY}, 0 0 0 5px rgba(176,138,62,0.5)` },
-  who: { margin: '14px 0 0', fontFamily: SERIF, fontSize: 24, fontWeight: 400, color: '#fff' },
-  goldRule: { width: 90, height: 2, background: GOLD, marginTop: 10 },
+  avatar: { position: 'static', top: 'auto', right: 'auto', marginTop: 14, width: 68, height: 68, fontSize: 22, border: `2px solid ${GOLD}`, boxShadow: `0 0 0 3px ${NAVY}, 0 0 0 4px rgba(176,138,62,0.5)` },
+  who: { margin: '10px 0 0', fontFamily: SERIF, fontSize: 22, fontWeight: 400, color: '#fff' },
+  goldRule: { width: 80, height: 2, background: GOLD, marginTop: 8 },
   inner: { maxWidth: 480, margin: '0 auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 22 },
   // Next-trip countdown / live card: sits below the masthead; tapping opens the trip.
   heroCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginTop: 22, textAlign: 'center', padding: '22px 16px 20px', background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit', color: INK, boxSizing: 'border-box' },
