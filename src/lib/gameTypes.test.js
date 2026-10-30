@@ -163,3 +163,16 @@ test('Stats on a Stableford trip: Stableford points, no match points, full-handi
   const matchKeys = buildDailyLeaders(dl, {})[0].leaders.map(l => l.key)
   assert.ok(matchKeys.includes('points') && matchKeys.includes('defended'))
 })
+
+test('purse: Team Stableford / Team Stroke Play use the Leaderboard team totals', async () => {
+  const { teamScoresForPurse, computePurse } = await import('./purse.js')
+  const teams = [{ id: 'T1', name: 'Bandits' }, { id: 'T2', name: 'Outlaws' }]
+  const tripPlayers = [{ id: 'A', team_id: 'T1', name: 'A' }, { id: 'C', team_id: 'T1', name: 'C' }, { id: 'B', team_id: 'T2', name: 'B' }]
+  const base = { rounds, scoresMap, hcpByPlayer, teamIds: ['T1', 'T2'], teamOfPlayer: { A: 'T1', C: 'T1', B: 'T2' } }
+  // Stableford: T1 16 pts vs T2 13 → T2 pays.
+  const sf = computePurse({ teams, tripPlayers, holeWinsByTeam: teamScoresForPurse(teamStandings({ ...base, format: 'stableford' })), amount: 100 })
+  assert.equal(sf.losingTeamId, 'T2')
+  // Stroke play: T1 +8 vs T2 +3 → lowest wins, so T1 pays.
+  const sp = computePurse({ teams, tripPlayers, holeWinsByTeam: teamScoresForPurse(teamStandings({ ...base, format: 'stroke_play' })), amount: 100 })
+  assert.equal(sp.losingTeamId, 'T1'); assert.equal(sp.perShare, 50)
+})

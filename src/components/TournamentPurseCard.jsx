@@ -54,12 +54,12 @@ export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }
     let cancelled = false
     async function load() {
       const { data: trip } = await supabase
-        .from('trips').select('purse_amount, show_purse_on_home').eq('id', tripId).single()
+        .from('trips').select('purse_amount, show_purse_on_home, format').eq('id', tripId).single()
       const showOnHome = !!trip?.show_purse_on_home
       const amount = Number(trip?.purse_amount) || 0
       if (!showOnHome) { if (!cancelled) setSt({ status: 'hidden' }); return }
 
-      const standings = await loadPurseStandings(supabase, tripId, allowance)
+      const standings = await loadPurseStandings(supabase, tripId, allowance, trip?.format)
       const purse = computePurse({ ...standings, amount })
       if (cancelled) return
       setSt({ status: 'ready', showOnHome, amount, hasStandings: standings.hasStandings, purse })
