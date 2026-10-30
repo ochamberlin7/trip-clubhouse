@@ -1950,7 +1950,7 @@ function FormatBody({ tripId, format, teamCount, onUpdate, onClose }) {
     <>
       <div style={rowUI.fieldLabel}>Format</div>
       <select style={rowUI.input} value={value} onChange={e => setValue(e.target.value)}>
-        {MAIN_FORMATS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+        {MAIN_FORMATS.map(f => <option key={f.id} value={f.id}>{f.individual && teamCount > 0 ? `Team ${f.name}` : f.name}</option>)}
       </select>
       <div style={rowUI.note}>{picked?.desc} You can change this until the first score is entered.</div>
       <SaveLink onClick={save} saving={saving} saved={saved} error={err} />

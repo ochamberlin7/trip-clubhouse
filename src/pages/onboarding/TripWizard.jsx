@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import CourseSearchInput from '../../components/CourseSearchInput'
 import { BONUS_GAMES } from '../../lib/bonusGames'
-import { MAIN_FORMATS, isIndividualFormat } from '../../lib/gameFormats'
+import { WIZARD_CHOICES } from '../../lib/gameFormats'
 import { formatPhone } from '../../lib/formatPhone'
 
 // ── helpers ──────────────────────────────────────────────────────
@@ -486,35 +486,35 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
   // Create Trip is available once a choice is made — when there aren't enough
   // players for teams yet, they can be assigned later.
   const canFinish = hasTournament !== null
-  // Stableford / Stroke Play are individual games — teams are optional ("None").
-  const individual = isIndividualFormat(tournamentFormat)
   const [bonusOpen, setBonusOpen] = useState(false)
   const toggleBonus = id =>
     setBonusGames(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
 
-  function pickFormat(f) {
+  // A team choice keeps (or restores) a team count; an individual choice means no teams.
+  function pickFormat(c) {
     setHasTournament(true)
-    setTournamentFormat(f.id)
-    // "No teams" only exists for individual formats; match play needs teams.
-    if (!f.individual && numTeams === 0) setNumTeams(validCounts[0] ?? 2)
+    setTournamentFormat(c.format)
+    if (c.teams) { if (numTeams === 0) setNumTeams(validCounts[0] ?? 2) }
+    else { setNumTeams(0); setBonusGames([]) }
   }
   function pickNone() {
     setHasTournament(false); setNumTeams(2); setBonusGames([])
   }
-  const isOn = id => hasTournament === true && tournamentFormat === id
-  const group = (label, formats) => (
+  const isOn = c => hasTournament === true && tournamentFormat === c.format && (c.teams ? numTeams !== 0 : numTeams === 0)
+  const withTeams = hasTournament === true && numTeams !== 0
+  const group = (label, choices) => (
     <div>
       <p style={T.group}>{label}</p>
       <div style={T.list} role="radiogroup" aria-label={label}>
-        {formats.map(f => <FormatRow key={f.id} name={f.name} desc={f.desc} on={isOn(f.id)} onClick={() => pickFormat(f)} />)}
+        {choices.map(c => <FormatRow key={c.key} name={c.name} desc={c.desc} on={isOn(c)} onClick={() => pickFormat(c)} />)}
       </div>
     </div>
   )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
-      {group('Team versus team', MAIN_FORMATS.filter(f => !f.individual))}
-      {group('Individual', MAIN_FORMATS.filter(f => f.individual))}
+      {group('Teams', WIZARD_CHOICES.filter(c => c.teams))}
+      {group('Individual', WIZARD_CHOICES.filter(c => !c.teams))}
       <div>
         <p style={T.group}>No tournament</p>
         <div style={T.list} role="radiogroup" aria-label="No tournament">
@@ -522,36 +522,27 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
         </div>
       </div>
 
-      {hasTournament === true && (
+      {withTeams && (
         <div>
           <p style={{ ...T.group, marginBottom: 10 }}>
-            Teams <span style={{ letterSpacing: '1px', fontWeight: 500 }}>· {playerCount} player{playerCount !== 1 ? 's' : ''}</span>
+            Number of teams <span style={{ letterSpacing: '1px', fontWeight: 500 }}>· {playerCount} player{playerCount !== 1 ? 's' : ''}</span>
           </p>
-          {(validCounts.length > 0 || individual) ? (
+          {validCounts.length > 0 ? (
             <div style={T.seg} role="radiogroup" aria-label="Number of teams">
-              {individual && (
-                <button type="button" role="radio" aria-checked={numTeams === 0} style={T.segBtn(numTeams === 0, true)}
-                  onClick={() => { setNumTeams(0); setBonusGames([]) }}>None</button>
-              )}
               {validCounts.map((n, i) => (
-                <button key={n} type="button" role="radio" aria-checked={numTeams === n} style={T.segBtn(numTeams === n, !individual && i === 0)}
+                <button key={n} type="button" role="radio" aria-checked={numTeams === n} style={T.segBtn(numTeams === n, i === 0)}
                   onClick={() => setNumTeams(n)}>{TEAM_WORD[n] || n}</button>
               ))}
             </div>
-          ) : null}
-          {validCounts.length === 0 && (
-            <p style={{ ...T.note, marginTop: individual ? 10 : 0 }}>
-              {individual
-                ? 'Not enough players for even teams yet — everyone plays for themselves.'
-                : 'You can assign teams later in Commissioner Tools once more players join.'}
-            </p>
+          ) : (
+            <p style={T.note}>You can assign teams later in Commissioner Tools once more players join.</p>
           )}
         </div>
       )}
 
       {/* Bonus games — optional trip-long team games, chosen once here (no way to
           change after the trip is created). Hidden without teams. Data-driven from BONUS_GAMES. */}
-      {hasTournament === true && numTeams !== 0 && (
+      {withTeams && (
         <div>
           <button
             type="button"
