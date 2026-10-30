@@ -1,6 +1,7 @@
 // Copies of screen data saved on this phone, so the app still shows your trips,
 // Home page and trip screen when it's opened with no signal. Each screen saves its
-// last good load under its own key and reads it back only when a load fails.
+// last good load under its own key and reads it back when a load fails. Home and
+// the Trophy Room (useMyCareer) also open from it instantly, then refresh.
 // (The Score tab's copy lives in scoreQueue.js.) Keys are per signed-in user where
 // the data is personal.
 
