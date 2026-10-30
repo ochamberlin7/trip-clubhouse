@@ -3,6 +3,7 @@
 // rule lives in src/lib/tripDates.js (planTripDateChange); this screen only
 // shows the plan and saves it in one transaction (change_trip_dates RPC).
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import RangeCalendar from './RangeCalendar'
 import { rowUI, SaveLink } from './DisclosureRow'
@@ -16,12 +17,19 @@ function fmt(iso) {
   const d = new Date(iso + 'T00:00:00')
   return isNaN(d) ? '—' : `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}`
 }
-const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`
 
 const ui = {
   moveRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, padding: '6px 0', borderBottom: '1px solid #EEF1F4', color: '#0D1B2A' },
   moveName: { fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
   moveDates: { color: '#5E6E80', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' },
+  // Centered confirm pop-up (same look as Remove player).
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  sheet: { background: '#fff', borderRadius: 12, padding: 24, width: 'calc(100% - 40px)', maxWidth: 360, textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
+  sheetTitle: { fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 },
+  sheetText: { fontSize: 14, color: '#2C3E50', lineHeight: 1.45 },
+  sheetBtns: { display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 },
+  cancelBtn: { background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  dangerBtn: { background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   warn: { fontSize: 12.5, color: '#7A4B00', lineHeight: 1.5, marginTop: 10, background: '#FFF4DC', borderRadius: 8, padding: '9px 11px' },
 }
 
@@ -35,6 +43,7 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
   const [newStart, setNewStart] = useState(startDate || '')
   const [newEnd, setNewEnd] = useState(endDate || '')
   const [touched, setTouched] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState('')
@@ -91,17 +100,19 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
     setNewStart(a); setNewEnd(b); setErr(''); setTouched(true)
   }
 
-  async function save() {
+  // Save: a shorter trip asks first (centered pop-up); anything else saves now.
+  function save() {
     setErr('')
     if (!plan || !plan.ok) { setErr(plan?.error || 'Pick a start and end date.'); return }
-    if (cutCount) {
-      const names = [...plan.cutRounds, ...plan.cutMeals, ...plan.cutStays].map(c => c.label).join(', ')
-      const ok = window.confirm(`Shortening the trip removes ${plural(cutCount, 'item')} on the cut ${plan.removedDays.length === 1 ? 'day' : 'days'}: ${names}. This can’t be undone. Continue?`)
-      if (!ok) return
-    }
+    if (plan.lengthChange < 0) { setConfirming(true); return }
+    commit()
+  }
+
+  async function commit() {
     setSaving(true)
     const { error } = await supabase.rpc('change_trip_dates', rpcArgsForPlan(tripId, newStart, newEnd, plan))
     setSaving(false)
+    setConfirming(false)
     if (error) {
       const msg = error.message || ''
       if (/change_trip_dates/i.test(msg) && /(find|exist)/i.test(msg)) setErr('This needs a database update first (migration 20260677).')
@@ -162,7 +173,21 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
         </>
       )}
 
-      <SaveLink onClick={save} saving={saving} saved={saved} error={err || (touched && plan && !plan.ok ? plan.error : '')} label="Change dates" />
+      <SaveLink onClick={save} saving={saving} saved={saved} error={err || (touched && plan && !plan.ok ? plan.error : '')} />
+
+      {confirming && createPortal(
+        <div style={ui.overlay} onClick={() => !saving && setConfirming(false)}>
+          <div style={ui.sheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div style={ui.sheetTitle}>Shorten the trip?</div>
+            <div style={ui.sheetText}>Shortening the trip may cause data to be removed. This cannot be undone. Are you sure?</div>
+            <div style={ui.sheetBtns}>
+              <button type="button" style={ui.cancelBtn} onClick={() => setConfirming(false)} disabled={saving}>Cancel</button>
+              <button type="button" style={ui.dangerBtn} onClick={commit} disabled={saving}>{saving ? 'Saving…' : 'Change'}</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </>
   )
 }
