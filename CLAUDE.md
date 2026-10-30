@@ -33,7 +33,7 @@ Frontend reads these `VITE_` vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 - **`src/components/LiveScoreBanner.jsx`** — floating live match banner (its own round-selection memo; independent of the phase router).
 - **`src/components/CountdownWidget.jsx`** — the **Home banner** (pre-trip countdown / post-trip thanks / in-trip day-strip with connected dots). Driven by `getTripPhase` + `homeBannerModel`.
 - **`src/components/StatsTab.jsx`, `TeeTimesWidget.jsx`, `ChatWidget.jsx`, `lib/teamColors.js`, `lib/courseApi.js`, `lib/purse.js`.**
-- **`supabase/migrations/*.sql`** — numbered SQL. Applied **by hand in the Supabase SQL editor**, NOT via a migrate tool. Latest: `20260676_profile_photos.sql` (applied).
+- **`supabase/migrations/*.sql`** — numbered SQL. Applied **by hand in the Supabase SQL editor**, NOT via a migrate tool. Latest: `20260678_change_team_count.sql` (applied; `20260677_change_trip_dates.sql` too).
 
 ## Domain concepts you'll hit often
 - **Per-pairing scoring:** sides are slots 1&2 (team1_id) vs 3&4 (team2_id) on a `pairing`. Shots = shots-off-the-low within the pairing. Pairing team ids come from the `pairings` row (`team1_id`/`team2_id`), not array order.
@@ -56,6 +56,8 @@ Frontend reads these `VITE_` vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 Recently merged to `main`: trip-phase foundation (`getTripPhase`), phase-driven **routing** (`screenForTripPhase`, zone-aware default screen), **Schedule & Courses** tab (tee times, completed-round shading, post-round handicap recap), **Home day-strip banner** (dots at the bottom, connected by a line), **test mode**, and **default round selection** (`defaultRoundForTrip`).
 
 Since then (2026-10-23 → 10-27) everything below is merged; see BACKLOG.md for the full list: member removal (Player TBD), Daily Leaders, Points Defended, Stats redesign, Trip Clubhouse Home (`/home`, opens on a trip 14 days before → 7 after), badges / Trophy Room (`/trophies`), shared `teamStandings`, live-banner team fix, team colors.
+
+2026-10-30: **Trip Dates** (`tripDates.js`, RPC `change_trip_dates`) and the **Commissioner Tools redesign** merged — stripes in Fraunces + Inter (that page only), trip name, number of teams (`teamCount.js`, RPC `change_team_count`). Details in BACKLOG.md.
 
 2026-10-29: **game types** merged — `trips.format` now also `stableford` / `stroke_play` (team or individual; `tripGameType` in scoring.js), the redesigned trip wizard, and shared leaderboard tabs (`LeaderboardPills`). Details in BACKLOG.md.
 
