@@ -211,3 +211,38 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
   }
   return out
 }
+
+// ── Home shelf: your best badges ────────────────────────────────────────────
+// Hardest to earn first (Owen, 2026-10-29: Home shows the best trophies, never
+// the roast ones). Badges missing from this list (new ones) sort after it.
+export const BADGE_PRESTIGE = [
+  'hole_in_one', 'champion', 'broke_70', 'eagle', 'broke_80', 'birdie_bonanza', 'bogey_free',
+  'warrior_trip', 'workhorse_trip', 'trip_veteran', 'broke_90', 'par_train', 'back_to_back',
+  'hat_trick', 'on_fire', 'low_gross_day', 'low_net_day', 'most_points_day', 'warrior_day',
+  'workhorse_day', 'double_bogey_free', 'rounds', 'par_machine', 'broke_100', 'first_trip',
+]
+// A stronger badge hides the weaker ones on its ladder, so the shelf doesn't
+// show Broke 80 next to Broke 90 and Broke 100.
+const SUPERSEDES = {
+  broke_70: ['broke_80', 'broke_90', 'broke_100'],
+  broke_80: ['broke_90', 'broke_100'],
+  broke_90: ['broke_100'],
+  birdie_bonanza: ['hat_trick'],
+  par_train: ['par_machine'],
+  bogey_free: ['double_bogey_free'],
+  warrior_trip: ['warrior_day'],
+  workhorse_trip: ['workhorse_day'],
+}
+
+// states: Map(badgeId → { earned, tier, … }) from computeBadges.
+// Returns up to n badge objects (from BADGES), best first, no roast badges.
+export function bestBadges(states, n = 4) {
+  if (!states) return []
+  const rank = id => { const i = BADGE_PRESTIGE.indexOf(id); return i < 0 ? BADGE_PRESTIGE.length : i }
+  const earned = BADGES.filter(b => b.group !== 'roast' && states.get(b.id)?.earned)
+  const hidden = new Set(earned.flatMap(b => SUPERSEDES[b.id] || []))
+  return earned
+    .filter(b => !hidden.has(b.id))
+    .sort((a, b) => rank(a.id) - rank(b.id))
+    .slice(0, n)
+}

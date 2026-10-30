@@ -1,7 +1,7 @@
 // Badge rules. Run: `npm test`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeBadges, BADGES } from './badges.js'
+import { computeBadges, BADGES, BADGE_PRESTIGE, bestBadges } from './badges.js'
 import { tripFinishes } from './careerStats.js'
 
 const HOLES = Array.from({ length: 18 }, (_, i) => ({ par: 4, handicap: i + 1 }))
@@ -134,4 +134,22 @@ test('Double-Bogey-Free: a full round with bogeys is fine, one double (or a miss
   const unfinished = (p, h) => (p === 'A' && h === 18 ? null : 4)            // 17 holes only
   m = computeBadges([trip({ rounds: [round('R1', '2026-10-01')], gross: unfinished })], 'U', NOW)
   assert.equal(got(m, 'double_bogey_free').earned, false)
+})
+
+test('Home shelf: best badges first, no roast, weaker ladder steps hidden', () => {
+  const earned = ids => new Map(ids.map(id => [id, { earned: true }]))
+  const ids = bs => bs.map(b => b.id)
+  // Roast badges never show, even when they're all you have.
+  assert.deepEqual(ids(bestBadges(earned(['snowman', 'wooden_spoon', 'thirsty']))), [])
+  // Ranked by prestige, capped at 4.
+  assert.deepEqual(ids(bestBadges(earned(['first_trip', 'hat_trick', 'champion', 'snowman', 'low_net_day', 'eagle']))),
+    ['champion', 'eagle', 'hat_trick', 'low_net_day'])
+  // Broke 80 hides Broke 90 / 100; Birdie Bonanza hides Hat Trick.
+  assert.deepEqual(ids(bestBadges(earned(['broke_100', 'broke_90', 'broke_80', 'hat_trick', 'birdie_bonanza']))),
+    ['broke_80', 'birdie_bonanza'])
+  // Unearned badges are ignored; no states → empty.
+  assert.deepEqual(ids(bestBadges(new Map([['champion', { earned: false }]]))), [])
+  assert.deepEqual(bestBadges(null), [])
+  // Every non-roast badge is ranked (so new badges get placed on purpose).
+  for (const b of BADGES.filter(b => b.group !== 'roast')) assert.ok(BADGE_PRESTIGE.includes(b.id), b.id)
 })

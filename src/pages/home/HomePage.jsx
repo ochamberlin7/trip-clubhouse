@@ -7,7 +7,7 @@ import ProfileAvatar from '../../components/ProfileAvatar'
 import SwipeDeleteRow, { TrashIcon } from '../../components/SwipeDeleteRow'
 import { splitTrips, daysUntilTrip, restoreDaysLeft } from '../../lib/myTrips'
 import { useMyCareer } from '../../lib/useMyCareer'
-import { BADGES } from '../../lib/badges'
+import { bestBadges } from '../../lib/badges'
 import BadgeMedallion from '../../components/BadgeMedallion'
 import { getTripPhase } from '../../lib/scoring'
 import { inviteTokenFrom } from '../../lib/inviteMatch'
@@ -23,22 +23,24 @@ const MUTED = '#5F6B7A'       // small labels / sub-lines (passes contrast on wh
 const HAIR = '#E3E1DA'        // warm hairline, as in the trip wizard
 const RULE = '#C9D3E0'        // section-heading side rules
 const BORDER = '#D5D9DF'
-// Letterhead look ("2A", 2026-10-29): navy masthead with the app name, the
-// user's name and a short gold rule; light page below in the trip wizard's
-// editorial style (serif names, small-caps labels, hairlines, square corners).
+// Letterhead look (2026-10-29): navy masthead with the app name in gold serif,
+// a large profile photo, the user's name and a short gold rule ("2B" layout,
+// "2A" title font, "2C" gold); light page below in the trip wizard's editorial
+// style (serif names, small-caps labels, hairlines, square corners).
 const GOLD = '#B08A3E'        // masthead rule, profile-photo ring
-const ON_NAVY = '#C7D6EA'     // quiet text on navy
+const GOLD_TEXT = '#D8C08A'   // "Trip Clubhouse" on navy
 const SERIF = "'Playfair Display', Georgia, serif"
 const CAPS = { fontWeight: 700, letterSpacing: '1.6px', textTransform: 'uppercase' }
 
 const h = {
   page: { minHeight: '100vh', background: 'var(--bg0)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)', boxSizing: 'border-box' },
   // Masthead: clears the phone's status bar / notch.
-  mast: { position: 'relative', background: NAVY, padding: '62px 16px 40px', paddingTop: 'calc(env(safe-area-inset-top) + 62px)', display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  avatarSpot: { position: 'absolute', top: 'calc(env(safe-area-inset-top) + 16px)', right: 16 },
-  brand: { margin: 0, fontFamily: SERIF, fontSize: 40, fontWeight: 700, lineHeight: 1.05, letterSpacing: '0.2px', color: '#fff', textAlign: 'center' },
-  who: { margin: '14px 0 0', fontFamily: SERIF, fontStyle: 'italic', fontSize: 19, color: ON_NAVY },
-  goldRule: { width: 64, height: 2, background: GOLD, marginTop: 12 },
+  mast: { background: NAVY, padding: '26px 16px 40px', paddingTop: 'calc(env(safe-area-inset-top) + 26px)', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  brand: { margin: 0, fontFamily: SERIF, fontSize: 40, fontWeight: 700, lineHeight: 1.05, letterSpacing: '0.2px', color: GOLD_TEXT, textAlign: 'center' },
+  // Large profile photo (initials if none) in a gold ring; opens the Profile page.
+  avatar: { position: 'static', top: 'auto', right: 'auto', marginTop: 22, width: 84, height: 84, fontSize: 26, border: `2px solid ${GOLD}`, boxShadow: `0 0 0 4px ${NAVY}, 0 0 0 5px rgba(176,138,62,0.5)` },
+  who: { margin: '14px 0 0', fontFamily: SERIF, fontSize: 24, fontWeight: 400, color: '#fff' },
+  goldRule: { width: 90, height: 2, background: GOLD, marginTop: 10 },
   inner: { maxWidth: 480, margin: '0 auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 22 },
   // Next-trip countdown / live card: overlaps the masthead; tapping opens the trip.
   heroCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginTop: -18, textAlign: 'center', padding: '22px 16px 20px', background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit', color: INK, boxSizing: 'border-box' },
@@ -81,8 +83,12 @@ h.pill = { ...h.btn, flex: 1 }
 h.pillPrimary = { background: NAVY, borderColor: NAVY, color: '#fff' }
 
 // Section heading: small caps between two hairline rules.
-function SectionHead({ children, style }) {
-  return <h2 style={{ ...h.sec, ...style }}><span style={h.secRule} />{children}<span style={h.secRule} /></h2>
+// Pass onClick to make the title itself a link (e.g. Trophy room).
+function SectionHead({ children, style, onClick }) {
+  const title = onClick
+    ? <button onClick={onClick} style={{ background: 'none', border: 'none', padding: '6px 0', margin: '-6px 0', font: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', color: 'inherit', cursor: 'pointer' }}>{children} ›</button>
+    : children
+  return <h2 style={{ ...h.sec, ...style }}><span style={h.secRule} />{title}<span style={h.secRule} /></h2>
 }
 
 const INVITE_MESSAGE = 'Join me on Trip Clubhouse to run your golf trip: pairings, live scores, leaderboards and the trash talk.'
@@ -225,11 +231,8 @@ export default function HomePage() {
   return (
     <div style={h.page}>
       <header style={h.mast}>
-        {/* Profile photo (or initials) with a gold ring; opens the Profile page. */}
-        <div style={h.avatarSpot}>
-          <ProfileAvatar style={{ position: 'static', top: 'auto', right: 'auto', width: 42, height: 42, border: `2px solid ${GOLD}`, boxShadow: 'none' }} />
-        </div>
         <h1 style={h.brand}>Trip Clubhouse</h1>
+        <ProfileAvatar style={h.avatar} />
         {displayName && <p style={h.who}>{displayName}</p>}
         <div style={h.goldRule} />
       </header>
@@ -300,19 +303,13 @@ export default function HomePage() {
         </section>
 
         <section>
-          <SectionHead style={{ marginBottom: 14 }}>Trophy room</SectionHead>
-          {/* Shelf: your 4 most recent badges, or faint placeholders until you earn some. */}
+          <SectionHead style={{ marginBottom: 14 }} onClick={() => navigate('/trophies')}>Trophy room</SectionHead>
+          {/* Shelf: your 4 best badges (never roast ones), or faint placeholders until you earn some. */}
           <button style={h.shelf} onClick={() => navigate('/trophies')} aria-label="Open the Trophy Room">
             {(() => {
-              const earned = badges
-                ? BADGES.filter(b => badges.get(b.id)?.earned)
-                    .map(b => ({ b, st: badges.get(b.id), when: badges.get(b.id).events?.[0]?.date || '' }))
-                    .sort((x, y) => y.when.localeCompare(x.when))
-                    .slice(0, 4)
-                : []
-              const cells = earned.map(({ b, st }) => (
+              const cells = bestBadges(badges, 4).map(b => (
                 <span key={b.id} style={h.shelfCell}>
-                  <BadgeMedallion badge={b} state={st} size={58} />
+                  <BadgeMedallion badge={b} state={badges.get(b.id)} size={58} />
                   <span style={h.shelfName}>{b.name}</span>
                 </span>
               ))
