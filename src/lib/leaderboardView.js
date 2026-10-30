@@ -44,7 +44,12 @@ export function leadLine({ format, teams = [], standings, rounds = [] }) {
   const anyPlayed = id => rounds.some(r => cellPlayed(format, standings.perRound.get(id)?.get(r.id)))
   const played = teams.some(t => anyPlayed(t.id))
   if (!played) return 'No scores yet'
-  const left = rounds.filter(r => !teams.some(t => cellPlayed(format, standings.perRound.get(t.id)?.get(r.id)))).length
+  // Rounds still to finish. teamStandings says which rounds are over (every match
+  // decided / every player holed out), so a round in progress isn't "Final" yet.
+  // Older callers without that fall back to "any score counts as played".
+  const left = standings.finished
+    ? rounds.filter(r => !standings.finished.has(r.id)).length
+    : rounds.filter(r => !teams.some(t => cellPlayed(format, standings.perRound.get(t.id)?.get(r.id)))).length
   const tail = left === 0 ? 'Final' : `${left} round${left === 1 ? '' : 's'} left`
   const ranked = standings.ranked.filter(r => teams.some(t => t.id === r.teamId))
   const top = ranked.filter(r => r.rank === 1)

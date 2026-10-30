@@ -1314,24 +1314,33 @@ export function teamStandings({ format, rounds, pairings = [], pairingPlayers = 
     if (!m.has(roundId)) m.set(roundId, { pts: 0, scored: 0, matches: 0, completed: 0 })
     return m.get(roundId)
   }
+  // finished: round ids whose play is over — every match decided (match play) or
+  // every player who started has holed out (Stableford / stroke play). The lead
+  // line says "Final" only once every round is in here.
+  const finished = new Set()
   for (const r of lbRounds) {
     for (const id of teamIds) cell(id, r.id)
     if (stableford || stroke) {
       const entries = teamOfPlayer instanceof Map ? [...teamOfPlayer] : Object.entries(teamOfPlayer)
+      let started = 0, done = 0
       for (const [playerId, teamId] of entries) {
         if (!teamId || !perRound.has(teamId)) continue
         const res = strokeRoundResult({ round: r, playerId, scoresMap, hcpByPlayer, teeRowMap, allowance })
         if (!res) continue
+        started++
+        if (res.complete) done++
         const pts = stableford ? res.points : (res.netToPar ?? 0)
         const c = cell(teamId, r.id)
         c.pts += pts
         c.scored += res.holes
         total.set(teamId, total.get(teamId) + pts)
       }
+      if (started > 0 && done === started) finished.add(r.id)
     } else if (standard) {
       // Each pairing's match result goes to the real team on that side.
-      for (const row of liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)) {
-        if (!row.hasMatch) continue
+      const rows = liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap).filter(row => row.hasMatch)
+      if (rows.length && rows.every(row => row.complete)) finished.add(r.id)
+      for (const row of rows) {
         for (const [teamId, side] of [[row.team1_id, 'T1'], [row.team2_id, 'T2']]) {
           if (!teamId) continue
           const c = cell(teamId, r.id)
@@ -1345,7 +1354,10 @@ export function teamStandings({ format, rounds, pairings = [], pairingPlayers = 
       }
     } else {
       // Hole wins per side → the real team on that side (team1_id = slots 1&2).
-      for (const row of liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)) {
+      const rows = liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
+      const matches = rows.filter(row => row.hasMatch)
+      if (matches.length && matches.every(row => row.complete)) finished.add(r.id)
+      for (const row of rows) {
         for (const [teamId, pts] of [[row.team1_id, row.t1pts], [row.team2_id, row.t2pts]]) {
           if (!teamId) continue
           const c = cell(teamId, r.id)
@@ -1364,7 +1376,7 @@ export function teamStandings({ format, rounds, pairings = [], pairingPlayers = 
   })
   // Has anything been played at all (any team, any round)?
   const anyScored = [...perRound.values()].some(m => [...m.values()].some(c => c.scored > 0 || c.completed > 0))
-  return { rounds: lbRounds, perRound, total, ranked, lowWins: stroke, anyScored }
+  return { rounds: lbRounds, perRound, total, ranked, lowWins: stroke, anyScored, finished }
 }
 
 // ── Stableford + stroke play (individual formats) ────────────────────────────

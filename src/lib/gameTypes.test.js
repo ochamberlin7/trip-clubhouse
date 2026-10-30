@@ -176,3 +176,18 @@ test('purse: Team Stableford / Team Stroke Play use the Leaderboard team totals'
   const sp = computePurse({ teams, tripPlayers, holeWinsByTeam: teamScoresForPurse(teamStandings({ ...base, format: 'stroke_play' })), amount: 100 })
   assert.equal(sp.losingTeamId, 'T1'); assert.equal(sp.perShare, 50)
 })
+
+test('lead line: a round still being played is not "Final" (Team Stableford)', async () => {
+  const { leadLine } = await import('./leaderboardView.js')
+  const teams = [{ id: 'T1', name: 'Bandits' }, { id: 'T2', name: 'Outlaws' }]
+  const teamOfPlayer = { A: 'T1', C: 'T1', B: 'T2' }
+  const two = [R('R1'), R('R2')]
+  // R2: A has played all 4 holes, B only 1 → round 2 isn't over yet.
+  const partial = { ...sm('R1', { A: [4, 3, 5, 4], B: [5, 4, 6, 5], C: [6, 5, 7, 6] }), ...sm('R2', { A: [5, 4, 6, 5], B: [3, null, null, null] }) }
+  const s = teamStandings({ format: 'stableford', rounds: two, scoresMap: partial, hcpByPlayer, teamIds: ['T1', 'T2'], teamOfPlayer })
+  assert.deepEqual([...s.finished], ['R1'])
+  assert.match(leadLine({ format: 'stableford', teams, standings: s, rounds: s.rounds }), /lead by \d+ · 1 round left$/)
+  // Once everyone's holed out it's Final.
+  const done = teamStandings({ format: 'stableford', rounds: two, scoresMap, hcpByPlayer, teamIds: ['T1', 'T2'], teamOfPlayer })
+  assert.match(leadLine({ format: 'stableford', teams, standings: done, rounds: done.rounds }), /· Final$/)
+})

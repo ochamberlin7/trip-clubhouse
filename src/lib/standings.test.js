@@ -56,3 +56,11 @@ test('finishLabel: champion, co-champion, places, ties', () => {
   assert.equal(finishLabel([{ teamId: 'A', total: 5, rank: 1 }, { teamId: 'B', total: 5, rank: 1 }], 'B'), 'Co-champion')
   assert.equal(finishLabel(ranked, 'Z'), null)
 })
+
+test('a match-play round is finished only once its matches are fully scored', () => {
+  // Drop hole 3 of R2 for player D → R2's match isn't complete yet.
+  const scoresMap = { ...base.scoresMap }; delete scoresMap['R2:D:3']
+  const pts = teamStandings({ ...base, scoresMap, format: 'point_match_play' })
+  assert.deepEqual([...pts.finished], ['R1'])
+  assert.deepEqual([...teamStandings({ ...base, format: 'point_match_play' }).finished].sort(), ['R1', 'R2'])
+})
