@@ -12,7 +12,7 @@
 // every tied leader earns a daily/team badge, except Champion (outright wins only).
 import {
   analyzeScoring, matchPlayPointsByPlayer, pointsDefendedByPlayer, fireStatsByPlayer,
-  roundHoleCount, isNoneRound,
+  roundHoleCount, isNoneRound, tripGameType, isIndividualGameType,
 } from './scoring.js'
 import { courseHolesFromRounds } from './playerStats.js'
 import { buildDailyLeaders } from './dailyLeaders.js'
@@ -82,6 +82,10 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue
     const tripName = t.tripName || ''
+    // Stableford / Stroke Play trips have no matches: no Warrior / Workhorse, and
+    // net (fire, daily leaders) uses full playing handicaps.
+    const gameType = tripGameType(t.trip)
+    const individual = isIndividualGameType(gameType)
     const tripOver = tripTimeStatus(t.trip, now) === 'past'
     if (tripOver) { finishedTrips++; add('first_trip', { date: t.trip?.end_date, tripName }) }
 
@@ -134,7 +138,7 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
     }
 
     // ── Daily leader badges (practice included, like Daily Leaders) ──
-    const days = buildDailyLeaders(t, { allowance: t.allowance ?? 100, tripStartDate: t.trip?.start_date })
+    const days = buildDailyLeaders(t, { allowance: t.allowance ?? 100, tripStartDate: t.trip?.start_date, gameType })
     for (const day of days) {
       const lead = key => day.leaders.find(l => l.key === key)?.leader
       const mine = key => !!lead(key)?.ids.includes(me.id)
@@ -151,7 +155,7 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
     const bundle = rs => ({ ...base, rounds: rs, courseHoles: courseHolesFromRounds(rs) })
     const team = me.team_id ? (t.tripPlayers || []).filter(p => p.team_id === me.team_id).map(p => p.id) : []
     const ledTeam = values => {
-      if (team.length < 2) return false
+      if (individual || team.length < 2) return false
       const mineV = values.get(me.id) || 0
       return mineV > 0 && team.every(id => (values.get(id) || 0) <= mineV)
     }
@@ -172,7 +176,7 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
 
     // ── On Fire: a 3+ hole fire streak in any one round ──
     for (const r of rounds) {
-      const f = fireStatsByPlayer(bundle([r]), t.allowance ?? 100).get(me.id)
+      const f = fireStatsByPlayer(bundle([r]), t.allowance ?? 100, { fullHandicap: individual }).get(me.id)
       if (f && f.maxStreak >= 3) add('on_fire', { date: r.date, tripName, detail: `${f.maxStreak} holes` })
     }
   }

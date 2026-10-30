@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import CourseSearchInput from '../../components/CourseSearchInput'
 import { BONUS_GAMES } from '../../lib/bonusGames'
+import { WIZARD_CHOICES } from '../../lib/gameFormats'
 import { formatPhone } from '../../lib/formatPhone'
 
 // ── helpers ──────────────────────────────────────────────────────
@@ -23,6 +24,13 @@ function getDaysInRange(start, end) {
 function formatDay(dateStr) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric'
+  })
+}
+
+// "Thursday, Nov 12" — the schedule's serif day heading.
+function formatDayLong(dateStr) {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'short', day: 'numeric'
   })
 }
 
@@ -54,16 +62,18 @@ function isoOf(d) {
 function parseIso(s) { return s ? new Date(s + 'T00:00:00') : null }
 function fmtShort(s) { return parseIso(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
 
+// Editorial style (matches the rest of the wizard): hairline frame, serif month,
+// small-caps weekdays, square day cells.
 const cal = {
-  wrap: { border: '1px solid #DDE3EA', borderRadius: 10, padding: 10, background: '#fff' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  nav: { width: 34, height: 34, border: 'none', background: '#E8EDF3', borderRadius: 8, fontSize: 18, lineHeight: 1, color: '#1B3F6E', cursor: 'pointer', fontFamily: 'inherit' },
-  monthLabel: { fontSize: 14, fontWeight: 700, color: '#0D1B2A' },
+  wrap: { border: '1px solid #D5D9DF', borderRadius: 3, padding: '12px 10px', background: '#fff' },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #E3E1DA' },
+  nav: { width: 34, height: 34, border: 'none', background: 'none', fontSize: 22, lineHeight: 1, color: '#1B3F6E', cursor: 'pointer', fontFamily: 'inherit' },
+  monthLabel: { fontFamily: 'var(--font-serif)', fontSize: 18, color: '#0D1B2A' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, textAlign: 'center' },
-  dow: { fontSize: 10, fontWeight: 700, color: '#7A8FA6', padding: '4px 0' },
-  day: { border: 'none', background: 'none', borderRadius: 8, padding: '9px 0', fontSize: 13, fontWeight: 600, color: '#0D1B2A', cursor: 'pointer', fontFamily: 'inherit' },
-  inrange: { background: 'rgba(27,63,110,0.12)', borderRadius: 4 },
-  endpoint: { background: '#1B3F6E', color: '#fff', fontWeight: 800 },
+  dow: { fontSize: 10, fontWeight: 700, letterSpacing: '1.4px', color: '#8C97A6', padding: '4px 0 6px' },
+  day: { border: 'none', background: 'none', borderRadius: 2, padding: '9px 0', fontSize: 14, fontWeight: 500, color: '#0D1B2A', cursor: 'pointer', fontFamily: 'inherit' },
+  // Every date in the trip (start, end and the days between) is solid navy.
+  selected: { background: '#1B3F6E', color: '#fff', fontWeight: 700 },
 }
 
 function RangeCalendar({ startDate, endDate, onSelect }) {
@@ -92,14 +102,13 @@ function RangeCalendar({ startDate, endDate, onSelect }) {
         {cells.map((d, i) => {
           if (d == null) return <span key={i} />
           const iso = isoOf(new Date(year, month, d))
-          const isEndpoint = iso === startDate || iso === endDate
-          const inRange = startDate && endDate && iso > startDate && iso < endDate
+          const isSelected = iso === startDate || iso === endDate || (startDate && endDate && iso > startDate && iso < endDate)
           return (
             <button
               type="button"
               key={i}
               onClick={() => onSelect(iso)}
-              style={{ ...cal.day, ...(inRange ? cal.inrange : null), ...(isEndpoint ? cal.endpoint : null) }}
+              style={{ ...cal.day, ...(isSelected ? cal.selected : null) }}
             >
               {d}
             </button>
@@ -127,6 +136,7 @@ function StepTripDetails({
     onRangeChange(startDate, iso)
   }
 
+  const tripDays = startDate && endDate && endDate >= startDate ? getDaysInRange(startDate, endDate).length : 0
   const rangeText = startDate
     ? (endDate ? `${fmtShort(startDate)} – ${fmtShort(endDate)}` : `${fmtShort(startDate)} – select end date`)
     : 'Tap a date to set your trip start'
@@ -144,10 +154,15 @@ function StepTripDetails({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <p className="wz-intro">Name your group and trip, then pick your dates.</p>
+      {/* Section stripes (design V1): "The trip" and "Dates", each with a short
+          summary on the right. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <p className="wz-stripe">The trip</p>
       {/* Change 1: "Name Your Crew" — first field, drives groups.name */}
       <div>
-        <label className="field-label">What do you call your group?</label>
+        <label className="wz-label">What do you call your group?</label>
         <input
           type="text"
           placeholder="The Boys, CTI Crew, etc."
@@ -157,7 +172,7 @@ function StepTripDetails({
         />
       </div>
       <div>
-        <label className="field-label">Trip Name</label>
+        <label className="wz-label">Trip name</label>
         <input
           className="wizard-field"
           type="text"
@@ -166,10 +181,14 @@ function StepTripDetails({
           onChange={e => setTripName(e.target.value)}
         />
       </div>
+      </div>
       <div>
-        <label className="field-label">Trip Dates</label>
+        <p className="wz-stripe" style={{ marginBottom: 12 }}>
+          Dates
+          {tripDays > 0 && <span className="wz-stripe-detail">{tripDays} day{tripDays === 1 ? '' : 's'}</span>}
+        </p>
         <RangeCalendar startDate={startDate} endDate={endDate} onSelect={handleDateClick} />
-        <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: startDate && endDate ? '#0D1B2A' : '#7A8FA6' }}>
+        <div style={{ marginTop: 10, fontFamily: 'var(--font-serif)', fontSize: 18, color: startDate && endDate ? '#0D1B2A' : '#8C97A6' }}>
           {rangeText}
         </div>
       </div>
@@ -242,6 +261,8 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
     }))
   }
 
+  const golfRounds = schedule.reduce((sum, d) => sum + (d.type === 'golf' ? d.rounds.length : 0), 0)
+
   function handleNext() {
     const totalGolfRounds = schedule.reduce((sum, d) => sum + (d.type === 'golf' ? d.rounds.length : 0), 0)
     if (totalGolfRounds === 0) {
@@ -252,35 +273,39 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <p className="wizard-step-subtitle" style={{ marginTop: 0 }}>
-        Do you know your schedule yet? If so, enter it here. If not, you can leave days as Unknown and fill them in later.
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <p className="wz-intro">Schedule each day’s activity, or leave it Unknown and fill it in later.</p>
+      <div>
+      <p className="wz-stripe">
+        Your days
+        <span className="wz-stripe-detail">{golfRounds === 0 ? 'No rounds yet' : `${golfRounds} round${golfRounds === 1 ? '' : 's'}`}</span>
       </p>
       {schedule.map((day, idx) => (
-        <div key={day.date} className="schedule-day">
-          <div className="schedule-day-header">
-            <span className="schedule-day-label">{formatDay(day.date)}</span>
+        <div key={day.date} className="wz-day">
+          <div className="wz-day-head">
+            <span className="wz-day-name"><small>Day {idx + 1}</small>{formatDayLong(day.date)}</span>
             <select
+              aria-label={`What's happening ${formatDay(day.date)}`}
               value={day.type === 'golf' ? 'golf' : day.type}
               onChange={e => setDayType(idx, e.target.value)}
             >
               <option value="unknown">Unknown</option>
-              <option value="non_golf">Non-Golf Day</option>
-              <option value="travel">Travel Day</option>
-              <option value="golf">Add Golf Round</option>
+              <option value="golf">Golf</option>
+              <option value="travel">Travel day</option>
+              <option value="non_golf">Non-golf day</option>
             </select>
           </div>
 
           {day.type === 'golf' && (
-            <div className="round-inputs">
+            <div className="wz-rounds">
               {day.rounds.map((round, rIdx) => (
                 <div key={round.id} className="round-input-row" style={{ alignItems: 'flex-start' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {round.course ? (
                       // Course chosen → show it and collapse the picker. "Change" reopens it.
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: '#F5F8FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #D5D9DF', borderRadius: 3, padding: '10px 12px' }}>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 16, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {round.course.club_name || round.course.course_name}
                           </div>
                           <div style={{ fontSize: 12, color: '#7A8FA6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -289,7 +314,7 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
                         </div>
                         <button
                           onClick={() => setRoundCourse(idx, rIdx, null)}
-                          style={{ flexShrink: 0, background: 'none', border: 'none', color: '#1B3F6E', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                          style={{ flexShrink: 0, background: 'none', border: 'none', color: '#1B3F6E', fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' }}
                         >Change</button>
                       </div>
                     ) : (
@@ -300,14 +325,13 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
                           onQueryChange={text => updateCourseName(idx, rIdx, text)}
                           onCourseSelected={data => setRoundCourse(idx, rIdx, data)}
                         />
-                        <p style={{ fontSize: 11, color: '#7A8FA6', fontStyle: 'italic', margin: '5px 2px 0', lineHeight: 1.4 }}>
-                          If you can’t find your course, you can add it manually later.
-                        </p>
+                        <p className="wz-hint">Can’t find the course you’re looking for? You can add it manually later.</p>
                       </>
                     )}
                   </div>
                   <button
-                    className="btn-remove-round"
+                    className="wz-x"
+                    style={{ marginTop: 10 }}
                     onClick={() => removeRound(idx, round.id)}
                     aria-label="Remove round"
                   >
@@ -317,14 +341,15 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
               ))}
               {/* Change 3: hide button once 2 rounds added */}
               {day.rounds.length < MAX_ROUNDS_PER_DAY && (
-                <button className="btn-add-round" onClick={() => addRound(idx)}>
-                  + Add Another Round
+                <button className="wz-link" style={{ paddingTop: 0 }} onClick={() => addRound(idx)}>
+                  + Add another round
                 </button>
               )}
             </div>
           )}
         </div>
       ))}
+      </div>
 
       <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
         <button className="btn btn-outline" onClick={onBack}>← Back</button>
@@ -338,7 +363,8 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
 
 const MAX_PLAYERS = 20
 
-const playerInputStyle = { background: '#F5F8FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 14, width: '100%', fontFamily: 'inherit', color: '#0D1B2A' }
+// Look comes from the wizard's shared input style (index.css, .wizard-page input).
+const playerInputStyle = { width: '100%' }
 const playerInputErr = { ...playerInputStyle, borderColor: '#C0392B' }
 
 function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
@@ -360,39 +386,34 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
     onNext()
   }
 
-  const cardStyle = { position: 'relative', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }
-  const playerLabelStyle = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
-  const labelRowStyle = { display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 6px 2px' }
+  // Editorial style: each player is a small-caps ruled label, then their fields —
+  // no boxed cards.
+  const fieldsStyle = { display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 12 }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div>
-        <p className="wizard-step-subtitle" style={{ marginTop: 0 }}>Add everyone who's coming on the trip</p>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <p className="wz-intro">Add everyone who’s coming on the trip.</p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {players.map((p, idx) => {
           const fErr = showErrors && !p.first_name.trim()
           const lErr = showErrors && !p.last_name.trim()
           return (
             <div key={p.id}>
-              {/* Label row: "PLAYER N" with the YOU pill beside it for the commissioner */}
-              <div style={labelRowStyle}>
-                <span style={playerLabelStyle}>Player {idx + 1}</span>
-                {p.isCommissioner && <span className="you-badge">YOU</span>}
+              {/* Stripe: "PLAYER N", their name on the right (+ "You" for the
+                  commissioner), and the remove × for everyone else. */}
+              <div className="wz-stripe">
+                <span>Player {idx + 1}</span>
+                <span className="wz-stripe-detail">
+                  {[`${p.first_name} ${p.last_name}`.trim(), p.isCommissioner && 'You'].filter(Boolean).join(' · ')}
+                </span>
+                {!p.isCommissioner && (
+                  <button className="wz-x" onClick={() => removeRow(p.id)} aria-label="Remove player">×</button>
+                )}
               </div>
-              <div style={cardStyle}>
-              {/* Remove button (non-commissioner only), top-right corner */}
-              {!p.isCommissioner && (
-                <button
-                  onClick={() => removeRow(p.id)}
-                  aria-label="Remove player"
-                  style={{ position: 'absolute', top: 6, right: 6, width: 30, height: 30, background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 20, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit' }}
-                >×</button>
-              )}
-
-              {/* First + Last on one row (clear of the remove control when present) */}
-              <div style={{ display: 'flex', gap: 8, paddingRight: p.isCommissioner ? 0 : 30 }}>
+              <div style={fieldsStyle}>
+              {/* First + Last on one row */}
+              <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   style={{ ...(fErr ? playerInputErr : playerInputStyle), flex: 1, minWidth: 0 }}
                   placeholder="First name"
@@ -432,10 +453,9 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
       </div>
 
       {players.length < MAX_PLAYERS && (
-        <button
-          onClick={addRow}
-          style={{ background: 'transparent', border: '1px dashed #DDE3EA', borderRadius: 8, padding: 12, width: '100%', color: '#7A8FA6', fontSize: 14, fontWeight: 600, textAlign: 'center', cursor: 'pointer', fontFamily: 'inherit' }}
-        >+ Add Player</button>
+        <button className="wz-add-row" style={{ borderTop: '1px solid #E3E1DA' }} onClick={addRow}>
+          Add a player<span style={{ marginLeft: 'auto', color: '#1B3F6E', fontSize: 20, lineHeight: 1 }}>+</span>
+        </button>
       )}
 
       {showErrors && <p className="error-msg">First and last name are required for every player.</p>}
@@ -450,133 +470,125 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 
 // ── Step 3: Tournament Setup ──────────────────────────────────────
 
+// Editorial "1A" layout (picked 2026-10-29): serif format names on hairline rows,
+// small-caps group labels, a squared segmented control for teams. One list of
+// radio rows replaces the old Yes/No question — "No tournament" is its own row.
+const T = {
+  NAVY: '#1B3F6E',
+  // Section headings (Teams / Individual / No tournament) use the shared grey
+  // stripe (.wz-stripe in index.css), same as the other wizard steps.
+  list: {},
+  // Field labels inside a section (e.g. Number of teams) stay light grey.
+  fieldLabel: { fontSize: 10.5, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: '#8C97A6', margin: '0 0 10px' },
+  row: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid #E3E1DA', padding: '14px 2px', cursor: 'pointer', fontFamily: 'inherit' },
+  name: { display: 'block', fontFamily: "var(--font-serif)", fontSize: 18, color: '#0D1B2A', lineHeight: 1.2 },
+  desc: { display: 'block', fontSize: 13, color: '#7C8796', marginTop: 3, lineHeight: 1.4 },
+  radio: on => ({ flexShrink: 0, marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%', boxSizing: 'border-box', border: on ? '5px solid #1B3F6E' : '1.5px solid #9AA6B5' }),
+  seg: { display: 'flex', border: '1px solid #1B3F6E', borderRadius: 4, overflow: 'hidden' },
+  segBtn: (on, first) => ({ flex: 1, padding: '10px 0', background: on ? '#1B3F6E' : 'transparent', color: on ? '#fff' : '#1B3F6E', border: 'none', borderLeft: first ? 'none' : '1px solid #1B3F6E', fontSize: 14, fontWeight: 600, letterSpacing: '0.3px', cursor: 'pointer', fontFamily: 'inherit' }),
+  note: { fontSize: 13, color: '#7C8796', margin: 0, lineHeight: 1.45 },
+  check: on => ({ flexShrink: 0, width: 16, height: 16, borderRadius: 2, marginTop: 3, boxSizing: 'border-box', border: `1.5px solid ${on ? '#1B3F6E' : '#9AA6B5'}`, background: on ? '#1B3F6E' : 'transparent', color: '#fff', fontSize: 11, lineHeight: '13px', textAlign: 'center' }),
+}
+const TEAM_WORD = { 2: 'Two', 3: 'Three', 4: 'Four' }
+
+function FormatRow({ name, desc, on, onClick }) {
+  return (
+    <button type="button" role="radio" aria-checked={on} style={T.row} onClick={onClick}>
+      <span style={{ minWidth: 0 }}>
+        <span style={T.name}>{name}</span>
+        <span style={T.desc}>{desc}</span>
+      </span>
+      <span style={T.radio(on)} />
+    </button>
+  )
+}
+
 function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams, setNumTeams, tournamentFormat, setTournamentFormat, bonusGames, setBonusGames, onBack, onFinish, loading, submitError }) {
   const validCounts = getValidTeamCounts(playerCount)
-  // Create Trip is always available once a tournament choice is made — when there
-  // aren't enough players for teams yet, they can be assigned later.
+  // Create Trip is available once a choice is made — when there aren't enough
+  // players for teams yet, they can be assigned later.
   const canFinish = hasTournament !== null
   const [bonusOpen, setBonusOpen] = useState(false)
   const toggleBonus = id =>
     setBonusGames(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
 
+  // A team choice keeps (or restores) a team count; an individual choice means no teams.
+  function pickFormat(c) {
+    setHasTournament(true)
+    setTournamentFormat(c.format)
+    if (c.teams) { if (numTeams === 0) setNumTeams(validCounts[0] ?? 2) }
+    else { setNumTeams(0); setBonusGames([]) }
+  }
+  function pickNone() {
+    setHasTournament(false); setNumTeams(2); setBonusGames([])
+  }
+  const isOn = c => hasTournament === true && tournamentFormat === c.format && (c.teams ? numTeams !== 0 : numTeams === 0)
+  const withTeams = hasTournament === true && numTeams !== 0
+  const group = (label, choices) => (
+    <div>
+      <p className="wz-stripe">{label}</p>
+      <div style={T.list} role="radiogroup" aria-label={label}>
+        {choices.map(c => <FormatRow key={c.key} name={c.name} desc={c.desc} on={isOn(c)} onClick={() => pickFormat(c)} />)}
+      </div>
+    </div>
+  )
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+      {group('Teams', WIZARD_CHOICES.filter(c => c.teams))}
+      {group('Individual', WIZARD_CHOICES.filter(c => !c.teams))}
       <div>
-        <p className="tournament-question">Set up a tournament?</p>
-        <div className="yes-no-row">
-          <button
-            className={`yes-no-btn ${hasTournament === true ? 'selected' : ''}`}
-            onClick={() => setHasTournament(true)}
-          >
-            Yes
-          </button>
-          <button
-            className={`yes-no-btn ${hasTournament === false ? 'selected' : ''}`}
-            onClick={() => { setHasTournament(false); setNumTeams(2); setBonusGames([]) }}
-          >
-            No
-          </button>
+        <p className="wz-stripe">No tournament</p>
+        <div style={T.list} role="radiogroup" aria-label="No tournament">
+          <FormatRow name="Just for fun" desc="Scores and stats only — no standings." on={hasTournament === false} onClick={pickNone} />
         </div>
       </div>
 
-      {hasTournament === true && (
-        <>
-          <div>
-            <p className="field-label" style={{ marginBottom: 10 }}>Tournament Format</p>
-            <div className="format-options">
-              {/* Display order only: Standard on the left, Points on the right.
-                  Values/defaults/logic are unchanged. */}
-              <button
-                type="button"
-                className={`format-option ${tournamentFormat === 'standard_match_play' ? 'selected' : ''}`}
-                onClick={() => setTournamentFormat('standard_match_play')}
-              >
-                <span className="format-option-name">Standard Match Play</span>
-                <span className="format-option-desc">Win the match by leading more holes than remain. Results in W, L, or H per round.</span>
-              </button>
-              <button
-                type="button"
-                className={`format-option ${tournamentFormat === 'points_match_play' ? 'selected' : ''}`}
-                onClick={() => setTournamentFormat('points_match_play')}
-              >
-                <span className="format-option-name">Point Match Play</span>
-                <span className="format-option-desc">Earn 1 point per hole won. Points accumulate across all rounds.</span>
-              </button>
-            </div>
-          </div>
-
+      {withTeams && (
+        <div>
+          <p style={T.fieldLabel}>
+            Number of teams <span style={{ letterSpacing: '1px', fontWeight: 500 }}>· {playerCount} player{playerCount !== 1 ? 's' : ''}</span>
+          </p>
           {validCounts.length > 0 ? (
-            <div>
-              <p className="field-label" style={{ marginBottom: 10 }}>
-                Number of Teams
-                <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: 6 }}>
-                  ({playerCount} player{playerCount !== 1 ? 's' : ''})
-                </span>
-              </p>
-              <div className="team-count-options">
-                {validCounts.map(n => (
-                  <button
-                    key={n}
-                    className={`team-count-btn ${numTeams === n ? 'selected' : ''}`}
-                    onClick={() => setNumTeams(n)}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
+            <div style={T.seg} role="radiogroup" aria-label="Number of teams">
+              {validCounts.map((n, i) => (
+                <button key={n} type="button" role="radio" aria-checked={numTeams === n} style={T.segBtn(numTeams === n, i === 0)}
+                  onClick={() => setNumTeams(n)}>{TEAM_WORD[n] || n}</button>
+              ))}
             </div>
           ) : (
-            <p style={{ fontSize: 13, color: '#7A8FA6', margin: 0 }}>
-              You can assign teams later in Commissioner Tools once more players join.
-            </p>
+            <p style={T.note}>You can assign teams later in Commissioner Tools once more players join.</p>
           )}
+        </div>
+      )}
 
-          {/* Bonus games — optional trip-long team games, chosen once here (no way
-              to change after the trip is created). Data-driven from BONUS_GAMES. */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setBonusOpen(o => !o)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-                background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit',
-                color: '#1B3F6E', fontSize: 14, fontWeight: 800, letterSpacing: 0.3,
-              }}
-            >
-              <span>Add a bonus game{bonusGames.length ? ` (${bonusGames.length})` : ''}</span>
-              <span style={{ color: '#7A8FA6', fontSize: 12 }}>{bonusOpen ? '▲' : '▼'}</span>
-            </button>
-            {bonusOpen && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                {BONUS_GAMES.map(g => {
-                  const on = bonusGames.includes(g.id)
-                  return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => toggleBonus(g.id)}
-                      style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 10, textAlign: 'left', width: '100%',
-                        background: on ? 'rgba(27,63,110,0.06)' : '#fff', cursor: 'pointer', fontFamily: 'inherit',
-                        border: `1px solid ${on ? '#1B3F6E' : '#DDE3EA'}`, borderRadius: 10, padding: '12px 14px',
-                      }}
-                    >
-                      <span style={{
-                        flexShrink: 0, width: 20, height: 20, borderRadius: 6, marginTop: 1,
-                        border: `2px solid ${on ? '#1B3F6E' : '#C4CEDA'}`, background: on ? '#1B3F6E' : '#fff',
-                        color: '#fff', fontSize: 13, fontWeight: 900, lineHeight: '16px', textAlign: 'center',
-                      }}>{on ? '✓' : ''}</span>
-                      <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 14, fontWeight: 800, color: '#0D1B2A' }}>{g.name}</span>
-                        <span style={{ display: 'block', fontSize: 12, color: '#7A8FA6', marginTop: 2, lineHeight: 1.4 }}>{g.blurb}</span>
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </>
+      {/* Bonus games — optional trip-long team games, chosen once here (no way to
+          change after the trip is created). Hidden without teams. Data-driven from BONUS_GAMES. */}
+      {withTeams && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setBonusOpen(o => !o)}
+            aria-expanded={bonusOpen}
+            style={{ ...T.row, borderTop: '1px solid #E3E1DA', padding: '12px 2px' }}
+          >
+            <span style={{ ...T.name, fontSize: 16 }}>Add a bonus game{bonusGames.length ? ` (${bonusGames.length})` : ''}</span>
+            <span style={{ marginLeft: 'auto', color: '#9AA6B5', fontSize: 18, transform: bonusOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>›</span>
+          </button>
+          {bonusOpen && BONUS_GAMES.map(g => {
+            const on = bonusGames.includes(g.id)
+            return (
+              <button key={g.id} type="button" role="checkbox" aria-checked={on} onClick={() => toggleBonus(g.id)}
+                style={{ ...T.row, alignItems: 'flex-start' }}>
+                <span style={T.check(on)}>{on ? '✓' : ''}</span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ ...T.name, fontSize: 16 }}>{g.name}</span>
+                  <span style={T.desc}>{g.blurb}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
       )}
 
       {submitError && <p className="error-msg">{submitError}</p>}
@@ -597,7 +609,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
 
 // ── Main Wizard ───────────────────────────────────────────────────
 
-const STEP_TITLES = ['Create a Trip', 'Day Schedule', 'Add Players', 'Tournament']
+const STEP_TITLES = ['Create a Trip', 'Daily Schedule', 'Add Players', 'Set Up a Tournament']
 
 export default function TripWizard() {
   const { user } = useAuth()
@@ -712,7 +724,7 @@ export default function TripWizard() {
         team_mode: !!hasTournament,
         // Bonus games are team games — only kept when a tournament (teams) exists.
         // One-time choice: there's no way to change this after the trip is created.
-        bonus_games: hasTournament ? bonusGames : [],
+        bonus_games: hasTournament && numTeams ? bonusGames : [],
         created_by: user.id,
         status: 'active',
         start_date: startDate,
@@ -840,6 +852,16 @@ export default function TripWizard() {
 
   const progressPct = ((step + 1) / STEP_TITLES.length) * 100
 
+  // Cancel: leave the wizard without creating anything. Asks first once anything
+  // has been entered. Goes back to wherever the wizard was opened from (Home, the
+  // menu, the dashboard); with no in-app history (e.g. opened directly), Home.
+  function handleCancel() {
+    const started = step > 0 || tripName.trim() || startDate
+    if (started && !window.confirm('Cancel creating this trip? Nothing will be saved.')) return
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1)
+    else navigate('/home', { replace: true })
+  }
+
   return (
     <div className="wizard-page">
       <div className="wizard-header">
@@ -848,7 +870,10 @@ export default function TripWizard() {
             <p className="wizard-brand">Trip Clubhouse</p>
             <p className="wizard-title">{STEP_TITLES[step]}</p>
           </div>
-          <span className="wizard-step-indicator">{step + 1} / {STEP_TITLES.length}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button type="button" className="wz-cancel" onClick={handleCancel} disabled={loading}>Cancel</button>
+            <span className="wizard-step-indicator">{step + 1} / {STEP_TITLES.length}</span>
+          </div>
         </div>
         <div className="wizard-progress-track">
           <div className="wizard-progress-fill" style={{ width: `${progressPct}%` }} />

@@ -8,9 +8,12 @@
 //                                 (playerStats.js), gross and net, off-the-low strokes
 //   • fire holes / fire streak  → computePlayerStats (net only, via fireStatsByPlayer)
 // Each day says whether its rounds were practice (day.practice).
+// Stableford / Stroke Play trips (opts.gameType): no matches, so Points Defended is
+// left out; "Most Points" is net Stableford points (Stableford) or left out (stroke
+// play); net stats use full playing handicaps (computePlayerStats).
 // Days come from the rounds' own dates, so there is no "today" or clock here —
 // a day appears once one of its rounds is fully scored, and stays for the trip.
-import { analyzeScoring, matchPlayPointsByPlayer, isPracticeRound, isNoneRound, roundCourseName } from './scoring.js'
+import { analyzeScoring, matchPlayPointsByPlayer, isPracticeRound, isNoneRound, roundCourseName, isIndividualGameType } from './scoring.js'
 import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
 
 // Category rows, in display order. `hi` = higher is better (leader is the max).
@@ -64,7 +67,10 @@ function dayNumberOf(date, tripStartDate) {
 //   [{ date, dayNumber, roundCount, courseName, practice, leaders: [{ ...category, leader }] }]
 //   practice: 'all' (every completed round was practice) | 'some' | null
 //   where leader is { value, ids } or null.
-export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null } = {}) {
+export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null, gameType = null } = {}) {
+  const individual = isIndividualGameType(gameType)
+  const categories = LEADER_CATEGORIES.filter(c =>
+    !(individual && c.key === 'defended') && !(gameType === 'stroke' && c.key === 'points'))
   const rounds = (data.rounds || []).filter(r => r && r.date && !isNoneRound(r))
   const byDate = new Map()
   for (const r of rounds) {
@@ -87,8 +93,10 @@ export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null 
     if (complete.length === 0) continue
 
     const completeBundle = { ...base, rounds: complete, courseHoles: courseHolesFromRounds(complete) }
-    const points = matchPlayPointsByPlayer(completeBundle, allowance)
-    const { stats } = computePlayerStats({ ...completeBundle, drinks: [] }, allowance)
+    const { stats } = computePlayerStats({ ...completeBundle, drinks: [] }, allowance, { gameType })
+    const points = gameType === 'stableford'
+      ? new Map(tripPlayers.map(p => [p.id, stats.get(p.id)?.stableford ?? null]))
+      : matchPlayPointsByPlayer(completeBundle, allowance)
 
     // Drinks are a whole-day thing: every round that day, finished or not.
     const drinks = new Map()
@@ -124,7 +132,7 @@ export function buildDailyLeaders(data, { allowance = 100, tripStartDate = null 
       roundCount: complete.length,
       practice: (() => { const n = complete.filter(isPracticeRound).length; return n === 0 ? null : n === complete.length ? 'all' : 'some' })(),
       courseName: complete.length === 1 ? (roundCourseName(complete[0]) || null) : null,
-      leaders: LEADER_CATEGORIES.map(c => ({ ...c, leader: leadersOf(values[c.key] || new Map(), c) })),
+      leaders: categories.map(c => ({ ...c, leader: leadersOf(values[c.key] || new Map(), c) })),
     })
   }
   return days

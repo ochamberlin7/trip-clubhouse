@@ -31,9 +31,34 @@ export function tournamentFormatLabel(format) {
       return 'Standard Match Play'
     case 'stroke_play':
       return 'Stroke Play'
+    case 'stableford':
+      return 'Stableford'
     default:
       return format ? format.replace(/_/g, ' ') : '—'
   }
+}
+
+// ── Game types: which kind of main format a trip plays ──────────────────────
+// trips.format holds the main format; trips.team_mode says a tournament is set up.
+// Trips created with "no tournament" were always stored as format 'stroke_play' with
+// team_mode false — those stay "no tournament" (null here) so nothing changes for them.
+//   'match'      → Point Match Play (+ legacy 'match_play') or Standard Match Play
+//   'stableford' → net Stableford (individual; teams = sum of members' points)
+//   'stroke'     → stroke play (gross + net totals)
+//   null         → no tournament
+export function tripGameType(trip) {
+  if (!trip) return null
+  const f = trip.format
+  if (f === 'stableford') return 'stableford'
+  if (f === 'stroke_play') return trip.team_mode ? 'stroke' : null
+  return trip.team_mode === false ? null : 'match'
+}
+
+// Stableford and stroke play are individual games: every player gets strokes off
+// their FULL playing handicap (course handicap × allowance), not match play's
+// shots-off-the-low within the pairing.
+export function isIndividualGameType(gameType) {
+  return gameType === 'stableford' || gameType === 'stroke'
 }
 
 // Parse a display tee time ("7:45 AM") into minutes from midnight; null → 0.
@@ -1269,9 +1294,18 @@ export function leaderboardRounds(rounds = []) {
 // Returns { rounds, perRound: Map(teamId → Map(roundId → { pts, scored, matches, completed })),
 //           total: Map(teamId → pts), ranked: [{ teamId, total, rank }] } — rank is
 //           competition-style (ties share a rank).
-export function teamStandings({ format, rounds, pairings = [], pairingPlayers = [], scoresMap = {}, hcpByPlayer = {}, teeRowMap = {}, allowance = 100, teamIds = [] }) {
+//
+// format 'stableford': a team's round score = the SUM of every member's Stableford
+// points (members from teamOfPlayer: playerId → teamId); `scored` = holes its
+// members have played, so an unplayed round still reads '—'.
+// format 'stroke_play': a team's round score = the SUM of every member's net score
+// to par (decided 2026-10-29); LOWEST wins, so `ranked` sorts ascending and
+// `lowWins` is true.
+export function teamStandings({ format, rounds, pairings = [], pairingPlayers = [], scoresMap = {}, hcpByPlayer = {}, teeRowMap = {}, allowance = 100, teamIds = [], teamOfPlayer = {} }) {
   const lbRounds = leaderboardRounds(rounds)
   const standard = format === 'standard_match_play'
+  const stableford = format === 'stableford'
+  const stroke = format === 'stroke_play'
   const perRound = new Map(teamIds.map(id => [id, new Map()]))
   const total = new Map(teamIds.map(id => [id, 0]))
   const cell = (teamId, roundId) => {
@@ -1280,12 +1314,33 @@ export function teamStandings({ format, rounds, pairings = [], pairingPlayers = 
     if (!m.has(roundId)) m.set(roundId, { pts: 0, scored: 0, matches: 0, completed: 0 })
     return m.get(roundId)
   }
+  // finished: round ids whose play is over — every match decided (match play) or
+  // every player who started has holed out (Stableford / stroke play). The lead
+  // line says "Final" only once every round is in here.
+  const finished = new Set()
   for (const r of lbRounds) {
     for (const id of teamIds) cell(id, r.id)
-    if (standard) {
+    if (stableford || stroke) {
+      const entries = teamOfPlayer instanceof Map ? [...teamOfPlayer] : Object.entries(teamOfPlayer)
+      let started = 0, done = 0
+      for (const [playerId, teamId] of entries) {
+        if (!teamId || !perRound.has(teamId)) continue
+        const res = strokeRoundResult({ round: r, playerId, scoresMap, hcpByPlayer, teeRowMap, allowance })
+        if (!res) continue
+        started++
+        if (res.complete) done++
+        const pts = stableford ? res.points : (res.netToPar ?? 0)
+        const c = cell(teamId, r.id)
+        c.pts += pts
+        c.scored += res.holes
+        total.set(teamId, total.get(teamId) + pts)
+      }
+      if (started > 0 && done === started) finished.add(r.id)
+    } else if (standard) {
       // Each pairing's match result goes to the real team on that side.
-      for (const row of liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)) {
-        if (!row.hasMatch) continue
+      const rows = liveStandardMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap).filter(row => row.hasMatch)
+      if (rows.length && rows.every(row => row.complete)) finished.add(r.id)
+      for (const row of rows) {
         for (const [teamId, side] of [[row.team1_id, 'T1'], [row.team2_id, 'T2']]) {
           if (!teamId) continue
           const c = cell(teamId, r.id)
@@ -1299,7 +1354,10 @@ export function teamStandings({ format, rounds, pairings = [], pairingPlayers = 
       }
     } else {
       // Hole wins per side → the real team on that side (team1_id = slots 1&2).
-      for (const row of liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)) {
+      const rows = liveMatchTally(r, pairings, pairingPlayers, scoresMap, hcpByPlayer, allowance, teeRowMap)
+      const matches = rows.filter(row => row.hasMatch)
+      if (matches.length && matches.every(row => row.complete)) finished.add(r.id)
+      for (const row of rows) {
         for (const [teamId, pts] of [[row.team1_id, row.t1pts], [row.team2_id, row.t2pts]]) {
           if (!teamId) continue
           const c = cell(teamId, r.id)
@@ -1310,13 +1368,108 @@ export function teamStandings({ format, rounds, pairings = [], pairingPlayers = 
       }
     }
   }
-  const sorted = [...total].sort((a, b) => b[1] - a[1])
+  const sorted = [...total].sort((a, b) => (stroke ? a[1] - b[1] : b[1] - a[1]))
   let rank = 0
   const ranked = sorted.map(([teamId, t], i) => {
     if (i === 0 || t !== sorted[i - 1][1]) rank = i + 1
     return { teamId, total: t, rank }
   })
-  return { rounds: lbRounds, perRound, total, ranked }
+  // Has anything been played at all (any team, any round)?
+  const anyScored = [...perRound.values()].some(m => [...m.values()].some(c => c.scored > 0 || c.completed > 0))
+  return { rounds: lbRounds, perRound, total, ranked, lowWins: stroke, anyScored, finished }
+}
+
+// ── Stableford + stroke play (individual formats) ────────────────────────────
+// Net Stableford points for one hole: 2 + par − net, never below 0. So double
+// bogey or worse 0 · bogey 1 · par 2 · birdie 3 · eagle 4 · albatross 5.
+// null when the hole isn't scored (or has no par).
+export function stablefordPoints(net, par) {
+  if (net == null || par == null) return null
+  return Math.max(0, 2 + Number(par) - Number(net))
+}
+
+// One player's round in an individual format, hole by hole. Strokes come from the
+// player's full playing handicap for that round (their own tee × allowance) —
+// playingHandicapForRound — NOT shots-off-the-low. Totals only cover holes played,
+// so a round in progress reads as "to par thru N".
+// Returns null when the player hasn't scored a hole yet, else
+//   { holes, totalHoles, complete, playingHcp, gross, net, par, grossToPar, netToPar,
+//     points, perHole: [{ hole, par, gross, strokes, net, points } | null] }
+export function strokeRoundResult({ round, playerId, scoresMap = {}, hcpByPlayer = {}, teeRowMap = {}, allowance = 100 }) {
+  if (!round) return null
+  const get = (m, k) => (m instanceof Map ? m.get(k) : m?.[k])
+  const holes = Array.isArray(round.holes) && round.holes.length ? round.holes : null
+  const totalHoles = holes?.length || 18
+  const playingHcp = playingHandicapForRound(round, get(teeRowMap, `${round.id}:${playerId}`), get(hcpByPlayer, playerId), allowance)
+  let n = 0, gross = 0, net = 0, par = 0, points = 0, parKnown = true
+  const perHole = []
+  for (let hole = 1; hole <= totalHoles; hole++) {
+    const g = scoresMap[`${round.id}:${playerId}:${hole}`]
+    if (g == null) { perHole.push(null); continue }
+    const h = holes?.[hole - 1]
+    const p = h?.par ?? null
+    const strokes = strokesOnHole(playingHcp, strokeIndexOfHole(h))
+    const nt = g - strokes
+    const pts = stablefordPoints(nt, p)
+    n++; gross += g; net += nt
+    if (p == null) parKnown = false; else par += p
+    points += pts ?? 0
+    perHole.push({ hole, par: p, gross: g, strokes, net: nt, points: pts })
+  }
+  if (n === 0) return null
+  return {
+    holes: n, totalHoles, complete: n === totalHoles, playingHcp,
+    gross, net, par: parKnown ? par : null,
+    grossToPar: parKnown ? gross - par : null,
+    netToPar: parKnown ? net - par : null,
+    points, perHole,
+  }
+}
+
+// Competition ranking ("1, 2, 2, 4") over [{ id, value }] — `better(a, b)` true
+// when a beats b. Entries with value null go last, unranked (rank null).
+function rankBy(entries, better) {
+  const scored = entries.filter(e => e.value != null).sort((a, b) => (better(a.value, b.value) ? -1 : better(b.value, a.value) ? 1 : 0))
+  let rank = 0
+  const out = scored.map((e, i) => {
+    if (i === 0 || e.value !== scored[i - 1].value) rank = i + 1
+    return { ...e, rank }
+  })
+  return [...out, ...entries.filter(e => e.value == null).map(e => ({ ...e, rank: null }))]
+}
+
+// Individual standings for Stableford / stroke play, per round and for the trip.
+//   gameType : 'stableford' (most points wins) | 'stroke' (lowest net to par wins)
+//   playerIds: every trip player to list (unplayed players show with no score)
+// Returns {
+//   rounds,                                   // the counting rounds (leaderboardRounds)
+//   perRound: Map(playerId → Map(roundId → strokeRoundResult)),
+//   total:    Map(playerId → { rounds, holes, gross, net, grossToPar, netToPar, points }),
+//   ranked:   [{ id, value, rank }],          // trip ranking (rank null = no score yet)
+//   rankedByRound: Map(roundId → [{ id, value, rank }]),
+// }
+export function individualStandings({ gameType, rounds, playerIds = [], scoresMap = {}, hcpByPlayer = {}, teeRowMap = {}, allowance = 100 }) {
+  const lbRounds = leaderboardRounds(rounds)
+  const stableford = gameType === 'stableford'
+  const perRound = new Map(playerIds.map(id => [id, new Map()]))
+  const total = new Map()
+  for (const id of playerIds) {
+    const t = { rounds: 0, holes: 0, gross: 0, net: 0, grossToPar: 0, netToPar: 0, points: 0 }
+    for (const r of lbRounds) {
+      const res = strokeRoundResult({ round: r, playerId: id, scoresMap, hcpByPlayer, teeRowMap, allowance })
+      if (!res) continue
+      perRound.get(id).set(r.id, res)
+      t.rounds++; t.holes += res.holes; t.gross += res.gross; t.net += res.net; t.points += res.points
+      t.grossToPar = t.grossToPar == null || res.grossToPar == null ? null : t.grossToPar + res.grossToPar
+      t.netToPar = t.netToPar == null || res.netToPar == null ? null : t.netToPar + res.netToPar
+    }
+    total.set(id, t)
+  }
+  const better = stableford ? (a, b) => a > b : (a, b) => a < b
+  const valueOf = res => (res ? (stableford ? res.points : res.netToPar) : null)
+  const ranked = rankBy(playerIds.map(id => ({ id, value: total.get(id).holes ? valueOf(total.get(id)) : null })), better)
+  const rankedByRound = new Map(lbRounds.map(r => [r.id, rankBy(playerIds.map(id => ({ id, value: valueOf(perRound.get(id).get(r.id)) })), better)]))
+  return { rounds: lbRounds, perRound, total, ranked, rankedByRound }
 }
 
 // Same standings from raw table rows (scores / player_rounds arrays), for places
@@ -1329,7 +1482,9 @@ export function teamStandingsFromRows({ format, rounds, scores = [], pairings = 
   const hcpByPlayer = {}
   for (const tp of tripPlayers) hcpByPlayer[tp.id] = tp.handicap_index
   const ids = teamIds || [...new Set(tripPlayers.map(p => p.team_id).filter(Boolean))]
-  return teamStandings({ format, rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance, teamIds: ids })
+  const teamOfPlayer = {}
+  for (const tp of tripPlayers) if (tp.team_id) teamOfPlayer[tp.id] = tp.team_id
+  return teamStandings({ format, rounds, pairings, pairingPlayers, scoresMap, hcpByPlayer, teeRowMap, allowance, teamIds: ids, teamOfPlayer })
 }
 
 // "Champion", "Tied for 1st", "2nd place", … for a team's finish (rank from
@@ -1545,9 +1700,12 @@ export function pointsDefendedByPlayer(bundle, allowance = 100) {
 //                       round (streaks never carry between rounds)
 //   • fireHolesTotal  = total flagged holes summed across every round
 // Takes the same data bundle as analyzeScoring.
+// opts.fullHandicap (Stableford / Stroke Play trips): net uses each player's FULL
+// playing handicap instead of the pairing's shots off the low.
 export function fireStatsByPlayer(
   { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds = [] },
-  allowance = 100
+  allowance = 100,
+  { fullHandicap = false } = {}
 ) {
   const hcpByPlayer = new Map(tripPlayers.map(p => [p.id, p.handicap_index]))
   const roundById = new Map(rounds.map(r => [r.id, r]))
@@ -1592,7 +1750,9 @@ export function fireStatsByPlayer(
         const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
         return { id, ch: rawCourseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
       })
-      const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
+      const playing = fullHandicap
+        ? new Map(ids.map(id => [id, playingHandicapForRound(round, teeRowByRoundPlayer.get(`${r.id}:${id}`), hcpByPlayer.get(id), allowance)]))
+        : shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
 
       for (const id of ids) {
         // Build the fire boolean array for this player/round (scorecard logic).

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
-import { playerName, firstName } from '../lib/scoring'
+import { playerName, firstName, tripGameType, isIndividualGameType } from '../lib/scoring'
 import { computePlayerStats } from '../lib/playerStats'
 import { rankRows } from '../lib/statRanks'
 import { shortNameResolver } from '../lib/playerNames'
@@ -164,6 +164,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   const [dragging, setDragging] = useState(false) // disables the snap transition while dragging
   const [panelHeights, setPanelHeights] = useState([]) // measured px height per panel
   const allowance = trip?.handicap_allowance ?? 100
+  const gameType = tripGameType(trip)
 
   const roundIds = rounds.map(r => r.id)
   const roundKey = roundIds.join(',')
@@ -279,8 +280,8 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
 
   const computed = useMemo(() => {
     if (!data) return null
-    return computePlayerStats({ rounds, ...data }, allowance)
-  }, [data, roundKey, allowance]) // eslint-disable-line react-hooks/exhaustive-deps
+    return computePlayerStats({ rounds, ...data }, allowance, { gameType })
+  }, [data, roundKey, allowance, gameType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!data) return <div className="empty-state">Loading stats…</div>
 
@@ -298,8 +299,11 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   // Card 1 adapts to the tournament type: Standard Match Play tracks holes won,
   // Point Match Play tracks points earned. It's mode-independent (match-play
   // scoring is always net) so the Gross/Net toggle never changes it.
+  // Stableford trips show Stableford points instead; Stroke Play has no points
+  // tile; neither has Points Defended (there are no matches).
   const isStandard = trip?.format === 'standard_match_play'
   const primaryCard = { title: isStandard ? 'Holes Won' : 'Points Won', icon: '+1' }
+  const individual = isIndividualGameType(gameType)
 
   const canEditDrinks = p => !!isCommissioner || (!!currentUserId && (p.user_id === currentUserId || p.claimed_user_id === currentUserId))
 
@@ -325,9 +329,12 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
 
   // Tiles per tab. Single stats sit two across; Gross | Net tiles run full width.
   const scoringTiles = [
-    { key: 'primary', title: primaryCard.title, tone: 'good', cols: single(one('primary')) },
-    // Halved holes a player saved alone (net, like Points Won).
-    { key: 'defended', title: 'Points Defended', tone: 'good', cols: single(one('defended')), info: STAT_INFO.defended },
+    ...(gameType === 'stableford' ? [{ key: 'stableford', title: 'Stableford Points', tone: 'good', cols: single(one('stableford')) }] : []),
+    ...(individual ? [] : [
+      { key: 'primary', title: primaryCard.title, tone: 'good', cols: single(one('primary')) },
+      // Halved holes a player saved alone (net, like Points Won).
+      { key: 'defended', title: 'Points Defended', tone: 'good', cols: single(one('defended')), info: STAT_INFO.defended },
+    ]),
     { key: 'eagles', title: 'Eagles', tone: 'good', cols: both('eagles') },
     { key: 'birdies', title: 'Birdies', tone: 'good', cols: both('birdies') },
     { key: 'pars', title: 'Pars', tone: 'good', cols: both('pars') },

@@ -118,7 +118,9 @@ function DayTiles({ day, nameById }) {
   const byKey = new Map(day.leaders.map(c => [c.key, c]))
   return (
     <div style={st.body}>
-      {LAYOUT.map(t => t.type === 'wide'
+      {/* Tiles whose categories the trip's format leaves out (e.g. Points Defended
+          on a Stableford trip) are skipped. */}
+      {LAYOUT.filter(t => (t.type === 'wide' ? byKey.has(t.key) : byKey.has(t.gross) || byKey.has(t.net))).map(t => t.type === 'wide'
         ? <WideTile key={t.key} title={t.title} tone={t.tone} cat={byKey.get(t.key)} nameById={nameById} info={t.info} />
         : <SplitTile key={t.title} title={t.title} tone={t.tone} gross={byKey.get(t.gross)} net={byKey.get(t.net)} labels={t.labels} nameById={nameById} />)}
     </div>
@@ -136,7 +138,7 @@ function dayLabel(day) {
   return [when, day.practice === 'all' ? practice : null, what, day.practice === 'some' ? practice : null].filter(Boolean).join(' · ')
 }
 
-export default function DailyLeadersCard({ tripId, tripStartDate, allowance = 100 }) {
+export default function DailyLeadersCard({ tripId, tripStartDate, allowance = 100, gameType = null }) {
   const [data, setData] = useState(null)
   const [tick, setTick] = useState(0)             // bumped by realtime changes to refetch
   const [resumeTick, setResumeTick] = useState(0) // bumped on background → resume
@@ -195,7 +197,7 @@ export default function DailyLeadersCard({ tripId, tripStartDate, allowance = 10
     return () => { cancelled = true }
   }, [tripId, tick, resumeTick])
 
-  const days = useMemo(() => (data ? buildDailyLeaders(data, { allowance, tripStartDate }) : []), [data, allowance, tripStartDate])
+  const days = useMemo(() => (data ? buildDailyLeaders(data, { allowance, tripStartDate, gameType }) : []), [data, allowance, tripStartDate, gameType])
   const nameById = useMemo(() => new Map((data?.tripPlayers || []).map(tp => [tp.id, playerName(tp, data.profileMap)])), [data])
 
   const latest = Math.max(0, days.length - 1)
