@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { rowUI, SaveLink } from './DisclosureRow'
-import { saveTripName, timeZoneOptions, TRIP_NAME_MAX } from '../lib/tripSettings'
+import { saveTripName, TRIP_NAME_MAX } from '../lib/tripSettings'
 
 const st = {
   page: { fontFamily: 'var(--font-inter)', display: 'flex', flexDirection: 'column', gap: 22, color: '#0D1B2A' },
@@ -108,7 +108,7 @@ export function StripeDanger({ note, label, busyLabel, onClick, busy }) {
   )
 }
 
-// ── Editors for the two settings that are new here ──────────────────
+// ── Trip name editor (new here) ─────────────────────────────────────
 
 export function TripNameBody({ tripId, name, onSaved, onClose }) {
   const [value, setValue] = useState(name || '')
@@ -127,36 +127,6 @@ export function TripNameBody({ tripId, name, onSaved, onClose }) {
     <>
       <label htmlFor="ct-trip-name" style={rowUI.fieldLabel}>Trip name</label>
       <input id="ct-trip-name" style={rowUI.input} value={value} maxLength={TRIP_NAME_MAX} onChange={e => setValue(e.target.value)} />
-      <SaveLink onClick={save} saving={saving} saved={saved} error={err} />
-    </>
-  )
-}
-
-export function TimeZoneBody({ tripId, timeZone, onSaved, onClose }) {
-  const [value, setValue] = useState(timeZone || '')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [err, setErr] = useState('')
-  async function save() {
-    setErr('')
-    const next = value || null
-    if (next === (timeZone || null)) { onClose?.(); return }
-    setSaving(true)
-    const { error } = await supabase.from('trips').update({ time_zone: next }).eq('id', tripId)
-    setSaving(false)
-    if (error) { setErr(`Save failed: ${error.message || 'unknown error'}`); return }
-    setSaved(true); setTimeout(() => setSaved(false), 2000)
-    onSaved?.(next)
-    onClose?.()
-  }
-  return (
-    <>
-      <label htmlFor="ct-time-zone" style={rowUI.fieldLabel}>Time zone</label>
-      <select id="ct-time-zone" style={rowUI.input} value={value} onChange={e => setValue(e.target.value)}>
-        <option value="">Not set (each phone uses its own)</option>
-        {timeZoneOptions(timeZone).map(z => <option key={z.value} value={z.value}>{z.label}</option>)}
-      </select>
-      <div style={rowUI.note}>Where the trip is. Decides when each trip day starts, so everyone sees the same “today” wherever they are.</div>
       <SaveLink onClick={save} saving={saving} saved={saved} error={err} />
     </>
   )

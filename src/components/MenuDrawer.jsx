@@ -28,8 +28,7 @@ import SupportForm from './SupportForm'
 import { loadMyTrips } from '../lib/myTrips'
 import SwipeDeleteRow from './SwipeDeleteRow'
 import TripDatesBody from './TripDatesBody'
-import { StripePage, StripeSection, StripeRow, StripeInviteRow, StripeDanger, TripNameBody, TimeZoneBody } from './StripeRows'
-import { timeZoneLabel } from '../lib/tripSettings'
+import { StripePage, StripeSection, StripeRow, StripeInviteRow, StripeDanger, TripNameBody } from './StripeRows'
 import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -2083,7 +2082,7 @@ function DeleteTripAction({ tripName, onDelete }) {
 // Commissioner Tools (redesign "1C", 2026-10-30): wizard-style grey stripes
 // grouping The Trip / Players & Teams / The Game, with Fraunces + Inter.
 // Each row expands in place to edit; Roster opens Players & Teams.
-function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, tripTimeZone, onDatesChanged, onNameChanged, onTimeZoneChanged, onOpenPlayers, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
+function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, onDatesChanged, onNameChanged, onOpenPlayers, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const teams = data.teams || []
   const joined = data.joinedCount ?? 0
@@ -2098,9 +2097,6 @@ function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, 
         </StripeRow>
         <StripeRow label="Dates" value={fmtDatesShort(tripStartDate, tripEndDate)} detail={days ? `${days} day${days === 1 ? '' : 's'}` : null}>
           {({ close }) => <TripDatesBody tripId={tripId} startDate={tripStartDate} endDate={tripEndDate} onSaved={onDatesChanged} onClose={close} />}
-        </StripeRow>
-        <StripeRow label="Time zone" value={timeZoneLabel(tripTimeZone)}>
-          {({ close }) => <TimeZoneBody tripId={tripId} timeZone={tripTimeZone} onSaved={onTimeZoneChanged} onClose={close} />}
         </StripeRow>
       </StripeSection>
 
@@ -2438,7 +2434,7 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
 // ── main component ────────────────────────────────────────────────
 export default function MenuDrawer({
   open, onClose,
-  tripId, groupId, groupName, tripName, tripStartDate, tripEndDate, tripTimeZone = null,
+  tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
   inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, tournamentOn = true, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
@@ -3119,10 +3115,8 @@ export default function MenuDrawer({
             tripName={tripName}
             tripStartDate={tripStartDate}
             tripEndDate={tripEndDate}
-            tripTimeZone={tripTimeZone}
             onOpenPlayers={() => setPage('players')}
             onNameChanged={name => { patchTrip?.(tripId, { name }); onTripUpdate?.() }}
-            onTimeZoneChanged={tz => { patchTrip?.(tripId, { time_zone: tz }); onTripUpdate?.() }}
             onDatesChanged={(start, end) => {
               // Trip dates + every round/meal/lodging date moved: refresh the
               // trip and rounds, and drop the cached Schedule page so it reloads.

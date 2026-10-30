@@ -1566,7 +1566,6 @@ export default function TripDashboard() {
         tripName={trip.name}
         tripStartDate={trip.start_date}
         tripEndDate={trip.end_date}
-        tripTimeZone={trip.time_zone ?? null}
         inviteToken={trip.invite_token}
         isCommissioner={canManage}
         readOnly={readOnly}
