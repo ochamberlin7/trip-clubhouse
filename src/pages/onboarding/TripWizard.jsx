@@ -451,10 +451,40 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 
 // ── Step 3: Tournament Setup ──────────────────────────────────────
 
+// Editorial "1A" layout (picked 2026-10-29): serif format names on hairline rows,
+// small-caps group labels, a squared segmented control for teams. One list of
+// radio rows replaces the old Yes/No question — "No tournament" is its own row.
+const T = {
+  NAVY: '#1B3F6E',
+  group: { fontSize: 10.5, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: '#8C97A6', margin: '0 0 2px' },
+  list: { borderTop: '1px solid #1B3F6E' },
+  row: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid #E3E1DA', padding: '14px 2px', cursor: 'pointer', fontFamily: 'inherit' },
+  name: { display: 'block', fontFamily: "var(--font-serif)", fontSize: 18, color: '#0D1B2A', lineHeight: 1.2 },
+  desc: { display: 'block', fontSize: 13, color: '#7C8796', marginTop: 3, lineHeight: 1.4 },
+  radio: on => ({ flexShrink: 0, marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%', boxSizing: 'border-box', border: on ? '5px solid #1B3F6E' : '1.5px solid #9AA6B5' }),
+  seg: { display: 'flex', border: '1px solid #1B3F6E', borderRadius: 4, overflow: 'hidden' },
+  segBtn: (on, first) => ({ flex: 1, padding: '10px 0', background: on ? '#1B3F6E' : 'transparent', color: on ? '#fff' : '#1B3F6E', border: 'none', borderLeft: first ? 'none' : '1px solid #1B3F6E', fontSize: 14, fontWeight: 600, letterSpacing: '0.3px', cursor: 'pointer', fontFamily: 'inherit' }),
+  note: { fontSize: 13, color: '#7C8796', margin: 0, lineHeight: 1.45 },
+  check: on => ({ flexShrink: 0, width: 16, height: 16, borderRadius: 2, marginTop: 3, boxSizing: 'border-box', border: `1.5px solid ${on ? '#1B3F6E' : '#9AA6B5'}`, background: on ? '#1B3F6E' : 'transparent', color: '#fff', fontSize: 11, lineHeight: '13px', textAlign: 'center' }),
+}
+const TEAM_WORD = { 2: 'Two', 3: 'Three', 4: 'Four' }
+
+function FormatRow({ name, desc, on, onClick }) {
+  return (
+    <button type="button" role="radio" aria-checked={on} style={T.row} onClick={onClick}>
+      <span style={{ minWidth: 0 }}>
+        <span style={T.name}>{name}</span>
+        <span style={T.desc}>{desc}</span>
+      </span>
+      <span style={T.radio(on)} />
+    </button>
+  )
+}
+
 function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams, setNumTeams, tournamentFormat, setTournamentFormat, bonusGames, setBonusGames, onBack, onFinish, loading, submitError }) {
   const validCounts = getValidTeamCounts(playerCount)
-  // Create Trip is always available once a tournament choice is made — when there
-  // aren't enough players for teams yet, they can be assigned later.
+  // Create Trip is available once a choice is made — when there aren't enough
+  // players for teams yet, they can be assigned later.
   const canFinish = hasTournament !== null
   // Stableford / Stroke Play are individual games — teams are optional ("None").
   const individual = isIndividualFormat(tournamentFormat)
@@ -462,131 +492,90 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
   const toggleBonus = id =>
     setBonusGames(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
 
+  function pickFormat(f) {
+    setHasTournament(true)
+    setTournamentFormat(f.id)
+    // "No teams" only exists for individual formats; match play needs teams.
+    if (!f.individual && numTeams === 0) setNumTeams(validCounts[0] ?? 2)
+  }
+  function pickNone() {
+    setHasTournament(false); setNumTeams(2); setBonusGames([])
+  }
+  const isOn = id => hasTournament === true && tournamentFormat === id
+  const group = (label, formats) => (
+    <div>
+      <p style={T.group}>{label}</p>
+      <div style={T.list} role="radiogroup" aria-label={label}>
+        {formats.map(f => <FormatRow key={f.id} name={f.name} desc={f.desc} on={isOn(f.id)} onClick={() => pickFormat(f)} />)}
+      </div>
+    </div>
+  )
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+      {group('Team versus team', MAIN_FORMATS.filter(f => !f.individual))}
+      {group('Individual', MAIN_FORMATS.filter(f => f.individual))}
       <div>
-        <p className="tournament-question">Set up a tournament?</p>
-        <div className="yes-no-row">
-          <button
-            className={`yes-no-btn ${hasTournament === true ? 'selected' : ''}`}
-            onClick={() => setHasTournament(true)}
-          >
-            Yes
-          </button>
-          <button
-            className={`yes-no-btn ${hasTournament === false ? 'selected' : ''}`}
-            onClick={() => { setHasTournament(false); setNumTeams(2); setBonusGames([]) }}
-          >
-            No
-          </button>
+        <p style={T.group}>No tournament</p>
+        <div style={T.list} role="radiogroup" aria-label="No tournament">
+          <FormatRow name="Just for fun" desc="Scores and stats only — no standings." on={hasTournament === false} onClick={pickNone} />
         </div>
       </div>
 
       {hasTournament === true && (
-        <>
-          <div>
-            <p className="field-label" style={{ marginBottom: 10 }}>Tournament Format</p>
-            <div className="format-options" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-              {MAIN_FORMATS.map(f => (
-                <button
-                  key={f.id}
-                  type="button"
-                  className={`format-option ${tournamentFormat === f.id ? 'selected' : ''}`}
-                  onClick={() => {
-                    setTournamentFormat(f.id)
-                    // "No teams" only exists for individual formats; match play needs teams.
-                    if (!f.individual && numTeams === 0) setNumTeams(validCounts[0] ?? 2)
-                  }}
-                >
-                  <span className="format-option-name">{f.name}</span>
-                  <span className="format-option-desc">{f.desc}</span>
-                </button>
+        <div>
+          <p style={{ ...T.group, marginBottom: 10 }}>
+            Teams <span style={{ letterSpacing: '1px', fontWeight: 500 }}>· {playerCount} player{playerCount !== 1 ? 's' : ''}</span>
+          </p>
+          {(validCounts.length > 0 || individual) ? (
+            <div style={T.seg} role="radiogroup" aria-label="Number of teams">
+              {individual && (
+                <button type="button" role="radio" aria-checked={numTeams === 0} style={T.segBtn(numTeams === 0, true)}
+                  onClick={() => { setNumTeams(0); setBonusGames([]) }}>None</button>
+              )}
+              {validCounts.map((n, i) => (
+                <button key={n} type="button" role="radio" aria-checked={numTeams === n} style={T.segBtn(numTeams === n, !individual && i === 0)}
+                  onClick={() => setNumTeams(n)}>{TEAM_WORD[n] || n}</button>
               ))}
             </div>
-          </div>
-
-          {validCounts.length > 0 ? (
-            <div>
-              <p className="field-label" style={{ marginBottom: 10 }}>
-                Number of Teams
-                <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: 6 }}>
-                  ({playerCount} player{playerCount !== 1 ? 's' : ''})
-                </span>
-              </p>
-              <div className="team-count-options">
-                {individual && (
-                  <button
-                    className={`team-count-btn ${numTeams === 0 ? 'selected' : ''}`}
-                    onClick={() => { setNumTeams(0); setBonusGames([]) }}
-                  >
-                    None
-                  </button>
-                )}
-                {validCounts.map(n => (
-                  <button
-                    key={n}
-                    className={`team-count-btn ${numTeams === n ? 'selected' : ''}`}
-                    onClick={() => setNumTeams(n)}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p style={{ fontSize: 13, color: '#7A8FA6', margin: 0 }}>
+          ) : null}
+          {validCounts.length === 0 && (
+            <p style={{ ...T.note, marginTop: individual ? 10 : 0 }}>
               {individual
-                ? 'Everyone plays for themselves — no teams needed.'
+                ? 'Not enough players for even teams yet — everyone plays for themselves.'
                 : 'You can assign teams later in Commissioner Tools once more players join.'}
             </p>
           )}
+        </div>
+      )}
 
-          {/* Bonus games — optional trip-long team games (hidden with no teams), chosen once here (no way
-              to change after the trip is created). Data-driven from BONUS_GAMES. */}
-          {numTeams !== 0 && <div>
-            <button
-              type="button"
-              onClick={() => setBonusOpen(o => !o)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-                background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit',
-                color: '#1B3F6E', fontSize: 14, fontWeight: 800, letterSpacing: 0.3,
-              }}
-            >
-              <span>Add a bonus game{bonusGames.length ? ` (${bonusGames.length})` : ''}</span>
-              <span style={{ color: '#7A8FA6', fontSize: 12 }}>{bonusOpen ? '▲' : '▼'}</span>
-            </button>
-            {bonusOpen && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                {BONUS_GAMES.map(g => {
-                  const on = bonusGames.includes(g.id)
-                  return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => toggleBonus(g.id)}
-                      style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 10, textAlign: 'left', width: '100%',
-                        background: on ? 'rgba(27,63,110,0.06)' : '#fff', cursor: 'pointer', fontFamily: 'inherit',
-                        border: `1px solid ${on ? '#1B3F6E' : '#DDE3EA'}`, borderRadius: 10, padding: '12px 14px',
-                      }}
-                    >
-                      <span style={{
-                        flexShrink: 0, width: 20, height: 20, borderRadius: 6, marginTop: 1,
-                        border: `2px solid ${on ? '#1B3F6E' : '#C4CEDA'}`, background: on ? '#1B3F6E' : '#fff',
-                        color: '#fff', fontSize: 13, fontWeight: 900, lineHeight: '16px', textAlign: 'center',
-                      }}>{on ? '✓' : ''}</span>
-                      <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 14, fontWeight: 800, color: '#0D1B2A' }}>{g.name}</span>
-                        <span style={{ display: 'block', fontSize: 12, color: '#7A8FA6', marginTop: 2, lineHeight: 1.4 }}>{g.blurb}</span>
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>}
-        </>
+      {/* Bonus games — optional trip-long team games, chosen once here (no way to
+          change after the trip is created). Hidden without teams. Data-driven from BONUS_GAMES. */}
+      {hasTournament === true && numTeams !== 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setBonusOpen(o => !o)}
+            aria-expanded={bonusOpen}
+            style={{ ...T.row, borderTop: '1px solid #E3E1DA', padding: '12px 2px' }}
+          >
+            <span style={{ ...T.name, fontSize: 16 }}>Add a bonus game{bonusGames.length ? ` (${bonusGames.length})` : ''}</span>
+            <span style={{ marginLeft: 'auto', color: '#9AA6B5', fontSize: 18, transform: bonusOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>›</span>
+          </button>
+          {bonusOpen && BONUS_GAMES.map(g => {
+            const on = bonusGames.includes(g.id)
+            return (
+              <button key={g.id} type="button" role="checkbox" aria-checked={on} onClick={() => toggleBonus(g.id)}
+                style={{ ...T.row, alignItems: 'flex-start' }}>
+                <span style={T.check(on)}>{on ? '✓' : ''}</span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ ...T.name, fontSize: 16 }}>{g.name}</span>
+                  <span style={T.desc}>{g.blurb}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
       )}
 
       {submitError && <p className="error-msg">{submitError}</p>}
@@ -607,7 +596,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
 
 // ── Main Wizard ───────────────────────────────────────────────────
 
-const STEP_TITLES = ['Create a Trip', 'Day Schedule', 'Add Players', 'Tournament']
+const STEP_TITLES = ['Create a Trip', 'Day Schedule', 'Add Players', 'Set Up a Tournament']
 
 export default function TripWizard() {
   const { user } = useAuth()
