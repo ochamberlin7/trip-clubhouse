@@ -84,7 +84,7 @@ export async function selectAllRows(build) {
 export async function loadCareerData(client, tripIds = []) {
   if (!tripIds.length) return []
   const [tripsRes, roundsRes, playersRes] = await Promise.all([
-    client.from('trips').select('id, name, start_date, end_date, time_zone, handicap_allowance, format, team_mode').in('id', tripIds),
+    client.from('trips').select('id, name, start_date, end_date, time_zone, handicap_allowance, format, team_mode, created_by').in('id', tripIds),
     client.from('rounds').select('*').in('trip_id', tripIds),
     client.from('trip_players').select('id, trip_id, user_id, claimed_user_id, handicap_index, team_id').in('trip_id', tripIds),
   ])

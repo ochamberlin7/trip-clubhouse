@@ -318,8 +318,8 @@ export default function HomePage() {
               return cells
             })()}
           </button>
-          {/* No badges yet (once loaded): say how to start. */}
-          {badges && bestBadges(badges, 1).length === 0 && (
+          {/* Not on any trip yet (only Joined the Club, once loaded): say how to start. */}
+          {badges && bestBadges(badges, 4).every(b => b.id === 'joined') && (
             <p style={h.shelfNote}>Plan or join a trip to start earning badges.</p>
           )}
         </section>
