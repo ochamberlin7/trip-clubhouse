@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase'
 import RangeCalendar from './RangeCalendar'
 import { rowUI, SaveLink } from './DisclosureRow'
 import { mealTypeLabel } from '../lib/meals'
-import { planTripDateChange, rpcArgsForPlan, tripLength, nextRange } from '../lib/tripDates'
+import { planTripDateChange, rpcArgsForPlan, nextRange } from '../lib/tripDates'
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -19,8 +19,6 @@ function fmt(iso) {
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`
 
 const ui = {
-  current: { fontSize: 13.5, color: '#2C3E50', margin: '2px 0 12px' },
-  rangeText: { marginTop: 10, fontFamily: 'var(--font-serif)', fontSize: 18, color: '#0D1B2A' },
   moveRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, padding: '6px 0', borderBottom: '1px solid #EEF1F4', color: '#0D1B2A' },
   moveName: { fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
   moveDates: { color: '#5E6E80', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' },
@@ -86,9 +84,6 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
     return <div style={rowUI.note}>Scores have been entered, so the trip dates are locked.</div>
   }
 
-  const oldLen = tripLength(startDate, endDate)
-  const newLen = newStart && newEnd ? tripLength(newStart, newEnd) : 0
-  const diff = newLen - oldLen
   const cutCount = plan?.ok ? plan.cutRounds.length + plan.cutMeals.length + plan.cutStays.length : 0
 
   function pick(iso) {
@@ -128,21 +123,7 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
 
   return (
     <>
-      <div style={ui.current}>Current: {fmt(startDate)} – {fmt(endDate)} · {plural(oldLen, 'day')}</div>
       <RangeCalendar startDate={newStart} endDate={newEnd} onSelect={pick} markStart={startDate} markEnd={endDate} />
-      <div style={ui.rangeText}>
-        {newStart
-          ? (newEnd ? `${fmt(newStart)} – ${fmt(newEnd)} · ${plural(newLen, 'day')}` : `${fmt(newStart)} – select end date`)
-          : 'Tap a date to set the new start'}
-      </div>
-
-      {!!(newStart && newEnd) && diff !== 0 && (
-        <div style={rowUI.note}>
-          Day 1 stays Day 1. {diff > 0
-            ? `${plural(diff, 'new day')} ${diff === 1 ? 'is' : 'are'} added at the end.`
-            : `The last ${plural(-diff, 'day')} ${diff === -1 ? 'is' : 'are'} cut.`}
-        </div>
-      )}
 
       {plan?.ok && (
         <>
@@ -156,6 +137,11 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
             </div>
           ))}
 
+          {!nothingScheduled && plan.removedDays.length > 0 && cutCount === 0 && (
+            <div style={rowUI.note}>
+              Nothing is scheduled on {plan.removedDays.map(fmt).join(', ')}, so nothing is removed.
+            </div>
+          )}
           {cutCount > 0 && (
             <div style={ui.warn}>
               <strong>Removed with the cut {plan.removedDays.length === 1 ? 'day' : 'days'} ({plan.removedDays.map(fmt).join(', ')}):</strong>
