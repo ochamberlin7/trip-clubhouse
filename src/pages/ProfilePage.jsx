@@ -12,6 +12,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroup } from '../context/GroupContext'
 import { rowUI, Disclosure, SaveLink, Toggle } from '../components/DisclosureRow'
+import { ProfileBadge } from '../components/ProfileAvatar'
+import { useAvatarPicker } from '../components/useAvatarPicker'
 import { isPushSupported, pushPermission, enablePush, disablePush, hasActiveSubscription, markPromptDismissed, clearPromptDismissed } from '../lib/push'
 
 // Display-only phone formatting — matches Signup.jsx. Stored value is raw digits.
@@ -39,12 +41,19 @@ const hdr = {
   eyebrow: { fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#7A8FA6' },
   title: { fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: '#0D1B2A', lineHeight: 1.1 },
   body: { padding: 16 },
+  photoWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '8px 0 20px' },
+  photo: { width: 96, height: 96, fontSize: 30, background: '#E7EDF5', color: '#33455E', border: 'none', boxShadow: 'none' },
+  photoActions: { display: 'flex', gap: 18, alignItems: 'center' },
+  photoLink: { background: 'none', border: 'none', padding: '4px 0', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: '#1B3F6E', cursor: 'pointer' },
+  photoRemove: { background: 'none', border: 'none', padding: '4px 0', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, color: '#7A8FA6', cursor: 'pointer' },
+  photoErr: { fontSize: 12, color: '#C0392B', textAlign: 'center' },
 }
 
 export default function ProfilePage() {
   const { user } = useAuth()
   const { activeTrip } = useGroup()
   const navigate = useNavigate()
+  const photo = useAvatarPicker()
 
   // Dev/testing: the designated account can flip the ACTIVE trip's test_mode here
   // (same flag the Score tab uses). Only this account sees the row.
@@ -219,6 +228,24 @@ export default function ProfilePage() {
       </div>
 
       <div style={hdr.body}>
+        {/* Profile photo — shown in the menu drawer and Clubhouse. */}
+        <div style={hdr.photoWrap}>
+          <button onClick={photo.pick} disabled={photo.busy} aria-label={photo.hasPhoto ? 'Change profile photo' : 'Add profile photo'}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%' }}>
+            <ProfileBadge style={{ ...hdr.photo, opacity: photo.busy ? 0.5 : 1 }} />
+          </button>
+          {photo.input}
+          <div style={hdr.photoActions}>
+            <button style={hdr.photoLink} onClick={photo.pick} disabled={photo.busy}>
+              {photo.busy ? 'Saving…' : photo.hasPhoto ? 'Change photo' : 'Add photo'}
+            </button>
+            {photo.hasPhoto && !photo.busy && (
+              <button style={hdr.photoRemove} onClick={() => { if (window.confirm('Remove your profile photo?')) photo.remove() }}>Remove</button>
+            )}
+          </div>
+          {photo.error && <div style={hdr.photoErr}>{photo.error}</div>}
+        </div>
+
         <Disclosure label="Name" value={nameValue}>
           {({ close }) => (<>
             <div style={{ display: 'flex', gap: 8 }}>
