@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import CourseSearchInput from '../../components/CourseSearchInput'
 import { BONUS_GAMES } from '../../lib/bonusGames'
+import { MAIN_FORMATS, isIndividualFormat } from '../../lib/gameFormats'
 import { formatPhone } from '../../lib/formatPhone'
 
 // ── helpers ──────────────────────────────────────────────────────
@@ -455,6 +456,8 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
   // Create Trip is always available once a tournament choice is made — when there
   // aren't enough players for teams yet, they can be assigned later.
   const canFinish = hasTournament !== null
+  // Stableford / Stroke Play are individual games — teams are optional ("None").
+  const individual = isIndividualFormat(tournamentFormat)
   const [bonusOpen, setBonusOpen] = useState(false)
   const toggleBonus = id =>
     setBonusGames(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
@@ -483,25 +486,22 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
         <>
           <div>
             <p className="field-label" style={{ marginBottom: 10 }}>Tournament Format</p>
-            <div className="format-options">
-              {/* Display order only: Standard on the left, Points on the right.
-                  Values/defaults/logic are unchanged. */}
-              <button
-                type="button"
-                className={`format-option ${tournamentFormat === 'standard_match_play' ? 'selected' : ''}`}
-                onClick={() => setTournamentFormat('standard_match_play')}
-              >
-                <span className="format-option-name">Standard Match Play</span>
-                <span className="format-option-desc">Win the match by leading more holes than remain. Results in W, L, or H per round.</span>
-              </button>
-              <button
-                type="button"
-                className={`format-option ${tournamentFormat === 'points_match_play' ? 'selected' : ''}`}
-                onClick={() => setTournamentFormat('points_match_play')}
-              >
-                <span className="format-option-name">Point Match Play</span>
-                <span className="format-option-desc">Earn 1 point per hole won. Points accumulate across all rounds.</span>
-              </button>
+            <div className="format-options" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+              {MAIN_FORMATS.map(f => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`format-option ${tournamentFormat === f.id ? 'selected' : ''}`}
+                  onClick={() => {
+                    setTournamentFormat(f.id)
+                    // "No teams" only exists for individual formats; match play needs teams.
+                    if (!f.individual && numTeams === 0) setNumTeams(validCounts[0] ?? 2)
+                  }}
+                >
+                  <span className="format-option-name">{f.name}</span>
+                  <span className="format-option-desc">{f.desc}</span>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -514,6 +514,14 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
                 </span>
               </p>
               <div className="team-count-options">
+                {individual && (
+                  <button
+                    className={`team-count-btn ${numTeams === 0 ? 'selected' : ''}`}
+                    onClick={() => { setNumTeams(0); setBonusGames([]) }}
+                  >
+                    None
+                  </button>
+                )}
                 {validCounts.map(n => (
                   <button
                     key={n}
@@ -527,13 +535,15 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
             </div>
           ) : (
             <p style={{ fontSize: 13, color: '#7A8FA6', margin: 0 }}>
-              You can assign teams later in Commissioner Tools once more players join.
+              {individual
+                ? 'Everyone plays for themselves. You can add teams later in Commissioner Tools.'
+                : 'You can assign teams later in Commissioner Tools once more players join.'}
             </p>
           )}
 
-          {/* Bonus games — optional trip-long team games, chosen once here (no way
+          {/* Bonus games — optional trip-long team games (hidden with no teams), chosen once here (no way
               to change after the trip is created). Data-driven from BONUS_GAMES. */}
-          <div>
+          {numTeams !== 0 && <div>
             <button
               type="button"
               onClick={() => setBonusOpen(o => !o)}
@@ -575,7 +585,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
                 })}
               </div>
             )}
-          </div>
+          </div>}
         </>
       )}
 
@@ -712,7 +722,7 @@ export default function TripWizard() {
         team_mode: !!hasTournament,
         // Bonus games are team games — only kept when a tournament (teams) exists.
         // One-time choice: there's no way to change this after the trip is created.
-        bonus_games: hasTournament ? bonusGames : [],
+        bonus_games: hasTournament && numTeams ? bonusGames : [],
         created_by: user.id,
         status: 'active',
         start_date: startDate,

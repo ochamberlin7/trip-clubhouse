@@ -1563,6 +1563,7 @@ export default function TripDashboard() {
         currentUserId={user?.id}
         handicapAllowance={trip.handicap_allowance ?? 100}
         tournamentFormat={trip.format}
+        tournamentOn={!!trip.team_mode}
         bonusGames={trip.bonus_games}
         purseAmount={trip.purse_amount}
         showPurseOnHome={trip.show_purse_on_home}

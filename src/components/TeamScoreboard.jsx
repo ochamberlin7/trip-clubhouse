@@ -1,6 +1,6 @@
 import { teamColor, colorIndexOf, getTeamDisplayName } from '../lib/teamColors'
 import { roundCourseName } from '../lib/scoring'
-import { fmtPoints, roundCell, dayLabel, leadLine } from '../lib/leaderboardView'
+import { fmtTotal, roundCell, dayLabel, leadLine } from '../lib/leaderboardView'
 
 // Ryder Cup–style Leaderboard: solid team-coloured blocks side by side with each
 // team's total (one row, however many teams — fixed team order), a lead line, then
@@ -42,7 +42,7 @@ export default function TeamScoreboard({ trip, teams, rounds, standings, format 
         {teams.map(t => (
           <div key={t.id} style={{ ...sb.block, background: solid(t) }}>
             <div style={sb.blockName}>{getTeamDisplayName(t)}</div>
-            <div style={{ ...sb.blockNum, fontSize: numSize }}>{standings ? fmtPoints(standings.total.get(t.id) ?? 0) : '·'}</div>
+            <div style={{ ...sb.blockNum, fontSize: numSize }}>{standings ? fmtTotal(format, standings.total.get(t.id) ?? 0) : '·'}</div>
           </div>
         ))}
       </div>

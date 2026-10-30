@@ -47,8 +47,11 @@ export function tripFinishes(perTrip = [], userId, now = new Date()) {
     if (!t.trip?.team_mode || tripTimeStatus(t.trip, now) !== 'past') continue
     const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
     if (!me?.team_id) continue
-    const { ranked } = teamStandingsFromRows({ format: t.trip.format, ...t })
-    if (!ranked.some(r => r.total > 0)) continue // nothing scored → no finish yet
+    const st = teamStandingsFromRows({ format: t.trip.format, ...t })
+    const { ranked } = st
+    // Nothing scored → no finish yet. Stroke play totals can be 0 or below par, so
+    // it asks "was anything played"; the other formats keep the points check.
+    if (st.lowWins ? !st.anyScored : !ranked.some(r => r.total > 0)) continue
     const label = finishLabel(ranked, me.team_id)
     if (label) out.set(t.tripId, label)
   }

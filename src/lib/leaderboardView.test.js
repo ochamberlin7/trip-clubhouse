@@ -45,3 +45,15 @@ test('leadLine: all square, final, default names, nothing yet', () => {
   const none = standings({ A: {}, B: {} }, [{ teamId: 'A', total: 0, rank: 1 }, { teamId: 'B', total: 0, rank: 1 }])
   assert.equal(leadLine({ format: 'point_match_play', teams, standings: none, rounds }), 'No scores yet')
 })
+
+test('stroke play: cells and totals read as net to par; lowest leads', async () => {
+  const { fmtTotal: ft } = await import('./leaderboardView.js')
+  assert.equal(ft('stroke_play', 0), 'E')
+  assert.equal(ft('stroke_play', 3), '+3')
+  assert.equal(ft('stableford', 41), '41')
+  assert.equal(roundCell('stroke_play', { pts: -2, scored: 18 }), '-2')
+  const teams = [{ id: 'A', name: 'Bandits' }, { id: 'B', name: 'Outlaws' }]
+  const perRound = new Map([['A', new Map([['R1', { pts: 2, scored: 36 }]])], ['B', new Map([['R1', { pts: 7, scored: 36 }]])]])
+  const s = { perRound, total: new Map([['A', 2], ['B', 7]]), ranked: [{ teamId: 'A', total: 2, rank: 1 }, { teamId: 'B', total: 7, rank: 2 }] }
+  assert.equal(leadLine({ format: 'stroke_play', teams, standings: s, rounds: [{ id: 'R1' }] }), 'Bandits win by 5 · Final')
+})
