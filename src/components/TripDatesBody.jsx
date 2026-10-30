@@ -100,12 +100,11 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
     setNewStart(a); setNewEnd(b); setErr(''); setTouched(true)
   }
 
-  // Save: a shorter trip asks first (centered pop-up); anything else saves now.
+  // Save always asks first (centered pop-up); Change does the save.
   function save() {
     setErr('')
     if (!plan || !plan.ok) { setErr(plan?.error || 'Pick a start and end date.'); return }
-    if (plan.lengthChange < 0) { setConfirming(true); return }
-    commit()
+    setConfirming(true)
   }
 
   async function commit() {
@@ -178,8 +177,8 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
       {confirming && createPortal(
         <div style={ui.overlay} onClick={() => !saving && setConfirming(false)}>
           <div style={ui.sheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div style={ui.sheetTitle}>Shorten the trip?</div>
-            <div style={ui.sheetText}>Shortening the trip may cause data to be removed. This cannot be undone. Are you sure?</div>
+            <div style={ui.sheetTitle}>Change trip dates?</div>
+            <div style={ui.sheetText}>Changing the dates of the trip may delete data. This cannot be undone. Are you sure?</div>
             <div style={ui.sheetBtns}>
               <button type="button" style={ui.cancelBtn} onClick={() => setConfirming(false)} disabled={saving}>Cancel</button>
               <button type="button" style={ui.dangerBtn} onClick={commit} disabled={saving}>{saving ? 'Saving…' : 'Change'}</button>
