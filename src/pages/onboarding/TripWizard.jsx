@@ -460,8 +460,12 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 // radio rows replaces the old Yes/No question — "No tournament" is its own row.
 const T = {
   NAVY: '#1B3F6E',
-  group: { fontSize: 10.5, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: '#8C97A6', margin: '0 0 2px' },
-  list: { borderTop: '1px solid #1B3F6E' },
+  // Section headings (Teams / Individual / No tournament): bold navy small caps
+  // over a 2px navy rule, so the three groups read clearly apart.
+  group: { fontSize: 12.5, fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase', color: '#1B3F6E', margin: '0 0 6px' },
+  list: { borderTop: '2px solid #1B3F6E' },
+  // Field labels inside a section (e.g. Number of teams) stay light grey.
+  fieldLabel: { fontSize: 10.5, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: '#8C97A6', margin: '0 0 10px' },
   row: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid #E3E1DA', padding: '14px 2px', cursor: 'pointer', fontFamily: 'inherit' },
   name: { display: 'block', fontFamily: "var(--font-serif)", fontSize: 18, color: '#0D1B2A', lineHeight: 1.2 },
   desc: { display: 'block', fontSize: 13, color: '#7C8796', marginTop: 3, lineHeight: 1.4 },
@@ -528,7 +532,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
 
       {withTeams && (
         <div>
-          <p style={{ ...T.group, marginBottom: 10 }}>
+          <p style={T.fieldLabel}>
             Number of teams <span style={{ letterSpacing: '1px', fontWeight: 500 }}>· {playerCount} player{playerCount !== 1 ? 's' : ''}</span>
           </p>
           {validCounts.length > 0 ? (
