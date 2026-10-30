@@ -7,7 +7,7 @@ import ProfileAvatar from '../../components/ProfileAvatar'
 import SwipeDeleteRow, { TrashIcon } from '../../components/SwipeDeleteRow'
 import { splitTrips, daysUntilTrip, restoreDaysLeft } from '../../lib/myTrips'
 import { useMyCareer } from '../../lib/useMyCareer'
-import { BADGES } from '../../lib/badges'
+import { bestBadges } from '../../lib/badges'
 import BadgeMedallion from '../../components/BadgeMedallion'
 import { getTripPhase } from '../../lib/scoring'
 import { inviteTokenFrom } from '../../lib/inviteMatch'
@@ -19,60 +19,76 @@ import { inviteTokenFrom } from '../../lib/inviteMatch'
 
 const NAVY = '#1B3F6E'
 const INK = '#0D1B2A'
-const MUTED = '#8A96A3'
-// Clubhouse look ("3A"): the app's navy page, white cards, gold accents.
-const GOLD = '#B08A3E'        // fills: New trip pill, initials circle, card edge
-const GOLD_SOFT = '#D8C08A'   // text on navy: brand, section titles, links
-const ON_NAVY = '#C7D6EA'     // quiet text on navy
-const NAVY_LINE = '#2C5F8A'   // card borders on navy
+const MUTED = '#5F6B7A'       // small labels / sub-lines (passes contrast on white)
+const HAIR = '#E3E1DA'        // warm hairline, as in the trip wizard
+const RULE = '#C9D3E0'        // section-heading side rules
+const BORDER = '#D5D9DF'
+// Letterhead look (2026-10-29): navy masthead with the app name in gold serif,
+// a large profile photo, the user's name and a short gold rule ("2B" layout,
+// "2A" title font, "2C" gold); light page below in the trip wizard's editorial
+// style (serif names, small-caps labels, hairlines, square corners).
+const GOLD = '#B08A3E'        // masthead rule, profile-photo ring
+const GOLD_TEXT = '#D8C08A'   // "Trip Clubhouse" on navy
 const SERIF = "'Playfair Display', Georgia, serif"
+const CAPS = { fontWeight: 700, letterSpacing: '1.6px', textTransform: 'uppercase' }
 
 const h = {
-  // Clear the phone's status bar / notch (time, Wi-Fi, battery) and home bar.
-  page: { minHeight: '100vh', background: 'var(--navy)', padding: '18px 16px 40px', paddingTop: 'calc(env(safe-area-inset-top) + 18px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)', boxSizing: 'border-box' },
-  inner: { maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 },
-  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  brand: { fontFamily: SERIF, fontSize: 30, fontWeight: 700, lineHeight: 1.1, letterSpacing: '0.3px', color: GOLD_SOFT },
-  // Next-trip countdown / live card: light outline; tapping anywhere opens the trip.
-  heroCard: { display: 'block', width: '100%', textAlign: 'center', padding: '20px 16px', background: '#fff', border: `1px solid ${GOLD}`, borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' },
-  // Lining (capital-height) figures so the serif digits sit on the baseline — the
-  // default old-style 9 dips below it and leaves extra space above.
-  big: { fontFamily: SERIF, fontSize: 64, fontWeight: 700, lineHeight: 1, color: INK, fontVariantNumeric: 'lining-nums', fontFeatureSettings: '"lnum" 1' },
-  eyebrow: { fontSize: 11, letterSpacing: '1.6px', color: MUTED, fontWeight: 700, textTransform: 'uppercase' },
-  heroName: { fontFamily: SERIF, fontSize: 22, fontWeight: 700, color: INK, marginTop: 6 },
-  heroSub: { fontSize: 13, color: MUTED, marginTop: 2 },
-  pills: { display: 'flex', gap: 8 },
-  pill: { flex: 1, padding: '9px 0', borderRadius: 999, border: `1px solid ${NAVY_LINE}`, background: '#fff', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  pillPrimary: { background: GOLD, borderColor: GOLD, color: '#fff' },
-  secRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' },
-  sec: { fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: GOLD_SOFT, margin: 0 },
-  link: { background: 'none', border: 'none', padding: 0, color: GOLD_SOFT, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  page: { minHeight: '100vh', background: 'var(--bg0)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)', boxSizing: 'border-box' },
+  // Masthead: clears the phone's status bar / notch.
+  mast: { background: NAVY, padding: '26px 16px 30px', paddingTop: 'calc(env(safe-area-inset-top) + 26px)', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  brand: { margin: 0, fontFamily: SERIF, fontSize: 40, fontWeight: 700, lineHeight: 1.05, letterSpacing: '0.2px', color: GOLD_TEXT, textAlign: 'center' },
+  // Large profile photo (initials if none) in a gold ring; opens the Profile page.
+  avatar: { position: 'static', top: 'auto', right: 'auto', marginTop: 22, width: 84, height: 84, fontSize: 26, border: `2px solid ${GOLD}`, boxShadow: `0 0 0 4px ${NAVY}, 0 0 0 5px rgba(176,138,62,0.5)` },
+  who: { margin: '14px 0 0', fontFamily: SERIF, fontSize: 24, fontWeight: 400, color: '#fff' },
+  goldRule: { width: 90, height: 2, background: GOLD, marginTop: 10 },
+  inner: { maxWidth: 480, margin: '0 auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 22 },
+  // Next-trip countdown / live card: sits below the masthead; tapping opens the trip.
+  heroCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginTop: 22, textAlign: 'center', padding: '22px 16px 20px', background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit', color: INK, boxSizing: 'border-box' },
+  // Lining (capital-height) figures so the serif digits sit on the baseline.
+  big: { marginTop: 10, fontFamily: SERIF, fontSize: 72, fontWeight: 700, lineHeight: 1, color: NAVY, fontVariantNumeric: 'lining-nums', fontFeatureSettings: '"lnum" 1' },
+  eyebrow: { fontSize: 10.5, letterSpacing: '1.8px', color: MUTED, fontWeight: 700, textTransform: 'uppercase' },
+  until: { marginTop: 6, fontFamily: SERIF, fontStyle: 'italic', fontSize: 17, color: '#2C3E50' },
+  heroName: { fontFamily: SERIF, fontSize: 23, fontWeight: 700, color: INK, marginTop: 10 },
+  heroSub: { fontSize: 13, color: MUTED, marginTop: 4 },
+  actions: { display: 'flex', flexDirection: 'column', gap: 8 },
+  actionRow: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 },
+  btn: { padding: '13px 0', borderRadius: 4, border: `1px solid ${NAVY}`, background: 'transparent', color: NAVY, fontSize: 12, ...CAPS, letterSpacing: '1.4px', cursor: 'pointer', fontFamily: 'inherit' },
+  btnPrimary: { background: NAVY, borderColor: NAVY, color: '#fff', fontSize: 13, padding: '15px 16px' },
+  sec: { display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 6px', fontSize: 11, fontWeight: 800, letterSpacing: '2.2px', textTransform: 'uppercase', color: NAVY },
+  secRule: { flex: 1, height: 1, background: RULE },
+  link: { display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', padding: '12px 0 0', color: NAVY, fontSize: 10.5, ...CAPS, cursor: 'pointer', fontFamily: 'inherit' },
   // Bottom-right footnote.
-  footLink: { display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-end', margin: '4px 0 0', padding: 0, background: 'none', border: 'none', color: ON_NAVY, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
-  seeAll: { display: 'block', width: '100%', padding: 11, background: '#FBFCFD', border: 'none', borderTop: '1px solid var(--bg2)', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  box: { background: '#fff', border: `1px solid ${NAVY_LINE}`, borderRadius: 14, overflow: 'hidden' },
-  row: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' },
-  rowLine: { borderTop: '1px solid var(--bg2)' },
-  tripName: { fontSize: 15, fontWeight: 700, color: INK },
+  footLink: { display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-end', margin: '4px 0 0', padding: 0, background: 'none', border: 'none', color: MUTED, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
+  box: { background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 3, overflow: 'hidden' },
+  row: { display: 'flex', alignItems: 'center', gap: 10, padding: '13px 14px', width: '100%', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: INK },
+  rowLine: { borderTop: `1px solid ${HAIR}` },
+  tripName: { fontFamily: SERIF, fontSize: 17, lineHeight: 1.2, color: INK },
   tripSub: { fontSize: 12, color: MUTED, marginTop: 2 },
-  tag: { marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap' },
-  chev: { color: '#A9B4C0', fontSize: 18, lineHeight: 1 },
-  empty: { border: '1.5px dashed rgba(199,214,234,0.45)', borderRadius: 14, padding: 14, textAlign: 'center', fontSize: 13, color: ON_NAVY, lineHeight: 1.45 },
-  stats: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'center', padding: '12px 4px' },
-  statNum: { display: 'block', fontSize: 20, fontWeight: 800, color: NAVY },
-  statLab: { fontSize: 11, color: MUTED },
+  chev: { marginLeft: 'auto', color: '#9AA6B5', fontSize: 20, lineHeight: 1 },
+  empty: { border: `1px dashed ${RULE}`, borderRadius: 3, padding: 14, textAlign: 'center', fontSize: 13, color: MUTED, lineHeight: 1.45 },
+  stats: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', textAlign: 'center', padding: '8px 0' },
+  statNum: { display: 'block', fontFamily: SERIF, fontSize: 28, fontWeight: 400, lineHeight: 1, color: INK, fontVariantNumeric: 'lining-nums', fontFeatureSettings: '"lnum" 1' },
+  statLab: { display: 'block', marginTop: 6, fontSize: 10, ...CAPS, color: MUTED },
+  statLine: { borderLeft: `1px solid ${BORDER}` },
   shelf: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', width: '100%' },
-  shelfCell: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 },
-  shelfName: { fontSize: 11, fontWeight: 600, color: '#fff', textAlign: 'center', lineHeight: 1.25 },
-  badge: { width: 58, height: 58, borderRadius: '50%', border: '1.5px dashed rgba(216,192,138,0.55)', boxSizing: 'border-box' },
+  shelfCell: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 },
+  shelfName: { fontSize: 11, fontWeight: 600, color: '#2C3E50', textAlign: 'center', lineHeight: 1.25 },
+  badge: { width: 58, height: 58, borderRadius: '50%', border: `1.5px dashed ${RULE}`, boxSizing: 'border-box' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  sheet: { background: '#fff', borderRadius: 14, padding: 22, width: '100%', maxWidth: 380, boxSizing: 'border-box' },
-  input: { width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #DDE3EA', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', marginTop: 12 },
+  sheet: { background: '#fff', borderRadius: 4, padding: 22, width: '100%', maxWidth: 380, boxSizing: 'border-box' },
+  input: { width: '100%', boxSizing: 'border-box', padding: '11px 12px', border: `1px solid ${BORDER}`, borderRadius: 3, fontSize: 15, fontFamily: 'inherit', marginTop: 12 },
 }
+// Dialog buttons (Cancel / Join / Delete / Restore) share the page's button look.
+h.pill = { ...h.btn, flex: 1 }
+h.pillPrimary = { background: NAVY, borderColor: NAVY, color: '#fff' }
 
-const TAG = {
-  live: { background: '#E1F2EB', color: '#0F6E56' },
-  upcoming: { background: '#EEF2F7', color: NAVY },
+// Section heading: small caps between two hairline rules.
+// Pass onClick to make the title itself a link (e.g. Trophy room).
+function SectionHead({ children, style, onClick }) {
+  const title = onClick
+    ? <button onClick={onClick} style={{ background: 'none', border: 'none', padding: '6px 0', margin: '-6px 0', font: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', color: 'inherit', cursor: 'pointer' }}>{children} ›</button>
+    : children
+  return <h2 style={{ ...h.sec, ...style }}><span style={h.secRule} />{title}<span style={h.secRule} /></h2>
 }
 
 const INVITE_MESSAGE = 'Join me on Trip Clubhouse to run your golf trip: pairings, live scores, leaderboards and the trash talk.'
@@ -91,8 +107,10 @@ function fmtRange(t) {
 
 // One trip row. The trip's commissioner can swipe left to delete it (soft delete,
 // restorable for 30 days); everyone else just taps to open it.
-function TripRow({ trip, status, first, unread, finish, onOpen, onDelete }) {
-  const parts = [fmtRange(trip), finish, trip.location].filter(Boolean)
+// No status pills: the Upcoming / Past sections say it; a live trip says
+// "Live now" in its sub-line and a past trip shows its finish there.
+function TripRow({ trip, live, first, unread, finish, onOpen, onDelete }) {
+  const parts = [live ? 'Live now' : null, fmtRange(trip), finish, trip.location].filter(Boolean)
   return (
     <SwipeDeleteRow canDelete={!!trip.canDelete} rowStyle={{ ...h.row, ...(first ? null : h.rowLine) }} outerStyle={first ? undefined : h.rowLine}
       coverBg="#fff" onPick={() => onOpen(trip.id)} onDelete={() => onDelete(trip)}>
@@ -103,9 +121,7 @@ function TripRow({ trip, status, first, unread, finish, onOpen, onDelete }) {
         </div>
         <div style={h.tripSub}>{parts.join(' · ')}</div>
       </span>
-      {status === 'live' && <span style={{ ...h.tag, ...TAG.live }}>Live</span>}
-      {status === 'upcoming' && <span style={{ ...h.tag, ...TAG.upcoming }}>Upcoming</span>}
-      <span style={{ ...h.chev, ...(status === 'past' ? { marginLeft: 'auto' } : null) }}>›</span>
+      <span style={h.chev}>›</span>
     </SwipeDeleteRow>
   )
 }
@@ -122,7 +138,7 @@ function JoinTripModal({ onClose, onJoin }) {
     <div style={h.overlay} onClick={onClose}>
       <div style={h.sheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
         <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK }}>Join a trip</div>
-        <div style={{ fontSize: 14, color: '#5A7290', marginTop: 6, lineHeight: 1.45 }}>Paste the invite link your commissioner sent you.</div>
+        <div style={{ fontSize: 14, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>Paste the invite link your commissioner sent you.</div>
         <input style={h.input} value={text} onChange={e => { setText(e.target.value); setErr(null) }} placeholder="thetripclubhouse.com/join/…" autoFocus />
         {err && <div style={{ fontSize: 12, color: '#C0392B', marginTop: 8 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
@@ -164,7 +180,8 @@ export default function HomePage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const firstName = (user?.user_metadata?.display_name || '').trim().split(/\s+/)[0]
+  const displayName = (user?.user_metadata?.display_name || '').trim()
+  const firstName = displayName.split(/\s+/)[0]
   const pastShown = showAllPast ? past : past.slice(0, 3)
 
   let hero
@@ -175,7 +192,7 @@ export default function HomePage() {
     hero = (
       <button style={h.heroCard} onClick={() => openTrip(next.id)}>
         <div style={{ ...h.eyebrow, color: '#0F6E56' }}>Live now{phase.dayNumber ? ` · Day ${phase.dayNumber} of ${phase.totalDays}` : ''}</div>
-        <div style={{ ...h.heroName, fontSize: 24 }}>{next.name}</div>
+        <div style={{ ...h.heroName, fontSize: 26 }}>{next.name}</div>
         <div style={h.heroSub}>{[fmtRange(next), next.location].filter(Boolean).join(' · ')}</div>
       </button>
     )
@@ -184,8 +201,9 @@ export default function HomePage() {
     const facts = [fmtRange(next), next.golfers ? `${next.golfers} players` : null, next.rounds ? `${next.rounds} rounds` : null].filter(Boolean)
     hero = (
       <button style={h.heroCard} onClick={() => openTrip(next.id)}>
+        <div style={h.eyebrow}>Next on the calendar</div>
         <div style={h.big}>{days ?? '—'}</div>
-        <div style={{ ...h.eyebrow, marginTop: 10 }}>{days === 1 ? 'Day until' : 'Days until'}</div>
+        <div style={h.until}>{days === 1 ? 'day until' : 'days until'}</div>
         <div style={h.heroName}>{next.name}</div>
         <div style={h.heroSub}>{facts.join(' · ')}</div>
       </button>
@@ -212,98 +230,94 @@ export default function HomePage() {
 
   return (
     <div style={h.page}>
-      <div style={h.inner}>
-        <div style={h.top}>
-          <div style={h.brand}>Trip Clubhouse Home</div>
-          <ProfileAvatar style={{ position: 'static', top: 'auto', right: 'auto', background: GOLD, borderColor: 'transparent', boxShadow: 'none' }} />
-        </div>
+      <header style={h.mast}>
+        <h1 style={h.brand}>Trip Clubhouse</h1>
+        <ProfileAvatar style={h.avatar} />
+        {displayName && <p style={h.who}>{displayName}</p>}
+        <div style={h.goldRule} />
+      </header>
 
+      <div style={h.inner}>
         {hero}
 
-        <div style={h.pills}>
-          <button style={{ ...h.pill, ...h.pillPrimary }} onClick={() => navigate('/onboarding/trip')}>New trip</button>
-          <button style={h.pill} onClick={() => setJoining(true)}>Join trip</button>
-          <button style={h.pill} onClick={inviteFriends}>{copied ? 'Link copied' : 'Invite friends'}</button>
+        <div style={h.actions}>
+          <button style={{ ...h.btn, ...h.btnPrimary }} onClick={() => navigate('/onboarding/trip')}>Start a new trip</button>
+          <div style={h.actionRow}>
+            <button style={h.btn} onClick={() => setJoining(true)}>Join a trip</button>
+            <button style={h.btn} onClick={inviteFriends}>{copied ? 'Link copied' : 'Invite friends'}</button>
+          </div>
         </div>
 
         {isNew && (
           <div style={{ ...h.box, padding: 14, fontSize: 13, color: '#2C3E50', lineHeight: 1.5 }}>
-            <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 700, color: INK, marginBottom: 4 }}>Got an invite?</div>
-            Tap the link your commissioner sent, or tap <b>Join trip</b> and paste it.
+            <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 700, color: INK, marginBottom: 4 }}>Got an invite?</div>
+            Tap the link your commissioner sent, or tap <b>Join a trip</b> and paste it.
           </div>
         )}
 
         {trips != null && !isNew && (
           <>
-            <div style={h.secRow}><h2 style={h.sec}>Active and upcoming</h2></div>
-            {activeAndUpcoming.length ? (
-              <div style={h.box}>
-                {activeAndUpcoming.map((t, i) => (
-                  <TripRow key={t.id} trip={t} status={live.includes(t) ? 'live' : 'upcoming'} first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />
-                ))}
-              </div>
-            ) : (
-              <div style={h.empty}>No trips on the calendar. Start one, or join with an invite link.</div>
-            )}
+            <section>
+              <SectionHead>Upcoming</SectionHead>
+              {activeAndUpcoming.length ? (
+                <div style={h.box}>
+                  {activeAndUpcoming.map((t, i) => (
+                    <TripRow key={t.id} trip={t} live={live.includes(t)} first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />
+                  ))}
+                </div>
+              ) : (
+                <div style={h.empty}>No trips on the calendar. Start one, or join with an invite link.</div>
+              )}
+            </section>
 
             {past.length > 0 && (
-              <>
-                <div style={h.secRow}><h2 style={h.sec}>Past trips</h2></div>
+              <section>
+                <SectionHead>Past</SectionHead>
                 <div style={h.box}>
-                  {pastShown.map((t, i) => <TripRow key={t.id} trip={t} status="past" first={i === 0} unread={unreadTripIds?.has(t.id)} finish={finishes?.get(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />)}
-                  {past.length > 3 && (
-                    <button style={h.seeAll} onClick={() => setShowAllPast(v => !v)}>{showAllPast ? 'Show less' : `See all ${past.length} past trips ›`}</button>
-                  )}
+                  {pastShown.map((t, i) => <TripRow key={t.id} trip={t} first={i === 0} unread={unreadTripIds?.has(t.id)} finish={finishes?.get(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />)}
                 </div>
-              </>
+                {past.length > 3 && (
+                  <button style={h.link} onClick={() => setShowAllPast(v => !v)}>{showAllPast ? 'Show less' : `See all ${past.length} past trips`}</button>
+                )}
+              </section>
             )}
           </>
         )}
 
-        <div style={h.secRow}>
-          <h2 style={h.sec}>Your career</h2>
-          {hasCareer && <button style={h.link} onClick={() => setCareerSoon(true)}>See all career stats ›</button>}
-        </div>
-        {careerSoon && <div style={{ fontSize: 12, color: ON_NAVY, marginTop: -8 }}>The full career stats page is coming soon.</div>}
-        {hasCareer ? (
-          <div style={{ ...h.box, ...h.stats }}>
-            <div><b style={h.statNum}>{career.trips}</b><span style={h.statLab}>Trips</span></div>
-            <div><b style={h.statNum}>{career.rounds}</b><span style={h.statLab}>Rounds</span></div>
-            <div><b style={h.statNum}>{career.points}</b><span style={h.statLab}>Points</span></div>
-            <div><b style={h.statNum}>{career.bestRound ?? '—'}</b><span style={h.statLab}>Best round</span></div>
-          </div>
-        ) : (
-          <div style={h.empty}>{career == null && trips != null && !isNew ? 'Adding up your stats…' : 'Your stats start with your first round.'}</div>
-        )}
+        <section>
+          <SectionHead style={{ marginBottom: 4 }}>Career</SectionHead>
+          {hasCareer ? (
+            <>
+              <div style={h.stats}>
+                <div><b style={h.statNum}>{career.trips}</b><span style={h.statLab}>Trips</span></div>
+                <div style={h.statLine}><b style={h.statNum}>{career.rounds}</b><span style={h.statLab}>Rounds</span></div>
+                <div style={h.statLine}><b style={h.statNum}>{career.points}</b><span style={h.statLab}>Points</span></div>
+                <div style={h.statLine}><b style={h.statNum}>{career.bestRound ?? '—'}</b><span style={h.statLab}>Best</span></div>
+              </div>
+              <button style={h.link} onClick={() => setCareerSoon(true)}>All career stats</button>
+              {careerSoon && <div style={{ fontSize: 12, color: MUTED, textAlign: 'center', marginTop: 6 }}>The full career stats page is coming soon.</div>}
+            </>
+          ) : (
+            <div style={{ ...h.empty, marginTop: 6 }}>{career == null && trips != null && !isNew ? 'Adding up your stats…' : 'Your stats start with your first round.'}</div>
+          )}
+        </section>
 
-        <div style={h.secRow}>
-          <h2 style={h.sec}>Badges</h2>
-          <button style={h.link} onClick={() => navigate('/trophies')}>Trophy Room ›</button>
-        </div>
-        {/* Shelf: your 4 most recent badges, or faint placeholders until you earn some. */}
-        <button style={h.shelf} onClick={() => navigate('/trophies')} aria-label="Open the Trophy Room">
-          {(() => {
-            const earned = badges
-              ? BADGES.filter(b => badges.get(b.id)?.earned)
-                  .map(b => ({ b, st: badges.get(b.id), when: badges.get(b.id).events?.[0]?.date || '' }))
-                  .sort((x, y) => y.when.localeCompare(x.when))
-                  .slice(0, 4)
-              : []
-            const cells = earned.map(({ b, st }) => (
-              <span key={b.id} style={h.shelfCell}>
-                <BadgeMedallion badge={b} state={st} size={58} />
-                <span style={h.shelfName}>{b.name}</span>
-              </span>
-            ))
-            while (cells.length < 4) cells.push(<span key={`ph${cells.length}`} style={h.shelfCell}><span style={h.badge} /><span style={h.shelfName}>&nbsp;</span></span>)
-            return cells
-          })()}
-        </button>
-        {badges && (
-          <div style={{ fontSize: 12, color: ON_NAVY, marginTop: -8 }}>
-            {BADGES.filter(b => badges.get(b.id)?.earned).length} of {BADGES.length} earned
-          </div>
-        )}
+        <section>
+          <SectionHead style={{ marginBottom: 14 }} onClick={() => navigate('/trophies')}>Trophy room</SectionHead>
+          {/* Shelf: your 4 best badges (never roast ones), or faint placeholders until you earn some. */}
+          <button style={h.shelf} onClick={() => navigate('/trophies')} aria-label="Open the Trophy Room">
+            {(() => {
+              const cells = bestBadges(badges, 4).map(b => (
+                <span key={b.id} style={h.shelfCell}>
+                  <BadgeMedallion badge={b} state={badges.get(b.id)} size={58} />
+                  <span style={h.shelfName}>{b.name}</span>
+                </span>
+              ))
+              while (cells.length < 4) cells.push(<span key={`ph${cells.length}`} style={h.shelfCell}><span style={h.badge} /><span style={h.shelfName}>&nbsp;</span></span>)
+              return cells
+            })()}
+          </button>
+        </section>
 
         {/* Subtle footer — only when there's something to restore. */}
         {deleted.length > 0 && (
