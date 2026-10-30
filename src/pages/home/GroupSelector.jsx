@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
-import { landingTrip } from '../../lib/scoring'
+import { postLoginDestination } from '../../lib/loginLanding'
 
 export default function GroupSelector() {
   const { user, loading: authLoading } = useAuth()
@@ -27,16 +27,12 @@ export default function GroupSelector() {
     if (loading || !tripsLoaded) return
 
     redirected.current = true
-    // Open ON a trip from 14 days before it starts through 7 days after it ends
-    // (landingTrip, trip-local dates); otherwise the player home page — which also
-    // welcomes brand-new users who have no trips yet.
-    const trip = landingTrip(allTrips)
-    if (trip) {
-      switchTrip(trip.id)
-      navigate('/dashboard', { replace: true })
-    } else {
-      navigate('/home', { replace: true })
-    }
+    // Open ON a trip from 14 days before it starts through 7 days after it ends;
+    // otherwise Trip Clubhouse Home — also for brand-new users with no trips.
+    // Never the trip wizard. Rule + tests: src/lib/loginLanding.js.
+    const { path, tripId } = postLoginDestination({ trips: allTrips })
+    if (tripId) switchTrip(tripId)
+    navigate(path, { replace: true })
   }, [authLoading, user, loading, tripsLoaded, allTrips]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div className="loading-screen">Loading…</div>
