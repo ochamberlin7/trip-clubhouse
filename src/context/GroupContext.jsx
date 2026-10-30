@@ -163,6 +163,12 @@ export function GroupProvider({ children }) {
     return { error }
   }
 
+  // Update one trip in the in-memory list after an edit (e.g. new dates) so Home
+  // and the trip switcher show it without a full refetch / loading screen.
+  const patchTrip = useCallback((tripId, fields) => {
+    setAllTrips(prev => prev.map(t => (t.id === tripId ? { ...t, ...fields } : t)))
+  }, [])
+
   const activeTrip = allTrips.find(t => t.id === activeTripId) || null
   const activeGroup = activeTrip
     ? (userGroups.find(g => g.id === activeTrip.group_id) || null)
@@ -173,7 +179,7 @@ export function GroupProvider({ children }) {
     <GroupContext.Provider value={{
       userGroups, allTrips, activeGroup, activeTrip, activeTripId,
       loading, tripsLoaded, isAdmin, unreadTripIds, refreshUnread,
-      fetchUserGroups, switchTrip, softDeleteTrip, restoreTrip,
+      fetchUserGroups, switchTrip, softDeleteTrip, restoreTrip, patchTrip,
     }}>
       {children}
     </GroupContext.Provider>
