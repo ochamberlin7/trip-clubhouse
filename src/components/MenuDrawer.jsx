@@ -18,6 +18,7 @@ import { MAIN_FORMATS } from '../lib/gameFormats'
 import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } from '../lib/meals'
 import { ProfileBadge } from './ProfileAvatar'
 import { useAvatarPicker } from './useAvatarPicker'
+import { attachAvatars, playerAccountIds } from '../lib/avatar'
 import { useAuth } from '../context/AuthContext'
 import { version as APP_VERSION } from '../../package.json'
 import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
@@ -255,6 +256,20 @@ function initials(name) {
   return (name || '?').trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
 }
 
+// Player card circle: their profile photo if they've added one, else initials.
+function PlayerAvatar({ player }) {
+  const [failedUrl, setFailedUrl] = useState(null)
+  const url = player.avatar_url
+  if (url && failedUrl !== url) {
+    return (
+      <div style={{ ...pc.avatar, overflow: 'hidden', background: '#E7EDF5' }}>
+        <img src={url} alt="" onError={() => setFailedUrl(url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      </div>
+    )
+  }
+  return <div style={pc.avatar}>{playerInitials(player)}</div>
+}
+
 function playerInitials(p) {
   const fl = `${(p.first_name || '')[0] || ''}${(p.last_name || '')[0] || ''}`.toUpperCase()
   return fl || initials(p.name)
@@ -383,7 +398,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
     <div style={pc.card}>
       {/* Header: avatar · name + role meta line · team pill over pencil */}
       <div style={pc.header}>
-        <div style={pc.avatar}>{playerInitials(player)}</div>
+        <PlayerAvatar player={player} />
         <div style={pc.headerMain}>
           <div style={{ ...pc.name, ...(isOpenSpot ? { color: '#7A8FA6', fontStyle: 'italic' } : null) }}>{isOpenSpot ? PLACEHOLDER_LABEL : player.name}</div>
           {(player.is_claimed || commissioner || player.is_captain) && (
@@ -2649,7 +2664,16 @@ export default function MenuDrawer({
           name: [tp.first_name, tp.last_name].filter(Boolean).join(' ') || tp.guest_name || (isPlaceholderPlayer(tp) ? PLACEHOLDER_LABEL : 'Unnamed Player'),
           is_commissioner: adminIds.has(tp.user_id) || adminIds.has(tp.claimed_user_id),
         }))
-        if (!cancelled) setPlayersData({ players: tps, teams: teamsRes.data || [] })
+        // Profile photos for players with a linked account. Best-effort: on any
+        // error everyone just shows initials.
+        const accountIds = [...new Set(tps.flatMap(playerAccountIds))]
+        let photoRows = []
+        if (accountIds.length) {
+          const { data, error } = await supabase.from('profiles').select('id, avatar_url').in('id', accountIds)
+          if (error) console.warn('[MenuDrawer] player photos not loaded:', error.message)
+          else photoRows = data || []
+        }
+        if (!cancelled) setPlayersData({ players: attachAvatars(tps, photoRows), teams: teamsRes.data || [] })
       })()
     }
     if (page === 'commissioner' && !commissionerData) {
