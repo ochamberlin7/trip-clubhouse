@@ -137,6 +137,7 @@ function StepTripDetails({
     onRangeChange(startDate, iso)
   }
 
+  const tripDays = startDate && endDate && endDate >= startDate ? getDaysInRange(startDate, endDate).length : 0
   const rangeText = startDate
     ? (endDate ? `${fmtShort(startDate)} – ${fmtShort(endDate)}` : `${fmtShort(startDate)} – select end date`)
     : 'Tap a date to set your trip start'
@@ -156,6 +157,10 @@ function StepTripDetails({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <p className="wz-intro">Name your group and trip, then pick your dates.</p>
+      {/* Section stripes (design V1): "The trip" and "Dates", each with a short
+          summary on the right. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <p className="wz-stripe">The trip</p>
       {/* Change 1: "Name Your Crew" — first field, drives groups.name */}
       <div>
         <label className="wz-label">What do you call your group?</label>
@@ -177,8 +182,12 @@ function StepTripDetails({
           onChange={e => setTripName(e.target.value)}
         />
       </div>
+      </div>
       <div>
-        <label className="wz-label">Trip dates</label>
+        <p className="wz-stripe" style={{ marginBottom: 12 }}>
+          Dates
+          {tripDays > 0 && <span className="wz-stripe-detail">{tripDays} day{tripDays === 1 ? '' : 's'}</span>}
+        </p>
         <RangeCalendar startDate={startDate} endDate={endDate} onSelect={handleDateClick} />
         <div style={{ marginTop: 10, fontFamily: 'var(--font-serif)', fontSize: 18, color: startDate && endDate ? '#0D1B2A' : '#8C97A6' }}>
           {rangeText}
@@ -253,6 +262,8 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
     }))
   }
 
+  const golfRounds = schedule.reduce((sum, d) => sum + (d.type === 'golf' ? d.rounds.length : 0), 0)
+
   function handleNext() {
     const totalGolfRounds = schedule.reduce((sum, d) => sum + (d.type === 'golf' ? d.rounds.length : 0), 0)
     if (totalGolfRounds === 0) {
@@ -266,7 +277,10 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <p className="wz-intro">Add your golf rounds. Not sure yet? Leave a day as Unknown and fill it in later.</p>
       <div>
-      <p className="wz-label wz-label-ruled">Your days</p>
+      <p className="wz-stripe">
+        Your days
+        <span className="wz-stripe-detail">{golfRounds === 0 ? 'No rounds yet' : `${golfRounds} round${golfRounds === 1 ? '' : 's'}`}</span>
+      </p>
       {schedule.map((day, idx) => (
         <div key={day.date} className="wz-day">
           <div className="wz-day-head">
@@ -387,11 +401,13 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
           const lErr = showErrors && !p.last_name.trim()
           return (
             <div key={p.id}>
-              {/* Ruled label: "PLAYER N", a YOU tag for the commissioner, and the
-                  remove × (everyone but the commissioner) at the right. */}
-              <div className="wz-label wz-label-ruled">
+              {/* Stripe: "PLAYER N", their name on the right (+ "You" for the
+                  commissioner), and the remove × for everyone else. */}
+              <div className="wz-stripe">
                 <span>Player {idx + 1}</span>
-                {p.isCommissioner && <span className="wz-you">You</span>}
+                <span className="wz-stripe-detail">
+                  {[`${p.first_name} ${p.last_name}`.trim(), p.isCommissioner && 'You'].filter(Boolean).join(' · ')}
+                </span>
                 {!p.isCommissioner && (
                   <button className="wz-x" onClick={() => removeRow(p.id)} aria-label="Remove player">×</button>
                 )}
@@ -460,10 +476,9 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 // radio rows replaces the old Yes/No question — "No tournament" is its own row.
 const T = {
   NAVY: '#1B3F6E',
-  // Section headings (Teams / Individual / No tournament): bold navy small caps
-  // over a 2px navy rule, so the three groups read clearly apart.
-  group: { fontSize: 12.5, fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase', color: '#1B3F6E', margin: '0 0 6px' },
-  list: { borderTop: '2px solid #1B3F6E' },
+  // Section headings (Teams / Individual / No tournament) use the shared grey
+  // stripe (.wz-stripe in index.css), same as the other wizard steps.
+  list: {},
   // Field labels inside a section (e.g. Number of teams) stay light grey.
   fieldLabel: { fontSize: 10.5, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: '#8C97A6', margin: '0 0 10px' },
   row: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid #E3E1DA', padding: '14px 2px', cursor: 'pointer', fontFamily: 'inherit' },
@@ -512,7 +527,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
   const withTeams = hasTournament === true && numTeams !== 0
   const group = (label, choices) => (
     <div>
-      <p style={T.group}>{label}</p>
+      <p className="wz-stripe">{label}</p>
       <div style={T.list} role="radiogroup" aria-label={label}>
         {choices.map(c => <FormatRow key={c.key} name={c.name} desc={c.desc} on={isOn(c)} onClick={() => pickFormat(c)} />)}
       </div>
@@ -524,7 +539,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
       {group('Teams', WIZARD_CHOICES.filter(c => c.teams))}
       {group('Individual', WIZARD_CHOICES.filter(c => !c.teams))}
       <div>
-        <p style={T.group}>No tournament</p>
+        <p className="wz-stripe">No tournament</p>
         <div style={T.list} role="radiogroup" aria-label="No tournament">
           <FormatRow name="Just for fun" desc="Scores and stats only — no standings." on={hasTournament === false} onClick={pickNone} />
         </div>

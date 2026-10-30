@@ -595,7 +595,6 @@ select {
 .wizard-page .btn-outline:active:not(:disabled) { background: rgba(27,63,110,0.06); }
 .wizard-page .error-msg { border-radius: 3px; }
 .wz-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: #8C97A6; margin: 0 0 8px; }
-.wz-label-ruled { padding-bottom: 6px; border-bottom: 1px solid var(--navy); margin-bottom: 0; display: flex; align-items: center; gap: 8px; }
 .wz-intro { font-family: var(--font-serif); font-size: 17px; line-height: 1.4; color: var(--cream2); margin: 0; }
 .wz-hint { font-size: 12px; color: #7C8796; margin: 6px 0 0; line-height: 1.4; }
 .wz-link { background: none; border: none; padding: 10px 0 0; color: var(--navy); font-size: 10.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; cursor: pointer; font-family: inherit; text-align: left; width: auto; }
@@ -607,4 +606,8 @@ select {
 .wizard-page .wz-day-head select { width: auto; flex-shrink: 0; font-size: 13px; padding: 8px 32px 8px 10px; background-position: right 10px center; }
 .wz-rounds { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding-left: 12px; border-left: 1px solid var(--navy); }
 .wz-add-row { display: flex; align-items: center; width: 100%; background: none; border: none; border-bottom: 1px solid #E3E1DA; padding: 14px 2px; cursor: pointer; font-family: var(--font-serif); font-size: 17px; color: #0D1B2A; text-align: left; }
-.wz-you { font-size: 9px; letter-spacing: 1.4px; color: var(--navy); border: 1px solid var(--navy); padding: 1px 6px; border-radius: 2px; }
+/* Section stripe (design "V1", 2026-10-29): grey band, navy small caps, and an
+   optional short summary on the right ("4 days", "3 rounds", a player's name). */
+.wz-stripe { display: flex; align-items: center; gap: 8px; background: #DFE5ED; color: var(--navy); padding: 8px 10px; margin: 0; font-size: 11.5px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; min-height: 34px; box-sizing: border-box; }
+.wz-stripe-detail { margin-left: auto; font-size: 12.5px; font-weight: 600; letter-spacing: 0.2px; text-transform: none; color: #4F6178; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.wz-stripe .wz-x { margin-left: 0; color: #5A6B80; }
