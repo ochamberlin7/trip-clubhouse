@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase'
 import RangeCalendar from './RangeCalendar'
 import { rowUI, SaveLink } from './DisclosureRow'
 import { mealTypeLabel } from '../lib/meals'
-import { planTripDateChange, rpcArgsForPlan, tripLength, dayNumber, nextRange } from '../lib/tripDates'
+import { planTripDateChange, rpcArgsForPlan, tripLength, nextRange } from '../lib/tripDates'
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -21,9 +21,6 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`
 const ui = {
   current: { fontSize: 13.5, color: '#2C3E50', margin: '2px 0 12px' },
   rangeText: { marginTop: 10, fontFamily: 'var(--font-serif)', fontSize: 18, color: '#0D1B2A' },
-  choiceRow: { display: 'flex', gap: 8, marginTop: 6 },
-  choice: { flex: 1, padding: '10px 8px', borderRadius: 8, border: '1px solid #DDE3EA', background: '#EEF2F6', color: '#2C3E50', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.3 },
-  choiceOn: { background: '#1B3F6E', borderColor: '#1B3F6E', color: '#fff' },
   moveRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, padding: '6px 0', borderBottom: '1px solid #EEF1F4', color: '#0D1B2A' },
   moveName: { fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
   moveDates: { color: '#5E6E80', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' },
@@ -39,7 +36,6 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
   const [loadErr, setLoadErr] = useState('')
   const [newStart, setNewStart] = useState(startDate || '')
   const [newEnd, setNewEnd] = useState(endDate || '')
-  const [anchor, setAnchor] = useState('start')
   const [touched, setTouched] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -78,11 +74,11 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
   const plan = useMemo(() => {
     if (!data || !newStart || !newEnd) return null
     return planTripDateChange({
-      oldStart: startDate, oldEnd: endDate, newStart, newEnd, anchor,
+      oldStart: startDate, oldEnd: endDate, newStart, newEnd,
       rounds: data.rounds, meals: data.meals, stays: data.stays, schedule: data.schedule,
       roundLabel: roundName, mealLabel: mealName, stayLabel: stayName,
     })
-  }, [data, startDate, endDate, newStart, newEnd, anchor])
+  }, [data, startDate, endDate, newStart, newEnd])
 
   if (loadErr) return <div style={rowUI.err}>{loadErr}</div>
   if (!data) return <div style={rowUI.note}>Checking…</div>
@@ -93,9 +89,7 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
   const oldLen = tripLength(startDate, endDate)
   const newLen = newStart && newEnd ? tripLength(newStart, newEnd) : 0
   const diff = newLen - oldLen
-  const lengthChanged = !!(newStart && newEnd) && diff !== 0
-  const longer = diff > 0
-  const n = Math.abs(diff)
+  const cutCount = plan?.ok ? plan.cutRounds.length + plan.cutMeals.length + plan.cutStays.length : 0
 
   function pick(iso) {
     const [a, b] = nextRange(newStart, newEnd, iso)
@@ -105,8 +99,9 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
   async function save() {
     setErr('')
     if (!plan || !plan.ok) { setErr(plan?.error || 'Pick a start and end date.'); return }
-    if (plan.clampedItems.length) {
-      const ok = window.confirm(`${plural(plan.clampedItems.length, 'item')} won’t fit in the new dates and will be moved to the nearest day. Continue?`)
+    if (cutCount) {
+      const names = [...plan.cutRounds, ...plan.cutMeals, ...plan.cutStays].map(c => c.label).join(', ')
+      const ok = window.confirm(`Shortening the trip removes ${plural(cutCount, 'item')} on the cut ${plan.removedDays.length === 1 ? 'day' : 'days'}: ${names}. This can’t be undone. Continue?`)
       if (!ok) return
     }
     setSaving(true)
@@ -141,30 +136,19 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
           : 'Tap a date to set the new start'}
       </div>
 
-      {lengthChanged && (
-        <>
-          <div style={rowUI.fieldLabel}>{longer ? `Add ${plural(n, 'day')}` : `Cut ${plural(n, 'day')}`}</div>
-          <div style={ui.choiceRow}>
-            <button type="button" style={{ ...ui.choice, ...(anchor === 'start' ? ui.choiceOn : null) }} onClick={() => setAnchor('start')}>
-              {longer ? 'At the end' : 'From the end'}
-            </button>
-            <button type="button" style={{ ...ui.choice, ...(anchor === 'end' ? ui.choiceOn : null) }} onClick={() => setAnchor('end')}>
-              {longer ? 'At the start' : 'From the start'}
-            </button>
-          </div>
-          <div style={rowUI.note}>
-            {anchor === 'start'
-              ? `Day 1 stays Day 1. ${longer ? 'New days go after the last day.' : `The last ${plural(n, 'day')} of the trip ${n === 1 ? 'is' : 'are'} dropped.`}`
-              : `The last day stays the last day. ${longer ? 'New days go before Day 1.' : `The first ${plural(n, 'day')} of the trip ${n === 1 ? 'is' : 'are'} dropped.`}`}
-          </div>
-        </>
+      {!!(newStart && newEnd) && diff !== 0 && (
+        <div style={rowUI.note}>
+          Day 1 stays Day 1. {diff > 0
+            ? `${plural(diff, 'new day')} ${diff === 1 ? 'is' : 'are'} added at the end.`
+            : `The last ${plural(-diff, 'day')} ${diff === -1 ? 'is' : 'are'} cut.`}
+        </div>
       )}
 
       {plan?.ok && (
         <>
-          <div style={rowUI.fieldLabel}>What moves</div>
+          <div style={rowUI.fieldLabel}>What changes</div>
           {nothingScheduled && <div style={rowUI.note}>Nothing is scheduled yet — only the trip dates change.</div>}
-          {!nothingScheduled && moves.length === 0 && <div style={rowUI.note}>Everything already scheduled stays on the same date.</div>}
+          {!nothingScheduled && moves.length === 0 && <div style={rowUI.note}>{cutCount ? 'Everything else' : 'Everything already scheduled'} stays on the same date.</div>}
           {moves.map(m => (
             <div key={m.key} style={ui.moveRow}>
               <span style={ui.moveName}>{m.name}</span>
@@ -172,12 +156,18 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
             </div>
           ))}
 
-          {plan.clampedItems.length > 0 && (
+          {cutCount > 0 && (
             <div style={ui.warn}>
-              <strong>Won’t fit in the new dates:</strong>{' '}
-              {plan.clampedItems.map(c => `${c.label} (moved to Day ${dayNumber(c.to, newStart)}${c.noNights ? ', no nights left' : ''})`).join(', ')}.
-              {' '}Nothing is deleted — remove or edit these in Schedule &amp; Courses if you don’t need them.
+              <strong>Removed with the cut {plan.removedDays.length === 1 ? 'day' : 'days'} ({plan.removedDays.map(fmt).join(', ')}):</strong>
+              {[
+                ...plan.cutRounds.map(c => ({ key: `cr${c.id}`, text: `${c.label} · ${fmt(c.date)}` })),
+                ...plan.cutMeals.map(c => ({ key: `cm${c.id}`, text: `${c.label} · ${fmt(c.date)}` })),
+                ...plan.cutStays.map(c => ({ key: `cs${c.id}`, text: `${c.label} · ${fmt(c.check_in)} – ${fmt(c.check_out)}` })),
+              ].map(c => <div key={c.key}>• {c.text}</div>)}
             </div>
+          )}
+          {plan.stays.some(st => st.trimmed) && (
+            <div style={rowUI.note}>Lodging now checks out on the new last day.</div>
           )}
           {plan.addedDays.length > 0 && (
             <div style={rowUI.info}>
@@ -186,8 +176,8 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
           )}
           {(data.stays.length > 0 || data.flights > 0) && (
             <div style={rowUI.note}>
-              {data.stays.length > 0 && 'This only changes dates in the app — update your actual hotel booking too. '}
-              {data.flights > 0 && 'Player flights aren’t changed; each player updates their own.'}
+              {data.stays.length > 0 && 'This only changes lodging dates in the app — update your actual hotel booking too. '}
+              {data.flights > 0 && 'Flights aren’t changed — each player updates their own.'}
             </div>
           )}
         </>

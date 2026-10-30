@@ -3,19 +3,16 @@
 // One rule moves everything that has a date — rounds (`date`), meals (`day`),
 // lodging (`check_in` / `check_out`) and the per-day schedule (`trips.schedule`):
 //
-//  • Same number of days → everything shifts by the same amount, so Day 1 stays
-//    Day 1, Day 2 stays Day 2, and so on.
-//  • Longer or shorter → the commissioner picks which side gains or loses days:
-//      anchor 'start' (default): days are added / cut at the END. Items keep
-//        their day number counted from the first day.
-//      anchor 'end': days are added / cut at the START. Items keep their place
-//        counted back from the last day.
-//  • Anything that would land outside the new dates is moved to the nearest day
-//    still in the trip (never deleted) and reported, so the commissioner can
-//    remove it from Schedule & Courses if it's no longer needed.
+//  • Day 1 always stays Day 1. Everything keeps its day number counted from the
+//    first day, so moving the trip shifts every item by the same amount.
+//  • Longer → new days are added at the end and start as "Not Scheduled Yet".
+//  • Shorter → the last days are cut, along with the rounds and meals on them.
+//    Lodging is trimmed to check out on the new last day; a stay with no nights
+//    left is removed.
 //
-// Player flights are each player's own bookings and are never moved.
-// The plan is applied in one database transaction by the change_trip_dates RPC.
+// Player flights are each player's own bookings and are never changed.
+// Dates lock once any score is entered (enforced by the RPC), so a cut round
+// never has scores. The plan is applied in one transaction by change_trip_dates.
 
 const DAY_MS = 86400000
 
@@ -46,21 +43,10 @@ export function tripLength(start, end) {
   return d == null || d < 0 ? 0 : d + 1
 }
 
-function clampDate(iso, start, end) {
-  if (iso < start) return start
-  if (iso > end) return end
-  return iso
-}
-
 // 1-based day number within a trip, e.g. "Day 3".
 export function dayNumber(iso, tripStart) {
   const d = daysBetween(tripStart, iso)
   return d == null ? null : d + 1
-}
-
-// How many days every item moves.
-export function shiftForChange({ oldStart, oldEnd, newStart, newEnd, anchor = 'start' }) {
-  return anchor === 'end' ? daysBetween(oldEnd, newEnd) : daysBetween(oldStart, newStart)
 }
 
 // Validation for the picked dates. Returns an error message, or '' if OK.
@@ -84,16 +70,18 @@ export function nextRange(startDate, endDate, iso) {
 // Build the full plan for a date change. Pure — no database calls.
 //
 // Returns {
-//   ok, error, shift, oldLength, newLength, lengthChange, sameLength, anchor,
-//   rounds:   [{ id, from, to, clamped }],         // only rows that change
-//   meals:    [{ id, from, to, clamped }],
-//   stays:    [{ id, from: {check_in, check_out}, to: {check_in, check_out}, clamped, noNights }],
-//   schedule: [{ date, type }],                    // new trips.schedule
-//   addedDays: [iso], removedDays: [iso],          // calendar days gained / lost
-//   clampedItems: [{ kind, id, label, to }],       // items that didn't fit and were moved
+//   ok, error, shift, oldLength, newLength, lengthChange, sameLength,
+//   rounds:   [{ id, from, to }],                    // moved (only rows that change)
+//   meals:    [{ id, from, to }],
+//   stays:    [{ id, from: {check_in, check_out}, to: {check_in, check_out}, trimmed }],
+//   cutRounds: [{ id, label, date }],                // on a cut day → deleted
+//   cutMeals:  [{ id, label, date }],
+//   cutStays:  [{ id, label, check_in, check_out }], // no nights left → deleted
+//   schedule: [{ date, type }],                      // new trips.schedule
+//   addedDays: [iso], removedDays: [iso],            // new dates gained / old dates cut
 // }
 export function planTripDateChange({
-  oldStart, oldEnd, newStart, newEnd, anchor = 'start',
+  oldStart, oldEnd, newStart, newEnd,
   rounds = [], meals = [], stays = [], schedule = [],
   roundLabel = r => r.course_name || 'Round',
   mealLabel = m => m.location || 'Meal',
@@ -104,87 +92,77 @@ export function planTripDateChange({
   const newLength = tripLength(newStart, newEnd)
   const base = {
     ok: !error, error, shift: 0, oldLength, newLength,
-    lengthChange: newLength - oldLength, sameLength: newLength === oldLength, anchor,
-    rounds: [], meals: [], stays: [], schedule: [], addedDays: [], removedDays: [], clampedItems: [],
+    lengthChange: newLength - oldLength, sameLength: newLength === oldLength,
+    rounds: [], meals: [], stays: [], cutRounds: [], cutMeals: [], cutStays: [],
+    schedule: [], addedDays: [], removedDays: [],
   }
   if (error) return base
 
-  // With the same length both anchors give the same shift.
-  const shift = shiftForChange({ oldStart, oldEnd, newStart, newEnd, anchor })
-  const move = iso => {
-    const shifted = addDays(iso, shift)
-    const to = clampDate(shifted, newStart, newEnd)
-    return { to, clamped: to !== shifted }
+  const shift = daysBetween(oldStart, newStart)
+  // A date sits on a cut day if it's one of the old trip's last days that no
+  // longer exist (only when shortening). Dates already outside the old trip
+  // just shift with everything else.
+  const isCut = iso => {
+    const i = daysBetween(oldStart, iso)
+    return i != null && i >= newLength && i <= oldLength - 1
   }
 
-  const clampedItems = []
-
-  const roundMoves = []
+  const roundMoves = [], cutRounds = []
   for (const r of rounds) {
     if (!r?.date) continue
-    const { to, clamped } = move(r.date)
-    if (clamped) clampedItems.push({ kind: 'round', id: r.id, label: roundLabel(r), to })
-    if (to !== r.date) roundMoves.push({ id: r.id, from: r.date, to, clamped })
+    if (isCut(r.date)) { cutRounds.push({ id: r.id, label: roundLabel(r), date: r.date }); continue }
+    const to = addDays(r.date, shift)
+    if (to !== r.date) roundMoves.push({ id: r.id, from: r.date, to })
   }
 
-  const mealMoves = []
+  const mealMoves = [], cutMeals = []
   for (const m of meals) {
     if (!m?.day) continue
-    const { to, clamped } = move(m.day)
-    if (clamped) clampedItems.push({ kind: 'meal', id: m.id, label: mealLabel(m), to })
-    if (to !== m.day) mealMoves.push({ id: m.id, from: m.day, to, clamped })
+    if (isCut(m.day)) { cutMeals.push({ id: m.id, label: mealLabel(m), date: m.day }); continue }
+    const to = addDays(m.day, shift)
+    if (to !== m.day) mealMoves.push({ id: m.id, from: m.day, to })
   }
 
-  const stayMoves = []
+  const stayMoves = [], cutStays = []
   for (const s of stays) {
-    if (!s?.check_in && !s?.check_out) continue
-    const ci = s.check_in ? move(s.check_in) : null
-    const co = s.check_out ? move(s.check_out) : null
-    const to = { check_in: ci ? ci.to : null, check_out: co ? co.to : null }
-    const clamped = !!(ci?.clamped || co?.clamped)
-    const noNights = !!(to.check_in && to.check_out && to.check_out <= to.check_in)
-    if (clamped) clampedItems.push({ kind: 'stay', id: s.id, label: stayLabel(s), to: to.check_in || to.check_out, noNights })
-    if (to.check_in !== (s.check_in || null) || to.check_out !== (s.check_out || null)) {
-      stayMoves.push({ id: s.id, from: { check_in: s.check_in || null, check_out: s.check_out || null }, to, clamped, noNights })
+    const ci = s?.check_in || null, co = s?.check_out || null
+    if (!ci && !co) continue
+    const cut = () => cutStays.push({ id: s.id, label: stayLabel(s), check_in: ci, check_out: co })
+    if (ci && isCut(ci)) { cut(); continue }
+    let toCo = co ? addDays(co, shift) : null
+    let trimmed = false
+    if (co && isCut(co)) { toCo = newEnd; trimmed = true }
+    const toCi = ci ? addDays(ci, shift) : null
+    if (trimmed && toCi && toCo <= toCi) { cut(); continue }
+    if (toCi !== ci || toCo !== co) {
+      stayMoves.push({ id: s.id, from: { check_in: ci, check_out: co }, to: { check_in: toCi, check_out: toCo }, trimmed })
     }
   }
 
-  // New per-day schedule: each new day takes the type of the old day that maps
-  // onto it; brand-new days start as "unknown" (Not Scheduled Yet). Any day that
-  // ends up with a round is a golf day.
+  // New per-day schedule: day N keeps old day N's type; added days start as
+  // "unknown" (Not Scheduled Yet).
   const oldTypeByDate = {}
   for (const d of schedule || []) if (d?.date) oldTypeByDate[d.date] = d.type
-  const golfDays = new Set()
-  for (const r of rounds) {
-    if (!r?.date) continue
-    const mv = roundMoves.find(x => x.id === r.id)
-    golfDays.add(mv ? mv.to : r.date)
-  }
   const newSchedule = []
   for (let i = 0; i < newLength; i++) {
     const date = addDays(newStart, i)
-    const fromDate = addDays(date, -shift)
-    const inOld = fromDate >= oldStart && fromDate <= oldEnd
-    let type = (inOld && oldTypeByDate[fromDate]) || 'unknown'
-    if (golfDays.has(date)) type = 'golf'
+    const type = i < oldLength ? (oldTypeByDate[addDays(oldStart, i)] || 'unknown') : 'unknown'
     newSchedule.push({ date, type })
   }
+  // Days with a round are golf days (covers trips whose schedule was never saved).
+  const golfDays = new Set(rounds.filter(r => r?.date && !isCut(r.date)).map(r => addDays(r.date, shift)))
+  for (const d of newSchedule) if (golfDays.has(d.date)) d.type = 'golf'
 
-  // Days gained / lost, in terms of the trip's own days (not raw calendar overlap).
   const addedDays = []
+  for (let i = oldLength; i < newLength; i++) addedDays.push(addDays(newStart, i))
   const removedDays = []
-  if (newLength > oldLength) {
-    const extra = newLength - oldLength
-    for (let i = 0; i < extra; i++) addedDays.push(anchor === 'end' ? addDays(newStart, i) : addDays(newEnd, -extra + 1 + i))
-  } else if (newLength < oldLength) {
-    const cut = oldLength - newLength
-    for (let i = 0; i < cut; i++) removedDays.push(anchor === 'end' ? addDays(oldStart, i) : addDays(oldEnd, -cut + 1 + i))
-  }
+  for (let i = newLength; i < oldLength; i++) removedDays.push(addDays(oldStart, i))
 
   return {
     ...base, shift,
     rounds: roundMoves, meals: mealMoves, stays: stayMoves,
-    schedule: newSchedule, addedDays, removedDays, clampedItems,
+    cutRounds, cutMeals, cutStays,
+    schedule: newSchedule, addedDays, removedDays,
   }
 }
 
@@ -198,5 +176,8 @@ export function rpcArgsForPlan(tripId, newStart, newEnd, plan) {
     p_rounds: plan.rounds.map(r => ({ id: r.id, date: r.to })),
     p_meals: plan.meals.map(m => ({ id: m.id, day: m.to })),
     p_stays: plan.stays.map(s => ({ id: s.id, check_in: s.to.check_in, check_out: s.to.check_out })),
+    p_delete_rounds: plan.cutRounds.map(r => r.id),
+    p_delete_meals: plan.cutMeals.map(m => m.id),
+    p_delete_stays: plan.cutStays.map(s => s.id),
   }
 }
