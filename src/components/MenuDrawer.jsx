@@ -17,6 +17,8 @@ import { formatMoney } from '../lib/purse'
 import { MAIN_FORMATS } from '../lib/gameFormats'
 import { MEAL_TYPES, mealTypeLabel, displayToTimeInput, timeInputToDisplay } from '../lib/meals'
 import { ProfileBadge } from './ProfileAvatar'
+import { useAuth } from '../context/AuthContext'
+import { version as APP_VERSION } from '../../package.json'
 import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
@@ -61,12 +63,21 @@ function fmtRange(s, e) {
 const s = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, transition: 'opacity 0.25s ease' },
   drawer: { position: 'fixed', right: 0, top: 0, bottom: 0, width: '280px', maxWidth: '85vw', background: '#FFFFFF', borderLeft: '1px solid #DDE3EA', zIndex: 301, display: 'flex', flexDirection: 'column', transition: 'transform 0.25s ease', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)' },
-  drawerHeader: { padding: '20px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 20px)', borderBottom: '1px solid #DDE3EA', position: 'relative' },
-  groupLine: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 600 },
-  tripLine: { fontSize: '18px', fontWeight: 700, color: '#0D1B2A', marginTop: '2px' },
-  closeBtn: { position: 'absolute', top: 'max(env(safe-area-inset-top), 16px)', right: '16px', width: '32px', height: '32px', borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  nav: { flex: 1, overflowY: 'auto', padding: '12px 0' },
-  item: { display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3', background: '#fff', width: '100%', border: 'none', textAlign: 'left', fontFamily: 'inherit' },
+  drawerHeader: { padding: '28px 52px 20px 18px', paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 28px)', borderBottom: '1px solid #E5E7EB', position: 'relative' },
+  profileBtn: { display: 'flex', alignItems: 'center', gap: '14px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%' },
+  profileBadge: { width: 58, height: 58, fontSize: 19, background: '#E7EDF5', color: '#33455E', border: 'none', boxShadow: 'none' },
+  cameraDot: { position: 'absolute', right: -3, bottom: -3, width: 22, height: 22, borderRadius: '50%', background: '#94A3B8', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' },
+  profileName: { display: 'block', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#0F1E33', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  profileLink: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#5B6B84', marginTop: '2px' },
+  closeBtn: { position: 'absolute', top: 'max(env(safe-area-inset-top), 12px)', right: '12px', width: '32px', height: '32px', borderRadius: '50%', background: 'none', border: 'none', color: '#94A3B8', fontSize: '17px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  nav: { flex: 1, overflowY: 'auto', padding: '4px 0' },
+  item: { display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', background: '#fff', width: '100%', borderTop: 'none', borderLeft: 'none', borderRight: 'none', textAlign: 'left', fontFamily: 'inherit' },
+  clubTile: { width: '42px', height: '42px', borderRadius: '11px', background: '#1B3F6E', border: '2px solid #C49A2A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxSizing: 'border-box' },
+  drawerFooter: { padding: '14px 18px', paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 12px), 22px)', textAlign: 'center', color: '#94A3B8', flexShrink: 0 },
+  footerRule: { width: '30px', height: '1.5px', background: '#E3C77A', margin: '0 auto 10px' },
+  footerBrand: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '14px', fontWeight: 700, color: '#94A3B8' },
+  footerLinks: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px', marginTop: '4px' },
+  footerLink: { background: 'none', border: 'none', padding: '4px 0', color: '#94A3B8', fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer' },
   iconBox: { width: '36px', height: '36px', borderRadius: '6px', background: '#E8EDF3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   itemLabel: { fontSize: '15px', fontWeight: 600, color: '#0D1B2A' },
   itemSub: { fontSize: '11px', color: '#7A8FA6', marginTop: '1px' },
@@ -118,15 +129,17 @@ const svgProps = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', st
 
 const MENU_ITEMS = [
   { id: 'players', label: 'Players & Teams', sub: 'Roster & teams', icon: <g><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g> },
-  { id: 'courses', label: 'Schedule & Courses', sub: 'Schedule & course info', icon: <g><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></g> },
+  { id: 'courses', label: 'Schedule & Courses', sub: 'Schedule & course info', icon: <g><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></g> },
   { id: 'flights', label: 'Flights', sub: 'Arrival & departure info', icon: <g><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></g> },
   { id: 'rules', label: 'Rules', sub: 'Local rules & format', icon: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></g> },
   { id: 'archives', label: 'Archives', sub: 'Past trips & records', icon: <g><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5" rx="1"/><line x1="10" y1="12" x2="14" y2="12"/></g> },
-  { id: 'app-info', label: 'App Info', sub: 'Install guide & about', icon: <g><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></g> },
   { id: 'support', label: 'Support', sub: 'Report a bug or share an idea', icon: <g><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></g> },
 ]
 
 // Commissioner-only item, rendered at the top of the drawer when isCommissioner.
+// App Info is not a menu row — it lives in the drawer's footer links
+// ("App info · Install guide"), which open the same 'app-info' page.
+
 const COMMISSIONER_ITEM = { id: 'commissioner', label: 'Commissioner Tools', sub: 'Teams, allowance & invites', icon: <g><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></g> }
 
 // ── small building blocks ─────────────────────────────────────────
@@ -135,6 +148,16 @@ function Chevron({ open }) {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7A8FA6" strokeWidth="2"
       strokeLinecap="round" strokeLinejoin="round"
       style={{ transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'none' }}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  )
+}
+
+// Plain right chevron at the end of a drawer row.
+function RowChevron() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto', flexShrink: 0 }} aria-hidden="true">
       <polyline points="9 18 15 12 9 6" />
     </svg>
   )
@@ -2404,6 +2427,9 @@ export default function MenuDrawer({
   inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, tournamentOn = true, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  // First name for the drawer header; falls back to the email's local part.
+  const firstName = ((user?.user_metadata?.display_name || '').trim().split(/\s+/)[0]) || (user?.email || '').split('@')[0]
   const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
   // "Trips" row red dot: any trip OTHER than the active one has unread trash-talk.
   const otherTripUnread = [...unreadTripIds].some(id => id !== activeTripId)
@@ -2975,45 +3001,65 @@ export default function MenuDrawer({
 
       {/* Drawer */}
       <div style={{ ...s.drawer, transform: drawerVisible ? 'translateX(0)' : 'translateX(100%)' }}>
+        {/* Header: account photo/initials + name → Profile. The trip/group name
+            is intentionally not shown here (it's on every screen already). The
+            circle is soft gray so the navy Your Clubhouse tile is the one accent. */}
         <div style={s.drawerHeader}>
-          <div style={s.groupLine}>{groupName}</div>
-          <div style={s.tripLine}>{tripName}</div>
+          <button style={s.profileBtn} onClick={() => { onClose(); navigate('/profile') }} aria-label="My profile">
+            <span style={{ position: 'relative', flexShrink: 0 }}>
+              <ProfileBadge style={s.profileBadge} />
+              <span style={s.cameraDot} aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </span>
+            </span>
+            <span style={{ minWidth: 0 }}>
+              <span style={s.profileName}>{firstName}</span>
+              <span style={s.profileLink}>My profile ›</span>
+            </span>
+          </button>
           <button style={s.closeBtn} onClick={onClose} aria-label="Close menu">✕</button>
         </div>
         <div style={s.nav}>
-          {/* Profile — reuses the circular initials badge; opens the account page */}
-          <button style={s.item} onClick={() => { onClose(); navigate('/profile') }}>
-            <ProfileBadge style={{ width: 36, height: 36, border: 'none', boxShadow: 'none' }} />
-            <span>
-              <span style={{ ...s.itemLabel, display: 'block' }}>Profile</span>
-              <span style={{ ...s.itemSub, display: 'block' }}>Manage your profile</span>
-            </span>
-          </button>
           {/* Your Clubhouse — the player home page (all your trips, career stats).
-              Replaces the old "Trips" switcher row; keeps its unread dot. */}
-          <button style={s.item} onClick={() => { onClose(); navigate('/home') }}>
-            <span style={{ ...s.iconBox, position: 'relative' }}>
-              <svg {...svgProps}><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M10 21v-6h4v6" /></svg>
+              Featured: navy tile, gold border, flag-on-the-peak clubhouse icon. */}
+          <button style={{ ...s.item, padding: '16px 18px' }} onClick={() => { onClose(); navigate('/home') }}>
+            <span style={{ ...s.clubTile, position: 'relative' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 6V1.5" />
+                <path d="M12 1.5l3.5 1.3L12 4" fill="#C49A2A" stroke="#C49A2A" />
+                <path d="M3 13 12 6l9 7" />
+                <path d="M5.5 11.5V21h13v-9.5" />
+                <path d="M10.2 21v-5h3.6v5" />
+              </svg>
               {otherTripUnread && <span className="unread-dot" aria-label="Unread messages in another trip" />}
             </span>
-            <span>
+            <span style={{ minWidth: 0 }}>
               <span style={{ ...s.itemLabel, display: 'block' }}>Your Clubhouse</span>
               <span style={{ ...s.itemSub, display: 'block' }}>Trips and career stats</span>
             </span>
+            <RowChevron />
           </button>
           {[...(isCommissioner ? [COMMISSIONER_ITEM] : []), ...MENU_ITEMS]
             .filter(item => item.id !== 'archives' || FEATURES.archives)
-            .map(item => (
-            <button key={item.id} style={s.item} onClick={() => setPage(item.id)}>
-              <span style={s.iconBox}>
-                <svg {...svgProps}>{item.icon}</svg>
-              </span>
-              <span>
-                <span style={{ ...s.itemLabel, display: 'block' }}>{item.label}</span>
-                <span style={{ ...s.itemSub, display: 'block' }}>{item.sub}</span>
-              </span>
+            .map((item, i, arr) => (
+            <button key={item.id} style={{ ...s.item, ...(i === arr.length - 1 ? { borderBottom: 'none' } : null) }} onClick={() => setPage(item.id)}>
+              <svg {...svgProps} width={20} height={20} style={{ flexShrink: 0 }}>{item.icon}</svg>
+              <span style={s.itemLabel}>{item.label}</span>
+              <RowChevron />
             </button>
           ))}
+        </div>
+        {/* Footer signature: quiet links to the App Info page + app version. */}
+        <div style={s.drawerFooter}>
+          <div style={s.footerRule} />
+          <div style={s.footerBrand}>Trip Clubhouse</div>
+          <div style={s.footerLinks}>
+            <button style={s.footerLink} onClick={() => setPage('app-info')}>App info</button>
+            <span aria-hidden="true">·</span>
+            <button style={s.footerLink} onClick={() => setPage('app-info')}>Install guide</button>
+            <span aria-hidden="true">·</span>
+            <span>v{APP_VERSION.replace(/\.0$/, '')}</span>
+          </div>
         </div>
       </div>
 
