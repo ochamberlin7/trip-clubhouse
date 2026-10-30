@@ -34,7 +34,7 @@ export default function InviteAccept() {
 
   async function handleAccept() {
     if (!user) {
-      navigate(`/signup?invite=${token}`)
+      navigate(`/signup?redirect=${encodeURIComponent(`/invite/${token}`)}`)
       return
     }
     setAccepting(true)
@@ -63,7 +63,7 @@ export default function InviteAccept() {
       <button onClick={handleAccept} disabled={accepting}>
         {accepting ? 'Accepting...' : `Accept Invite to ${invite.groups.name}`}
       </button>
-      {!user && <p>Already have an account? <a href={`/login?invite=${token}`}>Sign in</a></p>}
+      {!user && <p>Already have an account? <a href={`/login?redirect=${encodeURIComponent(`/invite/${token}`)}`}>Sign in</a></p>}
     </div>
   )
 }

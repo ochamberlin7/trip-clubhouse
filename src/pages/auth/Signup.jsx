@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { authRedirectTarget } from '../../lib/loginLanding'
 
 // Display-only formatter: a 10-digit number becomes (xxx) xxx-xxxx; anything else
 // (e.g. an international number) is left untouched. The submitted value is always
@@ -24,10 +25,10 @@ export default function Signup() {
   const [searchParams] = useSearchParams()
   const { user, loading: authLoading } = useAuth()
 
-  // Preserve an invite redirect (e.g. /join/:token) for the post-signup landing
-  // and the "Sign In" link, so the invite context survives.
-  const redirect = searchParams.get('redirect')
-  const safeRedirect = redirect && redirect.startsWith('/') ? redirect : null
+  // Preserve an invite redirect (e.g. /join/:token, or older ?invite=:token) for the
+  // post-signup landing and the "Sign In" link, so the invite context survives.
+  // No invite → /groups, which opens an in-window trip or Home (loginLanding.js).
+  const safeRedirect = authRedirectTarget({ redirect: searchParams.get('redirect'), invite: searchParams.get('invite') })
   const target = safeRedirect || '/groups'
   const loginTo = safeRedirect ? `/login?redirect=${encodeURIComponent(safeRedirect)}` : '/login'
 

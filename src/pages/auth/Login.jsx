@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { authRedirectTarget } from '../../lib/loginLanding'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -16,13 +17,12 @@ export default function Login() {
   // One-time notice shown after a flow that bounces back to login (e.g. a completed
   // password reset: "Password updated — please log in.").
   const message = searchParams.get('message')
-  // Honor ?redirect= (e.g. /join/:token from an invite), internal paths only.
-  const redirect = searchParams.get('redirect')
-  const target = redirect && redirect.startsWith('/') ? redirect : '/groups'
+  // Following an invite (?redirect=/join/:token, or older ?invite=:token) → back to
+  // it. Otherwise /groups, which opens an in-window trip or Home (loginLanding.js).
+  const redirect = authRedirectTarget({ redirect: searchParams.get('redirect'), invite: searchParams.get('invite') })
+  const target = redirect || '/groups'
   // Carry the redirect through to signup so a new user doesn't lose the invite.
-  const signupTo = redirect && redirect.startsWith('/')
-    ? `/signup?redirect=${encodeURIComponent(redirect)}`
-    : '/signup'
+  const signupTo = redirect ? `/signup?redirect=${encodeURIComponent(redirect)}` : '/signup'
 
   // Navigate only once auth is confirmed in context. This avoids a race where we
   // navigate to /join before `user` is set, which would bounce JoinTrip back to
