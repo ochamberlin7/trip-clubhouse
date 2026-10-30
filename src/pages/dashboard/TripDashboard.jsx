@@ -1548,10 +1548,7 @@ export default function TripDashboard() {
       </div>
 
       {/* Floating live-score banner — mounted once here so it persists across tabs */}
-      {/* The floating banner shows a pairing's MATCH (side vs side) — Stableford /
-          Stroke Play have no match, so it's hidden; the Leaderboard has the live
-          standings instead. */}
-      {!isIndividualGameType(tripGameType(trip)) && <LiveScoreBanner key={`banner-${trip.id}`} trip={trip} rounds={rounds} teams={teams} />}
+      <LiveScoreBanner key={`banner-${trip.id}`} trip={trip} rounds={rounds} teams={teams} currentUserId={user?.id} />
 
       {/* Persistent feedback FAB — visible on every tab, floats above the tab bar
           and (when shown) the live-score banner. */}
