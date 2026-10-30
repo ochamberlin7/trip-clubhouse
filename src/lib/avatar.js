@@ -12,6 +12,17 @@ export function squareCrop(w, h) {
   return { sx: Math.round((w - side) / 2), sy: Math.round((h - side) / 2), side }
 }
 
+// The square to cut from a w×h image. Uses the crop window's area (natural
+// pixels, from react-easy-crop) when given — squared and kept inside the image —
+// otherwise a centered square. → { sx, sy, side }.
+export function cropSquare(w, h, area = null) {
+  if (!area || !(area.width > 0) || !(area.height > 0)) return squareCrop(w, h)
+  const side = Math.max(1, Math.min(Math.round(Math.min(area.width, area.height)), w, h))
+  const sx = Math.min(Math.max(0, Math.round(area.x)), w - side)
+  const sy = Math.min(Math.max(0, Math.round(area.y)), h - side)
+  return { sx, sy, side }
+}
+
 // Storage path inside the bucket. The first folder must be the user's id (RLS).
 // A new name per upload so phones never show a cached old photo.
 export function avatarPath(userId, now = Date.now()) {

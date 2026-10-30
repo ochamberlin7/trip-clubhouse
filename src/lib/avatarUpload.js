@@ -1,6 +1,6 @@
 // Profile photo upload/remove (browser + Supabase). Pure helpers: avatar.js.
 import { supabase } from './supabase'
-import { AVATAR_BUCKET, AVATAR_SIZE, squareCrop, avatarPath } from './avatar'
+import { AVATAR_BUCKET, AVATAR_SIZE, cropSquare, avatarPath } from './avatar'
 
 function loadImage(file) {
   return new Promise((resolve, reject) => {
@@ -12,10 +12,11 @@ function loadImage(file) {
   })
 }
 
-// Center-crop to a square and resize to AVATAR_SIZE as a JPEG blob.
-export async function shrinkToSquareJpeg(file, size = AVATAR_SIZE) {
+// Cut the square chosen in the crop window (or a centered square when `area` is
+// null) and resize to AVATAR_SIZE as a JPEG blob.
+export async function shrinkToSquareJpeg(file, area = null, size = AVATAR_SIZE) {
   const img = await loadImage(file)
-  const { sx, sy, side } = squareCrop(img.naturalWidth, img.naturalHeight)
+  const { sx, sy, side } = cropSquare(img.naturalWidth, img.naturalHeight, area)
   const out = Math.min(size, side)
   const canvas = document.createElement('canvas')
   canvas.width = out
@@ -45,11 +46,12 @@ async function saveAvatarUrl(userId, url) {
   if (profErr) console.warn('[avatar] profiles.avatar_url not saved:', profErr.message)
 }
 
-// Upload a picked file as the user's photo. Returns the public URL.
-export async function uploadAvatar(userId, file) {
+// Upload a picked file as the user's photo, cut to `area` (the crop window's
+// croppedAreaPixels). Returns the public URL.
+export async function uploadAvatar(userId, file, area = null) {
   if (!userId) throw new Error('Not signed in.')
   if (!file || !/^image\//.test(file.type || 'image/')) throw new Error('Pick a photo file.')
-  const blob = await shrinkToSquareJpeg(file)
+  const blob = await shrinkToSquareJpeg(file, area)
   const path = avatarPath(userId)
   const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, blob, { contentType: 'image/jpeg', cacheControl: '31536000' })
   if (error) throw new Error(/bucket/i.test(error.message || '') ? 'Photo storage isn’t set up yet.' : (error.message || 'Upload failed.'))
