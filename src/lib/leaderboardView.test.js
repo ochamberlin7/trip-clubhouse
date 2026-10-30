@@ -57,3 +57,19 @@ test('stroke play: cells and totals read as net to par; lowest leads', async () 
   const s = { perRound, total: new Map([['A', 2], ['B', 7]]), ranked: [{ teamId: 'A', total: 2, rank: 1 }, { teamId: 'B', total: 7, rank: 2 }] }
   assert.equal(leadLine({ format: 'stroke_play', teams, standings: s, rounds: [{ id: 'R1' }] }), 'Bandits win by 5 · Final')
 })
+
+test('individual board rows: trip view uses the latest round for Thru / Today', async () => {
+  const { individualStandings } = await import('./scoring.js')
+  const { individualBoardRows, currentRoundId } = await import('./leaderboardView.js')
+  const HOLES = [{ par: 4, handicap: 1 }, { par: 4, handicap: 2 }]
+  const rounds = [{ id: 'R1', holes: HOLES }, { id: 'R2', holes: HOLES }]
+  const scoresMap = { 'R1:A:1': 4, 'R1:A:2': 4, 'R1:B:1': 3, 'R1:B:2': 5, 'R2:A:1': 3 }
+  const s = individualStandings({ gameType: 'stableford', rounds, playerIds: ['A', 'B', 'C'], scoresMap, hcpByPlayer: {} })
+  assert.equal(currentRoundId(s), 'R2')
+  const rows = individualBoardRows({ gameType: 'stableford', standings: s })
+  assert.deepEqual(rows.map(r => [r.id, r.rank, r.thru, r.today, r.total]), [['A', '1', '1', '3', '7'], ['B', '2', '—', '—', '4'], ['C', '', '—', '—', '—']])
+  const r1 = individualBoardRows({ gameType: 'stableford', standings: s, roundId: 'R1' })
+  assert.deepEqual(r1.map(r => [r.id, r.rank, r.thru, r.total]), [['A', 'T1', 'F', '4'], ['B', 'T1', 'F', '4'], ['C', '', '—', '—']])
+  const st = individualStandings({ gameType: 'stroke', rounds, playerIds: ['A', 'B'], scoresMap, hcpByPlayer: {} })
+  assert.deepEqual(individualBoardRows({ gameType: 'stroke', standings: st }).map(r => [r.id, r.total, r.gross]), [['A', '-1', '-1'], ['B', 'E', 'E']])
+})

@@ -125,3 +125,41 @@ test('team stroke play = the sum of members\' net to par; lowest wins', () => {
   assert.equal(s.lowWins, true)
   assert.deepEqual(s.ranked.map(r => [r.teamId, r.rank]), [['T2', 1], ['T1', 2]])
 })
+
+test('Stats on a Stableford trip: Stableford points, no match points, full-handicap net', async () => {
+  const { computePlayerStats } = await import('./playerStats.js')
+  const { buildDailyLeaders } = await import('./dailyLeaders.js')
+  const r = { ...R('R1'), date: '2026-11-01' }
+  const scores = Object.entries(sm('R1', { A: [5, 4, 5, 4], B: [4, 3, 5, 4] })).map(([k, g]) => { const [round_id, trip_player_id, h] = k.split(':'); return { round_id, trip_player_id, hole_number: +h, gross_score: g } })
+  const tripPlayers = [{ id: 'A', handicap_index: 2, team_id: 'T1' }, { id: 'B', handicap_index: 0, team_id: 'T2' }]
+  // One pairing, A vs B: in match play A would get 2 shots off the low; here too,
+  // but it's his FULL handicap that counts (B being scratch is coincidence-proof below).
+  const pairings = [{ id: 'P', round_id: 'R1', pairing_number: 1 }]
+  const pairingPlayers = [{ pairing_id: 'P', trip_player_id: 'A', team_slot: 1 }, { pairing_id: 'P', trip_player_id: 'B', team_slot: 3 }]
+  const data = { rounds: [r], scores, pairings, pairingPlayers, tripPlayers, playerRounds: [], drinks: [] }
+  const { stats } = computePlayerStats(data, 100, { gameType: 'stableford' })
+  assert.equal(stats.get('A').stableford, 8)
+  assert.equal(stats.get('B').stableford, 8)
+  assert.equal(stats.get('A').primary, 0)
+  assert.equal(stats.get('A').net.pars, 4)
+  // Raise B's index: match play would shrink A's shots (off the low); individual doesn't.
+  const hi = { ...data, tripPlayers: [{ id: 'A', handicap_index: 2 }, { id: 'B', handicap_index: 2 }] }
+  assert.equal(computePlayerStats(hi, 100, { gameType: 'stableford' }).stats.get('A').stableford, 8)
+  assert.equal(computePlayerStats(hi, 100).stats.get('A').net.pars, 2) // match play: 0 shots off the low
+
+  // Daily Leaders only counts finished 18-hole rounds.
+  const h18 = Array.from({ length: 18 }, (_, i) => ({ par: 4, handicap: i + 1 }))
+  const r18 = { ...R('R1', { holes: h18, course_rating: 72, par_total: 72 }), date: '2026-11-01' }
+  const s18 = ['A', 'B'].flatMap(id => h18.map((_, i) => ({ round_id: 'R1', trip_player_id: id, hole_number: i + 1, gross_score: id === 'A' ? 5 : 4 })))
+  const dl = { ...data, rounds: [r18], scores: s18, tripPlayers: [{ id: 'A', handicap_index: 18 }, { id: 'B', handicap_index: 0 }] }
+  const days = buildDailyLeaders(dl, { gameType: 'stableford' })
+  const keys = days[0].leaders.map(l => l.key)
+  assert.ok(keys.includes('points')); assert.ok(!keys.includes('defended'))
+  // A: bogey every hole, 1 stroke per hole → net par → 36. B: par every hole → 36.
+  assert.deepEqual(days[0].leaders.find(l => l.key === 'points').leader, { value: 36, ids: ['A', 'B'] })
+  const strokeKeys = buildDailyLeaders(dl, { gameType: 'stroke' })[0].leaders.map(l => l.key)
+  assert.ok(!strokeKeys.includes('points')); assert.ok(!strokeKeys.includes('defended'))
+  // Match-play trips unchanged: both categories still there.
+  const matchKeys = buildDailyLeaders(dl, {})[0].leaders.map(l => l.key)
+  assert.ok(matchKeys.includes('points') && matchKeys.includes('defended'))
+})

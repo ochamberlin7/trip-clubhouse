@@ -536,7 +536,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
           ) : (
             <p style={{ fontSize: 13, color: '#7A8FA6', margin: 0 }}>
               {individual
-                ? 'Everyone plays for themselves. You can add teams later in Commissioner Tools.'
+                ? 'Everyone plays for themselves — no teams needed.'
                 : 'You can assign teams later in Commissioner Tools once more players join.'}
             </p>
           )}

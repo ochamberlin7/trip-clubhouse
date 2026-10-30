@@ -56,3 +56,44 @@ export function leadLine({ format, teams = [], standings, rounds = [] }) {
   const margin = fmtPoints(Math.abs(top[0].total - ranked.find(r => r.rank > 1).total))
   return `${name} ${verb} by ${margin} · ${tail}`
 }
+
+// ── Stableford / stroke play player board (layout "A", picked 2026-10-29) ──────
+// Rows for the per-player list under the team blocks. `standings` comes from
+// individualStandings (scoring.js); this only words it.
+//   roundId null → the whole trip: Thru + Today come from the latest round anyone
+//   has scored; Total is the trip total. roundId set → that round only.
+// Stableford values are points ("36"); stroke play is net to par ("-2", "E", "+5")
+// with gross to par alongside. Rank: "1", "T3"; blank until a player has scored.
+export function currentRoundId(standings) {
+  if (!standings) return null
+  for (let i = standings.rounds.length - 1; i >= 0; i--) {
+    const id = standings.rounds[i].id
+    if ([...standings.perRound.values()].some(m => m.has(id))) return id
+  }
+  return null
+}
+
+export function individualBoardRows({ gameType, standings, roundId = null }) {
+  if (!standings) return []
+  const stroke = gameType === 'stroke'
+  const fmt = v => (v == null ? '—' : stroke ? formatVsPar(v) : String(v))
+  const valueOf = res => (res ? (stroke ? res.netToPar : res.points) : null)
+  const thruOf = res => (!res ? '—' : res.complete ? 'F' : String(res.holes))
+  const ranked = roundId ? (standings.rankedByRound.get(roundId) || []) : standings.ranked
+  const countByRank = new Map()
+  for (const r of ranked) if (r.rank != null) countByRank.set(r.rank, (countByRank.get(r.rank) || 0) + 1)
+  const today = roundId || currentRoundId(standings)
+  return ranked.map(r => {
+    const res = today ? standings.perRound.get(r.id)?.get(today) : null
+    const tot = standings.total.get(r.id)
+    const rank = r.rank == null ? '' : `${countByRank.get(r.rank) > 1 ? 'T' : ''}${r.rank}`
+    return {
+      id: r.id,
+      rank,
+      thru: thruOf(res),
+      today: fmt(valueOf(res)),
+      total: roundId ? fmt(valueOf(res)) : fmt(r.value),
+      gross: roundId ? fmt(res?.grossToPar ?? null) : (tot?.holes ? fmt(tot.grossToPar) : '—'),
+    }
+  })
+}

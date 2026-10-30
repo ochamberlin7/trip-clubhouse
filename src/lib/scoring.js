@@ -1688,9 +1688,12 @@ export function pointsDefendedByPlayer(bundle, allowance = 100) {
 //                       round (streaks never carry between rounds)
 //   • fireHolesTotal  = total flagged holes summed across every round
 // Takes the same data bundle as analyzeScoring.
+// opts.fullHandicap (Stableford / Stroke Play trips): net uses each player's FULL
+// playing handicap instead of the pairing's shots off the low.
 export function fireStatsByPlayer(
   { rounds, scores, courseHoles, pairings, pairingPlayers, tripPlayers, playerRounds = [] },
-  allowance = 100
+  allowance = 100,
+  { fullHandicap = false } = {}
 ) {
   const hcpByPlayer = new Map(tripPlayers.map(p => [p.id, p.handicap_index]))
   const roundById = new Map(rounds.map(r => [r.id, r]))
@@ -1735,7 +1738,9 @@ export function fireStatsByPlayer(
         const tee = resolvePlayerTee(round, teeRowByRoundPlayer.get(`${r.id}:${id}`))
         return { id, ch: rawCourseHandicapForTee(hcpByPlayer.get(id), tee.slope, tee.rating, tee.par) }
       })
-      const playing = shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
+      const playing = fullHandicap
+        ? new Map(ids.map(id => [id, playingHandicapForRound(round, teeRowByRoundPlayer.get(`${r.id}:${id}`), hcpByPlayer.get(id), allowance)]))
+        : shotsGivenFromCourseHandicaps(entries, effectiveAllowance(round, allowance))
 
       for (const id of ids) {
         // Build the fire boolean array for this player/round (scorecard logic).
