@@ -285,7 +285,8 @@ export default function HomePage() {
         )}
 
         <section>
-          <SectionHead style={{ marginBottom: 4 }}>Career</SectionHead>
+          {/* Title is the link (like Trophy room) once there are stats; the full career page is still to come. */}
+          <SectionHead style={{ marginBottom: 4 }} onClick={hasCareer ? () => setCareerSoon(true) : undefined}>Career</SectionHead>
           {hasCareer ? (
             <>
               <div style={h.stats}>
@@ -294,7 +295,6 @@ export default function HomePage() {
                 <div style={h.statLine}><b style={h.statNum}>{career.points}</b><span style={h.statLab}>Points</span></div>
                 <div style={h.statLine}><b style={h.statNum}>{career.bestRound ?? '—'}</b><span style={h.statLab}>Best</span></div>
               </div>
-              <button style={h.link} onClick={() => setCareerSoon(true)}>All career stats</button>
               {careerSoon && <div style={{ fontSize: 12, color: MUTED, textAlign: 'center', marginTop: 6 }}>The full career stats page is coming soon.</div>}
             </>
           ) : (
