@@ -28,8 +28,9 @@ const ui = {
   sheetTitle: { fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 },
   sheetText: { fontSize: 14, color: '#2C3E50', lineHeight: 1.45 },
   sheetBtns: { display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 },
-  cancelBtn: { background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  dangerBtn: { background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  // Owen 2026-10-30: Cancel is the red one, Change is the quiet grey-blue one.
+  cancelBtn: { background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  changeBtn: { background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   warn: { fontSize: 12.5, color: '#7A4B00', lineHeight: 1.5, marginTop: 10, background: '#FFF4DC', borderRadius: 8, padding: '9px 11px' },
 }
 
@@ -181,7 +182,7 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
             <div style={ui.sheetText}>Changing the dates of the trip may delete data. This cannot be undone. Are you sure?</div>
             <div style={ui.sheetBtns}>
               <button type="button" style={ui.cancelBtn} onClick={() => setConfirming(false)} disabled={saving}>Cancel</button>
-              <button type="button" style={ui.dangerBtn} onClick={commit} disabled={saving}>{saving ? 'Saving…' : 'Change'}</button>
+              <button type="button" style={ui.changeBtn} onClick={commit} disabled={saving}>{saving ? 'Saving…' : 'Change'}</button>
             </div>
           </div>
         </div>,
