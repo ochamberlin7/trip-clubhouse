@@ -118,6 +118,7 @@ Default round rules: first round of the day = that round all day until live; 2nd
 - Deferred security items: M3, M4, L1, L2, H3, H2 (email confirmation).
 - `sb_secret_` key compatibility for chat-notify and feedback-notify.
 - Lint debt in `TripDashboard.jsx`.
+- **Move the project off the iCloud-synced Desktop** (decided 2026-10-30, waiting): iCloud made ~25 "… 2" / "… 3" conflict copies at 11:09 on 2026-10-30, including a stray `.git/refs/stash 2` that broke `git fetch`. They were moved to `~/trip-clubhouse-duplicates-20261030` (README + file list there), and the trip-dates WIP stash was saved as `stash@{0}`. Plan: once the trip-dates work (`feat/change-trip-dates`) is finished and the other sessions in this folder are archived, move the folder to `~/Developer/trip-clubhouse`, point the session(s) and Claude memory at the new path, update CLAUDE.md, and re-check git / tests / build there.
 
 ## Cancelled
 - App-wide swipe navigation (merged as `36bf873`, reverted in `d573cdd`; not in the code).
