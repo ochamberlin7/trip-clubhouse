@@ -33,3 +33,18 @@ export function avatarPath(userId, now = Date.now()) {
 export function accountAvatarUrl(user) {
   return user?.user_metadata?.avatar_url || null
 }
+
+// Account ids linked to a trip player row (owner first, then the claimer).
+export function playerAccountIds(p) {
+  return [p?.user_id, p?.claimed_user_id].filter(Boolean)
+}
+
+// Add `avatar_url` to each trip player from profiles rows ({ id, avatar_url }).
+// Players without a linked account or photo get null (→ initials).
+export function attachAvatars(players, profiles) {
+  const byId = new Map((profiles || []).filter(r => r?.avatar_url).map(r => [r.id, r.avatar_url]))
+  return (players || []).map(p => {
+    const id = playerAccountIds(p).find(i => byId.has(i))
+    return { ...p, avatar_url: id ? byId.get(id) : null }
+  })
+}

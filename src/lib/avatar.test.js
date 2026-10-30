@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { squareCrop, cropSquare, avatarPath, accountAvatarUrl } from './avatar.js'
+import { squareCrop, cropSquare, avatarPath, accountAvatarUrl, attachAvatars, playerAccountIds } from './avatar.js'
 
 test('squareCrop centers a landscape photo', () => {
   assert.deepEqual(squareCrop(4000, 3000), { sx: 500, sy: 0, side: 3000 })
@@ -40,4 +40,25 @@ test('cropSquare keeps the square inside the image', () => {
 test('cropSquare falls back to a centered square without an area', () => {
   assert.deepEqual(cropSquare(4000, 3000, null), { sx: 500, sy: 0, side: 3000 })
   assert.deepEqual(cropSquare(4000, 3000, { x: 0, y: 0, width: 0, height: 0 }), { sx: 500, sy: 0, side: 3000 })
+})
+
+test('playerAccountIds lists the owner then the claimer', () => {
+  assert.deepEqual(playerAccountIds({ user_id: 'a', claimed_user_id: 'b' }), ['a', 'b'])
+  assert.deepEqual(playerAccountIds({ user_id: null, claimed_user_id: 'b' }), ['b'])
+  assert.deepEqual(playerAccountIds({}), [])
+})
+
+test('attachAvatars matches photos by user_id or claimed_user_id', () => {
+  const players = [
+    { id: 1, user_id: 'u1' },
+    { id: 2, user_id: null, claimed_user_id: 'u2' },
+    { id: 3, user_id: 'u3' },
+    { id: 4 },
+  ]
+  const profiles = [{ id: 'u1', avatar_url: 'one.jpg' }, { id: 'u2', avatar_url: 'two.jpg' }, { id: 'u3', avatar_url: null }]
+  assert.deepEqual(attachAvatars(players, profiles).map(p => p.avatar_url), ['one.jpg', 'two.jpg', null, null])
+})
+
+test('attachAvatars tolerates missing profiles', () => {
+  assert.deepEqual(attachAvatars([{ id: 1, user_id: 'u1' }], null), [{ id: 1, user_id: 'u1', avatar_url: null }])
 })
