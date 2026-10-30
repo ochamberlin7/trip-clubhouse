@@ -21,13 +21,15 @@ import { useAvatarPicker } from './useAvatarPicker'
 import { attachAvatars, playerAccountIds } from '../lib/avatar'
 import { useAuth } from '../context/AuthContext'
 import { version as APP_VERSION } from '../../package.json'
-import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
+import { rowUI, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
 import { loadMyTrips } from '../lib/myTrips'
 import SwipeDeleteRow from './SwipeDeleteRow'
 import TripDatesBody from './TripDatesBody'
+import TeamCountBody from './TeamCountBody'
+import { StripePage, StripeSection, StripeRow, StripeInviteRow, StripeDanger, TripNameBody } from './StripeRows'
 import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
@@ -52,6 +54,12 @@ function daysInRange(start, end) {
     out.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`)
   }
   return out
+}
+// "Thu, Jun 10 – Sun, Jun 13" (Commissioner Tools dates row).
+function fmtDatesShort(a, b) {
+  if (!a && !b) return '—'
+  if (!b || a === b) return fmtShort(a || b)
+  return `${fmtShort(a)} – ${fmtShort(b)}`
 }
 function fmtLong(iso) { const d = parseDate(iso); return d ? `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : '—' }
 function fmtRange(s, e) {
@@ -234,7 +242,10 @@ function Expandable({ title, sub, steps }) {
 }
 
 // ── secondary pages ───────────────────────────────────────────────
-function SecondaryPage({ context, title, onBack, children }) {
+// `fonts="fraunces"`: the Commissioner Tools redesign's Fraunces title + Inter
+// header (the rest of the app keeps Playfair / the system font for now).
+function SecondaryPage({ context, title, onBack, children, fonts }) {
+  const f = fonts === 'fraunces'
   return (
     <div style={s.page}>
       <div style={s.pageHeader}>
@@ -244,8 +255,8 @@ function SecondaryPage({ context, title, onBack, children }) {
           </svg>
         </button>
         <div>
-          <div style={s.pageContext}>{context}</div>
-          <div style={s.pageTitle}>{title}</div>
+          <div style={f ? { ...s.pageContext, fontFamily: 'var(--font-inter)', fontWeight: 600 } : s.pageContext}>{context}</div>
+          <div style={f ? { ...s.pageTitle, fontFamily: 'var(--font-fraunces)', fontWeight: 600, fontSize: '24px' } : s.pageTitle}>{title}</div>
         </div>
       </div>
       <div style={s.pageBody}>{children}</div>
@@ -2053,37 +2064,6 @@ function inviteUrl(inviteToken) {
   return `https://thetripclubhouse.com/join/${inviteToken || ''}`
 }
 
-function InvitePlayersRow({ inviteToken }) {
-  const [open, setOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const url = inviteUrl(inviteToken)
-  async function copy() {
-    try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-  return (
-    <div style={rowUI.divider}>
-      <div style={rowUI.rowStatic}>
-        <span style={rowUI.label}>Invite Link</span>
-        <button style={{ ...rowUI.linkBtn, marginLeft: 'auto' }} onClick={copy}>{copied ? 'Copied!' : 'Copy link'}</button>
-        <button onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label="Show invite link"
-          style={{ ...rowUI.chevronBox, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
-      </div>
-      {open && (
-        <div style={{ padding: '0 2px 16px' }}>
-          <div style={{ background: '#EEF2F6', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: '#5A7290', wordBreak: 'break-all' }}>{url}</div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Bottom danger action: soft-delete this trip (stays in Recently Deleted 30 days).
 function DeleteTripAction({ tripName, onDelete }) {
   const [busy, setBusy] = useState(false)
@@ -2095,48 +2075,63 @@ function DeleteTripAction({ tripName, onDelete }) {
     setBusy(false) // on success the drawer closes + routes away
   }
   return (
-    <div style={rowUI.dangerWrap}>
-      <div style={rowUI.note}>Removes this trip from the trip list. It stays in Recently Deleted and can be restored for 30 days.</div>
-      <button style={{ ...rowUI.dangerBtn, marginTop: 10 }} onClick={handle} disabled={busy}>{busy ? 'Deleting…' : 'Delete Trip'}</button>
-    </div>
+    <StripeDanger note="Removes this trip from the trip list. It stays in Recently Deleted and can be restored for 30 days."
+      label="Delete trip" busyLabel="Deleting…" onClick={handle} busy={busy} />
   )
 }
 
-function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, onDatesChanged, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
+// Commissioner Tools (redesign "1C", 2026-10-30): wizard-style grey stripes
+// grouping The Trip / Players & Teams / The Game, with Fraunces + Inter.
+// Each row expands in place to edit; Roster opens Players & Teams.
+function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, onDatesChanged, onNameChanged, onOpenPlayers, onTeamCountChanged, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const teams = data.teams || []
-  const teamsValue = teams.length ? teams.map(getTeamDisplayName).join(' vs ') : '—'
-  const purseValue = Number(purseAmount) > 0
-    ? `$${formatMoney(Number(purseAmount))}`
-    : (showPurseOnHome ? 'Not set' : 'Not set · hidden')
-  const allowanceValue = `${handicapAllowance ?? 100}%`
   const joined = data.joinedCount ?? 0
+  const total = data.playerCount ?? 0
+  const days = daysInRange(tripStartDate, tripEndDate).length
+  const purseSet = Number(purseAmount) > 0
   return (
-    <div>
-      <Disclosure label="Trip Dates" value={fmtRange(tripStartDate, tripEndDate)}>
-        {({ close }) => <TripDatesBody tripId={tripId} startDate={tripStartDate} endDate={tripEndDate} onSaved={onDatesChanged} onClose={close} />}
-      </Disclosure>
-      <Disclosure label="Team Names" value={teamsValue}>
-        {({ close }) => <TeamNamesBody teams={teams} onSaved={onTeamsSaved} onClose={close} />}
-      </Disclosure>
-      {tournamentOn && (
-        <Disclosure label="Tournament Format" value={tournamentFormatLabel(tournamentFormat)}>
-          {({ close }) => <FormatBody tripId={tripId} format={tournamentFormat} teamCount={teams.length} onUpdate={onTripUpdate} onClose={close} />}
-        </Disclosure>
-      )}
-      <Disclosure label="Tournament Purse" value={purseValue}>
-        {({ close }) => <PurseBody tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} onUpdate={onTripUpdate} onClose={close} />}
-      </Disclosure>
-      <Disclosure label="Handicap Allowance" value={allowanceValue}>
-        {({ close }) => <AllowanceBody tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} onClose={close} />}
-      </Disclosure>
-      <InvitePlayersRow inviteToken={inviteToken} />
-      <div style={{ ...rowUI.rowStatic, ...rowUI.divider }}>
-        <span style={rowUI.label}>Players Joined</span>
-        <span style={rowUI.value}>{joined} of open invite</span>
-      </div>
+    <StripePage intro="Everything about the trip, in one place. Tap a row to change it.">
+      <StripeSection title="The trip">
+        <StripeRow label="Trip name" value={tripName || '—'}>
+          {({ close }) => <TripNameBody tripId={tripId} name={tripName} onSaved={onNameChanged} onClose={close} />}
+        </StripeRow>
+        <StripeRow label="Dates" value={fmtDatesShort(tripStartDate, tripEndDate)} detail={days ? `${days} day${days === 1 ? '' : 's'}` : null}>
+          {({ close }) => <TripDatesBody tripId={tripId} startDate={tripStartDate} endDate={tripEndDate} onSaved={onDatesChanged} onClose={close} />}
+        </StripeRow>
+      </StripeSection>
+
+      <StripeSection title="Players & teams" detail={total ? `${joined} of ${total} joined` : null}>
+        <StripeRow label="Roster" value={`${total} player${total === 1 ? '' : 's'}`} detail="Players & Teams" onClick={onOpenPlayers} />
+        {teams.length > 0 && (
+          <StripeRow label="Number of teams" value={`${teams.length} teams`}>
+            {({ close }) => <TeamCountBody tripId={tripId} teams={teams} onSaved={onTeamCountChanged} onClose={close} />}
+          </StripeRow>
+        )}
+        {teams.length > 0 && (
+          <StripeRow label="Team names" value={teams.map(getTeamDisplayName).join(' vs ')}>
+            {({ close }) => <TeamNamesBody teams={teams} onSaved={onTeamsSaved} onClose={close} />}
+          </StripeRow>
+        )}
+        <StripeInviteRow url={inviteUrl(inviteToken)} />
+      </StripeSection>
+
+      <StripeSection title="The game">
+        {tournamentOn && (
+          <StripeRow label="Format" value={tournamentFormatLabel(tournamentFormat)}>
+            {({ close }) => <FormatBody tripId={tripId} format={tournamentFormat} teamCount={teams.length} onUpdate={onTripUpdate} onClose={close} />}
+          </StripeRow>
+        )}
+        <StripeRow label="Handicap allowance" value={`${handicapAllowance ?? 100}%`}>
+          {({ close }) => <AllowanceBody tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} onClose={close} />}
+        </StripeRow>
+        <StripeRow label="Purse" value={purseSet ? `$${formatMoney(Number(purseAmount))}` : 'Not set'} detail={showPurseOnHome ? 'Shown on Home' : 'Hidden on Home'}>
+          {({ close }) => <PurseBody tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} onUpdate={onTripUpdate} onClose={close} />}
+        </StripeRow>
+      </StripeSection>
+
       <DeleteTripAction tripName={tripName} onDelete={onDeleteTrip} />
-    </div>
+    </StripePage>
   )
 }
 
@@ -2446,7 +2441,7 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, tournamentOn = true, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
+  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, tournamentOn = true, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, onTeamsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -2685,11 +2680,12 @@ export default function MenuDrawer({
         // Ordered by team_index; includes color_index for display/colour helpers.
         // Also count players who've actually joined (claimed their slot) for the
         // read-only "Players Joined" row.
-        const [{ data: teams }, { count: joinedCount }] = await Promise.all([
+        const [{ data: teams }, { count: joinedCount }, { count: playerCount }] = await Promise.all([
           supabase.from('teams').select('id, name, team_index, color_index').eq('trip_id', tripId).order('team_index'),
           supabase.from('trip_players').select('id', { count: 'exact', head: true }).eq('trip_id', tripId).eq('is_claimed', true),
+          supabase.from('trip_players').select('id', { count: 'exact', head: true }).eq('trip_id', tripId),
         ])
-        if (!cancelled) setCommissionerData({ teams: teams || [], joinedCount: joinedCount ?? 0 })
+        if (!cancelled) setCommissionerData({ teams: teams || [], joinedCount: joinedCount ?? 0, playerCount: playerCount ?? 0 })
       })()
     }
     if (page === 'courses' && !coursesData) { (async () => { await loadCoursesData() })() }
@@ -3118,13 +3114,22 @@ export default function MenuDrawer({
         </SecondaryPage>
       )}
       {page === 'commissioner' && isCommissioner && (
-        <SecondaryPage context={tripName} title="Commissioner Tools" onBack={backToDrawer}>
+        <SecondaryPage context={tripName} title="Commissioner Tools" onBack={backToDrawer} fonts="fraunces">
           <CommissionerPage
             data={commissionerData}
             tripId={tripId}
             tripName={tripName}
             tripStartDate={tripStartDate}
             tripEndDate={tripEndDate}
+            onOpenPlayers={() => setPage('players')}
+            onTeamCountChanged={() => {
+              // Teams added/removed (players may be unassigned): reload this page,
+              // the Players tab and the trip screen's teams.
+              setCommissionerData(null)
+              setPlayersData(null)
+              onTeamsChanged?.()
+            }}
+            onNameChanged={name => { patchTrip?.(tripId, { name }); onTripUpdate?.() }}
             onDatesChanged={(start, end) => {
               // Trip dates + every round/meal/lodging date moved: refresh the
               // trip and rounds, and drop the cached Schedule page so it reloads.

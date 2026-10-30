@@ -1,6 +1,7 @@
 // Home banner — "Trip Clubhouse" small-caps wordmark, auto-fit trip name, date range.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { saveTripName, TRIP_NAME_MAX as TRIP_NAME_MAX_CHARS } from '../lib/tripSettings'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -173,15 +174,12 @@ export default function TripHeader({ tripName, startDate, endDate, tripId, canEd
   function cancel() { setEditing(false); setErr(''); setName(tripName || '') }
 
   async function save() {
-    const trimmed = name.trim()
-    if (!trimmed) { setErr('Name can’t be empty'); return }
-    if (trimmed === (tripName || '').trim()) { setEditing(false); return }
     setSaving(true)
-    const { error } = await supabase.from('trips').update({ name: trimmed }).eq('id', tripId)
+    const { error, unchanged } = await saveTripName(supabase, tripId, name, tripName)
     setSaving(false)
-    if (error) { setErr('Couldn’t save — try again'); return }
+    if (error) { setErr(error); return }
     setEditing(false)
-    onRenamed?.()
+    if (!unchanged) onRenamed?.()
   }
 
   return (
@@ -191,7 +189,7 @@ export default function TripHeader({ tripName, startDate, endDate, tripId, canEd
       {editing ? (
         <div style={styles.editWrap}>
           <input
-            ref={inputRef} style={styles.editInput} value={name} maxLength={80}
+            ref={inputRef} style={styles.editInput} value={name} maxLength={TRIP_NAME_MAX_CHARS}
             placeholder="Trip name"
             onChange={e => setName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') save(); else if (e.key === 'Escape') cancel() }}

@@ -20,6 +20,10 @@
   /* Serif display face — the "Clubhouse" identity. Used for major page titles
      (not body/labels/chrome). Loaded at 700 in index.html. */
   --font-serif: 'Playfair Display', Georgia, serif;
+  /* Commissioner Tools redesign (mockup 1C, 2026-10-30): Fraunces + Inter.
+     Only that page uses these for now; the font files download only when used. */
+  --font-fraunces: 'Fraunces', Georgia, serif;
+  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
   /* ── "Classic, Softened" design tokens (Part 2 rollout) ──
      Single navy accent + a cool neutral ink/slate ramp. Added now for Home; will
