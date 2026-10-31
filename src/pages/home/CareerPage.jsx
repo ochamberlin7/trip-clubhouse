@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useMyCareer } from '../../lib/useMyCareer'
+import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 
 // Career page (opened from the Career title on Home): one player's numbers across
 // every trip. Layout "B" (Owen, 2026-10-30): totals on top, then three tabs —
 // Scoring · Competition (match play / Stableford / stroke play) · Trips. Gross and
 // net sit side by side in each tile; every tile title is navy. All numbers come
 // from buildCareerDetail (careerDetail.js), loaded by the shared useMyCareer so
-// they match Home and the Trophy Room.
+// they match Home and the Trophy Room. Every number is black (Owen, 2026-10-31);
+// a number that came from one trip or round can be tapped to see where.
 
 const NAVY = '#1B3F6E'
 const INK = '#0D1B2A'
@@ -20,8 +22,7 @@ const TILE_BAR = '#EEF2F7'
 const ROW_LINE = '#EDF0F4'
 const GOLD = '#B08A3E'
 const GOLD_TEXT = '#D8C08A'
-const GREEN = '#0F6E56'
-const RED = '#C0392B'
+const FAINT = '#9AA6B5'
 const SERIF = "'Playfair Display', Georgia, serif"
 const CAPS = { fontWeight: 700, letterSpacing: '1.3px', textTransform: 'uppercase' }
 const LNUM = { fontVariantNumeric: 'lining-nums tabular-nums', fontFeatureSettings: '"lnum" 1' }
@@ -42,14 +43,30 @@ const s = {
   tabs: { display: 'flex', borderBottom: `1px solid ${RULE}` },
   tab: { flex: 1, padding: '11px 0', background: 'none', border: 'none', fontSize: 14, fontWeight: 700, color: MUTED, cursor: 'pointer', fontFamily: 'inherit' },
   tabOn: { color: NAVY, boxShadow: `inset 0 -2px 0 ${NAVY}` },
-  tile: { background: '#fff', border: `1px solid ${TILE_BORDER}`, borderRadius: 6, overflow: 'hidden' },
-  tileBar: { background: TILE_BAR, padding: '8px 12px', fontSize: 15, fontWeight: 700, color: NAVY, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
+  // overflow stays visible so a number's pop-up isn't cut off; the bar rounds its own corners.
+  tile: { background: '#fff', border: `1px solid ${TILE_BORDER}`, borderRadius: 6 },
+  tileBar: { background: TILE_BAR, borderRadius: '6px 6px 0 0', padding: '8px 12px', fontSize: 15, fontWeight: 700, color: NAVY, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   tileNote: { fontSize: 11, fontWeight: 600, color: MUTED },
   tileBody: { padding: 12 },
-  cols: n => ({ display: 'grid', gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))`, textAlign: 'center' }),
+  // Every cell shares three rows (label, number, caption) so the numbers line up across a tile.
+  cols: n => ({ display: 'grid', gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))`, gridTemplateRows: 'auto auto auto', textAlign: 'center' }),
+  cell: { display: 'grid', gridRow: 'span 3', gridTemplateRows: 'subgrid', justifyItems: 'center', alignItems: 'end', rowGap: 3, position: 'relative', minWidth: 0 },
   colLine: { borderLeft: `1px solid ${ROW_LINE}` },
-  colLab: { display: 'block', fontSize: 11, color: MUTED },
-  big: { display: 'block', fontSize: 26, fontWeight: 800, color: INK, ...LNUM, lineHeight: 1.2 },
+  colLab: { display: 'block', fontSize: 11, lineHeight: '14px', color: MUTED },
+  big: { display: 'block', fontSize: 24, fontWeight: 800, color: INK, ...LNUM, lineHeight: '30px', whiteSpace: 'nowrap' },
+  // Tappable number: looks like every other number.
+  tap: { display: 'block', fontFamily: 'inherit', fontSize: 24, fontWeight: 800, color: INK, ...LNUM, lineHeight: '30px', whiteSpace: 'nowrap', background: 'none', border: 0, padding: 0, cursor: 'pointer' },
+  pop: { position: 'absolute', zIndex: 5, top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', width: 'max-content', maxWidth: 210, background: NAVY, color: '#fff', fontSize: 12, lineHeight: 1.35, fontWeight: 600, padding: '8px 10px', borderRadius: 6, boxShadow: '0 6px 18px rgba(13,27,42,0.25)', textAlign: 'center', whiteSpace: 'normal' },
+  popArrow: { position: 'absolute', top: -5, left: '50%', marginLeft: -5, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderBottom: `5px solid ${NAVY}` },
+  popSmall: { display: 'block', fontWeight: 400, color: '#C7D6EA', fontSize: 11, marginTop: 2 },
+  // Win · Tie · Loss: the faint words and the numbers share fixed columns.
+  rec: { display: 'grid', gridTemplateColumns: '28px 9px 28px 9px 28px', justifyItems: 'center', ...LNUM },
+  recHead: { fontSize: 9, lineHeight: '14px', letterSpacing: '0.8px', textTransform: 'uppercase', color: FAINT, fontWeight: 700 },
+  recNum: { fontSize: 22, lineHeight: '30px', fontWeight: 800, color: INK },
+  recSm: { display: 'inline-grid', gridTemplateColumns: '17px 8px 17px 8px 17px', justifyItems: 'center', ...LNUM },
+  recSmHead: { fontSize: 8, lineHeight: '10px', letterSpacing: '0.5px', color: FAINT, fontWeight: 700 },
+  recSmNum: { fontSize: 15, lineHeight: '18px', fontWeight: 800, color: INK },
+  pills: { display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 },
   where: { display: 'block', fontSize: 11, color: MUTED, marginTop: 2, lineHeight: 1.3 },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 14, ...LNUM },
   th: { fontSize: 10.5, ...CAPS, letterSpacing: '1.2px', color: MUTED, textAlign: 'right', padding: '0 4px 6px', width: 70 },
@@ -67,8 +84,6 @@ const s = {
   grid4: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', borderTop: `1px solid ${HAIR}`, textAlign: 'center', padding: '10px 0' },
   g4Num: { display: 'block', fontSize: 16, fontWeight: 700, ...LNUM },
   g4Lab: { fontSize: 10, ...CAPS, letterSpacing: '1px', color: MUTED },
-  sec: { display: 'flex', alignItems: 'center', gap: 12, margin: '6px 0 0', fontSize: 11, fontWeight: 800, letterSpacing: '2.2px', textTransform: 'uppercase', color: NAVY },
-  secRule: { flex: 1, height: 1, background: RULE },
   rounds: { borderTop: `1px solid ${HAIR}`, padding: '6px 14px 10px', fontSize: 13 },
   roundRow: { display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 0', color: '#2C3E50' },
 }
@@ -78,7 +93,7 @@ const TABS = [{ id: 'scoring', label: 'Scoring' }, { id: 'competition', label: '
 const one = n => (n == null ? '—' : n.toFixed(1))
 const vsPar = n => (n == null ? '—' : Math.abs(n) < 0.05 ? 'E' : `${n > 0 ? '+' : '−'}${Math.abs(n).toFixed(1)}`)
 const pct = n => (n == null ? '—' : `${Math.round(n * 100)}%`)
-const rec = r => `${r.w}–${r.l}–${r.h}`
+const half = n => (n % 1 ? `${Math.floor(n) || ''}½` : String(n))
 const initials = name => (name || '').trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || '—'
 function fmtDate(iso, opts = { month: 'short', day: 'numeric', year: 'numeric' }) {
   if (!iso) return ''
@@ -94,15 +109,54 @@ function Tile({ title, note, children, pad = true }) {
   )
 }
 
-// Two (or three) numbers side by side with small labels.
+// A number that came from one trip or round: tap it for a small pop-up naming where.
+function TapValue({ value, where }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const close = e => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [open])
+  return (
+    <span ref={ref} style={{ position: 'relative', display: 'block' }}>
+      <button type="button" style={s.tap} onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={`${value}. Show where`}>{value}</button>
+      {open && (
+        <span role="status" style={s.pop}>
+          <span style={s.popArrow} />
+          {where.title}
+          {where.detail && <small style={s.popSmall}>{where.detail}</small>}
+        </span>
+      )}
+    </span>
+  )
+}
+
+// Win – Tie – Loss with a faint word over each number (`small` for lists).
+function RecordHead({ small }) {
+  const st = small ? s.recSmHead : s.recHead
+  return <span style={small ? s.recSm : s.rec}><span style={st}>{small ? 'W' : 'Win'}</span><span /><span style={st}>{small ? 'T' : 'Tie'}</span><span /><span style={st}>{small ? 'L' : 'Loss'}</span></span>
+}
+function RecordNums({ r, small }) {
+  const st = small ? s.recSmNum : s.recNum
+  return <span style={small ? s.recSm : s.rec}><span style={st}>{r.w}</span><span style={st}>–</span><span style={st}>{r.t}</span><span style={st}>–</span><span style={st}>{r.l}</span></span>
+}
+function SmallRecord({ r }) {
+  return <span style={{ display: 'flex', flexDirection: 'column' }} aria-label={`${r.w} won, ${r.t} tied, ${r.l} lost`}><RecordHead small /><RecordNums r={r} small /></span>
+}
+
+// Numbers side by side. Item: { label, value, sub?, where? } or { record, sub? }.
 function Cols({ items }) {
   return (
     <div style={s.cols(items.length)}>
       {items.map((it, i) => (
-        <div key={it.label} style={i ? s.colLine : undefined}>
-          <span style={s.colLab}>{it.label}</span>
-          <b style={{ ...s.big, color: it.color || INK }}>{it.value}</b>
-          {it.sub && <span style={s.where}>{it.sub}</span>}
+        <div key={it.label || `c${i}`} style={{ ...s.cell, ...(i ? s.colLine : null) }}>
+          {it.record ? <RecordHead /> : <span style={s.colLab}>{it.label}</span>}
+          {it.record
+            ? <span aria-label={`${it.record.w} won, ${it.record.t} tied, ${it.record.l} lost`}><RecordNums r={it.record} /></span>
+            : it.where ? <TapValue value={it.value} where={it.where} /> : <b style={s.big}>{it.value}</b>}
+          {it.sub ? <span style={{ ...s.where, alignSelf: 'start' }}>{it.sub}</span> : <span />}
         </div>
       ))}
     </div>
@@ -160,10 +214,9 @@ function HandicapTrend({ points }) {
   )
 }
 
-function bestWhere(r) {
-  if (!r) return ''
-  return [r.course || r.tripName, fmtDate(r.date)].filter(Boolean).join(' · ')
-}
+// Pop-up text for a round ("CTI Michigan" / "Arcadia Bluffs · Oct 1, 2026") or a trip finish.
+const roundWhere = r => (r ? { title: r.tripName, detail: [r.course, fmtDate(r.date)].filter(Boolean).join(' · ') } : null)
+const tripWhere = f => (f ? { title: f.tripName, detail: f.date ? fmtDate(f.date, { month: 'short', year: 'numeric' }) : '' } : null)
 
 function ScoringTab({ d }) {
   const { gross: g, net: n } = d
@@ -181,16 +234,16 @@ function ScoringTab({ d }) {
       {g.best && (
         <Tile title="Best round">
           <Cols items={[
-            { label: 'Gross', value: g.best.total, color: GREEN, sub: bestWhere(g.best) },
-            { label: 'Net', value: n.best.total, color: GREEN, sub: bestWhere(n.best) },
+            { label: 'Gross', value: g.best.total, where: roundWhere(g.best) },
+            { label: 'Net', value: n.best.total, where: roundWhere(n.best) },
           ]} />
         </Tile>
       )}
       {g.worst && g.roundsCounted > 1 && (
         <Tile title="Worst round">
           <Cols items={[
-            { label: 'Gross', value: g.worst.total, color: RED, sub: bestWhere(g.worst) },
-            { label: 'Net', value: n.worst.total, color: RED, sub: bestWhere(n.worst) },
+            { label: 'Gross', value: g.worst.total, where: roundWhere(g.worst) },
+            { label: 'Net', value: n.worst.total, where: roundWhere(n.worst) },
           ]} />
         </Tile>
       )}
@@ -217,7 +270,7 @@ function ScoringTab({ d }) {
   )
 }
 
-function PeopleTile({ title, list, lead, leadIf }) {
+function PeopleTile({ title, list, lead, leadIf, unit = 'match' }) {
   if (!list.length) return null
   return (
     <Tile title={title}>
@@ -226,95 +279,160 @@ function PeopleTile({ title, list, lead, leadIf }) {
           <span style={s.av}>{initials(p.name)}</span>
           <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <span style={{ fontSize: 14, color: '#2C3E50' }}>{p.name}</span>
-            <span style={{ fontSize: 11, color: MUTED }}>{i === 0 && leadIf(p) ? `${lead} · ` : ''}{p.matches} match{p.matches === 1 ? '' : 'es'}</span>
+            <span style={{ fontSize: 11, color: MUTED }}>{i === 0 && leadIf(p) ? `${lead} · ` : ''}{plural(p.matches, unit)}</span>
           </span>
-          <b style={{ marginLeft: 'auto', fontSize: 15, ...LNUM, color: p.w > p.l ? GREEN : p.l > p.w ? RED : INK }}>{rec(p)}</b>
+          <span style={{ marginLeft: 'auto' }}><SmallRecord r={p} /></span>
         </div>
       ))}
     </Tile>
   )
 }
 
-function SectionHead({ children }) {
-  return <h2 style={s.sec}><span style={s.secRule} />{children}<span style={s.secRule} /></h2>
+const intVsPar = n => (n == null ? '—' : n === 0 ? 'E' : `${n > 0 ? '+' : '−'}${Math.abs(n)}`)
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : word.endsWith('h') ? 'es' : 's'}`
+const formatLabel = f => ((f.format === 'stableford' || f.format === 'stroke') && f.teams ? `Team ${FORMAT_NAMES[f.format]}` : FORMAT_NAMES[f.format])
+
+// First tile of every format pill: your best finish (tap for the trip) and trips won.
+function FormatHead({ name, f, note }) {
+  return (
+    <Tile title={name} note={note}>
+      <Cols items={[
+        { label: 'Best finish', value: f.bestFinish?.label || '—', where: tripWhere(f.bestFinish) },
+        { label: 'Trips won', value: f.won },
+      ]} />
+    </Tile>
+  )
 }
 
-const intVsPar = n => (n == null ? '—' : n === 0 ? 'E' : `${n > 0 ? '+' : '−'}${Math.abs(n)}`)
-
-// Competition: trips won, then one section per format you've played.
-function CompetitionTab({ d }) {
-  const { match: m, stableford: sf, stroke: sp } = d
-  const tournamentTrips = m.trips + (sf?.trips || 0) + (sp?.trips || 0)
-  if (!tournamentTrips) {
-    return <div style={s.empty}>Your competition numbers show up after a trip with a tournament: match play, Stableford or stroke play.</div>
-  }
-  const played = m.matchRounds > 0
+function People({ f, unit }) {
   return (
     <>
-      <Tile title="Trips won" note="team titles and individual wins">
+      <PeopleTile title="Partners" list={f.partners} lead="Best partner" leadIf={p => p.w > p.l} unit={unit} />
+      <PeopleTile title="Opponents" list={f.opponents} lead="Nemesis" leadIf={p => p.l > p.w} unit={unit} />
+    </>
+  )
+}
+
+function AllPanel({ c }) {
+  const { standard, points } = c.formats
+  return (
+    <>
+      <Tile title="Trips won" note={plural(c.tournamentTrips, 'tournament trip')}>
+        <Cols items={[{ label: 'Won', value: c.titles }, { label: 'Top 3', value: c.top3 }]} />
+      </Tile>
+      {c.finishes.length > 0 && (
+        <Tile title="Finishes">
+          {c.finishes.map((f, i) => (
+            <div key={f.tripId} style={{ ...s.person, ...(i ? { borderTop: `1px solid ${ROW_LINE}` } : null) }}>
+              <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span style={{ fontSize: 14, color: '#2C3E50' }}>{f.name}</span>
+                <span style={{ fontSize: 11, color: MUTED }}>{[f.startDate?.slice(0, 4), formatLabel(f)].filter(Boolean).join(' · ')}</span>
+              </span>
+              <b style={{ marginLeft: 'auto', fontSize: 14, color: INK }}>{f.finish}</b>
+            </div>
+          ))}
+        </Tile>
+      )}
+      {(standard || points) && (
+        <Tile title="Match play record" note={standard && points ? 'both formats' : null}>
+          <Cols items={[{ record: c.record }]} />
+        </Tile>
+      )}
+    </>
+  )
+}
+
+function StandardPanel({ f }) {
+  return (
+    <>
+      <FormatHead name="Standard Match Play" f={f} note={`${plural(f.trips, 'trip')} · ${plural(f.matches, 'match')}`} />
+      <Tile title="Matches">
         <Cols items={[
-          { label: 'Won', value: d.titles, color: d.titles ? GOLD : INK },
-          { label: 'Tournament trips', value: tournamentTrips },
+          { record: f.record },
+          { label: 'Match points', value: half(f.matchPoints), sub: `of ${f.matches}` },
+          { label: 'Holes won', value: f.points },
         ]} />
       </Tile>
+      <People f={f} unit="match" />
+    </>
+  )
+}
 
-      {m.trips > 0 && (
-        <>
-          <SectionHead>Match play</SectionHead>
-          {played ? (
-            <>
-              <Tile title="Points">
-                <Cols items={[
-                  { label: 'Points won', value: m.points },
-                  { label: 'Defended', value: m.defended },
-                  { label: 'Per round', value: one(m.perRound) },
-                ]} />
-              </Tile>
-              <Tile title="Match record" note="won – lost – halved">
-                <Cols items={[{ label: 'Finished matches', value: rec(m.record) }]} />
-              </Tile>
-              <PeopleTile title="Partners" list={m.partners} lead="Best partner" leadIf={p => p.w > p.l} />
-              <PeopleTile title="Opponents" list={m.opponents} lead="Nemesis" leadIf={p => p.l > p.w} />
-              <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>A match counts once every hole is scored. The side that won more holes wins it.</div>
-            </>
-          ) : (
-            <div style={s.empty}>No match-play rounds scored yet.</div>
-          )}
-        </>
-      )}
+function PointsPanel({ f }) {
+  return (
+    <>
+      <FormatHead name="Point Match Play" f={f} note={`${plural(f.trips, 'trip')} · ${plural(f.rounds, 'round')}`} />
+      <Tile title="Points">
+        <Cols items={[
+          { label: 'Won', value: f.points },
+          { label: 'Defended', value: f.defended },
+          { label: 'Per round', value: one(f.perRound) },
+        ]} />
+      </Tile>
+      <Tile title="Rounds">
+        <Cols items={[
+          { record: f.record, sub: "your group's match each round" },
+          { label: 'Best round', value: f.bestRound ? f.bestRound.points : '—', where: roundWhere(f.bestRound) },
+        ]} />
+      </Tile>
+      <People f={f} unit="round" />
+    </>
+  )
+}
 
-      {sf && (
-        <>
-          <SectionHead>Stableford</SectionHead>
-          <Tile title="Stableford points" note={`${sf.trips} trip${sf.trips === 1 ? '' : 's'}`}>
-            <Cols items={[
-              { label: 'Career total', value: sf.points },
-              { label: 'Per round', value: one(sf.perRound) },
-            ]} />
-          </Tile>
-          {sf.best && (
-            <Tile title="Stableford rounds" note={`${sf.rounds} full round${sf.rounds === 1 ? '' : 's'}`}>
-              <Cols items={[
-                { label: 'Best round', value: sf.best.points, color: GREEN, sub: bestWhere(sf.best) },
-                { label: 'Played to handicap', value: sf.toHandicap, sub: 'rounds of 2 points a hole (36 on 18)' },
-              ]} />
-            </Tile>
-          )}
-        </>
-      )}
+function StablefordPanel({ f }) {
+  return (
+    <>
+      <FormatHead name="Stableford" f={f} note={`${plural(f.trips, 'trip')} · ${plural(f.rounds, 'round')}`} />
+      <Tile title="Stableford points">
+        <Cols items={[{ label: 'Total', value: f.points }, { label: 'Per round', value: one(f.perRound) }]} />
+      </Tile>
+      <Tile title="Rounds">
+        <Cols items={[
+          { label: 'Best round', value: f.best ? f.best.points : '—', where: roundWhere(f.best) },
+          { label: 'Played to handicap', value: f.toHandicap, sub: 'rounds of 36+ (2 a hole)' },
+        ]} />
+      </Tile>
+    </>
+  )
+}
 
-      {sp && (
-        <>
-          <SectionHead>Stroke play</SectionHead>
-          <Tile title="Net to par" note={`${sp.rounds} full round${sp.rounds === 1 ? '' : 's'}`}>
-            {sp.best ? (
-              <Cols items={[
-                { label: 'Average per round', value: vsPar(sp.netToPar) },
-                { label: 'Best round', value: intVsPar(sp.best.netToPar), color: GREEN, sub: bestWhere(sp.best) },
-              ]} />
-            ) : <div style={{ ...s.note, marginTop: 0, textAlign: 'center' }}>Finish a stroke play round to see your numbers.</div>}
-          </Tile>
-        </>
+function StrokePanel({ f }) {
+  return (
+    <>
+      <FormatHead name="Stroke Play" f={f} note={`${plural(f.trips, 'trip')} · ${plural(f.rounds, 'round')}`} />
+      <Tile title="Net to par">
+        <Cols items={[
+          { label: 'Per round', value: vsPar(f.netToPar) },
+          { label: 'Best round', value: f.best ? intVsPar(f.best.netToPar) : '—', where: roundWhere(f.best) },
+        ]} />
+      </Tile>
+    </>
+  )
+}
+
+const PANELS = { standard: StandardPanel, points: PointsPanel, stableford: StablefordPanel, stroke: StrokePanel }
+
+// Competition (layout "2", Owen 2026-10-31): a row of pills — All, then only the
+// formats you've played — each showing that format's own numbers.
+function CompetitionTab({ d }) {
+  const c = d.competition
+  const [pill, setPill] = useState('all')
+  const present = FORMAT_KEYS.filter(k => c.formats[k])
+  if (!present.length) {
+    return <div style={s.empty}>Your competition numbers show up after a trip with a tournament: match play, Stableford or stroke play.</div>
+  }
+  const Panel = PANELS[pill]
+  return (
+    <>
+      <div style={s.pills} role="tablist" aria-label="Formats">
+        {[['all', 'All'], ...present.map(k => [k, FORMAT_NAMES[k]])].map(([k, label]) => (
+          <button key={k} role="tab" aria-selected={pill === k} className={`pill-btn${pill === k ? ' active' : ''}`} onClick={() => setPill(k)}>{label}</button>
+        ))}
+      </div>
+      {pill === 'all' ? <AllPanel c={c} /> : <Panel f={c.formats[pill]} />}
+      {(pill === 'all' || pill === 'standard' || pill === 'points') && (c.formats.standard || c.formats.points) && (
+        <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>A match counts once every hole is scored. The side that won more holes wins it; equal holes is a tie.</div>
       )}
       <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>Net on this page always uses your full handicap, so it means the same on every trip.</div>
     </>

@@ -57,6 +57,23 @@ function finishMode(m) {
 
 // One person across trips: their account if they have one, else their name
 // (guest slots on different trips can't be linked any other way).
+// The Competition tab's formats, in pill order.
+export const FORMAT_KEYS = ['standard', 'points', 'stableford', 'stroke']
+export const FORMAT_NAMES = { standard: 'Standard Match Play', points: 'Point Match Play', stableford: 'Stableford', stroke: 'Stroke Play' }
+function formatKey(trip, gameType) {
+  if (gameType === 'match') return trip?.format === 'standard_match_play' ? 'standard' : 'points'
+  return gameType === 'stableford' || gameType === 'stroke' ? gameType : null
+}
+
+// 1 for "Champion" / "Co-champion" / "Winner", else the number in "2nd place",
+// "Tied for 3rd", "3rd of 8". null when there's no finish.
+export function finishRank(label) {
+  if (!label) return null
+  if (/^(Champion|Co-champion|Winner)$/.test(label)) return 1
+  const m = label.match(/(\d+)(st|nd|rd|th)/)
+  return m ? Number(m[1]) : null
+}
+
 function personKey(tp) {
   const acct = tp.user_id || tp.claimed_user_id
   return acct ? `u:${acct}` : `n:${playerName(tp).toLowerCase()}`
@@ -69,16 +86,14 @@ export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
   const gross = emptyMode(), net = emptyMode()
   const handicap = []
   const trips = []
-  let points = 0, defended = 0
-  let matchTrips = 0
   const sf = { trips: 0, points: 0, rounds: [] }   // Stableford: complete counting rounds
   const sp = { trips: 0, rounds: [] }              // stroke play: complete counting rounds
-  const record = { w: 0, l: 0, h: 0 }
-  const matchRounds = new Set()
-  const partners = new Map(), opponents = new Map()
+  // Match play, kept apart per format (Standard vs Point). Records are win / tie / loss.
+  const newMatch = () => ({ trips: 0, points: 0, defended: 0, rounds: new Set(), record: { w: 0, t: 0, l: 0 }, partners: new Map(), opponents: new Map(), bestRound: null })
+  const mp = { standard: newMatch(), points: newMatch() }
   const bump = (map, tp, res) => {
     const k = personKey(tp)
-    const e = map.get(k) || { key: k, name: playerName(tp), w: 0, l: 0, h: 0, matches: 0 }
+    const e = map.get(k) || { key: k, name: playerName(tp), w: 0, t: 0, l: 0, matches: 0 }
     e[res]++; e.matches++
     map.set(k, e)
   }
@@ -90,6 +105,7 @@ export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
     if (!myScores.length) continue
 
     const gameType = tripGameType(t.trip)
+    const fmt = formatKey(t.trip, gameType)
     const courseHoles = courseHolesFromRounds(t.rounds || [])
     const bundle = { ...t, courseHoles, drinks: [] }
     const allowance = t.allowance ?? 100
@@ -104,9 +120,9 @@ export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
         gross.counts[k] += g || 0
         if (k !== 'aces') net.counts[k] += n || 0
       }
-      if (gameType === 'match') {
-        points += mine.primary || 0
-        defended += mine.defended || 0
+      if (mp[fmt]) {
+        mp[fmt].points += mine.primary || 0     // Standard: holes won; Point: points won
+        mp[fmt].defended += mine.defended || 0
       }
     }
 
@@ -174,23 +190,31 @@ export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
       }
     }
 
-    // Match records: finished matches only (every hole decided).
-    if (gameType === 'match') {
-      matchTrips++
+    // Match records: finished matches only (every hole decided); the side that won
+    // more holes wins. A Point Match Play round's best = your points in one full match.
+    if (mp[fmt]) {
+      const M = mp[fmt]
+      M.trips++
       const byId = new Map((t.tripPlayers || []).map(p => [p.id, p]))
+      const roundById = new Map((t.rounds || []).map(r => [r.id, r]))
       for (const { roundId, t1, t2, outcomes } of matchPairingOutcomes(bundle, allowance)) {
         const side = t1.includes(me.id) ? 1 : t2.includes(me.id) ? 2 : 0
         if (!side) continue
-        if (outcomes.some(o => o.winner === 'T1' || o.winner === 'T2' || o.winner === 'halve')) matchRounds.add(roundId)
+        if (outcomes.some(o => o.winner != null)) M.rounds.add(roundId)
         if (!outcomes.length || outcomes.some(o => o.winner == null)) continue
         const won1 = outcomes.filter(o => o.winner === 'T1').length
         const won2 = outcomes.filter(o => o.winner === 'T2').length
         const mineW = side === 1 ? won1 : won2, theirW = side === 1 ? won2 : won1
-        const res = mineW > theirW ? 'w' : mineW < theirW ? 'l' : 'h'
-        record[res]++
+        const res = mineW > theirW ? 'w' : mineW < theirW ? 'l' : 't'
+        M.record[res]++
         const mates = side === 1 ? t1 : t2, opps = side === 1 ? t2 : t1
-        for (const id of mates) if (id !== me.id && byId.get(id)) bump(partners, byId.get(id), res)
-        for (const id of opps) if (byId.get(id)) bump(opponents, byId.get(id), res)
+        for (const id of mates) if (id !== me.id && byId.get(id)) bump(M.partners, byId.get(id), res)
+        for (const id of opps) if (byId.get(id)) bump(M.opponents, byId.get(id), res)
+        const myPts = outcomes.filter(o => (side === 1 ? o.winner === 'T1' && o.t1Winners.includes(me.id) : o.winner === 'T2' && o.t2Winners.includes(me.id))).length
+        if (M.bestRound == null || myPts > M.bestRound.points) {
+          const r = roundById.get(roundId)
+          M.bestRound = { points: myPts, tripName: t.tripName, course: roundCourseName(r), date: r?.date || null }
+        }
       }
     }
 
@@ -203,10 +227,12 @@ export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
       rounds: roundsList.filter(r => r.complete).length,
       average: avg(tripGross18.reduce((a, b) => a + b, 0), tripGross18.length),
       best: tripGross18.length ? Math.min(...tripGross18) : null,
-      points: gameType === 'match' ? (mine?.primary || 0) : null,
+      points: mp[fmt] ? (mine?.primary || 0) : null,
       stableford: tripStableford,
       netToPar: tripNetToPar,
       gameType,
+      format: fmt,
+      teams: !!me.team_id,
       roundsList,
     })
   }
@@ -214,41 +240,73 @@ export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
   trips.sort((a, b) => String(b.startDate || '').localeCompare(String(a.startDate || '')))
   handicap.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
   // Best partner: most wins, then best win share. Nemesis: the opponent who beat you most.
-  const rank = (list, by) => [...list].sort(by)
-  const partnerList = rank(partners.values(), (a, b) => b.w - a.w || (b.w - b.l) - (a.w - a.l) || a.name.localeCompare(b.name))
-  const opponentList = rank(opponents.values(), (a, b) => b.l - a.l || (b.l - b.w) - (a.l - a.w) || a.name.localeCompare(b.name))
+  const byBest = (a, b) => b.w - a.w || (b.w - b.l) - (a.w - a.l) || a.name.localeCompare(b.name)
+  const byWorst = (a, b) => b.l - a.l || (b.l - b.w) - (a.l - a.w) || a.name.localeCompare(b.name)
+
+  // Finishes per format: best finish (with its trip, for the tap-to-see pop-up) and trips won.
+  const finished = trips.filter(t => t.finish && t.format)
+  const placeOf = fmt => {
+    const list = finished.filter(t => t.format === fmt)
+    const best = list.reduce((b, t) => (b == null || finishRank(t.finish) < finishRank(b.finish) ? t : b), null)
+    return {
+      bestFinish: best ? { label: best.finish, tripName: best.name, date: best.startDate } : null,
+      won: list.filter(t => finishRank(t.finish) === 1 && !/^(Co-champion|Tied)/.test(t.finish)).length,
+    }
+  }
+  const matchOut = fmt => {
+    const M = mp[fmt]
+    if (!M.trips) return null
+    return {
+      trips: M.trips,
+      rounds: M.rounds.size,
+      record: M.record,
+      points: M.points,
+      defended: M.defended,
+      perRound: M.rounds.size ? M.points / M.rounds.size : null,
+      matchPoints: M.record.w + M.record.t / 2,
+      matches: M.record.w + M.record.t + M.record.l,
+      bestRound: M.bestRound,
+      partners: [...M.partners.values()].sort(byBest),
+      opponents: [...M.opponents.values()].sort(byWorst),
+      ...placeOf(fmt),
+    }
+  }
+  const sum = (a, b) => ({ w: a.w + b.w, t: a.t + b.t, l: a.l + b.l })
 
   return {
     totals: { trips: base.trips, rounds: base.rounds, holes: base.holes },
     gross: finishMode(gross),
     net: finishMode(net),
     handicap,
-    // Trips won: team titles plus outright individual wins.
-    titles: [...finishes.values()].filter(f => f === 'Champion' || f === 'Winner').length,
-    match: {
-      trips: matchTrips,
-      points, defended,
-      perRound: matchRounds.size ? points / matchRounds.size : null,
-      matchRounds: matchRounds.size,
-      record,
-      partners: partnerList,
-      opponents: opponentList,
+    competition: {
+      // Trips won: team titles plus outright individual wins. Top 3: any finish 1st–3rd.
+      titles: finished.filter(t => t.finish === 'Champion' || t.finish === 'Winner').length,
+      top3: finished.filter(t => finishRank(t.finish) <= 3).length,
+      tournamentTrips: trips.filter(t => t.format).length,
+      finishes: finished.map(t => ({ tripId: t.tripId, name: t.name, startDate: t.startDate, format: t.format, teams: t.teams, finish: t.finish })),
+      record: sum(mp.standard.record, mp.points.record),
+      formats: {
+        standard: matchOut('standard'),
+        points: matchOut('points'),
+        // Stableford "played to handicap" = 2 points a hole (36 on 18 holes).
+        stableford: sf.trips ? {
+          trips: sf.trips,
+          points: sf.points,
+          rounds: sf.rounds.length,
+          perRound: avg(sf.rounds.reduce((a, r) => a + r.points, 0), sf.rounds.length),
+          best: sf.rounds.reduce((b, r) => (b == null || r.points > b.points ? r : b), null),
+          toHandicap: sf.rounds.filter(r => r.points >= 2 * r.holes).length,
+          ...placeOf('stableford'),
+        } : null,
+        stroke: sp.trips ? {
+          trips: sp.trips,
+          rounds: sp.rounds.length,
+          netToPar: avg(sp.rounds.reduce((a, r) => a + r.netToPar, 0), sp.rounds.length),
+          best: sp.rounds.reduce((b, r) => (b == null || r.netToPar < b.netToPar ? r : b), null),
+          ...placeOf('stroke'),
+        } : null,
+      },
     },
-    // Stableford "played to handicap" = 2 points a hole (36 on 18 holes).
-    stableford: sf.trips ? {
-      trips: sf.trips,
-      points: sf.points,
-      rounds: sf.rounds.length,
-      perRound: avg(sf.rounds.reduce((a, r) => a + r.points, 0), sf.rounds.length),
-      best: sf.rounds.reduce((b, r) => (b == null || r.points > b.points ? r : b), null),
-      toHandicap: sf.rounds.filter(r => r.points >= 2 * r.holes).length,
-    } : null,
-    stroke: sp.trips ? {
-      trips: sp.trips,
-      rounds: sp.rounds.length,
-      netToPar: avg(sp.rounds.reduce((a, r) => a + r.netToPar, 0), sp.rounds.length),
-      best: sp.rounds.reduce((b, r) => (b == null || r.netToPar < b.netToPar ? r : b), null),
-    } : null,
     trips,
   }
 }

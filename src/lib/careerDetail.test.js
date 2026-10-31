@@ -1,7 +1,7 @@
 // Career page math (careerDetail.js). Run: `npm test`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildCareerDetail } from './careerDetail.js'
+import { buildCareerDetail, finishRank } from './careerDetail.js'
 import { buildCareer } from './careerStats.js'
 import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
 
@@ -123,18 +123,21 @@ test('match record, best partner and nemesis follow the account across trips', (
   const t1 = trip('T1', [round('R1')], { gross: { A: (h, p) => p - 1 }, hcp: 0 })
   const t2 = trip('T2', [round('R2')], { gross: { C: (h, p) => p - 1 }, hcp: 0, start: '2027-06-01' })
   const d = buildCareerDetail([t1, t2], 'U')
-  assert.deepEqual(d.match.record, { w: 1, l: 1, h: 0 })
-  assert.equal(d.match.points, 18)
-  assert.equal(d.match.matchRounds, 2)
-  const ben = d.match.partners.find(p => p.name === 'Ben Cole')
+  const pm = d.competition.formats.points
+  assert.deepEqual(pm.record, { w: 1, t: 0, l: 1 })
+  assert.equal(pm.points, 18)
+  assert.equal(pm.rounds, 2)
+  assert.equal(pm.bestRound.points, 18)
+  const ben = pm.partners.find(p => p.name === 'Ben Cole')
   assert.deepEqual([ben.w, ben.l, ben.matches], [1, 1, 2])  // same account on both trips → one row
-  assert.equal(d.match.opponents.length, 2)                 // Mike (account) + Dan (guest, by name)
-  assert.equal(d.match.opponents.find(p => p.name === 'Dan Smith').matches, 2)
+  assert.equal(pm.opponents.length, 2)                 // Mike (account) + Dan (guest, by name)
+  assert.equal(pm.opponents.find(p => p.name === 'Dan Smith').matches, 2)
+  assert.equal(d.competition.formats.standard, null)
 })
 
 test('unfinished matches are left out of the record', () => {
   const d = buildCareerDetail([trip('T1', [round('R1')], { played: { C: 10 } })], 'U')
-  assert.deepEqual(d.match.record, { w: 0, l: 0, h: 0 })
+  assert.deepEqual(d.competition.formats.points.record, { w: 0, t: 0, l: 0 })
 })
 
 test('handicap trend runs oldest to newest; trip list newest first', () => {
@@ -151,7 +154,7 @@ test('handicap trend runs oldest to newest; trip list newest first', () => {
 test('practice rounds count for scoring but have no match', () => {
   const d = buildCareerDetail([trip('T1', [round('R1', { type: 'practice' })], { hcp: 0 })], 'U')
   assert.equal(d.gross.roundsCounted, 1)
-  assert.equal(d.match.matchRounds, 0)
+  assert.equal(d.competition.formats.points.rounds, 0)
   assert.equal(d.trips[0].roundsList[0].practice, true)
 })
 
@@ -178,18 +181,19 @@ test('Stableford trip (individual): points, best round, played to handicap, Winn
   const t = trip('T1', [round('R1'), round('R2', { date: '2026-06-02', name: 'South' })], { format: 'stableford', teams: false, hcp: 0, gross: { B: others, C: others, D: others } })
   t.scores = t.scores.map(sc => (sc.trip_player_id === 'T1A' ? { ...sc, gross_score: A(sc.round_id === 'R2' ? 2 : 1)(sc.hole_number, PARS[sc.hole_number - 1]) } : sc))
   const d = buildCareerDetail([t], 'U')
-  assert.equal(d.stableford.points, 74)
-  assert.equal(d.stableford.rounds, 2)
-  assert.equal(d.stableford.perRound, 37)
-  assert.equal(d.stableford.best.points, 38)
-  assert.equal(d.stableford.best.course, 'South')
-  assert.equal(d.stableford.toHandicap, 2)
+  assert.equal(d.competition.formats.stableford.points, 74)
+  assert.equal(d.competition.formats.stableford.rounds, 2)
+  assert.equal(d.competition.formats.stableford.perRound, 37)
+  assert.equal(d.competition.formats.stableford.best.points, 38)
+  assert.equal(d.competition.formats.stableford.best.course, 'South')
+  assert.equal(d.competition.formats.stableford.toHandicap, 2)
   assert.equal(d.trips[0].stableford, 74)
   assert.equal(d.trips[0].finish, 'Winner')
-  assert.equal(d.titles, 1)
-  assert.equal(d.match.trips, 0)
-  assert.equal(d.match.points, 0)
-  assert.equal(d.stroke, null)
+  assert.equal(d.competition.titles, 1)
+  assert.equal(d.competition.formats.points, null)
+  assert.equal(d.competition.formats.stroke, null)
+  assert.equal(d.competition.formats.stableford.bestFinish.label, 'Winner')
+  assert.equal(d.competition.formats.stableford.won, 1)
 })
 
 test('stroke play trip (individual): net to par and an "of N" finish', () => {
@@ -197,28 +201,70 @@ test('stroke play trip (individual): net to par and an "of N" finish', () => {
   const t = trip('T1', [round('R1')], { format: 'stroke_play', teams: false, hcp: 0,
     gross: { A: (h, p) => (h <= 4 ? p + 1 : p), B: (h, p) => (h <= 2 ? p + 1 : p), C: (h, p) => p + 1, D: (h, p) => p + 1 } })
   const d = buildCareerDetail([t], 'U')
-  assert.equal(d.stroke.rounds, 1)
-  assert.equal(d.stroke.netToPar, 4)
-  assert.equal(d.stroke.best.netToPar, 4)
+  assert.equal(d.competition.formats.stroke.rounds, 1)
+  assert.equal(d.competition.formats.stroke.netToPar, 4)
+  assert.equal(d.competition.formats.stroke.best.netToPar, 4)
   assert.equal(d.trips[0].netToPar, 4)
   assert.equal(d.trips[0].finish, '2nd of 4')
-  assert.equal(d.titles, 0)
-  assert.equal(d.stableford, null)
+  assert.equal(d.competition.titles, 0)
+  assert.equal(d.competition.formats.stableford, null)
+  assert.deepEqual(d.competition.formats.stroke.bestFinish, { label: '2nd of 4', tripName: 'Trip T1', date: '2026-06-01' })
+  assert.equal(d.competition.top3, 1)
 })
 
 test('team Stableford trip: team finish (not an individual place), Stableford summary, no matches', () => {
   const t = trip('T1', [round('R1')], { format: 'stableford', hcp: 0, gross: { C: (h, p) => p + 1, D: (h, p) => p + 1 } })
   const d = buildCareerDetail([t], 'U')
   assert.equal(d.trips[0].finish, 'Champion')
-  assert.equal(d.stableford.points, 36)
-  assert.deepEqual(d.match.record, { w: 0, l: 0, h: 0 })
-  assert.equal(d.match.partners.length, 0)
+  assert.equal(d.competition.formats.stableford.points, 36)
+  assert.equal(d.competition.formats.points, null)
+  assert.equal(d.competition.formats.standard, null)
 })
 
 test('practice rounds never count toward Stableford or stroke play', () => {
   const t = trip('T1', [round('R1', { type: 'practice' })], { format: 'stableford', teams: false, hcp: 0 })
   const d = buildCareerDetail([t], 'U')
-  assert.equal(d.stableford.points, 0)
-  assert.equal(d.stableford.rounds, 0)
+  assert.equal(d.competition.formats.stableford.points, 0)
+  assert.equal(d.competition.formats.stableford.rounds, 0)
   assert.equal(d.gross.roundsCounted, 1)   // still counts for scoring
+})
+
+test('Standard and Point Match Play are kept apart; All adds the records together', () => {
+  // Standard trip: A birdies everything → a win. Point trip: C birdies everything → a loss.
+  const std = trip('T1', [round('R1')], { format: 'standard_match_play', gross: { A: (h, p) => p - 1 }, hcp: 0, start: '2025-06-01' })
+  const pts = trip('T2', [round('R2')], { format: 'points_match_play', gross: { C: (h, p) => p - 1 }, hcp: 0 })
+  const d = buildCareerDetail([std, pts], 'U')
+  const { standard, points } = d.competition.formats
+  assert.deepEqual(standard.record, { w: 1, t: 0, l: 0 })
+  assert.equal(standard.matchPoints, 1)
+  assert.equal(standard.points, 18)          // holes won
+  assert.equal(standard.bestFinish.label, 'Champion')
+  assert.equal(standard.won, 1)
+  assert.deepEqual(points.record, { w: 0, t: 0, l: 1 })
+  assert.equal(points.points, 0)
+  assert.equal(points.bestFinish.label, '2nd place')
+  assert.deepEqual(d.competition.record, { w: 1, t: 0, l: 1 })
+  assert.equal(d.competition.titles, 1)
+  assert.equal(d.competition.top3, 2)
+  assert.equal(d.competition.tournamentTrips, 2)
+  assert.deepEqual(d.competition.finishes.map(f => [f.name, f.format, f.finish]), [['Trip T2', 'points', '2nd place'], ['Trip T1', 'standard', 'Champion']])
+})
+
+test('a halved match is a tie, worth half a match point', () => {
+  // A and C both birdie hole 1, everyone else pars → every hole halved.
+  const t = trip('T1', [round('R1')], { format: 'standard_match_play', hcp: 0 })
+  const d = buildCareerDetail([t], 'U')
+  assert.deepEqual(d.competition.formats.standard.record, { w: 0, t: 1, l: 0 })
+  assert.equal(d.competition.formats.standard.matchPoints, 0.5)
+})
+
+test('finishRank reads every finish label', () => {
+  assert.equal(finishRank('Champion'), 1)
+  assert.equal(finishRank('Co-champion'), 1)
+  assert.equal(finishRank('Winner'), 1)
+  assert.equal(finishRank('Tied for 1st'), 1)
+  assert.equal(finishRank('2nd place'), 2)
+  assert.equal(finishRank('Tied for 3rd'), 3)
+  assert.equal(finishRank('11th of 12'), 11)
+  assert.equal(finishRank(null), null)
 })
