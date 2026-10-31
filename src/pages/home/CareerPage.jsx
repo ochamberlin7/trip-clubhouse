@@ -5,9 +5,10 @@ import { useMyCareer } from '../../lib/useMyCareer'
 
 // Career page (opened from the Career title on Home): one player's numbers across
 // every trip. Layout "B" (Owen, 2026-10-30): totals on top, then three tabs —
-// Scoring · Match play · Trips. Gross and net sit side by side in each tile; every
-// tile title is navy. All numbers come from buildCareerDetail (careerDetail.js),
-// loaded by the shared useMyCareer so they match Home and the Trophy Room.
+// Scoring · Competition (match play / Stableford / stroke play) · Trips. Gross and
+// net sit side by side in each tile; every tile title is navy. All numbers come
+// from buildCareerDetail (careerDetail.js), loaded by the shared useMyCareer so
+// they match Home and the Trophy Room.
 
 const NAVY = '#1B3F6E'
 const INK = '#0D1B2A'
@@ -66,11 +67,13 @@ const s = {
   grid4: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', borderTop: `1px solid ${HAIR}`, textAlign: 'center', padding: '10px 0' },
   g4Num: { display: 'block', fontSize: 16, fontWeight: 700, ...LNUM },
   g4Lab: { fontSize: 10, ...CAPS, letterSpacing: '1px', color: MUTED },
+  sec: { display: 'flex', alignItems: 'center', gap: 12, margin: '6px 0 0', fontSize: 11, fontWeight: 800, letterSpacing: '2.2px', textTransform: 'uppercase', color: NAVY },
+  secRule: { flex: 1, height: 1, background: RULE },
   rounds: { borderTop: `1px solid ${HAIR}`, padding: '6px 14px 10px', fontSize: 13 },
   roundRow: { display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 0', color: '#2C3E50' },
 }
 
-const TABS = [{ id: 'scoring', label: 'Scoring' }, { id: 'match', label: 'Match play' }, { id: 'trips', label: 'Trips' }]
+const TABS = [{ id: 'scoring', label: 'Scoring' }, { id: 'competition', label: 'Competition' }, { id: 'trips', label: 'Trips' }]
 
 const one = n => (n == null ? '—' : n.toFixed(1))
 const vsPar = n => (n == null ? '—' : Math.abs(n) < 0.05 ? 'E' : `${n > 0 ? '+' : '−'}${Math.abs(n).toFixed(1)}`)
@@ -232,34 +235,88 @@ function PeopleTile({ title, list, lead, leadIf }) {
   )
 }
 
-function MatchTab({ d }) {
-  const m = d.match
+function SectionHead({ children }) {
+  return <h2 style={s.sec}><span style={s.secRule} />{children}<span style={s.secRule} /></h2>
+}
+
+const intVsPar = n => (n == null ? '—' : n === 0 ? 'E' : `${n > 0 ? '+' : '−'}${Math.abs(n)}`)
+
+// Competition: trips won, then one section per format you've played.
+function CompetitionTab({ d }) {
+  const { match: m, stableford: sf, stroke: sp } = d
+  const tournamentTrips = m.trips + (sf?.trips || 0) + (sp?.trips || 0)
+  if (!tournamentTrips) {
+    return <div style={s.empty}>Your competition numbers show up after a trip with a tournament: match play, Stableford or stroke play.</div>
+  }
   const played = m.matchRounds > 0
   return (
     <>
-      {!played && m.stableford === 0 && (
-        <div style={s.empty}>Your match-play numbers show up once you play a match-play round with a partner and opponents.</div>
+      <Tile title="Trips won" note="team titles and individual wins">
+        <Cols items={[
+          { label: 'Won', value: d.titles, color: d.titles ? GOLD : INK },
+          { label: 'Tournament trips', value: tournamentTrips },
+        ]} />
+      </Tile>
+
+      {m.trips > 0 && (
+        <>
+          <SectionHead>Match play</SectionHead>
+          {played ? (
+            <>
+              <Tile title="Points">
+                <Cols items={[
+                  { label: 'Points won', value: m.points },
+                  { label: 'Defended', value: m.defended },
+                  { label: 'Per round', value: one(m.perRound) },
+                ]} />
+              </Tile>
+              <Tile title="Match record" note="won – lost – halved">
+                <Cols items={[{ label: 'Finished matches', value: rec(m.record) }]} />
+              </Tile>
+              <PeopleTile title="Partners" list={m.partners} lead="Best partner" leadIf={p => p.w > p.l} />
+              <PeopleTile title="Opponents" list={m.opponents} lead="Nemesis" leadIf={p => p.l > p.w} />
+              <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>A match counts once every hole is scored. The side that won more holes wins it.</div>
+            </>
+          ) : (
+            <div style={s.empty}>No match-play rounds scored yet.</div>
+          )}
+        </>
       )}
-      {played && (
-        <Tile title="Points">
-          <Cols items={[
-            { label: 'Points won', value: m.points },
-            { label: 'Defended', value: m.defended },
-            { label: 'Per round', value: one(m.perRound) },
-          ]} />
-        </Tile>
+
+      {sf && (
+        <>
+          <SectionHead>Stableford</SectionHead>
+          <Tile title="Stableford points" note={`${sf.trips} trip${sf.trips === 1 ? '' : 's'}`}>
+            <Cols items={[
+              { label: 'Career total', value: sf.points },
+              { label: 'Per round', value: one(sf.perRound) },
+            ]} />
+          </Tile>
+          {sf.best && (
+            <Tile title="Stableford rounds" note={`${sf.rounds} full round${sf.rounds === 1 ? '' : 's'}`}>
+              <Cols items={[
+                { label: 'Best round', value: sf.best.points, color: GREEN, sub: bestWhere(sf.best) },
+                { label: 'Played to handicap', value: sf.toHandicap, sub: 'rounds of 2 points a hole (36 on 18)' },
+              ]} />
+            </Tile>
+          )}
+        </>
       )}
-      {played && (
-        <Tile title="Match record" note="won – lost – halved">
-          <Cols items={[{ label: 'Finished matches', value: rec(m.record) }, { label: 'Team titles', value: m.titles, color: m.titles ? GOLD : INK }]} />
-        </Tile>
+
+      {sp && (
+        <>
+          <SectionHead>Stroke play</SectionHead>
+          <Tile title="Net to par" note={`${sp.rounds} full round${sp.rounds === 1 ? '' : 's'}`}>
+            {sp.best ? (
+              <Cols items={[
+                { label: 'Average per round', value: vsPar(sp.netToPar) },
+                { label: 'Best round', value: intVsPar(sp.best.netToPar), color: GREEN, sub: bestWhere(sp.best) },
+              ]} />
+            ) : <div style={{ ...s.note, marginTop: 0, textAlign: 'center' }}>Finish a stroke play round to see your numbers.</div>}
+          </Tile>
+        </>
       )}
-      {m.stableford > 0 && (
-        <Tile title="Stableford points"><Cols items={[{ label: 'Career total', value: m.stableford }]} /></Tile>
-      )}
-      <PeopleTile title="Partners" list={m.partners} lead="Best partner" leadIf={p => p.w > p.l} />
-      <PeopleTile title="Opponents" list={m.opponents} lead="Nemesis" leadIf={p => p.l > p.w} />
-      {played && <div style={{ ...s.note, textAlign: 'center' }}>A match counts once every hole is scored. The side that won more holes wins it.</div>}
+      <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>Net on this page always uses your full handicap, so it means the same on every trip.</div>
     </>
   )
 }
@@ -283,7 +340,11 @@ function TripsTab({ d }) {
           <div><b style={s.g4Num}>{t.rounds}</b><span style={s.g4Lab}>Rounds</span></div>
           <div><b style={s.g4Num}>{one(t.average)}</b><span style={s.g4Lab}>Avg</span></div>
           <div><b style={s.g4Num}>{t.best ?? '—'}</b><span style={s.g4Lab}>Best</span></div>
-          <div><b style={s.g4Num}>{t.gameType === 'match' ? t.points : '—'}</b><span style={s.g4Lab}>Points</span></div>
+          {t.gameType === 'stableford'
+            ? <div><b style={s.g4Num}>{t.stableford ?? '—'}</b><span style={s.g4Lab}>Stbl pts</span></div>
+            : t.gameType === 'stroke'
+              ? <div><b style={s.g4Num}>{intVsPar(t.netToPar)}</b><span style={s.g4Lab}>Net</span></div>
+              : <div><b style={s.g4Num}>{t.gameType === 'match' ? t.points : '—'}</b><span style={s.g4Lab}>Points</span></div>}
         </div>
         {isOpen && (
           <div style={s.rounds}>
@@ -352,7 +413,7 @@ export function CareerView({ detail, name, onBack }) {
                   ))}
                 </div>
                 {tab === 'scoring' && <ScoringTab d={detail} />}
-                {tab === 'match' && <MatchTab d={detail} />}
+                {tab === 'competition' && <CompetitionTab d={detail} />}
                 {tab === 'trips' && <TripsTab d={detail} />}
               </>
             )}

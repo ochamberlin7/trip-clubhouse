@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { loadMyTrips } from './myTrips'
-import { loadCareerData, buildCareer, tripFinishes } from './careerStats'
+import { loadCareerData, buildCareer, tripFinishes, individualFinishes } from './careerStats'
 import { computeBadges } from './badges'
 import { buildCareerDetail } from './careerDetail'
 import { saveCopy, readCopy, mapToJson, jsonToMap } from './offlineCache'
@@ -42,7 +42,8 @@ export function useMyCareer(userId) {
       if (cancelled) return
       const career = buildCareer(perTrip, userId)
       const badges = computeBadges(perTrip, userId)
-      const finishes = tripFinishes(perTrip, userId)
+      // Team finishes, plus your own place on individual Stableford / stroke play trips.
+      const finishes = new Map([...tripFinishes(perTrip, userId), ...individualFinishes(perTrip, userId)])
       const detail = buildCareerDetail(perTrip, userId)
       setState(s => ({ ...s, career, badges, finishes, detail }))
       saveCopy(copyKey, { trips: rows, deleted, career, badges: mapToJson(badges), finishes: mapToJson(finishes), detail })

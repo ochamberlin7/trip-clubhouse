@@ -13,13 +13,13 @@ const round = (id, { n = 18, date = '2026-06-01', type = 'tournament', name = 'P
 
 // Players: A = me (account U), B = partner (account P), C = opponent (account X), D = guest "Dan Smith".
 // gross: { A: fn(hole, par) → score, ... } (default par for everyone). hcp: handicap index for A.
-function trip(tripId, rounds, { gross = {}, start = '2026-06-01', hcp = 10, format = 'match_play', played = {} } = {}) {
+function trip(tripId, rounds, { gross = {}, start = '2026-06-01', hcp = 10, format = 'match_play', played = {}, teams = true, others = 0 } = {}) {
   const players = [
     { id: `${tripId}A`, user_id: 'U', handicap_index: hcp, team_id: 'TA', first_name: 'Owen', last_name: 'C' },
-    { id: `${tripId}B`, user_id: 'P', handicap_index: 0, team_id: 'TA', first_name: 'Ben', last_name: 'Cole' },
-    { id: `${tripId}C`, user_id: 'X', handicap_index: 0, team_id: 'TB', first_name: 'Mike', last_name: 'Ross' },
-    { id: `${tripId}D`, user_id: null, handicap_index: 0, team_id: 'TB', guest_name: 'Dan Smith' },
-  ]
+    { id: `${tripId}B`, user_id: 'P', handicap_index: others, team_id: 'TA', first_name: 'Ben', last_name: 'Cole' },
+    { id: `${tripId}C`, user_id: 'X', handicap_index: others, team_id: 'TB', first_name: 'Mike', last_name: 'Ross' },
+    { id: `${tripId}D`, user_id: null, handicap_index: others, team_id: 'TB', guest_name: 'Dan Smith' },
+  ].map(p => (teams ? p : { ...p, team_id: null }))
   const scores = []
   for (const r of rounds) for (const p of players) {
     const who = p.id.slice(-1)
@@ -109,7 +109,7 @@ test('hardest holes = stroke index 1–6', () => {
   assert.equal(d.gross.hardest, 2)
 })
 
-test('net uses the scorecard strokes: off the low in the pairing', () => {
+test('net uses the full playing handicap (6 strokes on SI 1–6)', () => {
   // A plays off 6 vs scratch partners → a stroke on SI 1–6. Bogeys there are net pars.
   const A = (h, par) => (h <= 6 ? par + 1 : par)
   const d = buildCareerDetail([trip('T1', [round('R1')], { gross: { A }, hcp: 6 })], 'U')
@@ -162,4 +162,63 @@ test('a player who never scored has an empty career', () => {
   assert.equal(d.totals.trips, 0)
   assert.equal(d.gross.average, null)
   assert.equal(d.trips.length, 0)
+})
+
+test('career net uses the full handicap on match-play trips too (not shots off the low)', () => {
+  // Everyone is a 10: off the low A gets 0 shots, but career net gives A 10 strokes.
+  const d = buildCareerDetail([trip('T1', [round('R1')], { hcp: 10, others: 10 })], 'U')
+  assert.equal(d.gross.best.total, 72)
+  assert.equal(d.net.best.total, 62)
+})
+
+test('Stableford trip (individual): points, best round, played to handicap, Winner, no match play', () => {
+  // A (scratch) pars everything = 36 points; birdies holes 1–2 in round 2 = 38. Others bogey.
+  const others = (h, p) => p + 1
+  const A = r => (h, p) => (r === 2 && h <= 2 ? p - 1 : p)
+  const t = trip('T1', [round('R1'), round('R2', { date: '2026-06-02', name: 'South' })], { format: 'stableford', teams: false, hcp: 0, gross: { B: others, C: others, D: others } })
+  t.scores = t.scores.map(sc => (sc.trip_player_id === 'T1A' ? { ...sc, gross_score: A(sc.round_id === 'R2' ? 2 : 1)(sc.hole_number, PARS[sc.hole_number - 1]) } : sc))
+  const d = buildCareerDetail([t], 'U')
+  assert.equal(d.stableford.points, 74)
+  assert.equal(d.stableford.rounds, 2)
+  assert.equal(d.stableford.perRound, 37)
+  assert.equal(d.stableford.best.points, 38)
+  assert.equal(d.stableford.best.course, 'South')
+  assert.equal(d.stableford.toHandicap, 2)
+  assert.equal(d.trips[0].stableford, 74)
+  assert.equal(d.trips[0].finish, 'Winner')
+  assert.equal(d.titles, 1)
+  assert.equal(d.match.trips, 0)
+  assert.equal(d.match.points, 0)
+  assert.equal(d.stroke, null)
+})
+
+test('stroke play trip (individual): net to par and an "of N" finish', () => {
+  // A (index 0) shoots +4; B shoots +2 → A is 2nd of 4.
+  const t = trip('T1', [round('R1')], { format: 'stroke_play', teams: false, hcp: 0,
+    gross: { A: (h, p) => (h <= 4 ? p + 1 : p), B: (h, p) => (h <= 2 ? p + 1 : p), C: (h, p) => p + 1, D: (h, p) => p + 1 } })
+  const d = buildCareerDetail([t], 'U')
+  assert.equal(d.stroke.rounds, 1)
+  assert.equal(d.stroke.netToPar, 4)
+  assert.equal(d.stroke.best.netToPar, 4)
+  assert.equal(d.trips[0].netToPar, 4)
+  assert.equal(d.trips[0].finish, '2nd of 4')
+  assert.equal(d.titles, 0)
+  assert.equal(d.stableford, null)
+})
+
+test('team Stableford trip: team finish (not an individual place), Stableford summary, no matches', () => {
+  const t = trip('T1', [round('R1')], { format: 'stableford', hcp: 0, gross: { C: (h, p) => p + 1, D: (h, p) => p + 1 } })
+  const d = buildCareerDetail([t], 'U')
+  assert.equal(d.trips[0].finish, 'Champion')
+  assert.equal(d.stableford.points, 36)
+  assert.deepEqual(d.match.record, { w: 0, l: 0, h: 0 })
+  assert.equal(d.match.partners.length, 0)
+})
+
+test('practice rounds never count toward Stableford or stroke play', () => {
+  const t = trip('T1', [round('R1', { type: 'practice' })], { format: 'stableford', teams: false, hcp: 0 })
+  const d = buildCareerDetail([t], 'U')
+  assert.equal(d.stableford.points, 0)
+  assert.equal(d.stableford.rounds, 0)
+  assert.equal(d.gross.roundsCounted, 1)   // still counts for scoring
 })

@@ -73,3 +73,14 @@ test('restoreDaysLeft: 30-day window, never negative', () => {
   assert.equal(restoreDaysLeft('2026-09-01T12:00:00Z', now), 0)
   assert.equal(restoreDaysLeft(null, now), null)
 })
+
+test('Stableford, stroke play and just-for-fun trips add no match points to the career', () => {
+  for (const [format, team_mode] of [['stableford', true], ['stroke_play', true], ['stroke_play', false]]) {
+    const t = trip('T1', 'R1', { aGross: 3 })
+    t.trip = { format, team_mode }
+    assert.equal(buildCareer([t], 'U').points, 0, format)
+  }
+  const m = trip('T1', 'R1', { aGross: 3 })
+  m.trip = { format: 'points_match_play', team_mode: true }
+  assert.equal(buildCareer([m], 'U').points, 18)
+})

@@ -68,13 +68,14 @@ function offLowShotsByRound(rounds, { roundById, pairingsByRound, playersByPairi
 
 // Net strokes per player per round — the ONE basis every net stat uses.
 // Match-play trips: shots off the low within each pairing (the scorecard dots).
-// Stableford / Stroke Play trips (gameType 'stableford' | 'stroke'): each player's
-// full playing handicap (the Leaderboard's strokes). Returns Map(roundId -> Map(tpId -> shots)).
-export function netShotsByRound({ rounds = [], scores = [], pairings = [], pairingPlayers = [], tripPlayers = [], playerRounds = [] }, allowance = 100, { gameType = null } = {}) {
+// Stableford / Stroke Play trips (gameType 'stableford' | 'stroke'), or fullHandicap
+// true (the Career page, so net means the same on every trip): each player's full
+// playing handicap (the Leaderboard's strokes). Returns Map(roundId -> Map(tpId -> shots)).
+export function netShotsByRound({ rounds = [], scores = [], pairings = [], pairingPlayers = [], tripPlayers = [], playerRounds = [] }, allowance = 100, { gameType = null, fullHandicap = isIndividualGameType(gameType) } = {}) {
   const roundById = new Map(rounds.map(r => [r.id, r]))
   const teeRowByRP = new Map()
   for (const pr of playerRounds) teeRowByRP.set(`${pr.round_id}:${pr.trip_player_id}`, pr)
-  if (isIndividualGameType(gameType)) {
+  if (fullHandicap) {
     return new Map(rounds.map(r => [r.id, new Map(tripPlayers.map(p => [p.id, playingHandicapForRound(roundById.get(r.id), teeRowByRP.get(`${r.id}:${p.id}`), p.handicap_index, allowance)]))]))
   }
   const hcpById = new Map(tripPlayers.map(p => [p.id, p.handicap_index]))
@@ -91,7 +92,9 @@ export function netShotsByRound({ rounds = [], scores = [], pairings = [], pairi
   return offLowShotsByRound(rounds, { roundById, pairingsByRound, playersByPairing, scores, teeRowByRP, hcpById }, allowance)
 }
 
-export function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance, { gameType = null } = {}) {
+// opts.fullHandicapNet: net (and its counts) off each player's full playing handicap
+// on every trip type — the Career page's basis. Points / defended / fire are unchanged.
+export function computePlayerStats({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, drinks }, allowance, { gameType = null, fullHandicapNet = false } = {}) {
   const individual = isIndividualGameType(gameType)
   // Hole par + stroke index live on rounds.holes — a positional JSON array where
   // index i is hole i+1 (par via `.par`, stroke index via `.handicap`). This is
@@ -127,7 +130,7 @@ export function computePlayerStats({ rounds, scores, pairings, pairingPlayers, t
   // Net strokes per round (shared helper): off-low match shots on match-play trips,
   // so the Net cards strike Ben on SI 1-7 (off the low man), not his full 90%
   // playing handicap; full playing handicaps on Stableford / Stroke Play.
-  const shotsByRound = netShotsByRound({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds }, allowance, { gameType })
+  const shotsByRound = netShotsByRound({ rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds }, allowance, { gameType, fullHandicap: fullHandicapNet || individual })
   // Stableford points only count on the Leaderboard's rounds (not practice).
   const countingIds = new Set(leaderboardRounds(rounds).map(r => r.id))
 

@@ -4,7 +4,7 @@
 // A player is matched across trips by their account (user_id / claimed_user_id),
 // so a guest slot that was never claimed can't count toward anyone's career.
 import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
-import { roundHoleCount, teamStandingsFromRows, finishLabel } from './scoring.js'
+import { roundHoleCount, teamStandingsFromRows, finishLabel, tripGameType, isIndividualGameType, individualStandings } from './scoring.js'
 import { tripTimeStatus } from './myTrips.js'
 
 // perTrip: [{ tripId, rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, allowance }]
@@ -30,10 +30,12 @@ export function buildCareer(perTrip = [], userId) {
       if (n > 0 && n >= roundHoleCount(r)) out.rounds++
     }
 
-    const { stats } = computePlayerStats({ ...t, courseHoles: courseHolesFromRounds(t.rounds || []), drinks: [] }, t.allowance ?? 100)
+    // The trip's own game type, so Stableford / stroke play trips add no match points.
+    const { stats } = computePlayerStats({ ...t, courseHoles: courseHolesFromRounds(t.rounds || []), drinks: [] }, t.allowance ?? 100, { gameType: tripGameType(t.trip) })
     const mine = stats.get(me.id)
     if (!mine) continue
-    out.points += mine.primary || 0
+    // Points only exist on match-play trips ("just for fun" groups aren't matches).
+    if (!t.trip || tripGameType(t.trip) === 'match') out.points += mine.primary || 0
     const best = mine.gross?.bestRound
     if (best != null && (out.bestRound == null || best < out.bestRound)) out.bestRound = best
   }
@@ -56,6 +58,33 @@ export function tripFinishes(perTrip = [], userId, now = new Date()) {
     if (st.lowWins ? !st.anyScored : !ranked.some(r => r.total > 0)) continue
     const label = finishLabel(ranked, me.team_id)
     if (label) out.set(t.tripId, label)
+  }
+  return out
+}
+
+// Your own finish on each finished INDIVIDUAL Stableford / stroke play trip (no
+// team for you) — ranked by the Leaderboard's individualStandings. "Winner" (an
+// outright win), "Tied for 1st", "3rd of 8"… Returns Map(tripId → label). Kept apart
+// from tripFinishes so the Champion badge stays team-only.
+export function individualFinishes(perTrip = [], userId, now = new Date()) {
+  const out = new Map()
+  for (const t of perTrip) {
+    const gameType = tripGameType(t.trip)
+    if (!isIndividualGameType(gameType) || tripTimeStatus(t.trip, now) !== 'past') continue
+    const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
+    if (!me || me.team_id) continue
+    const scoresMap = {}, teeRowMap = {}, hcpByPlayer = {}
+    for (const s of t.scores || []) if (s.gross_score != null) scoresMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score
+    for (const pr of t.playerRounds || []) teeRowMap[`${pr.round_id}:${pr.trip_player_id}`] = pr
+    for (const p of t.tripPlayers || []) hcpByPlayer[p.id] = p.handicap_index
+    const { ranked } = individualStandings({ gameType, rounds: t.rounds || [], playerIds: (t.tripPlayers || []).map(p => p.id), scoresMap, hcpByPlayer, teeRowMap, allowance: t.allowance ?? 100 })
+    const mine = ranked.find(r => r.id === me.id)
+    if (!mine || mine.rank == null) continue
+    const field = ranked.filter(r => r.rank != null).length
+    const tied = ranked.filter(r => r.rank === mine.rank).length > 1
+    const n = mine.rank
+    const sfx = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'
+    out.set(t.tripId, n === 1 && !tied ? 'Winner' : `${tied ? 'Tied for ' : ''}${n}${sfx}${tied ? '' : ` of ${field}`}`)
   }
   return out
 }
