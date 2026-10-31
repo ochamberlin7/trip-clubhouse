@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import ProfileAvatar from '../../components/ProfileAvatar'
 import SwipeDeleteRow, { TrashIcon } from '../../components/SwipeDeleteRow'
-import { splitTrips, daysUntilTrip, restoreDaysLeft } from '../../lib/myTrips'
+import { splitTrips, daysUntilTrip, restoreDaysLeft, tripListRemoveNotice } from '../../lib/myTrips'
 import { useMyCareer } from '../../lib/useMyCareer'
 import { bestBadges } from '../../lib/badges'
 import BadgeMedallion from '../../components/BadgeMedallion'
@@ -106,14 +106,15 @@ function fmtRange(t) {
   return `${s.toLocaleDateString('en-US', opts)} – ${end}, ${year}`
 }
 
-// One trip row. The trip's commissioner can swipe left to delete it (soft delete,
-// restorable for 30 days); everyone else just taps to open it.
+// One trip row. Tap opens it. Swiping left never deletes or leaves from here: the
+// trash opens a notice (tripListRemoveNotice) pointing into the trip, or saying a
+// started trip can't be deleted / left.
 // No status pills: the Upcoming / Past sections say it; a live trip says
 // "Live now" in its sub-line and a past trip shows its finish there.
 function TripRow({ trip, live, first, unread, finish, onOpen, onDelete }) {
   const parts = [live ? 'Live now' : null, fmtRange(trip), finish, trip.location].filter(Boolean)
   return (
-    <SwipeDeleteRow canDelete={!!trip.canDelete} rowStyle={{ ...h.row, ...(first ? null : h.rowLine) }} outerStyle={first ? undefined : h.rowLine}
+    <SwipeDeleteRow canDelete deleteLabel={trip.isCommissioner ? 'Delete trip' : 'Leave trip'} rowStyle={{ ...h.row, ...(first ? null : h.rowLine) }} outerStyle={first ? undefined : h.rowLine}
       coverBg="#fff" onPick={() => onOpen(trip.id)} onDelete={() => onDelete(trip)}>
       <span style={{ minWidth: 0 }}>
         <div style={h.tripName}>
@@ -154,7 +155,7 @@ function JoinTripModal({ onClose, onJoin }) {
 
 export default function HomePage() {
   const { user } = useAuth()
-  const { switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
+  const { switchTrip, restoreTrip, unreadTripIds } = useGroup()
   const navigate = useNavigate()
   // Trips, career totals and badges — shared loader with the Trophy Room.
   const { trips, deleted, career, badges, finishes, reload } = useMyCareer(user?.id)
@@ -162,7 +163,7 @@ export default function HomePage() {
   const [joining, setJoining] = useState(false)
   const [copied, setCopied] = useState(false)
   const [careerSoon, setCareerSoon] = useState(false) // full career page is on the backlog
-  const [pendingDelete, setPendingDelete] = useState(null) // trip awaiting the delete confirm
+  const [notice, setNotice] = useState(null) // { trip, title, body, canOpen } from a row swipe
   const [showDeleted, setShowDeleted] = useState(false)
 
   const now = new Date()
@@ -263,7 +264,7 @@ export default function HomePage() {
               {activeAndUpcoming.length ? (
                 <div style={h.box}>
                   {activeAndUpcoming.map((t, i) => (
-                    <TripRow key={t.id} trip={t} live={live.includes(t)} first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />
+                    <TripRow key={t.id} trip={t} live={live.includes(t)} first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} onDelete={trip => setNotice({ trip, ...tripListRemoveNotice(trip) })} />
                   ))}
                 </div>
               ) : (
@@ -275,7 +276,7 @@ export default function HomePage() {
               <section>
                 <SectionHead>Past</SectionHead>
                 <div style={h.box}>
-                  {pastShown.map((t, i) => <TripRow key={t.id} trip={t} first={i === 0} unread={unreadTripIds?.has(t.id)} finish={finishes?.get(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />)}
+                  {pastShown.map((t, i) => <TripRow key={t.id} trip={t} first={i === 0} unread={unreadTripIds?.has(t.id)} finish={finishes?.get(t.id)} onOpen={openTrip} onDelete={trip => setNotice({ trip, ...tripListRemoveNotice(trip) })} />)}
                 </div>
                 {past.length > 3 && (
                   <button style={h.link} onClick={() => setShowAllPast(v => !v)}>{showAllPast ? 'Show less' : `See all ${past.length} past trips`}</button>
@@ -333,23 +334,17 @@ export default function HomePage() {
         )}
       </div>
 
-      {pendingDelete && createPortal(
-        <div style={h.overlay} onClick={() => setPendingDelete(null)}>
+      {notice && createPortal(
+        <div style={h.overlay} onClick={() => setNotice(null)}>
           <div style={h.sheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK }}>Delete this trip?</div>
-            <div style={{ fontSize: 14, color: '#2C3E50', marginTop: 8, lineHeight: 1.5 }}>
-              <b>{pendingDelete.name}</b> will be deleted for everyone on it. You'll have 30 days to restore it before it's gone for good.
-            </div>
+            <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK }}>{notice.title}</div>
+            <div style={{ fontSize: 14, color: '#2C3E50', marginTop: 8, lineHeight: 1.5 }}>{notice.body}</div>
             <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-              <button style={{ ...h.pill, flex: 1 }} onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button style={{ ...h.pill, flex: 1, background: '#C0392B', borderColor: '#C0392B', color: '#fff' }}
-                onClick={async () => {
-                  const t = pendingDelete
-                  setPendingDelete(null)
-                  const { error } = await softDeleteTrip(t.id)
-                  if (error) window.alert('Delete failed — please try again.')
-                  reload()
-                }}>Delete</button>
+              <button style={{ ...h.pill, flex: 1 }} onClick={() => setNotice(null)}>{notice.canOpen ? 'Cancel' : 'OK'}</button>
+              {notice.canOpen && (
+                <button style={{ ...h.pill, flex: 1, background: INK, borderColor: INK, color: '#fff' }}
+                  onClick={() => { const id = notice.trip.id; setNotice(null); openTrip(id) }}>Open trip</button>
+              )}
             </div>
           </div>
         </div>,
@@ -375,8 +370,12 @@ export default function HomePage() {
                       <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{t.name}</div>
                       {left != null && <div style={{ fontSize: 12, color: MUTED }}>{left} day{left === 1 ? '' : 's'} left</div>}
                     </div>
-                    <button style={{ ...h.pill, flex: 'none', marginLeft: 'auto', padding: '6px 14px' }}
-                      onClick={async () => { await restoreTrip(t.id); reload(); if (deleted.length <= 1) setShowDeleted(false) }}>Restore</button>
+                    {t.canRestore ? (
+                      <button style={{ ...h.pill, flex: 'none', marginLeft: 'auto', padding: '6px 14px' }}
+                        onClick={async () => { await restoreTrip(t.id); reload(); if (deleted.length <= 1) setShowDeleted(false) }}>Restore</button>
+                    ) : (
+                      <div style={{ marginLeft: 'auto', fontSize: 12, color: MUTED, textAlign: 'right' }}>Only the commissioner<br />can restore it</div>
+                    )}
                   </div>
                 )
               })}

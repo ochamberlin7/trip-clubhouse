@@ -99,11 +99,12 @@ export function StripeInviteRow({ url }) {
   )
 }
 
+// No label → just the note (e.g. an action that's no longer allowed).
 export function StripeDanger({ note, label, busyLabel, onClick, busy }) {
   return (
     <div style={st.danger}>
       <p style={st.dangerNote}>{note}</p>
-      <button style={st.dangerBtn} onClick={onClick} disabled={busy}>{busy ? busyLabel : label}</button>
+      {label && <button style={st.dangerBtn} onClick={onClick} disabled={busy}>{busy ? busyLabel : label}</button>}
     </div>
   )
 }
