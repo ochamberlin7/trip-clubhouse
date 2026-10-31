@@ -25,12 +25,12 @@ import { rowUI, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
-import { loadMyTrips } from '../lib/myTrips'
+import { loadMyTrips, tripListRemoveNotice } from '../lib/myTrips'
 import SwipeDeleteRow from './SwipeDeleteRow'
 import TripDatesBody from './TripDatesBody'
 import TeamCountBody from './TeamCountBody'
 import { StripePage, StripeSection, StripeRow, StripeInviteRow, StripeDanger, TripNameBody } from './StripeRows'
-import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
+import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL, leaveTrip, leaveTripBlockReason } from '../lib/roster'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -2065,17 +2065,19 @@ function inviteUrl(inviteToken) {
 }
 
 // Bottom danger action: soft-delete this trip (stays in Recently Deleted 30 days).
-function DeleteTripAction({ tripName, onDelete }) {
+// Only before the trip starts (`locked` = isRosterLocked); after that it just says why.
+function DeleteTripAction({ tripName, locked, onDelete }) {
   const [busy, setBusy] = useState(false)
   async function handle() {
     if (busy) return
-    if (!window.confirm(`Delete "${tripName || 'this trip'}"? It moves to Recently Deleted and can be restored for 30 days.`)) return
+    if (!window.confirm(`Delete "${tripName || 'this trip'}" for everyone on it? You can restore it for 30 days.`)) return
     setBusy(true)
     await onDelete?.()
     setBusy(false) // on success the drawer closes + routes away
   }
+  if (locked) return <StripeDanger note="This trip has started, so it can't be deleted." />
   return (
-    <StripeDanger note="Removes this trip from the trip list. It stays in Recently Deleted and can be restored for 30 days."
+    <StripeDanger note="Deletes this trip for everyone on it. It stays in Recently Deleted and can be restored for 30 days."
       label="Delete trip" busyLabel="Deleting…" onClick={handle} busy={busy} />
   )
 }
@@ -2083,7 +2085,7 @@ function DeleteTripAction({ tripName, onDelete }) {
 // Commissioner Tools (redesign "1C", 2026-10-30): wizard-style grey stripes
 // grouping The Trip / Players & Teams / The Game, with Fraunces + Inter.
 // Each row expands in place to edit; Roster opens Players & Teams.
-function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, onDatesChanged, onNameChanged, onOpenPlayers, onTeamCountChanged, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
+function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, rosterLocked = true, onDatesChanged, onNameChanged, onOpenPlayers, onTeamCountChanged, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const teams = data.teams || []
   const joined = data.joinedCount ?? 0
@@ -2130,7 +2132,7 @@ function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, 
         </StripeRow>
       </StripeSection>
 
-      <DeleteTripAction tripName={tripName} onDelete={onDeleteTrip} />
+      <DeleteTripAction tripName={tripName} locked={rosterLocked} onDelete={onDeleteTrip} />
     </StripePage>
   )
 }
@@ -2261,11 +2263,12 @@ function CaretIcon() {
   )
 }
 
-// Swipe-to-delete trip row — shared component (also used on the Clubhouse page).
-function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
+// Swipeable trip row — shared component (also used on the Clubhouse page). The
+// swipe only opens a notice (tripListRemoveNotice); nothing is deleted from a list.
+function SwipeRow({ deleteLabel, divider, onPick, onDelete, children }) {
   const rowStyle = { ...sw.row, ...(divider ? sw.rowDivider : null) }
   return (
-    <SwipeDeleteRow canDelete={canDelete} rowStyle={rowStyle} outerStyle={divider ? sw.rowDivider : undefined}
+    <SwipeDeleteRow canDelete deleteLabel={deleteLabel} rowStyle={rowStyle} outerStyle={divider ? sw.rowDivider : undefined}
       coverBg="#F0F4F8" onPick={onPick} onDelete={onDelete}>
       {children}
     </SwipeDeleteRow>
@@ -2300,7 +2303,9 @@ function RecentlyDeleted({ trips, onRestore }) {
           {trips.map(t => (
             <div key={t.id} style={sw.deletedRow}>
               <span style={sw.deletedName}>{t.name || 'Untitled Trip'}</span>
-              <button style={sw.restoreBtn} onClick={() => onRestore(t.id)}>Restore</button>
+              {t.canRestore
+                ? <button style={sw.restoreBtn} onClick={() => onRestore(t.id)}>Restore</button>
+                : <span style={{ fontSize: 12, color: '#7A8FA6' }}>Commissioner can restore</span>}
             </div>
           ))}
           <div style={sw.deletedNote}>Permanently deleted after 30 days.</div>
@@ -2314,10 +2319,10 @@ function RecentlyDeleted({ trips, onRestore }) {
 // Upcoming / Past (name + location left, date + golfer count right), plus a
 // collapsible Recently Deleted section for soft-deleted trips restorable within
 // 30 days. Trip names/dates/locations/counts all come from the live trip data.
-function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), onPick, onCreate, onRestore, onDelete }) {
+function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), onPick, onCreate, onRestore }) {
   const [rows, setRows] = useState(null)       // active trips — null = loading
   const [deleted, setDeleted] = useState([])   // soft-deleted, restorable (<30d)
-  const [pendingDelete, setPendingDelete] = useState(null) // trip awaiting delete confirm
+  const [notice, setNotice] = useState(null) // { title, body, canOpen, trip } from a row swipe
   const mountedRef = useRef(true)
   useEffect(() => () => { mountedRef.current = false }, [])
 
@@ -2343,20 +2348,6 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
     .filter(t => t.id !== currentTripId && t.end_date && t.end_date < today)
     .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
 
-  // Soft-delete uses an in-app confirm modal (below) rather than window.confirm —
-  // the native dialog repaints the page white behind it on mobile. The trash tap
-  // opens the modal; confirming runs the delete.
-  async function confirmDelete() {
-    const t = pendingDelete
-    setPendingDelete(null)
-    if (!t) return
-    // Optimistically move it into Recently Deleted, then reconcile with the server.
-    setRows(rs => (rs || []).filter(x => x.id !== t.id))
-    setDeleted(d => [{ id: t.id, name: t.name }, ...d])
-    await onDelete?.(t.id)
-    load() // proper ordering; handles the current-trip case
-  }
-
   // Restore a soft-deleted trip: drop it from Recently Deleted immediately, run the
   // real restore, then reload so it reappears in This Trip/Upcoming/Past — with its
   // full dates/location/golfers — without needing a page refresh.
@@ -2375,8 +2366,8 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
         {list.map((t, i) => {
           const isCurrent = t.id === currentTripId
           return (
-            <SwipeRow key={t.id} canDelete={t.canDelete} divider={i < list.length - 1}
-              onPick={() => onPick(t.id)} onDelete={() => setPendingDelete(t)}>
+            <SwipeRow key={t.id} deleteLabel={t.isCommissioner ? 'Delete trip' : 'Leave trip'} divider={i < list.length - 1}
+              onPick={() => onPick(t.id)} onDelete={() => setNotice({ trip: t, ...tripListRemoveNotice(t) })}>
               {isCurrent && <span style={{ ...sw.dot, ...sw.dotCurrent }} />}
               <span style={sw.left}>
                 <span style={sw.name}>
@@ -2419,21 +2410,79 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
       )}
       <button style={sw.createBtn} onClick={onCreate}>+ Create New Trip</button>
 
-      {pendingDelete && (
-        <div style={s.modalOverlay} onClick={() => setPendingDelete(null)}>
+      {notice && (
+        <div style={s.modalOverlay} onClick={() => setNotice(null)}>
           <div style={{ ...s.modalSheet, maxWidth: 360 }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#0D1B2A', marginBottom: 8 }}>Delete this trip?</div>
-            <div style={{ fontSize: 13.5, color: '#2C3E50', lineHeight: 1.5 }}>
-              Deleting <strong>{pendingDelete.name || 'this trip'}</strong> will remove its history and data. You’ll have 30 days to restore it before it’s permanently deleted.
-            </div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#0D1B2A', marginBottom: 8 }}>{notice.title}</div>
+            <div style={{ fontSize: 13.5, color: '#2C3E50', lineHeight: 1.5 }}>{notice.body}</div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={confirmDelete} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#C0392B', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Delete Trip</button>
-              <button onClick={() => setPendingDelete(null)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #DDE3EA', background: '#fff', color: '#2C3E50', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              {notice.canOpen && (
+                <button onClick={() => { const id = notice.trip.id; setNotice(null); onPick(id) }} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#0D1B2A', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Open trip</button>
+              )}
+              <button onClick={() => setNotice(null)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #DDE3EA', background: '#fff', color: '#2C3E50', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{notice.canOpen ? 'Cancel' : 'OK'}</button>
             </div>
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+// "Leave trip" — quiet red link at the bottom of the menu. Players only, and only
+// before the trip starts (leaveTripBlockReason); otherwise it isn't shown. Their
+// spot becomes Player TBD (same as a commissioner removing them) and the trip
+// drops off their list.
+function LeaveTripAction({ tripId, tripName, groupId, userId, isCommissioner, rosterLocked, onLeft }) {
+  const [mine, setMine] = useState(null)    // { tripId, row }: this user's trip_players row
+  const [confirm, setConfirm] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const allowed = !leaveTripBlockReason({ isCommissioner, rosterLocked })
+
+  useEffect(() => {
+    if (!allowed || !tripId || !userId) return
+    let alive = true
+    supabase.from('trip_players').select('id, user_id, claimed_user_id')
+      .eq('trip_id', tripId).or(`user_id.eq.${userId},claimed_user_id.eq.${userId}`).limit(1)
+      .then(({ data }) => { if (alive) setMine({ tripId, row: data?.[0] || null }) })
+    return () => { alive = false }
+  }, [allowed, tripId, userId])
+
+  const me = mine?.tripId === tripId ? mine.row : null
+  if (!allowed || !me) return null
+
+  async function leave() {
+    setBusy(true); setErr('')
+    const { error } = await leaveTrip(supabase, { player: me, groupId, isCommissioner, rosterLocked })
+    setBusy(false)
+    if (error) { setErr(error.message || 'Could not leave — please try again.'); return }
+    setConfirm(false)
+    onLeft?.()
+  }
+
+  return (
+    <>
+      <button onClick={() => setConfirm(true)}
+        style={{ display: 'block', margin: '6px auto 0', background: 'none', border: 'none', color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '8px 12px' }}>
+        Leave trip
+      </button>
+      {confirm && createPortal(
+        <div style={s.modalOverlay} onClick={() => !busy && setConfirm(false)}>
+          <div style={{ ...s.modalSheet, maxWidth: 360 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#0D1B2A', marginBottom: 8 }}>Leave {tripName || 'this trip'}?</div>
+            <div style={{ fontSize: 13.5, color: '#2C3E50', lineHeight: 1.5 }}>
+              Your spot becomes {PLACEHOLDER_LABEL} so the commissioner can fill it, and the trip comes off your list. To come back you'll need a new invite.
+            </div>
+            {err && <div style={{ fontSize: 13, color: '#C0392B', marginTop: 10 }}>{err}</div>}
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={leave} disabled={busy} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#C0392B', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Leaving…' : 'Leave trip'}</button>
+              <button onClick={() => setConfirm(false)} disabled={busy} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #DDE3EA', background: '#fff', color: '#2C3E50', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
 
@@ -2449,7 +2498,7 @@ export default function MenuDrawer({
   const goToProfile = () => { onClose(); navigate('/profile') }
   // First name for the drawer header; falls back to the email's local part.
   const firstName = ((user?.user_metadata?.display_name || '').trim().split(/\s+/)[0]) || (user?.email || '').split('@')[0]
-  const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds, patchTrip } = useGroup()
+  const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds, patchTrip, fetchUserGroups } = useGroup()
   // "Trips" row red dot: any trip OTHER than the active one has unread trash-talk.
   const otherTripUnread = [...unreadTripIds].some(id => id !== activeTripId)
   const [page, setPage] = useState(null)
@@ -3081,6 +3130,9 @@ export default function MenuDrawer({
               <RowChevron />
             </button>
           ))}
+          <LeaveTripAction tripId={tripId} tripName={tripName} groupId={groupId} userId={currentUserId}
+            isCommissioner={isCommissioner} rosterLocked={rosterLocked}
+            onLeft={async () => { await fetchUserGroups(); onClose(); navigate('/home') }} />
         </div>
         {/* Footer signature: quiet links to the App Info page + app version. */}
         <div style={s.drawerFooter}>
@@ -3106,10 +3158,6 @@ export default function MenuDrawer({
             onPick={id => { onClose(); switchTrip(id) }}
             onCreate={() => { onClose(); navigate('/onboarding/trip') }}
             onRestore={id => restoreTrip(id)}
-            onDelete={async id => {
-              const { error } = await softDeleteTrip(id)
-              if (error) window.alert('Delete failed — please try again.')
-            }}
           />
         </SecondaryPage>
       )}
@@ -3121,6 +3169,7 @@ export default function MenuDrawer({
             tripName={tripName}
             tripStartDate={tripStartDate}
             tripEndDate={tripEndDate}
+            rosterLocked={rosterLocked}
             onOpenPlayers={() => setPage('players')}
             onTeamCountChanged={() => {
               // Teams added/removed (players may be unassigned): reload this page,

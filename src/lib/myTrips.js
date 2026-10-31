@@ -28,6 +28,24 @@ export function restoreDaysLeft(deletedAt, now = new Date()) {
   return Math.max(0, 30 - gone)
 }
 
+// What a trip-list swipe (Home, Switch Trip) shows. Nobody deletes or leaves a
+// trip from a list: a commissioner deletes from Commissioner Tools and a player
+// leaves from the trip's menu — and only before the trip starts. Once it has
+// started (or finished) it stays, for everyone. Returns { title, body, canOpen }.
+export function tripListRemoveNotice(trip, now = new Date()) {
+  const status = tripTimeStatus(trip, now)
+  const name = trip?.name || 'this trip'
+  if (status !== 'upcoming') {
+    const when = status === 'past' ? 'is finished' : 'has started'
+    return trip?.isCommissioner
+      ? { title: "This trip can't be deleted", body: `${name} ${when}. Once a trip starts it can't be deleted.`, canOpen: false }
+      : { title: "You can't leave this trip", body: `${name} ${when}. Once a trip starts nobody can leave it.`, canOpen: false }
+  }
+  return trip?.isCommissioner
+    ? { title: 'Delete it from inside the trip', body: `To delete ${name}, open the trip, then go to Menu → Commissioner Tools → Delete trip.`, canOpen: true }
+    : { title: 'Leave from inside the trip', body: `To leave ${name}, open the trip, then tap Leave trip at the bottom of the Menu.`, canOpen: true }
+}
+
 // Split + sort: live (soonest end first), upcoming (soonest start first), past
 // (most recent first).
 export function splitTrips(trips = [], now = new Date()) {
@@ -41,7 +59,8 @@ export function splitTrips(trips = [], now = new Date()) {
 }
 
 // Loads the trips this user is on (plus `currentTripId`), with location, golfer
-// count and whether they can delete it; and their soft-deleted trips (< 30 days).
+// count and whether they're its commissioner; and their soft-deleted trips (< 30
+// days), each with canRestore (commissioner only — matches trips RLS).
 // Returns { rows, deleted, offline } — offline: true when it couldn't reach the server.
 // Takes the Supabase client so the pure helpers above stay testable in Node.
 export async function loadMyTrips(client, userId, { currentTripId = null } = {}) {
@@ -52,7 +71,7 @@ export async function loadMyTrips(client, userId, { currentTripId = null } = {})
     .eq('user_id', userId)
   if (gmErr) return { rows: [], deleted: [], offline: true } // no signal → caller uses its saved copy
   const groupIds = [...new Set((gm || []).map(m => m.group_id ?? m.groups?.id).filter(Boolean))]
-  // Only the commissioner (group admin) may delete a trip (matches trips RLS).
+  // Only the commissioner (group admin) may delete or restore a trip (matches trips RLS).
   const adminGroupIds = new Set((gm || []).filter(m => m.role === 'admin').map(m => m.group_id ?? m.groups?.id).filter(Boolean))
   if (!groupIds.length) return { rows: [], deleted: [] }
 
@@ -90,8 +109,8 @@ export async function loadMyTrips(client, userId, { currentTripId = null } = {})
       location: locByTrip.get(t.id) || '',
       golfers: countByTrip.get(t.id) || 0,
       rounds: roundsByTrip.get(t.id) || 0,
-      canDelete: adminGroupIds.has(t.group_id),
+      isCommissioner: adminGroupIds.has(t.group_id),
     }))
-  const deleted = (deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name, deleted_at: t.deleted_at }))
+  const deleted = (deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name, deleted_at: t.deleted_at, canRestore: adminGroupIds.has(t.group_id) }))
   return { rows, deleted }
 }

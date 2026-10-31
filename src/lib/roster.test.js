@@ -2,7 +2,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { isRosterLocked } from './scoring.js'
-import { rosterChangeBlockReason, removeTripPlayer, isPlaceholderPlayer, PLACEHOLDER_PATCH } from './roster.js'
+import { rosterChangeBlockReason, removeTripPlayer, isPlaceholderPlayer, PLACEHOLDER_PATCH, leaveTrip, leaveTripBlockReason } from './roster.js'
+import { tripListRemoveNotice } from './myTrips.js'
 
 const DETROIT = 'America/Detroit'
 const trip = { start_date: '2026-11-05', end_date: '2026-11-08' }
@@ -89,9 +90,10 @@ test('remove: clears the row into a placeholder, blanks the flight, drops group 
   const { error } = await removeTripPlayer(client, { player, groupId: 'g1', rosterLocked: false })
   assert.equal(error, null)
   const ops = calls.map(c => `${c.op}:${c.table}`)
-  assert.deepEqual(ops, ['update:trip_players', 'update:flights', 'select:trips', 'select:trip_players', 'delete:group_members'])
-  assert.deepEqual(calls[0].value, PLACEHOLDER_PATCH)
-  assert.deepEqual(calls[0].filters, [['eq', 'id', 'tp1']])
+  // Flight first: once the spot is unlinked, a self-leaving player can't edit it.
+  assert.deepEqual(ops, ['update:flights', 'update:trip_players', 'select:trips', 'select:trip_players', 'delete:group_members'])
+  assert.deepEqual(calls[1].value, PLACEHOLDER_PATCH)
+  assert.deepEqual(calls[1].filters, [['eq', 'id', 'tp1']])
   // The row is never deleted and pairings are never touched — the spot keeps them.
   assert.equal(calls.some(c => c.table === 'pairing_players'), false)
   assert.equal(calls.some(c => c.op === 'delete' && c.table === 'trip_players'), false)
@@ -112,4 +114,40 @@ test('remove refuses a locked roster or the commissioner, and writes nothing', a
   assert.match(r1.error.message, /set once the trip starts/)
   assert.match(r2.error.message, /commissioner/)
   assert.equal(calls.length, 0)
+})
+
+test('leave: a player can leave before the trip starts — same as being removed', async () => {
+  const { client, calls } = fakeClient()
+  const { error } = await leaveTrip(client, { player, groupId: 'g1', isCommissioner: false, rosterLocked: false })
+  assert.equal(error, null)
+  assert.deepEqual(calls[1].value, PLACEHOLDER_PATCH)
+  assert.equal(calls.at(-1).table, 'group_members')
+})
+
+test('leave: nobody leaves a started trip, and the commissioner never leaves', async () => {
+  const { client, calls } = fakeClient()
+  const r1 = await leaveTrip(client, { player, groupId: 'g1', isCommissioner: false, rosterLocked: true })
+  const r2 = await leaveTrip(client, { player, groupId: 'g1', isCommissioner: true, rosterLocked: true })
+  const r3 = await leaveTrip(client, { player, groupId: 'g1', isCommissioner: true, rosterLocked: false })
+  assert.match(r1.error.message, /started/)
+  assert.match(r2.error.message, /started/)
+  assert.match(r3.error.message, /commissioner/)
+  assert.equal(calls.length, 0)
+  assert.equal(leaveTripBlockReason({ isCommissioner: false, rosterLocked: false }), null)
+})
+
+test('trip-list swipe never deletes: points into the trip, or says a started trip is locked', () => {
+  const now = new Date('2026-06-10T15:00:00Z')
+  const upcoming = { name: 'Cabo', start_date: '2026-07-01', end_date: '2026-07-04', time_zone: 'America/New_York' }
+  const live = { ...upcoming, start_date: '2026-06-09', end_date: '2026-06-12' }
+  const past = { ...upcoming, start_date: '2026-05-01', end_date: '2026-05-04' }
+  const c = t => ({ ...t, isCommissioner: true })
+  assert.equal(tripListRemoveNotice(upcoming, now).canOpen, true)
+  assert.match(tripListRemoveNotice(upcoming, now).body, /Leave trip/)
+  assert.match(tripListRemoveNotice(c(upcoming), now).body, /Commissioner Tools/)
+  for (const t of [live, past, c(live), c(past)]) assert.equal(tripListRemoveNotice(t, now).canOpen, false)
+  assert.match(tripListRemoveNotice(live, now).title, /can't leave/)
+  assert.match(tripListRemoveNotice(c(past), now).body, /is finished/)
+  // No dates yet = hasn't started.
+  assert.equal(tripListRemoveNotice({ name: 'TBD' }, now).canOpen, true)
 })
