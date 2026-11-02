@@ -15,7 +15,7 @@ import HomeCard from './homeCard'
 // earlier days; it opens on the most recent day and stays after the trip, so by
 // the end you can flip through every day. All math is in src/lib/dailyLeaders.js.
 
-const NAVY = '#1B3F6E'
+const NAVY = 'var(--navy)'
 const GREY = '#8a96a3'
 const MUTED = '#A9B4C0'
 const st = {

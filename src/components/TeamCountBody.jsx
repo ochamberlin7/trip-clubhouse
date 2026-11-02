@@ -11,8 +11,8 @@ import { teamCountChoices, planTeamCountChange } from '../lib/teamCount'
 const TEAM_WORD = { 2: 'Two', 3: 'Three', 4: 'Four' }
 
 const ui = {
-  seg: { display: 'flex', border: '1px solid #1B3F6E', borderRadius: 4, overflow: 'hidden', marginTop: 4 },
-  segBtn: (on, first) => ({ flex: 1, padding: '11px 0', background: on ? '#1B3F6E' : 'transparent', color: on ? '#fff' : '#1B3F6E', border: 'none', borderLeft: first ? 'none' : '1px solid #1B3F6E', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }),
+  seg: { display: 'flex', border: '1px solid var(--navy)', borderRadius: 4, overflow: 'hidden', marginTop: 4 },
+  segBtn: (on, first) => ({ flex: 1, padding: '11px 0', background: on ? 'var(--navy)' : 'transparent', color: on ? '#fff' : 'var(--navy)', border: 'none', borderLeft: first ? 'none' : '1px solid var(--navy)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }),
   warn: { fontSize: 12.5, color: '#7A4B00', lineHeight: 1.5, marginTop: 10, background: '#FFF4DC', borderRadius: 8, padding: '9px 11px' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   sheet: { background: '#fff', borderRadius: 12, padding: 24, width: 'calc(100% - 40px)', maxWidth: 360, textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },

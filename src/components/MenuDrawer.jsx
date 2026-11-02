@@ -85,7 +85,7 @@ const s = {
   closeBtn: { position: 'absolute', top: 'max(env(safe-area-inset-top), 12px)', right: '12px', width: '32px', height: '32px', borderRadius: '50%', background: 'none', border: 'none', color: '#94A3B8', fontSize: '17px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   nav: { flex: 1, overflowY: 'auto', padding: '4px 0' },
   item: { display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', background: '#fff', width: '100%', borderTop: 'none', borderLeft: 'none', borderRight: 'none', textAlign: 'left', fontFamily: 'inherit' },
-  clubTile: { width: '42px', height: '42px', borderRadius: '11px', background: '#1B3F6E', border: '2px solid #C49A2A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxSizing: 'border-box' },
+  clubTile: { width: '42px', height: '42px', borderRadius: '11px', background: 'var(--navy)', border: '2px solid #C49A2A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxSizing: 'border-box' },
   drawerFooter: { padding: '14px 18px', paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 12px), 22px)', textAlign: 'center', color: '#94A3B8', flexShrink: 0 },
   footerRule: { width: '30px', height: '1.5px', background: '#E3C77A', margin: '0 auto 10px' },
   footerBrand: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '14px', fontWeight: 700, color: '#94A3B8' },
@@ -102,15 +102,15 @@ const s = {
   // renders full-bleed exactly as before — desktop-only change.
   page: { position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, zIndex: 250, background: '#F0F4F8', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
   pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: '16px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 16px)', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: '12px' },
-  backBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1B3F6E', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 },
-  pageContext: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 500 },
+  backBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--navy)', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 },
+  pageContext: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--navy)', fontWeight: 500 },
   pageTitle: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#0D1B2A', marginTop: '1px' },
   // paddingBottom clears the floating feedback pill (z-index 201) which renders
   // above these secondary pages — same shared clearance as .dashboard-content.
   pageBody: { padding: '16px', paddingBottom: 'var(--content-bottom-clearance)' },
 
   card: { background: '#fff', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px' },
-  cardHeader: { background: '#1B3F6E', padding: '10px 14px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#fff' },
+  cardHeader: { background: 'var(--navy)', padding: '10px 14px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#fff' },
   cardBody: { padding: '14px' },
   row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid #E8EDF3' },
   rowLabel: { fontSize: '13px', color: '#7A8FA6' },
@@ -119,18 +119,18 @@ const s = {
   note: { fontSize: '12px', color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: '4px 0 8px' },
 
   badge: { fontSize: '10px', padding: '2px 7px', borderRadius: '10px', fontWeight: 700, display: 'inline-block' },
-  badgeTour: { background: 'rgba(27,63,110,0.1)', color: '#1B3F6E', border: '1px solid #1B3F6E' },
+  badgeTour: { background: 'rgba(27,63,110,0.1)', color: 'var(--navy)', border: '1px solid var(--navy)' },
   badgePrac: { background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' },
 
-  dot: { width: '6px', height: '6px', borderRadius: '50%', background: '#1B3F6E', flexShrink: 0, marginTop: '7px' },
+  dot: { width: '6px', height: '6px', borderRadius: '50%', background: 'var(--navy)', flexShrink: 0, marginTop: '7px' },
   ruleRow: { display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid #E8EDF3', fontSize: '13px', lineHeight: 1.5, color: '#0D1B2A' },
 
   toggleRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3', background: '#fff', width: '100%', border: 'none', fontFamily: 'inherit', textAlign: 'left' },
   stepRow: { display: 'flex', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid #E8EDF3' },
-  stepNum: { width: '22px', height: '22px', borderRadius: '50%', background: '#1B3F6E', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  stepNum: { width: '22px', height: '22px', borderRadius: '50%', background: 'var(--navy)', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   stepText: { fontSize: '13px', color: '#0D1B2A', lineHeight: 1.4 },
   introText: { fontSize: '13px', color: '#2C3E50', lineHeight: 1.5, paddingBottom: '10px' },
-  editCourseBtn: { marginTop: '8px', background: '#fff', border: '1px solid #DDE3EA', color: '#1B3F6E', fontSize: '12px', fontWeight: 700, borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' },
+  editCourseBtn: { marginTop: '8px', background: '#fff', border: '1px solid #DDE3EA', color: 'var(--navy)', fontSize: '12px', fontWeight: 700, borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' },
 
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   modalSheet: { background: '#fff', borderRadius: '12px', padding: '24px', width: 'calc(100% - 40px)', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
@@ -138,7 +138,7 @@ const s = {
   modalClose: { width: '28px', height: '28px', borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 }
 
-const svgProps = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: '#1B3F6E', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
+const svgProps = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--navy)', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
 
 const MENU_ITEMS = [
   { id: 'players', label: 'Players & Teams', sub: 'Roster & teams', icon: <g><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g> },
@@ -305,7 +305,7 @@ const pc = {
   // Top-aligned 3-column header: avatar · name + role meta · team pill over pencil.
   // The name gets its own flexing column so it never fights the pill.
   header: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
-  avatar: { width: 40, height: 40, borderRadius: '50%', background: '#1B3F6E', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
+  avatar: { width: 40, height: 40, borderRadius: '50%', background: 'var(--navy)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
   headerMain: { flex: 1, minWidth: 0, paddingTop: 1 },
   name: { fontSize: 16, fontWeight: 700, color: '#0D1B2A', lineHeight: 1.25, overflowWrap: 'anywhere' },
   // Role/status line under the name: plain coloured text, no pills. Joined (green),
@@ -324,7 +324,7 @@ const pc = {
   editInput: { background: '#F5F8FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: '100%', fontFamily: 'inherit', color: '#0D1B2A' },
   editLabel: { display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', marginBottom: 4 },
   editField: { display: 'block', flex: 1, minWidth: 0 },
-  saveBtn: { background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  saveBtn: { background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 }
 
 function PencilIcon() {
@@ -435,7 +435,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           <div style={pc.detailRow}>
             <span style={pc.detailLabel}>Email</span>
             {player.email
-              ? <a href={`mailto:${player.email}`} style={{ color: '#1B3F6E', textDecoration: 'none', fontSize: 12 }}>{player.email}</a>
+              ? <a href={`mailto:${player.email}`} style={{ color: 'var(--navy)', textDecoration: 'none', fontSize: 12 }}>{player.email}</a>
               : <span style={pc.muted}>—</span>}
           </div>
           <div style={pc.detailRow}>
@@ -448,7 +448,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
             <span style={pc.detailLabel}>Handicap</span>
             {player.handicap_index != null
               ? <span style={{ color: '#0D1B2A', fontWeight: 600 }}>{player.handicap_index}</span>
-              : <span style={{ color: '#1B3F6E', fontWeight: 700 }}>TBD</span>}
+              : <span style={{ color: 'var(--navy)', fontWeight: 700 }}>TBD</span>}
           </div>
           {isCommissioner && (
             <div style={{ ...pc.detailRow, borderBottom: 'none', cursor: 'pointer' }} onClick={onStartEdit}>
@@ -505,7 +505,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           {isCommissioner && (
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content', padding: '2px 0' }}>
               <input type="checkbox" checked={!!form.is_captain} onChange={e => setForm({ ...form, is_captain: e.target.checked })} style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }} />
-              <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${form.is_captain ? '#1B3F6E' : '#C4CEDA'}`, background: form.is_captain ? '#1B3F6E' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+              <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${form.is_captain ? 'var(--navy)' : '#C4CEDA'}`, background: form.is_captain ? 'var(--navy)' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
                 {form.is_captain && <CheckIcon />}
               </span>
               <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>Team Captain</span>
@@ -523,7 +523,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
             <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
           </label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
-            <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
+            <button onClick={save} disabled={saving} style={{ background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
             {/* Remove lives in edit mode only, bottom-right of the panel. */}
             {canRemove && (
@@ -706,9 +706,9 @@ function InviteNewPlayerModal({ name, inviteToken, onClose }) {
 
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
           {canShare && (
-            <button onClick={share} style={{ ...btn, background: '#E8EDF3', color: '#1B3F6E' }}>Share</button>
+            <button onClick={share} style={{ ...btn, background: '#E8EDF3', color: 'var(--navy)' }}>Share</button>
           )}
-          <button onClick={copy} style={{ ...btn, background: copied ? '#0F6E56' : '#1B3F6E', color: '#fff' }}>
+          <button onClick={copy} style={{ ...btn, background: copied ? '#0F6E56' : 'var(--navy)', color: '#fff' }}>
             {copied ? '✓ Copied' : 'Copy link'}
           </button>
         </div>
@@ -891,7 +891,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
     if (v == null) return '#7A8FA6'
     if (v === 0) return '#7A8FA6'
     if (v <= 9) return '#0D1B2A'
-    if (v <= 18) return '#1B3F6E'
+    if (v <= 18) return 'var(--navy)'
     return '#C0392B'
   }
 
@@ -935,8 +935,8 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                   )}
                   <span style={{ ...numCell, color: r.idx == null ? '#7A8FA6' : '#2C3E50' }}>{r.idx ?? 'TBD'}</span>
                   {show18 && <span style={{ ...numCell, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>}
-                  {show18 && <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{r.playing ?? '—'}</span>}
-                  <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{r.shotsOff ?? '—'}</span>
+                  {show18 && <span style={{ ...numCell, fontWeight: 700, color: 'var(--navy)' }}>{r.playing ?? '—'}</span>}
+                  <span style={{ ...numCell, fontWeight: 700, color: 'var(--navy)' }}>{r.shotsOff ?? '—'}</span>
                 </div>
               ))}
               <div style={{ background: '#F5F8FA', padding: '8px 10px', fontSize: 11, color: '#7A8FA6', fontStyle: 'italic' }}>
@@ -959,7 +959,7 @@ const lockToastStyle = { flexBasis: '100%', fontSize: 12, color: '#C0392B', padd
 // Course-card action toolbar: a row of equal-weight navy-outline pills (icon +
 // label), centered at the bottom of the card. Handicaps · Tournament · Edit.
 const toolbarRowStyle = { display: 'flex', gap: 8, marginTop: 12 }
-const toolbarPillStyle = { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, background: '#fff', border: '1px solid #1B3F6E', color: '#1B3F6E', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '7px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', width: '100%' }
+const toolbarPillStyle = { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, background: '#fff', border: '1px solid var(--navy)', color: 'var(--navy)', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '7px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', width: '100%' }
 const nameEditBtnStyle = { background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: '#7A8FA6', display: 'inline-flex', alignItems: 'center', flexShrink: 0, fontFamily: 'inherit' }
 const toolbarPillDisabledStyle = { ...toolbarPillStyle, opacity: 0.4, cursor: 'not-allowed', borderColor: '#DDE3EA', color: '#7A8FA6' }
 const ICON = { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -998,7 +998,7 @@ function EditCourseButton({ round, locked, lockReason, onEditCourse }) {
 }
 
 const typeBadgeBase = { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit', whiteSpace: 'nowrap' }
-const typeBadgeTour = { ...typeBadgeBase, background: 'rgba(27,63,110,0.1)', color: '#1B3F6E', border: '1px solid #1B3F6E' }
+const typeBadgeTour = { ...typeBadgeBase, background: 'rgba(27,63,110,0.1)', color: 'var(--navy)', border: '1px solid var(--navy)' }
 const typeBadgePrac = { ...typeBadgeBase, background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }
 const typeBadgeNone = { ...typeBadgeBase, background: '#F5F8FA', color: '#9AA8B8', border: '1px dashed #C4CEDA' }
 
@@ -1070,7 +1070,7 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
               onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
               onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
               <span>{txt}</span>
-              {active && <span style={{ color: '#1B3F6E' }}>✓</span>}
+              {active && <span style={{ color: 'var(--navy)' }}>✓</span>}
             </div>
           )
         })}
@@ -1107,16 +1107,16 @@ function parText(r) {
 
 // Labels for empty (non-golf) days, by stored schedule type.
 const DAY_PLACEHOLDER_META = {
-  travel:   { label: 'Travel Day',        accent: '#1B3F6E' },
-  non_golf: { label: 'Non-Golf Day',      accent: '#1B3F6E' },
+  travel:   { label: 'Travel Day',        accent: 'var(--navy)' },
+  non_golf: { label: 'Non-Golf Day',      accent: 'var(--navy)' },
   unknown:  { label: 'Not Scheduled Yet', accent: '#9AA8B8' },
 }
 const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', marginBottom: 6 }
 
 // Day-card chrome (navy bar Today badge, bottom text-link actions, non-golf type label).
-const todayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: '#1B3F6E', background: '#fff', borderRadius: 10, padding: '1px 8px' }
+const todayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: 'var(--navy)', background: '#fff', borderRadius: 10, padding: '1px 8px' }
 const dayActionsRowStyle = { display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 14, borderTop: '1px solid #E8EDF3', paddingTop: 10 }
-const dayActionLinkStyle = { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }
+const dayActionLinkStyle = { background: 'none', border: 'none', color: 'var(--navy)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }
 const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: '#7A8FA6' }
 
 // One golf round: unchanged content (name, rating/slope, location, par) plus the
@@ -1158,7 +1158,7 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
         )}
       </div>
       <div style={toolbarRowStyle}>
-        <button style={{ ...toolbarPillStyle, ...(hcOpen ? { background: '#1B3F6E', color: '#fff' } : null) }} onClick={() => setHcOpen(o => !o)}><IconHandicaps />Handicaps</button>
+        <button style={{ ...toolbarPillStyle, ...(hcOpen ? { background: 'var(--navy)', color: '#fff' } : null) }} onClick={() => setHcOpen(o => !o)}><IconHandicaps />Handicaps</button>
         {isCommissioner && <RoundTypeBadge round={r} isCommissioner onChange={onRoundTypeChange} />}
         {isCommissioner && <EditCourseButton round={r} locked={locked} lockReason={lockReason} onEditCourse={onEditCourse} />}
       </div>
@@ -1215,7 +1215,7 @@ function RoundStrokesRecap({ round, pairings, playersById, playerRounds, allowan
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p?.name || 'Player'}</span>
                   <span style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{teeName}</span>
                   {show18 && <span style={numCell}>{ch ?? '—'}</span>}
-                  <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{shots.get(id) ?? 0}</span>
+                  <span style={{ ...numCell, fontWeight: 700, color: 'var(--navy)' }}>{shots.get(id) ?? 0}</span>
                 </div>
               )
             })}
@@ -1328,13 +1328,13 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
 
 // ── Stays (lodging) + Meals ───────────────────────────────────────
 // Shared visual tokens, matching the app's card/pill/field-row language.
-const stayBannerStyle = { background: '#EAEFF4', border: '1px solid #CFD9E4', borderLeft: '5px solid #1B3F6E', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }
+const stayBannerStyle = { background: '#EAEFF4', border: '1px solid #CFD9E4', borderLeft: '5px solid var(--navy)', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }
 const stayLabelStyle = { fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }
 const stayTitleStyle = { fontSize: 15, fontWeight: 700, color: '#2C3E50', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const staySubStyle = { fontSize: 12, color: '#7A8FA6', marginTop: 2 }
 const mealsLabelStyle = { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#7A8FA6', margin: '14px 0 8px' }
 const mealSubCardStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: 8 }
-const addActionStyle = { display: 'block', width: '100%', background: '#fff', border: '1px dashed #C4CEDA', color: '#1B3F6E', fontSize: 12, fontWeight: 700, borderRadius: 6, padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }
+const addActionStyle = { display: 'block', width: '100%', background: '#fff', border: '1px dashed #C4CEDA', color: 'var(--navy)', fontSize: 12, fontWeight: 700, borderRadius: 6, padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }
 const mealCustomInputStyle = { width: '100%', marginTop: 8, padding: '7px 10px', borderRadius: 6, border: '1px solid #DDE3EA', fontSize: 13, fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box' }
 const mealBadgeStyle = { ...typeBadgeBase, background: 'rgba(15,110,86,0.1)', color: '#0F6E56', border: '1px solid #0F6E56' }
 const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', margin: '12px 0 5px' }
@@ -1343,8 +1343,8 @@ const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'upperca
 const modalInput = { width: '100%', height: 40, padding: '9px 11px', borderRadius: 8, border: '1px solid #DDE3EA', fontSize: 14, lineHeight: '20px', fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box', background: '#fff', WebkitAppearance: 'none', appearance: 'none' }
 const convertDayBtnStyle = { flex: 1, padding: '9px', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
 const removeRoundBtnStyle = { width: '100%', padding: '9px', background: '#fff', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
-const manualAddLinkStyle = { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 13, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap' }
-const editDetailsBtnStyle = { display: 'block', width: '100%', marginTop: 12, padding: '10px', background: '#fff', border: '1px solid #1B3F6E', borderRadius: 8, color: '#1B3F6E', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
+const manualAddLinkStyle = { background: 'none', border: 'none', color: 'var(--navy)', fontSize: 13, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap' }
+const editDetailsBtnStyle = { display: 'block', width: '100%', marginTop: 12, padding: '10px', background: '#fff', border: '1px solid var(--navy)', borderRadius: 8, color: 'var(--navy)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
 
 // "AUG 13 – 16" (same month collapses to one label; cross-month shows both).
 function fmtStayRange(ci, co) {
@@ -1421,7 +1421,7 @@ function LodgingRow({ stay, isCommissioner, onEditStay }) {
           ? (
             <div style={{ flexShrink: 0, textAlign: 'right' }}>
               <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#8a96a3' }}>Check-in</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1B3F6E', marginTop: 2 }}>{range}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', marginTop: 2 }}>{range}</div>
             </div>
           )
           : confFallback && <span style={{ fontSize: 12, color: '#7A8FA6', flexShrink: 0 }}>{confFallback}</span>}
@@ -1483,7 +1483,7 @@ function MealModal({ meal, saving, onSave, onDelete, onClose }) {
         <input style={{ ...modalInput, display: 'block', WebkitAppearance: 'none', appearance: 'none' }} type="time" value={time} onChange={e => setTime(e.target.value)} />
         <div style={modalFieldLabel}>Notes (optional)</div>
         <textarea style={{ ...modalInput, height: 'auto', minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
-        <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
+        <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
           onClick={submit} disabled={saving}>{saving ? 'Saving…' : (isNew ? 'Add Meal' : 'Save Meal')}</button>
         {!isNew && (
           <button style={{ width: '100%', marginTop: 8, padding: '9px', background: 'none', border: 'none', color: '#C0392B', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
@@ -1540,7 +1540,7 @@ function StayModal({ stay, saving, tripStartDate, tripEndDate, onSave, onDelete,
         <input style={modalInput} value={confirmation} onChange={e => setConfirmation(e.target.value)} />
         <div style={modalFieldLabel}>Notes (optional)</div>
         <textarea style={{ ...modalInput, height: 'auto', minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
-        <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
+        <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
           onClick={submit} disabled={saving}>{saving ? 'Saving…' : (isNew ? 'Add Stay' : 'Save Stay')}</button>
         {!isNew && (
           <button style={{ width: '100%', marginTop: 8, padding: '9px', background: 'none', border: 'none', color: '#C0392B', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
@@ -1567,7 +1567,7 @@ const DEPART_FIELDS = [
 const fl = {
   // HOME_CARD shell; keeps its navy header (player name + Driving toggle).
   card: { ...HOME_CARD, marginBottom: 14 },
-  header: { background: '#1B3F6E', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  header: { background: 'var(--navy)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   name: { fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px' },
   // Prominent bold label shown in the header when a person is driving.
   driving: { fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '0.5px' },
@@ -1581,7 +1581,7 @@ const fl = {
   cols: { display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: '#fff' },
   col: { padding: '10px 12px' },
   divider: { background: '#DDE3EA' },
-  colHeader: { fontSize: 8, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#1B3F6E', marginBottom: 8 },
+  colHeader: { fontSize: 8, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 8 },
   colRow: { display: 'flex', flexDirection: 'column', marginBottom: 7 },
   label: { fontSize: 8, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#7A8FA6', marginBottom: 2 },
   cellValue: { fontSize: 13, fontWeight: 600, color: '#0D1B2A' },
@@ -1798,7 +1798,7 @@ function LocalRulesCard({ tripId, isCommissioner }) {
         </div>
       ))}
       <button onClick={addRule}
-        style={{ background: 'none', border: 'none', color: '#1B3F6E', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '10px 0 0' }}>+ Add Rule</button>
+        style={{ background: 'none', border: 'none', color: 'var(--navy)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '10px 0 0' }}>+ Add Rule</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
         <button onClick={save} disabled={saving} style={pc.saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
         <button onClick={() => setEditing(false)} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
@@ -2243,7 +2243,7 @@ const sw = {
   golfers: { display: 'block', fontSize: 12, color: '#8A98A8', marginTop: 1, fontVariantNumeric: 'tabular-nums' },
   empty: { padding: '6px 16px 10px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
   loading: { padding: '16px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
-  createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '18px 16px', padding: '13px', borderRadius: 8, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '18px 16px', padding: '13px', borderRadius: 8, border: 'none', background: 'var(--navy)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   // Recently Deleted — set off from the trip groups by a heavier top border.
   deletedWrap: { borderTop: '3px solid #E1E7EE', marginTop: 14 },
   deletedHeaderBtn: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '14px 16px 4px' },
@@ -2251,7 +2251,7 @@ const sw = {
   deletedInner: { overflow: 'hidden', transition: 'height 0.24s ease' },
   deletedRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 16px' },
   deletedName: { fontSize: 14.5, color: '#A6B0BC', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
-  restoreBtn: { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, padding: '2px 4px' },
+  restoreBtn: { background: 'none', border: 'none', color: 'var(--navy)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, padding: '2px 4px' },
   deletedNote: { fontSize: 12, color: '#8A98A8', padding: '4px 16px 14px' },
 }
 
@@ -3296,7 +3296,7 @@ export default function MenuDrawer({
                 <button
                   role="switch" aria-checked={!editRound.no_scoring} aria-label="Keep score for this round"
                   onClick={() => toggleRoundScoring(editRound, !!editRound.no_scoring)}
-                  style={{ width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0, position: 'relative', background: editRound.no_scoring ? '#cccccc' : '#1B3F6E', transition: 'background 0.15s' }}
+                  style={{ width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0, position: 'relative', background: editRound.no_scoring ? '#cccccc' : 'var(--navy)', transition: 'background 0.15s' }}
                 >
                   <span style={{ position: 'absolute', top: 3, left: editRound.no_scoring ? 3 : 21, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
                 </button>

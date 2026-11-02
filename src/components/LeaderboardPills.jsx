@@ -7,7 +7,7 @@ const st = {
   row: { display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none' },
   pill: { flexShrink: 0, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--bg3)', background: 'var(--bg1)', color: 'var(--muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
   // Full `border` (not borderColor): mixing the two left a de-selected tab's border black.
-  on: { background: '#1B3F6E', border: '1px solid #1B3F6E', color: '#fff' },
+  on: { background: 'var(--navy)', border: '1px solid var(--navy)', color: '#fff' },
 }
 
 export default function LeaderboardPills({ options, value, onChange, ariaLabel, style }) {

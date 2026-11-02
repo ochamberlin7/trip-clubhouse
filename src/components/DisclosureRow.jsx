@@ -15,7 +15,7 @@ export const rowUI = {
   fieldLabel: { fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: '#7A8FA6', margin: '10px 0 5px' },
   input: { width: '100%', boxSizing: 'border-box', background: '#EEF2F6', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: '#0D1B2A', fontFamily: 'inherit', outline: 'none' },
   saveRow: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, marginTop: 14 },
-  linkBtn: { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 14.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', padding: '2px 2px' },
+  linkBtn: { background: 'none', border: 'none', color: 'var(--navy)', fontSize: 14.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', padding: '2px 2px' },
   note: { fontSize: 12.5, color: '#8A98A8', lineHeight: 1.5, marginTop: 8 },
   ok: { fontSize: 12, color: '#2E7D32', fontWeight: 600 },
   err: { fontSize: 12, color: '#C0392B', marginTop: 8 },
@@ -71,7 +71,7 @@ export function Toggle({ on, onClick, label }) {
     <div style={rowUI.toggleRow}>
       <span style={rowUI.toggleLabel}>{label}</span>
       <button role="switch" aria-checked={on} onClick={onClick} aria-label={label}
-        style={{ width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0, position: 'relative', background: on ? '#1B3F6E' : '#cccccc', transition: 'background 0.15s' }}>
+        style={{ width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0, position: 'relative', background: on ? 'var(--navy)' : '#cccccc', transition: 'background 0.15s' }}>
         <span style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
       </button>
     </div>

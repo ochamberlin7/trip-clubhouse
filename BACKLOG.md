@@ -59,6 +59,12 @@ Routing rule: opens Score only if a round is live, the user is playing it, and i
 Default round rules: first round of the day = that round all day until live; 2nd+ round = last completed round until 1 hr before its tee, then the upcoming round; after last round = the round just finished; no-round day = last completed round, else first round of trip; before trip = first round; after trip = last round. User's manual pick always wins.
 
 ## Next up (in order unless Owen changes it)
+0. **Resort white-label demo (Dormie Network)** — 🚧 on `feat/resort-branding`, not merged. Decided 2026-11-02:
+   - `resorts` table + `trips.resort_id` (migration `20260680_resorts.sql`, NOT applied yet). A linked trip shows the resort logo + "Powered by Trip Clubhouse" in the Home header and re-themes the app (`--navy` family) via `src/lib/brand.js` / `useResortBrand.js`. Team colors are intentionally unchanged.
+   - Invite links are branded before sign-in: login/signup read `redirect=/join/:token` and call `resort_branding_for_invite` (anon-readable; returns branding + trip name only).
+   - Demo setup: `supabase/demo/dormie_demo_trip.sql` (paste a trip id) links the trip and adds a sample cottage stay + meals.
+   - Dormie colors (#1F1F1F / #A6192E) are guessed from their logo; logo is hotlinked from their site. Confirm with their brand-standards PDF / logo pack before showing widely.
+   - All hardcoded `#1B3F6E` in components now use `var(--navy)` (except team color 2 in `teamColors.js`).
 1. **Remove members from a trip** — ✅ merged 2026-10-26 (`feat/roster-remove-replace`). Join test passed on preview. Decided 2026-10-23:
    - **Roster is set once the trip starts** (trip-local date, `isRosterLocked` in `scoring.js`). Before that, the commissioner can remove any player except themselves. Test mode unlocks it for Owen's test trips.
    - **Remove player** (only after tapping the edit pencil; bottom-right of the edit panel) → centered "Are you sure? This cannot be undone." → the player becomes an empty **Player TBD** card (sorted to the top of Players): keeps pairings and tee picks; team set to Unassigned; name, handicap, contact, account link, captain flag and flight wiped.

@@ -21,11 +21,11 @@ export default function PhotoActionSheet({ onChange, onRemove, onClose }) {
     <div style={st.overlay} onClick={onClose} role="dialog" aria-modal="true" aria-label="Edit profile photo">
       <div style={st.group} onClick={e => e.stopPropagation()}>
         <div style={st.title}>Profile photo</div>
-        <button style={{ ...st.btn, color: '#1B3F6E', borderBottom: '1px solid #E5E7EB' }} onClick={onChange}>Change photo</button>
+        <button style={{ ...st.btn, color: 'var(--navy)', borderBottom: '1px solid #E5E7EB' }} onClick={onChange}>Change photo</button>
         <button style={{ ...st.btn, color: '#C0392B' }} onClick={onRemove}>Remove photo</button>
       </div>
       <div style={{ ...st.group, marginTop: 8 }} onClick={e => e.stopPropagation()}>
-        <button style={{ ...st.btn, color: '#1B3F6E', fontWeight: 700 }} onClick={onClose}>Cancel</button>
+        <button style={{ ...st.btn, color: 'var(--navy)', fontWeight: 700 }} onClick={onClose}>Cancel</button>
       </div>
     </div>,
     document.body,

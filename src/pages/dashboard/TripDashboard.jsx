@@ -17,6 +17,7 @@ import IndividualLeaderboard from '../../components/IndividualLeaderboard'
 import LeaderboardPills from '../../components/LeaderboardPills'
 import { isNetworkError } from '../../lib/scoreQueue'
 import TripHeader from '../../components/TripHeader'
+import { useTripResort, useApplyResortTheme } from '../../lib/useResortBrand'
 import CountdownWidget from '../../components/CountdownWidget'
 import TeeTimesWidget from '../../components/TeeTimesWidget'
 import ChatWidget from '../../components/ChatWidget'
@@ -102,11 +103,11 @@ const wxStyles = {
   detailLabel: { fontSize: '11px', color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' },
   detailValue: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#2C3E50' },
   loading: { padding: '14px', fontSize: '13px', color: '#7A8FA6', textAlign: 'center' },
-  forecastHint: { marginLeft: 'auto', alignSelf: 'center', fontSize: '12px', fontWeight: 700, color: '#1B3F6E' },
+  forecastHint: { marginLeft: 'auto', alignSelf: 'center', fontSize: '12px', fontWeight: 700, color: 'var(--navy)' },
   // Location pager dots — muted gray, active filled navy (widget accent).
   dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '2px 0 12px' },
   dot: { width: 7, height: 7, borderRadius: '50%', background: '#C4CEDA', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
-  dotActive: { background: '#1B3F6E' },
+  dotActive: { background: 'var(--navy)' },
   // 10-day forecast modal (portal + centered overlay, matching the app pattern).
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   modalCard: { position: 'relative', background: '#fff', borderRadius: '14px', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
@@ -812,13 +813,13 @@ const tp = {
   // list instead of chaining to the page behind the popover.
   list: { height: 150, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y', display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: '#F5F8FA', borderRadius: 8 },
   item: { padding: '7px 0', fontSize: 14, fontWeight: 600, color: '#2C3E50', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
-  itemActive: { background: '#1B3F6E', color: '#fff', fontWeight: 800 },
+  itemActive: { background: 'var(--navy)', color: '#fff', fontWeight: 800 },
   apCol: { display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' },
   ap: { padding: '8px 12px', fontSize: 13, fontWeight: 700, color: '#7A8FA6', background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' },
-  apActive: { background: '#1B3F6E', color: '#fff', border: '1px solid #1B3F6E' },
+  apActive: { background: 'var(--navy)', color: '#fff', border: '1px solid var(--navy)' },
   footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
   cancel: { background: 'none', border: 'none', color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '6px 4px' },
-  confirm: { width: 38, height: 38, borderRadius: '50%', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  confirm: { width: 38, height: 38, borderRadius: '50%', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' },
 }
 
 // Tee-time cell: TBD placeholder or formatted time + Clear. Tapping opens a custom
@@ -882,7 +883,7 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
 
   if (!isCommissioner) {
     return value
-      ? <span style={{ fontSize: 17, fontWeight: 800, color: '#1B3F6E' }}>{value}</span>
+      ? <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)' }}>{value}</span>
       : <span style={{ fontSize: 13, fontWeight: 600, color: '#7A8FA6' }}>TBD</span>
   }
 
@@ -890,11 +891,11 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
     <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
       {value ? (
         <>
-          <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 17, fontWeight: 800, color: '#1B3F6E' }}>{value}</button>
+          <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 17, fontWeight: 800, color: 'var(--navy)' }}>{value}</button>
           <button onClick={() => onSave(round.id, col, null)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: '#7A8FA6' }}>Clear</button>
         </>
       ) : (
-        <button onClick={openPicker} style={{ background: '#fff', border: '1px solid #1B3F6E', color: '#1B3F6E', padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>TBD</button>
+        <button onClick={openPicker} style={{ background: '#fff', border: '1px solid var(--navy)', color: 'var(--navy)', padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>TBD</button>
       )}
 
       {open && createPortal(
@@ -1445,6 +1446,10 @@ export default function TripDashboard() {
     if (mealData) setMeals(mealData)
   }
 
+  // White-label: a trip linked to a resort wears the resort's logo + colors.
+  const resort = useTripResort(trip)
+  useApplyResortTheme(resort)
+
   if (loading) return <div className="loading-screen">Loading trip…</div>
 
   if (fetchError) return (
@@ -1507,7 +1512,7 @@ export default function TripDashboard() {
       <div className="dashboard-scroll">
       {/* ── Page header ── */}
       {activeTab === 'dashboard' && (
-        <TripHeader tripName={trip.name} startDate={trip.start_date} endDate={trip.end_date} tripId={trip.id} canEdit={canManage} onRenamed={refetchTrip} />
+        <TripHeader tripName={trip.name} startDate={trip.start_date} endDate={trip.end_date} tripId={trip.id} canEdit={canManage} onRenamed={refetchTrip} resort={resort} />
       )}
       {hdr && (
         <div className="page-header">

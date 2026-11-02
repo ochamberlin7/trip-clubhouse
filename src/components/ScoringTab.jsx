@@ -689,7 +689,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       ? (tp?.team_id ? teams.find(t => t.id === tp.team_id) : null)
       : (SLOT_TEAM[slot] === 0 ? pairTeam1 : pairTeam2)
     const fillStyle = tp
-      ? { background: individual && !sideTeam ? '#1B3F6E' : teamColor(colorIndexOf(sideTeam)).solid, color: '#fff' }
+      ? { background: individual && !sideTeam ? 'var(--navy)' : teamColor(colorIndexOf(sideTeam)).solid, color: '#fff' }
       : EMPTY_TH
     if (!canAssign) return <div className="sc-th-name" style={fillStyle}>{tp ? firstName(tp.name) : 'TBD'}</div>
     // '+' whenever a player can be placed here — the first pick on a side lists
@@ -1028,7 +1028,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       >
         <span style={{
           width: 18, height: 18, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: hideFire ? '#1B3F6E' : '#fff', border: `1px solid ${hideFire ? '#1B3F6E' : '#C4CEDA'}`,
+          background: hideFire ? 'var(--navy)' : '#fff', border: `1px solid ${hideFire ? 'var(--navy)' : '#C4CEDA'}`,
           color: '#fff', fontSize: 12, fontWeight: 700, lineHeight: 1, transition: 'background 0.12s, border-color 0.12s',
         }}>{hideFire ? '✓' : ''}</span>
         Hide fire icons
@@ -1085,7 +1085,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
             {onOpenMenuPage && (
               <button
                 onClick={() => { setNotice(null); onOpenMenuPage('players') }}
-                style={{ width: '100%', padding: 13, background: '#1B3F6E', border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ width: '100%', padding: 13, background: 'var(--navy)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 Go to Players &amp; Teams
               </button>
@@ -1166,7 +1166,7 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
     sheet: { background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 32px', width: '100%', maxWidth: 430, borderTop: '1px solid #DDE3EA' },
     round: { fontSize: 11, color: '#7A8FA6', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 },
     holeNum: { fontSize: 30, fontWeight: 900, color: '#0D1B2A', textAlign: 'center', lineHeight: 1 },
-    parInfo: { fontSize: 13, color: '#1B3F6E', textAlign: 'center', marginBottom: 16 },
+    parInfo: { fontSize: 13, color: 'var(--navy)', textAlign: 'center', marginBottom: 16 },
     playerRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     team: { fontSize: 10, padding: '2px 7px', borderRadius: 10, marginRight: 10, fontWeight: 700 },
     name: { fontSize: 14, fontWeight: 600, color: '#0D1B2A', flex: 1 },
@@ -1177,7 +1177,7 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
     label: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: '#7A8FA6', marginBottom: 8, fontWeight: 600 },
     drinkBtn: { width: 40, height: 40, borderRadius: 6, border: '1px solid #DDE3EA', background: '#E8EDF3', color: '#7AAAD4', fontSize: 22, fontWeight: 300, cursor: 'pointer', touchAction: 'manipulation', fontFamily: 'inherit' },
     drinkDisp: { width: 48, textAlign: 'center', fontSize: 22, fontWeight: 900, color: '#7AAAD4' },
-    save: { width: '100%', padding: 15, background: '#1B3F6E', border: 'none', borderRadius: 10, color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
+    save: { width: '100%', padding: 15, background: 'var(--navy)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
     disabled: { width: '100%', padding: 15, background: '#E8EDF3', border: 'none', borderRadius: 10, color: '#7A8FA6', fontSize: 15, fontWeight: 700, textAlign: 'center', marginTop: 4 },
     remove: { width: '100%', padding: 10, background: 'none', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 10, color: '#f08080', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8, fontFamily: 'inherit' },
     cancel: { width: '100%', padding: 10, background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },

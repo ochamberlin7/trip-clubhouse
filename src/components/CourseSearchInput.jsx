@@ -20,7 +20,7 @@ const GUTTER = 8
 // highlighted (see the render). Tee names like "Black"/"Blue" are labels, not
 // theming — they must not drive the box color.
 const TEE_NEUTRAL = { background: '#E8EDF3', color: '#0D1B2A', border: '1px solid #DDE3EA' }
-const TEE_SELECTED = { background: '#1B3F6E', color: '#fff', border: '1px solid #1B3F6E' }
+const TEE_SELECTED = { background: 'var(--navy)', color: '#fff', border: '1px solid var(--navy)' }
 
 const s = {
   wrap: { position: 'relative' },
@@ -43,7 +43,7 @@ const s = {
   teeBtn: { borderRadius: '8px', padding: '8px 12px', cursor: 'pointer', textAlign: 'left', minWidth: '92px', transition: 'transform 0.1s' },
   teeName: { fontSize: '13px', fontWeight: 700 },
   teeMeta: { fontSize: '10px', opacity: 0.85, marginTop: '2px' },
-  confirm: { width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: '#1B3F6E', color: '#fff', fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  confirm: { width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'var(--navy)', color: '#fff', fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   loadingCard: { padding: '14px', fontSize: '13px', color: '#7A8FA6', textAlign: 'center' },
 }
 
@@ -238,7 +238,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
               key={`${tee.label}-${i}`}
               style={{
                 ...s.teeBtn, ...(active ? TEE_SELECTED : TEE_NEUTRAL),
-                boxShadow: active ? '0 0 0 2px #1B3F6E' : 'none',
+                boxShadow: active ? '0 0 0 2px var(--navy)' : 'none',
                 transform: active ? 'scale(1.03)' : 'none',
               }}
               onClick={() => setSelectedTee(tee)}

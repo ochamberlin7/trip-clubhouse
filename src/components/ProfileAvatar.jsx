@@ -20,7 +20,7 @@ const badgeBase = {
   width: 38,
   height: 38,
   borderRadius: '50%',
-  background: '#1B3F6E',
+  background: 'var(--navy)',
   color: '#fff',
   border: '2px solid #fff',
   boxShadow: '0 1px 4px rgba(13, 27, 42, 0.25)',

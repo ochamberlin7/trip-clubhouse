@@ -11,7 +11,7 @@ export const HOME_CARD = {
 }
 
 export const HOME_CARD_HEADER = {
-  background: '#1B3F6E',
+  background: 'var(--navy)',
   padding: '11px 16px',
   display: 'flex',
   justifyContent: 'space-between',

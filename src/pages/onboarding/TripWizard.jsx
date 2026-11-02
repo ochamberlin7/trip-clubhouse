@@ -244,7 +244,7 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
                         </div>
                         <button
                           onClick={() => setRoundCourse(idx, rIdx, null)}
-                          style={{ flexShrink: 0, background: 'none', border: 'none', color: '#1B3F6E', fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' }}
+                          style={{ flexShrink: 0, background: 'none', border: 'none', color: 'var(--navy)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' }}
                         >Change</button>
                       </div>
                     ) : (
@@ -384,7 +384,7 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 
       {players.length < MAX_PLAYERS && (
         <button className="wz-add-row" style={{ borderTop: '1px solid #E3E1DA' }} onClick={addRow}>
-          Add a player<span style={{ marginLeft: 'auto', color: '#1B3F6E', fontSize: 20, lineHeight: 1 }}>+</span>
+          Add a player<span style={{ marginLeft: 'auto', color: 'var(--navy)', fontSize: 20, lineHeight: 1 }}>+</span>
         </button>
       )}
 
@@ -404,7 +404,7 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 // small-caps group labels, a squared segmented control for teams. One list of
 // radio rows replaces the old Yes/No question — "No tournament" is its own row.
 const T = {
-  NAVY: '#1B3F6E',
+  NAVY: 'var(--navy)',
   // Section headings (Teams / Individual / No tournament) use the shared grey
   // stripe (.wz-stripe in index.css), same as the other wizard steps.
   list: {},
@@ -413,11 +413,11 @@ const T = {
   row: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid #E3E1DA', padding: '14px 2px', cursor: 'pointer', fontFamily: 'inherit' },
   name: { display: 'block', fontFamily: "var(--font-serif)", fontSize: 18, color: '#0D1B2A', lineHeight: 1.2 },
   desc: { display: 'block', fontSize: 13, color: '#7C8796', marginTop: 3, lineHeight: 1.4 },
-  radio: on => ({ flexShrink: 0, marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%', boxSizing: 'border-box', border: on ? '5px solid #1B3F6E' : '1.5px solid #9AA6B5' }),
-  seg: { display: 'flex', border: '1px solid #1B3F6E', borderRadius: 4, overflow: 'hidden' },
-  segBtn: (on, first) => ({ flex: 1, padding: '10px 0', background: on ? '#1B3F6E' : 'transparent', color: on ? '#fff' : '#1B3F6E', border: 'none', borderLeft: first ? 'none' : '1px solid #1B3F6E', fontSize: 14, fontWeight: 600, letterSpacing: '0.3px', cursor: 'pointer', fontFamily: 'inherit' }),
+  radio: on => ({ flexShrink: 0, marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%', boxSizing: 'border-box', border: on ? '5px solid var(--navy)' : '1.5px solid #9AA6B5' }),
+  seg: { display: 'flex', border: '1px solid var(--navy)', borderRadius: 4, overflow: 'hidden' },
+  segBtn: (on, first) => ({ flex: 1, padding: '10px 0', background: on ? 'var(--navy)' : 'transparent', color: on ? '#fff' : 'var(--navy)', border: 'none', borderLeft: first ? 'none' : '1px solid var(--navy)', fontSize: 14, fontWeight: 600, letterSpacing: '0.3px', cursor: 'pointer', fontFamily: 'inherit' }),
   note: { fontSize: 13, color: '#7C8796', margin: 0, lineHeight: 1.45 },
-  check: on => ({ flexShrink: 0, width: 16, height: 16, borderRadius: 2, marginTop: 3, boxSizing: 'border-box', border: `1.5px solid ${on ? '#1B3F6E' : '#9AA6B5'}`, background: on ? '#1B3F6E' : 'transparent', color: '#fff', fontSize: 11, lineHeight: '13px', textAlign: 'center' }),
+  check: on => ({ flexShrink: 0, width: 16, height: 16, borderRadius: 2, marginTop: 3, boxSizing: 'border-box', border: `1.5px solid ${on ? 'var(--navy)' : '#9AA6B5'}`, background: on ? 'var(--navy)' : 'transparent', color: '#fff', fontSize: 11, lineHeight: '13px', textAlign: 'center' }),
 }
 const TEAM_WORD = { 2: 'Two', 3: 'Three', 4: 'Four' }
 

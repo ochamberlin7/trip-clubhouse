@@ -15,7 +15,7 @@ function todayIsoLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const NAVY = '#1B3F6E'
+const NAVY = 'var(--navy)'
 const GREY = '#8a96a3'
 const RED = '#C0392B'
 const styles = {

@@ -27,7 +27,7 @@ function daysUntil(startIso) {
 
 const styles = {
   container: {
-    background: '#1B3F6E',
+    background: 'var(--navy)',
     borderRadius: '20px',
     boxShadow: '0 18px 32px -12px rgba(15,30,51,.42), 0 4px 10px rgba(15,30,51,.18)',
     padding: '16px',
@@ -50,8 +50,8 @@ const styles = {
   dotCell: { display: 'flex', justifyContent: 'center' },
   // Opaque navy base (same as the card) so the connecting line doesn't show through a
   // dot's centre; the state styles layer on top.
-  dotBase: { width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', boxSizing: 'border-box', background: '#1B3F6E' },
-  dotToday: { background: '#E7EDF5', color: '#1B3F6E', fontWeight: 800 },
+  dotBase: { width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', boxSizing: 'border-box', background: 'var(--navy)' },
+  dotToday: { background: '#E7EDF5', color: 'var(--navy)', fontWeight: 800 },
   dotPast: { background: '#446288', color: '#DCE5F1', fontWeight: 700 },
   dotFuture: { border: '1px solid rgba(255,255,255,0.4)', color: '#C9D6E8', fontWeight: 700 },
   title: { fontSize: '20px', fontWeight: 700, color: '#fff', lineHeight: 1.2 },

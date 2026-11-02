@@ -17,7 +17,7 @@ import { inviteTokenFrom } from '../../lib/inviteMatch'
 // badges shelf. The app opens here except from 14 days before a trip through 7
 // days after it (landingTrip in scoring.js).
 
-const NAVY = '#1B3F6E'
+const NAVY = 'var(--navy)'
 const INK = '#0D1B2A'
 const MUTED = '#5F6B7A'       // small labels / sub-lines (passes contrast on white)
 const HAIR = '#E3E1DA'        // warm hairline, as in the trip wizard

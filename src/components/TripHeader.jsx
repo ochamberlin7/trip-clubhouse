@@ -2,6 +2,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { saveTripName, TRIP_NAME_MAX as TRIP_NAME_MAX_CHARS } from '../lib/tripSettings'
+import ResortMark from './ResortMark'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -95,7 +96,7 @@ const styles = {
   },
   editActions: { display: 'flex', alignItems: 'center', gap: 8 },
   saveBtn: {
-    background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 8,
+    background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 8,
     padding: '7px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
   },
   cancelBtn: {
@@ -158,7 +159,7 @@ function TripNameFit({ text }) {
   )
 }
 
-export default function TripHeader({ tripName, startDate, endDate, tripId, canEdit = false, onRenamed }) {
+export default function TripHeader({ tripName, startDate, endDate, tripId, canEdit = false, onRenamed, resort = null }) {
   const range = formatRange(startDate, endDate)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(tripName || '')
@@ -184,7 +185,9 @@ export default function TripHeader({ tripName, startDate, endDate, tripId, canEd
 
   return (
     <div style={{ ...styles.container, position: 'relative' }}>
-      <div style={styles.wordmark}>Trip Clubhouse</div>
+      {resort
+        ? <div style={{ marginBottom: 10 }}><ResortMark resort={resort} /></div>
+        : <div style={styles.wordmark}>Trip Clubhouse</div>}
 
       {editing ? (
         <div style={styles.editWrap}>

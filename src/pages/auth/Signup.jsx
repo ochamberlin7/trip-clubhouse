@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authRedirectTarget } from '../../lib/loginLanding'
+import AuthBrandHeader from '../../components/AuthBrandHeader'
 
 // Display-only formatter: a 10-digit number becomes (xxx) xxx-xxxx; anything else
 // (e.g. an international number) is left untouched. The submitted value is always
@@ -70,10 +71,7 @@ export default function Signup() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div>
-          <p className="auth-brand">Trip Clubhouse</p>
-          <h2>Create Account</h2>
-        </div>
+        <AuthBrandHeader redirect={safeRedirect} title="Create Account" />
         <form className="auth-form" onSubmit={handleSignup}>
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1 }}>
@@ -111,7 +109,7 @@ export default function Signup() {
         </form>
         <p style={{ textAlign: 'center', fontSize: 14, color: '#6b7280' }}>
           Already have an account?{' '}
-          <Link to={loginTo} style={{ color: '#3b82f6', fontWeight: 600 }}>Sign In</Link>
+          <Link to={loginTo} style={{ color: 'var(--brand-link, #3b82f6)', fontWeight: 600 }}>Sign In</Link>
         </p>
       </div>
     </div>

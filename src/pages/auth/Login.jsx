@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authRedirectTarget } from '../../lib/loginLanding'
+import AuthBrandHeader from '../../components/AuthBrandHeader'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -47,10 +48,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div>
-          <p className="auth-brand">Trip Clubhouse</p>
-          <h2>Sign In</h2>
-        </div>
+        <AuthBrandHeader redirect={redirect} title="Sign In" />
         {message && (
           <div style={{ color: '#0F6E56', fontSize: 14, background: 'rgba(15,110,86,0.08)', border: '1px solid rgba(15,110,86,0.25)', borderRadius: 8, padding: '12px 14px', lineHeight: 1.5 }}>
             {message}
@@ -65,7 +63,7 @@ export default function Login() {
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
               <label className="field-label">Password</label>
-              <Link to="/forgot-password" style={{ fontSize: 12, color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>
+              <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--brand-link, #3b82f6)', fontWeight: 600, textDecoration: 'none' }}>
                 Forgot password?
               </Link>
             </div>
@@ -106,7 +104,7 @@ export default function Login() {
             to={signupTo}
             style={{
               display: 'block', textAlign: 'center', padding: '13px',
-              borderRadius: 8, border: '2px solid #3b82f6', color: '#3b82f6',
+              borderRadius: 8, border: '2px solid var(--brand-link, #3b82f6)', color: 'var(--brand-link, #3b82f6)',
               fontWeight: 700, fontSize: 16, textDecoration: 'none',
             }}
           >

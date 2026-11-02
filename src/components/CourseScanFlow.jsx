@@ -6,7 +6,7 @@ import { fileToImageBlock, extractScorecard, toReview, resizeHoles, blockingIssu
 // saved until the user taps Save Course with an unblocked form. Amber
 // "double-check" flags never block save; only orange "missing" cells do.
 
-const INK = '#16213a', NAVY = '#1B3F6E', MUTED = '#8a96a3', BORDER = '#e2e6ec'
+const INK = '#16213a', NAVY = 'var(--navy)', MUTED = '#8a96a3', BORDER = '#e2e6ec'
 const AMBER = '#f2b23d', AMBER_BG = '#fffbf0'
 const MISS = '#d97757', MISS_DK = '#b25a41', MISS_BG = '#fdf3f0'
 

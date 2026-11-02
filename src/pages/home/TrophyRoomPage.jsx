@@ -89,7 +89,7 @@ export default function TrophyRoomPage() {
             <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 700, color: '#0D1B2A', marginTop: 12 }}>{openBadge.name}</div>
             <div style={{ fontSize: 14, color: '#2C3E50', marginTop: 6, lineHeight: 1.45 }}>{openBadge.desc}</div>
             <div style={{ fontSize: 13, color: '#8A96A3', marginTop: 10, lineHeight: 1.45 }}>{statusLine(openBadge, badges?.get(openBadge.id))}</div>
-            <button onClick={() => setOpen(null)} style={{ marginTop: 16, padding: '9px 24px', borderRadius: 999, border: '1px solid #DDE3EA', background: '#fff', color: '#1B3F6E', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
+            <button onClick={() => setOpen(null)} style={{ marginTop: 16, padding: '9px 24px', borderRadius: 999, border: '1px solid #DDE3EA', background: '#fff', color: 'var(--navy)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
           </div>
         </div>,
         document.body,

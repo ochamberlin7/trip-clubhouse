@@ -341,10 +341,10 @@ select {
 .team-count-btn { padding: 14px 28px; border-radius: var(--radius); border: 1px solid var(--bg3); background: var(--bg2); font-size: 22px; font-weight: 900; cursor: pointer; color: var(--muted); transition: all 0.15s; font-family: inherit; }
 .team-count-btn.selected { border-color: var(--navy); background: var(--navy); color: #fff; }
 .format-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--bg2); color: var(--navy); border: 1px solid var(--bg3); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
-.format-tag.selected { background: #1B3F6E; color: #fff; border-color: #1B3F6E; }
+.format-tag.selected { background: var(--navy); color: #fff; border-color: var(--navy); }
 .format-options { display: flex; gap: 8px; }
 .format-option { flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px; border-radius: var(--radius); border: 1px solid var(--bg3); background: var(--bg2); color: var(--muted); cursor: pointer; font-family: inherit; transition: all 0.15s; }
-.format-option.selected { background: #1B3F6E; color: #fff; border-color: #1B3F6E; }
+.format-option.selected { background: var(--navy); color: #fff; border-color: var(--navy); }
 .format-option-name { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
 .format-option-desc { font-size: 11px; font-weight: 500; line-height: 1.35; opacity: 0.85; }
 
@@ -536,7 +536,7 @@ select {
 .stat-tabs{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px 0 4px;margin-bottom:12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .stat-tabs::-webkit-scrollbar{display:none}
 .stat-tab{flex-shrink:0;padding:8px 18px;border-radius:999px;background:#fff;color:#5B6B84;border:1px solid #E5E7EB;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background 0.15s,color 0.15s,border-color 0.15s}
-.stat-tab.active{background:#1B3F6E;color:#fff;border-color:#1B3F6E}
+.stat-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .stat-tiles-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* Thin border so the light title bar reads as the top of the card on the grey page. */
 .stat-tile{background:#fff;border:1px solid #D5DEE8;border-radius:16px;box-shadow:0 10px 20px -12px rgba(15,30,51,.22);overflow:hidden}
@@ -552,7 +552,7 @@ select {
 .stat-tile-rank{width:18px;font-size:13px;font-weight:700;color:#94A3B8;flex-shrink:0}
 .stat-tile-name{flex:1;font-size:15px;font-weight:700;color:#0F1E33;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stat-tile-val{font-size:15px;font-weight:800;color:#0F1E33;min-width:24px;text-align:right}
-.stat-tile-seeall{display:block;width:100%;text-align:center;padding:11px;background:#FBFCFD;border:none;border-top:1px solid #EEF2F6;color:#1B3F6E;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.stat-tile-seeall{display:block;width:100%;text-align:center;padding:11px;background:#FBFCFD;border:none;border-top:1px solid #EEF2F6;color:var(--navy);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
 /* "See all" full-list modal */
 .stat-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
 .stat-modal-sheet{display:flex;flex-direction:column;background:#fff;border-radius:16px;width:100%;max-width:400px;max-height:calc(100vh - 40px);overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.25)}
@@ -568,11 +568,11 @@ select {
 .stat-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}
 .stat-table th{position:sticky;top:0;background:#fff;font-size:11px;font-weight:700;color:#7A8FA6;text-align:right;padding:8px 14px;border-bottom:1px solid #E3E8EE;letter-spacing:.04em;text-transform:uppercase}
 .stat-table th:first-child{text-align:left;width:52%}
-.stat-table th.on{color:#1B3F6E}
+.stat-table th.on{color:var(--navy)}
 .stat-sort{background:none;border:none;padding:0;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
 .stat-table td{padding:8px 14px;border-bottom:1px solid #F2F4F7;color:#0F1E33}
 .stat-table-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stat-table-val{text-align:right;font-weight:800;color:#1B3F6E;white-space:nowrap}
+.stat-table-val{text-align:right;font-weight:800;color:var(--navy);white-space:nowrap}
 .stat-modal-close{position:absolute;top:50%;right:10px;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;border:none;background:#DDE4EC;color:#5A7290;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 /* Flights page — keep entered date/time values left-aligned like the text fields
    (WebKit date/time inputs otherwise center/right-align their value). */

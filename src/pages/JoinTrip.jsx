@@ -4,6 +4,8 @@ import { matchInviteSlot } from '../lib/inviteMatch'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroup } from '../context/GroupContext'
+import { useTripResort, useApplyResortTheme } from '../lib/useResortBrand'
+import ResortMark from '../components/ResortMark'
 
 // Invite link handler: /join/:inviteToken
 // Flow: require auth → look up the trip by invite_token → match the signed-in user
@@ -25,6 +27,13 @@ export default function JoinTrip() {
   const [commissioner, setCommissioner] = useState(null) // { name, email } for the no-match screen
   const [supportCode, setSupportCode] = useState('')     // structured diagnostic for the no-match screen
   const matchDiagRef = useRef({ e: '0', p: '0', n: '0' }) // per-tier match result codes
+
+  // White-label: an invite to a resort trip shows the resort's logo + colors.
+  const resort = useTripResort(trip)
+  useApplyResortTheme(resort)
+  const brandEyebrow = style => resort
+    ? <div style={{ marginBottom: 14 }}><ResortMark resort={resort} logoHeight={40} /></div>
+    : <div style={style}>Trip Clubhouse</div>
 
   useEffect(() => {
     if (authLoading) return
@@ -180,25 +189,25 @@ export default function JoinTrip() {
   const sh = {
     page: { minHeight: '100vh', background: '#F0F4F8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
     card: { background: '#fff', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', textAlign: 'center' },
-    eyebrow: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '2px', color: '#1B3F6E', fontWeight: 600, marginBottom: 6 },
-    eyebrowLg: { fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 700, marginBottom: 8 },
+    eyebrow: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--navy)', fontWeight: 600, marginBottom: 6 },
+    eyebrowLg: { fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--navy)', fontWeight: 700, marginBottom: 8 },
     tripName: { fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 10 },
     prompt: { fontSize: 16, color: '#0D1B2A', lineHeight: 1.5, marginBottom: 4 },
-    matchName: { fontWeight: 800, color: '#1B3F6E' },
+    matchName: { fontWeight: 800, color: 'var(--navy)' },
     error: { fontSize: 15, color: '#C0392B', lineHeight: 1.5 },
     body: { fontSize: 15, color: '#2C3E50', lineHeight: 1.5 },
-    contact: { fontSize: 15, color: '#1B3F6E', fontWeight: 700, marginTop: 8 },
+    contact: { fontSize: 15, color: 'var(--navy)', fontWeight: 700, marginTop: 8 },
     loading: { fontSize: 14, color: '#7A8FA6', padding: '20px 0' },
     code: { fontSize: 12, color: '#7A8FA6', marginTop: 14, fontFamily: 'ui-monospace, Menlo, monospace', letterSpacing: '0.5px' },
-    btn: { width: '100%', padding: 15, borderRadius: 10, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 16, fontWeight: 800, marginTop: 16, cursor: 'pointer', fontFamily: 'inherit' },
-    btnGhost: { width: '100%', padding: 15, borderRadius: 10, border: '2px solid #DDE3EA', background: '#fff', color: '#1B3F6E', fontSize: 16, fontWeight: 700, marginTop: 10, cursor: 'pointer', fontFamily: 'inherit' },
+    btn: { width: '100%', padding: 15, borderRadius: 10, border: 'none', background: 'var(--navy)', color: '#fff', fontSize: 16, fontWeight: 800, marginTop: 16, cursor: 'pointer', fontFamily: 'inherit' },
+    btnGhost: { width: '100%', padding: 15, borderRadius: 10, border: '2px solid #DDE3EA', background: '#fff', color: 'var(--navy)', fontSize: 16, fontWeight: 700, marginTop: 10, cursor: 'pointer', fontFamily: 'inherit' },
   }
 
   if (status === 'confirm' && candidate) {
     return (
       <div style={sh.page}>
         <div style={sh.card}>
-          <div style={sh.eyebrow}>Trip Clubhouse</div>
+          {brandEyebrow(sh.eyebrow)}
           {trip?.name && <div style={sh.tripName}>{trip.name}</div>}
           <div style={sh.prompt}>
             We found <span style={sh.matchName}>{candidate.name}</span> on the guest list — is that you?
@@ -218,14 +227,14 @@ export default function JoinTrip() {
     return (
       <div style={sh.page}>
         <div style={sh.card}>
-          <div style={sh.eyebrowLg}>Trip Clubhouse</div>
+          {brandEyebrow(sh.eyebrowLg)}
           <div style={sh.body}>
             We couldn&rsquo;t find you on the guest list for this trip.
           </div>
           <div style={sh.body}>
             {commissioner
               ? <>Contact your trip commissioner{commissioner.name ? <>, <span style={sh.matchName}>{commissioner.name}</span></> : ''}
-                {commissioner.email ? <> (<a href={`mailto:${commissioner.email}`} style={{ color: '#1B3F6E' }}>{commissioner.email}</a>)</> : ''}, to confirm your information.</>
+                {commissioner.email ? <> (<a href={`mailto:${commissioner.email}`} style={{ color: 'var(--navy)' }}>{commissioner.email}</a>)</> : ''}, to confirm your information.</>
               : <>Contact your trip commissioner to confirm your information.</>}
           </div>
           {supportCode && <div style={sh.code}>Support code: {supportCode}</div>}
@@ -239,7 +248,7 @@ export default function JoinTrip() {
     return (
       <div style={sh.page}>
         <div style={sh.card}>
-          <div style={sh.eyebrow}>Trip Clubhouse</div>
+          {brandEyebrow(sh.eyebrow)}
           {trip?.name && <div style={sh.tripName}>{trip.name}</div>}
           <div style={sh.error}>{error}</div>
           <button style={sh.btn} onClick={backToSignIn}>Back to sign in</button>
@@ -252,7 +261,7 @@ export default function JoinTrip() {
   return (
     <div style={sh.page}>
       <div style={sh.card}>
-        <div style={sh.eyebrow}>Trip Clubhouse</div>
+        {brandEyebrow(sh.eyebrow)}
         <div style={sh.loading}>{status === 'claiming' ? 'Joining the trip…' : 'Loading…'}</div>
       </div>
     </div>
