@@ -85,7 +85,8 @@ const s = {
   closeBtn: { position: 'absolute', top: 'max(env(safe-area-inset-top), 12px)', right: '12px', width: '32px', height: '32px', borderRadius: '50%', background: 'none', border: 'none', color: '#A3A3A3', fontSize: '17px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   nav: { flex: 1, overflowY: 'auto', padding: '4px 0' },
   item: { display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer', borderBottom: '1px solid #F3F3F3', background: '#fff', width: '100%', borderTop: 'none', borderLeft: 'none', borderRight: 'none', textAlign: 'left', fontFamily: 'inherit' },
-  clubTile: { width: '42px', height: '42px', borderRadius: '11px', background: 'var(--navy)', border: '2px solid #C49A2A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxSizing: 'border-box' },
+  // Always Dormie Network colors (black / gray), even inside a club-branded trip.
+  clubTile: { width: '42px', height: '42px', borderRadius: '11px', background: '#1A1A1A', border: '2px solid #8A8A8A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxSizing: 'border-box' },
   drawerFooter: { padding: '14px 18px', paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 12px), 22px)', textAlign: 'center', color: '#A3A3A3', flexShrink: 0 },
   footerRule: { width: '30px', height: '1.5px', background: '#E3C77A', margin: '0 auto 10px' },
   footerBrand: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '14px', fontWeight: 700, color: '#A3A3A3' },
@@ -162,6 +163,36 @@ function Chevron({ open }) {
       strokeLinecap="round" strokeLinejoin="round"
       style={{ transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'none' }}>
       <polyline points="9 18 15 12 9 6" />
+    </svg>
+  )
+}
+
+// "Your Clubhouse" tile icon: white clubhouse outline with the official Dormie
+// Network flag on the peak (shape + colors from Dormie_Network_Flag-White_Red.svg:
+// red pennant, shaded fold, white notched pole), pointing the same way as in
+// the Dormie logo.
+function ClubhouseFlagIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="dormieFlagFold" gradientUnits="userSpaceOnUse" x1="23.1" y1="101.3" x2="23.1" y2="85">
+          <stop offset="0" stopColor="#B72026" />
+          <stop offset="0.55" stopColor="#AE2126" />
+          <stop offset="1" stopColor="#7B2026" />
+        </linearGradient>
+      </defs>
+      <g stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 17.2 12 11.4l8 5.8" />
+        <path d="M6.3 15.6V22h11.4v-6.4" />
+        <path d="M10.5 22v-3.6h3v3.6" />
+      </g>
+      <g transform="translate(9.7 0.1) scale(0.026)">
+        <path fill="#ED1C24" d="M31.3,34.2c0.3,1.4,0.2,3.1-0.2,4.9c-0.4,1.9-1.1,4-2.1,6.2c-5.1,11.9-16.7,26-16.7,26S-5.1,86.9,7.1,97.2c0.1,0.1,0.2,0.2,0.3,0.3c1.8,1.4,3.5,2.4,5,3c9.7,3.8,15.4-5.8,15.4-5.8s-3.2-1.4-2.8-4.2c0.1-0.9,1.6-2.1,2.4-3.3c1.9-2.9,32-1.9,52.5-1.5h18.2V2.2C98.1,2.2,29.2,23,31.3,34.2z" />
+        <path fill="#FFFFFF" d="M98.1,85.6H80v327.2h2.9V440h3.3H89h3.2h2.9v-27.3h2.9V85.6z M84.7,85.6h8.7v51.1h-8.7V85.6z M84.7,230h8.7v89.4h-8.7V230z" />
+        <path fill="url(#dormieFlagFold)" d="M3.5,92.3c0.7,1.7,1.8,3.3,3.6,4.8c0.1,0.1,0.2,0.2,0.3,0.3c1.8,1.4,3.5,2.4,5,3c9.7,3.8,15.4-5.8,15.4-5.8s-4.2-3,0-7.1c2-1.9,4.3-1.9,15.1-2.3C44.3,85.1-0.2,83.2,3.5,92.3z" />
+        <path fill="#000000" d="M98.1,77.3H28c0,0-12.1,0.3-17.2,1.7c-4.3,1.1-6.4,2.7-6.4,2.7s1-2.1,0,0c-1.4,2.6-1.6,5.4-1.6,5.4s0.1-3.9,14.2-5.4C29.1,80.9,36.3,81,36.3,81h1.8h60V77.3z" />
+        <path fill="#000000" d="M98.1,6.6c0,0-15.6,4.6-36.3,12.7C48.7,24.6,31.2,34,31.2,34s0.1,0.4,0.1,1c0.1,0.8,0,2.2,0,2.2s0.3,0.3,2-0.6s13.6-7.3,30.4-13.9s34.4-12,34.4-12L98.1,6.6z" />
+      </g>
     </svg>
   )
 }
@@ -3106,13 +3137,7 @@ export default function MenuDrawer({
               Featured: navy tile, gold border, flag-on-the-peak clubhouse icon. */}
           <button style={{ ...s.item, padding: '16px 18px' }} onClick={() => { onClose(); navigate('/home') }}>
             <span style={{ ...s.clubTile, position: 'relative' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 6V1.5" />
-                <path d="M12 1.5l3.5 1.3L12 4" fill="#C49A2A" stroke="#C49A2A" />
-                <path d="M3 13 12 6l9 7" />
-                <path d="M5.5 11.5V21h13v-9.5" />
-                <path d="M10.2 21v-5h3.6v5" />
-              </svg>
+              <ClubhouseFlagIcon />
               {otherTripUnread && <span className="unread-dot" aria-label="Unread messages in another trip" />}
             </span>
             <span style={{ minWidth: 0 }}>
