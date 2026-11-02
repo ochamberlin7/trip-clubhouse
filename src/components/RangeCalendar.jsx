@@ -16,13 +16,13 @@ function parseIso(s) { return s ? new Date(s + 'T00:00:00') : null }
 // Editorial style (matches the wizard): hairline frame, serif month,
 // small-caps weekdays, square day cells.
 const cal = {
-  wrap: { border: '1px solid #D5D9DF', borderRadius: 3, padding: '12px 10px', background: '#fff' },
+  wrap: { border: '1px solid #DADADA', borderRadius: 3, padding: '12px 10px', background: '#fff' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #E3E1DA' },
   nav: { width: 34, height: 34, border: 'none', background: 'none', fontSize: 22, lineHeight: 1, color: 'var(--navy)', cursor: 'pointer', fontFamily: 'inherit' },
-  monthLabel: { fontFamily: 'var(--font-serif)', fontSize: 18, color: '#0D1B2A' },
+  monthLabel: { fontFamily: 'var(--font-serif)', fontSize: 18, color: '#161616' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, textAlign: 'center' },
-  dow: { fontSize: 10, fontWeight: 700, letterSpacing: '1.4px', color: '#8C97A6', padding: '4px 0 6px' },
-  day: { border: 'none', background: 'none', borderRadius: 2, padding: '9px 0', fontSize: 14, fontWeight: 500, color: '#0D1B2A', cursor: 'pointer', fontFamily: 'inherit' },
+  dow: { fontSize: 10, fontWeight: 700, letterSpacing: '1.4px', color: '#979797', padding: '4px 0 6px' },
+  day: { border: 'none', background: 'none', borderRadius: 2, padding: '9px 0', fontSize: 14, fontWeight: 500, color: '#161616', cursor: 'pointer', fontFamily: 'inherit' },
   // Every date in the range (start, end and the days between) is solid navy.
   selected: { background: 'var(--navy)', color: '#fff', fontWeight: 700 },
   marked: { boxShadow: 'inset 0 0 0 1px #C9A84C' },

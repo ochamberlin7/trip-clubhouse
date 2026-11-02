@@ -35,7 +35,7 @@ const STAT_TABS = ['Scoring', 'Fire', 'Rounds', 'Drinks']
 // bragging rights, red = the roast, gold = drinks. Titles sit on the same light
 // navy bar as the Daily Leaders tiles.
 const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
-const ME_BG = '#EEF2F7' // the viewer's own row in "See all"
+const ME_BG = '#F2F2F2' // the viewer's own row in "See all"
 
 function StatHeaderBar({ title, tone = 'good', onClose, info, infoOpen, onInfo, infoRef }) {
   return (

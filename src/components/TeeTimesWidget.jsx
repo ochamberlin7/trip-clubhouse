@@ -33,7 +33,7 @@ const styles = {
     alignItems: 'flex-start',
     gap: '12px',
     padding: '10px 14px',
-    borderBottom: '1px solid #E8EDF3',
+    borderBottom: '1px solid #EDEDED',
   },
   rowLast: {
     borderBottom: 'none',
@@ -46,7 +46,7 @@ const styles = {
   },
   course: {
     fontWeight: 700,
-    color: '#0D1B2A',
+    color: '#161616',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -68,7 +68,7 @@ const styles = {
   teeTime: {
     fontSize: '18px',
     fontWeight: 800,
-    color: '#0D1B2A',
+    color: '#161616',
     textAlign: 'right',
     lineHeight: 1.1,
   },
@@ -86,11 +86,11 @@ function courseFontSize(len) {
 const BADGE = {
   tournament: {
     label: 'Tournament',
-    style: { background: 'rgba(27,63,110,0.06)', color: '#5A7699', border: '1px solid rgba(27,63,110,0.2)' },
+    style: { background: 'color-mix(in srgb, var(--navy) 6%, transparent)', color: '#5A7699', border: '1px solid color-mix(in srgb, var(--navy) 20%, transparent)' },
   },
   practice: {
     label: 'Practice',
-    style: { background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' },
+    style: { background: '#EDEDED', color: '#8A8A8A', border: '1px solid #E2E2E2' },
   },
 }
 

@@ -73,69 +73,69 @@ function fmtRange(s, e) {
 // ── styles ────────────────────────────────────────────────────────
 const s = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, transition: 'opacity 0.25s ease' },
-  drawer: { position: 'fixed', right: 0, top: 0, bottom: 0, width: '280px', maxWidth: '85vw', background: '#FFFFFF', borderLeft: '1px solid #DDE3EA', zIndex: 301, display: 'flex', flexDirection: 'column', transition: 'transform 0.25s ease', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)' },
+  drawer: { position: 'fixed', right: 0, top: 0, bottom: 0, width: '280px', maxWidth: '85vw', background: '#FFFFFF', borderLeft: '1px solid #E2E2E2', zIndex: 301, display: 'flex', flexDirection: 'column', transition: 'transform 0.25s ease', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)' },
   drawerHeader: { display: 'flex', alignItems: 'center', gap: '14px', padding: '28px 52px 20px 18px', paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 28px)', borderBottom: '1px solid #E5E7EB', position: 'relative' },
   profileBtn: { display: 'block', flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' },
   badgeBtn: { display: 'block', background: 'none', border: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%' },
   photoErr: { display: 'block', fontSize: '11px', color: '#C0392B', marginTop: '3px', lineHeight: 1.3 },
-  profileBadge: { width: 58, height: 58, fontSize: 19, background: '#E7EDF5', color: '#33455E', border: 'none', boxShadow: 'none' },
-  cameraDot: { position: 'absolute', right: -3, bottom: -3, width: 22, height: 22, padding: 0, borderRadius: '50%', background: '#94A3B8', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', cursor: 'pointer' },
-  profileName: { display: 'block', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#0F1E33', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  profileLink: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#5B6B84', marginTop: '2px' },
-  closeBtn: { position: 'absolute', top: 'max(env(safe-area-inset-top), 12px)', right: '12px', width: '32px', height: '32px', borderRadius: '50%', background: 'none', border: 'none', color: '#94A3B8', fontSize: '17px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  profileBadge: { width: 58, height: 58, fontSize: 19, background: '#EDEDED', color: '#444444', border: 'none', boxShadow: 'none' },
+  cameraDot: { position: 'absolute', right: -3, bottom: -3, width: 22, height: 22, padding: 0, borderRadius: '50%', background: '#A3A3A3', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', cursor: 'pointer' },
+  profileName: { display: 'block', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#171717', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  profileLink: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#696969', marginTop: '2px' },
+  closeBtn: { position: 'absolute', top: 'max(env(safe-area-inset-top), 12px)', right: '12px', width: '32px', height: '32px', borderRadius: '50%', background: 'none', border: 'none', color: '#A3A3A3', fontSize: '17px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   nav: { flex: 1, overflowY: 'auto', padding: '4px 0' },
-  item: { display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', background: '#fff', width: '100%', borderTop: 'none', borderLeft: 'none', borderRight: 'none', textAlign: 'left', fontFamily: 'inherit' },
+  item: { display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer', borderBottom: '1px solid #F3F3F3', background: '#fff', width: '100%', borderTop: 'none', borderLeft: 'none', borderRight: 'none', textAlign: 'left', fontFamily: 'inherit' },
   clubTile: { width: '42px', height: '42px', borderRadius: '11px', background: 'var(--navy)', border: '2px solid #C49A2A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxSizing: 'border-box' },
-  drawerFooter: { padding: '14px 18px', paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 12px), 22px)', textAlign: 'center', color: '#94A3B8', flexShrink: 0 },
+  drawerFooter: { padding: '14px 18px', paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 12px), 22px)', textAlign: 'center', color: '#A3A3A3', flexShrink: 0 },
   footerRule: { width: '30px', height: '1.5px', background: '#E3C77A', margin: '0 auto 10px' },
-  footerBrand: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '14px', fontWeight: 700, color: '#94A3B8' },
+  footerBrand: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '14px', fontWeight: 700, color: '#A3A3A3' },
   footerLinks: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px', marginTop: '4px' },
-  footerLink: { background: 'none', border: 'none', padding: '4px 0', color: '#94A3B8', fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer' },
-  iconBox: { width: '36px', height: '36px', borderRadius: '6px', background: '#E8EDF3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  itemLabel: { fontSize: '15px', fontWeight: 600, color: '#0D1B2A' },
-  itemSub: { fontSize: '11px', color: '#7A8FA6', marginTop: '1px' },
+  footerLink: { background: 'none', border: 'none', padding: '4px 0', color: '#A3A3A3', fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer' },
+  iconBox: { width: '36px', height: '36px', borderRadius: '6px', background: '#EDEDED', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  itemLabel: { fontSize: '15px', fontWeight: 600, color: '#161616' },
+  itemSub: { fontSize: '11px', color: '#8A8A8A', marginTop: '1px' },
 
   // z above the persistent bottom chrome (tab-bar 100, live banner 200, feedback
   // FAB 201) so a secondary page fully covers the scorecard — no leftover shows.
   // Constrained to the same 430px column the main tabs use (#root max-width: 430),
   // centered on desktop. On mobile the viewport is ≤430 so width:100% wins and it
   // renders full-bleed exactly as before — desktop-only change.
-  page: { position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, zIndex: 250, background: '#F0F4F8', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
-  pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: '16px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 16px)', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: '12px' },
+  page: { position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, zIndex: 250, background: '#F4F4F4', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
+  pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: '16px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 16px)', borderBottom: '1px solid #E2E2E2', display: 'flex', alignItems: 'center', gap: '12px' },
   backBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--navy)', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 },
   pageContext: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--navy)', fontWeight: 500 },
-  pageTitle: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#0D1B2A', marginTop: '1px' },
+  pageTitle: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#161616', marginTop: '1px' },
   // paddingBottom clears the floating feedback pill (z-index 201) which renders
   // above these secondary pages — same shared clearance as .dashboard-content.
   pageBody: { padding: '16px', paddingBottom: 'var(--content-bottom-clearance)' },
 
-  card: { background: '#fff', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px' },
+  card: { background: '#fff', border: '1px solid #E2E2E2', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px' },
   cardHeader: { background: 'var(--navy)', padding: '10px 14px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#fff' },
   cardBody: { padding: '14px' },
-  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid #E8EDF3' },
-  rowLabel: { fontSize: '13px', color: '#7A8FA6' },
-  rowValue: { fontSize: '13px', fontWeight: 600, color: '#0D1B2A' },
-  muted: { fontSize: '13px', color: '#7A8FA6', fontStyle: 'italic' },
-  note: { fontSize: '12px', color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: '4px 0 8px' },
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid #EDEDED' },
+  rowLabel: { fontSize: '13px', color: '#8A8A8A' },
+  rowValue: { fontSize: '13px', fontWeight: 600, color: '#161616' },
+  muted: { fontSize: '13px', color: '#8A8A8A', fontStyle: 'italic' },
+  note: { fontSize: '12px', color: '#8A8A8A', fontStyle: 'italic', textAlign: 'center', padding: '4px 0 8px' },
 
   badge: { fontSize: '10px', padding: '2px 7px', borderRadius: '10px', fontWeight: 700, display: 'inline-block' },
-  badgeTour: { background: 'rgba(27,63,110,0.1)', color: 'var(--navy)', border: '1px solid var(--navy)' },
-  badgePrac: { background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' },
+  badgeTour: { background: 'color-mix(in srgb, var(--navy) 10%, transparent)', color: 'var(--navy)', border: '1px solid var(--navy)' },
+  badgePrac: { background: '#EDEDED', color: '#8A8A8A', border: '1px solid #E2E2E2' },
 
   dot: { width: '6px', height: '6px', borderRadius: '50%', background: 'var(--navy)', flexShrink: 0, marginTop: '7px' },
-  ruleRow: { display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid #E8EDF3', fontSize: '13px', lineHeight: 1.5, color: '#0D1B2A' },
+  ruleRow: { display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid #EDEDED', fontSize: '13px', lineHeight: 1.5, color: '#161616' },
 
-  toggleRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3', background: '#fff', width: '100%', border: 'none', fontFamily: 'inherit', textAlign: 'left' },
-  stepRow: { display: 'flex', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid #E8EDF3' },
+  toggleRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid #EDEDED', background: '#fff', width: '100%', border: 'none', fontFamily: 'inherit', textAlign: 'left' },
+  stepRow: { display: 'flex', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid #EDEDED' },
   stepNum: { width: '22px', height: '22px', borderRadius: '50%', background: 'var(--navy)', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  stepText: { fontSize: '13px', color: '#0D1B2A', lineHeight: 1.4 },
-  introText: { fontSize: '13px', color: '#2C3E50', lineHeight: 1.5, paddingBottom: '10px' },
-  editCourseBtn: { marginTop: '8px', background: '#fff', border: '1px solid #DDE3EA', color: 'var(--navy)', fontSize: '12px', fontWeight: 700, borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' },
+  stepText: { fontSize: '13px', color: '#161616', lineHeight: 1.4 },
+  introText: { fontSize: '13px', color: '#3A3A3A', lineHeight: 1.5, paddingBottom: '10px' },
+  editCourseBtn: { marginTop: '8px', background: '#fff', border: '1px solid #E2E2E2', color: 'var(--navy)', fontSize: '12px', fontWeight: 700, borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' },
 
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   modalSheet: { background: '#fff', borderRadius: '12px', padding: '24px', width: 'calc(100% - 40px)', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
-  modalTitle: { fontSize: '18px', fontWeight: 700, color: '#0D1B2A', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  modalClose: { width: '28px', height: '28px', borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  modalTitle: { fontSize: '18px', fontWeight: 700, color: '#161616', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  modalClose: { width: '28px', height: '28px', borderRadius: '50%', background: '#EDEDED', border: 'none', color: '#8A8A8A', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 }
 
 const svgProps = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--navy)', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -158,7 +158,7 @@ const COMMISSIONER_ITEM = { id: 'commissioner', label: 'Commissioner Tools', sub
 // ── small building blocks ─────────────────────────────────────────
 function Chevron({ open }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7A8FA6" strokeWidth="2"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A8A8A" strokeWidth="2"
       strokeLinecap="round" strokeLinejoin="round"
       style={{ transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'none' }}>
       <polyline points="9 18 15 12 9 6" />
@@ -169,7 +169,7 @@ function Chevron({ open }) {
 // Plain right chevron at the end of a drawer row.
 function RowChevron() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="2"
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D4D4D4" strokeWidth="2"
       strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto', flexShrink: 0 }} aria-hidden="true">
       <polyline points="9 18 15 12 9 6" />
     </svg>
@@ -222,8 +222,8 @@ function Expandable({ title, sub, steps }) {
     <div>
       <button style={s.toggleRow} onClick={() => setOpen(o => !o)}>
         <div>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#0D1B2A' }}>{title}</div>
-          <div style={{ fontSize: '11px', color: '#7A8FA6', marginTop: '1px' }}>{sub}</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: '#161616' }}>{title}</div>
+          <div style={{ fontSize: '11px', color: '#8A8A8A', marginTop: '1px' }}>{sub}</div>
         </div>
         <Chevron open={open} />
       </button>
@@ -274,7 +274,7 @@ function PlayerAvatar({ player }) {
   const url = player.avatar_url
   if (url && failedUrl !== url) {
     return (
-      <div style={{ ...pc.avatar, overflow: 'hidden', background: '#E7EDF5' }}>
+      <div style={{ ...pc.avatar, overflow: 'hidden', background: '#EDEDED' }}>
         <img src={url} alt="" onError={() => setFailedUrl(url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       </div>
     )
@@ -307,7 +307,7 @@ const pc = {
   header: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
   avatar: { width: 40, height: 40, borderRadius: '50%', background: 'var(--navy)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
   headerMain: { flex: 1, minWidth: 0, paddingTop: 1 },
-  name: { fontSize: 16, fontWeight: 700, color: '#0D1B2A', lineHeight: 1.25, overflowWrap: 'anywhere' },
+  name: { fontSize: 16, fontWeight: 700, color: '#161616', lineHeight: 1.25, overflowWrap: 'anywhere' },
   // Role/status line under the name: plain coloured text, no pills. Joined (green),
   // Commissioner (red), Captain (amber) — same subtle 11px/600 treatment.
   metaRow: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 3, flexWrap: 'wrap' },
@@ -317,12 +317,12 @@ const pc = {
   captainTag: { color: '#92600A', fontSize: 11, fontWeight: 600 },
   headerRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 },
   teamPill: { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' },
-  pencil: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#7A8FA6', flexShrink: 0, display: 'flex', alignItems: 'center' },
-  detailRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #E8EDF3', fontSize: 13, color: '#2C3E50' },
-  detailLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', minWidth: 72 },
-  muted: { color: '#7A8FA6' },
-  editInput: { background: '#F5F8FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: '100%', fontFamily: 'inherit', color: '#0D1B2A' },
-  editLabel: { display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', marginBottom: 4 },
+  pencil: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#8A8A8A', flexShrink: 0, display: 'flex', alignItems: 'center' },
+  detailRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #EDEDED', fontSize: 13, color: '#3A3A3A' },
+  detailLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#8A8A8A', minWidth: 72 },
+  muted: { color: '#8A8A8A' },
+  editInput: { background: '#F7F7F7', border: '1px solid #E2E2E2', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: '100%', fontFamily: 'inherit', color: '#161616' },
+  editLabel: { display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#8A8A8A', marginBottom: 4 },
   editField: { display: 'block', flex: 1, minWidth: 0 },
   saveBtn: { background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 }
@@ -412,7 +412,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
       <div style={pc.header}>
         <PlayerAvatar player={player} />
         <div style={pc.headerMain}>
-          <div style={{ ...pc.name, ...(isOpenSpot ? { color: '#7A8FA6', fontStyle: 'italic' } : null) }}>{isOpenSpot ? PLACEHOLDER_LABEL : player.name}</div>
+          <div style={{ ...pc.name, ...(isOpenSpot ? { color: '#8A8A8A', fontStyle: 'italic' } : null) }}>{isOpenSpot ? PLACEHOLDER_LABEL : player.name}</div>
           {(player.is_claimed || commissioner || player.is_captain) && (
             <div style={pc.metaRow}>
               {player.is_claimed && <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>}
@@ -441,13 +441,13 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           <div style={pc.detailRow}>
             <span style={pc.detailLabel}>Phone</span>
             {player.phone
-              ? <a href={`tel:${player.phone}`} style={{ color: '#2C3E50', textDecoration: 'none' }}>{formatPhone(player.phone)}</a>
+              ? <a href={`tel:${player.phone}`} style={{ color: '#3A3A3A', textDecoration: 'none' }}>{formatPhone(player.phone)}</a>
               : <span style={pc.muted}>—</span>}
           </div>
           <div style={{ ...pc.detailRow, ...(isCommissioner ? null : { borderBottom: 'none' }) }}>
             <span style={pc.detailLabel}>Handicap</span>
             {player.handicap_index != null
-              ? <span style={{ color: '#0D1B2A', fontWeight: 600 }}>{player.handicap_index}</span>
+              ? <span style={{ color: '#161616', fontWeight: 600 }}>{player.handicap_index}</span>
               : <span style={{ color: 'var(--navy)', fontWeight: 700 }}>TBD</span>}
           </div>
           {isCommissioner && (
@@ -505,10 +505,10 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           {isCommissioner && (
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content', padding: '2px 0' }}>
               <input type="checkbox" checked={!!form.is_captain} onChange={e => setForm({ ...form, is_captain: e.target.checked })} style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }} />
-              <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${form.is_captain ? 'var(--navy)' : '#C4CEDA'}`, background: form.is_captain ? 'var(--navy)' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+              <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${form.is_captain ? 'var(--navy)' : '#CFCFCF'}`, background: form.is_captain ? 'var(--navy)' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
                 {form.is_captain && <CheckIcon />}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>Team Captain</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#161616' }}>Team Captain</span>
               {!form.team_id && form.is_captain && (
                 <span style={{ fontSize: 11, color: '#C0392B' }}>— assign a team to show in the summary</span>
               )}
@@ -524,7 +524,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           </label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
             <button onClick={save} disabled={saving} style={{ background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
-            <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#8A8A8A', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
             {/* Remove lives in edit mode only, bottom-right of the panel. */}
             {canRemove && (
               <button onClick={() => setConfirmRemove(true)} disabled={saving} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
@@ -552,13 +552,13 @@ function RemovePlayerModal({ player, groupId, rosterLocked, onClose, onRemoved }
   return createPortal(
     <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={() => !busy && onClose()}>
       <div style={{ ...s.modalSheet, maxWidth: 360, textAlign: 'center' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>Remove {player.name}?</div>
-        <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.45 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#161616', marginBottom: 8 }}>Remove {player.name}?</div>
+        <div style={{ fontSize: 14, color: '#3A3A3A', lineHeight: 1.45 }}>
           Are you sure? This cannot be undone. Their spot stays in the pairings, empty and unassigned to a team, so you can add a new player.
         </div>
         {err && <div style={{ marginTop: 10, fontSize: 12, color: '#C0392B' }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
-          <button onClick={onClose} disabled={busy} style={{ background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={onClose} disabled={busy} style={{ background: '#EDEDED', color: '#3A3A3A', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
           <button onClick={confirm} disabled={busy} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Removing…' : 'Remove'}</button>
         </div>
       </div>
@@ -619,7 +619,7 @@ const trs = {
   row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: '1px solid #EEF1F4' },
   rowLast: { borderBottom: 'none' },
   nameWrap: { display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 },
-  name: { fontSize: 12, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  name: { fontSize: 12, color: '#161616', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   capTag: { flexShrink: 0, marginLeft: 6, background: '#92600A', color: '#fff', fontSize: 9, fontWeight: 800, lineHeight: 1.4, padding: '1px 5px', borderRadius: 3 },
   hcp: { fontSize: 11, fontWeight: 700, flexShrink: 0 },
 }
@@ -689,24 +689,24 @@ function InviteNewPlayerModal({ name, inviteToken, onClose }) {
           <span>Invite {name}</span>
           <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div style={{ fontSize: 13.5, color: '#5A7290', lineHeight: 1.45 }}>
+        <div style={{ fontSize: 13.5, color: '#6E6E6E', lineHeight: 1.45 }}>
           Send {firstName} this link. When they sign in, they're added to the trip automatically.
         </div>
 
         {/* One-row link, cut off with an ellipsis; tapping it copies too. */}
         <button onClick={copy} aria-label="Copy invite link"
-          style={{ marginTop: 16, width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: '#F4F7FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A8FA6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          style={{ marginTop: 16, width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: '#F4F7FA', border: '1px solid #E2E2E2', borderRadius: 8, padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A8A8A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
           </svg>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#2C3E50', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#3A3A3A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {url.replace(/^https?:\/\//, '')}
           </span>
         </button>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
           {canShare && (
-            <button onClick={share} style={{ ...btn, background: '#E8EDF3', color: 'var(--navy)' }}>Share</button>
+            <button onClick={share} style={{ ...btn, background: '#EDEDED', color: 'var(--navy)' }}>Share</button>
           )}
           <button onClick={copy} style={{ ...btn, background: copied ? '#0F6E56' : 'var(--navy)', color: '#fff' }}>
             {copied ? '✓ Copied' : 'Copy link'}
@@ -811,9 +811,9 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   const show18 = roundHoleCount(round) === 18
   const grid = { display: 'grid', gridTemplateColumns: show18 ? 'minmax(0, 1fr) 56px 38px 32px 32px 30px' : 'minmax(0, 1fr) 56px 38px 30px', alignItems: 'center', gap: 6 }
   const numCell = { fontSize: 13, textAlign: 'right' }
-  const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
-  const muted = { color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
-  const teeSelect = { width: '100%', fontSize: 12, fontWeight: 600, color: '#0D1B2A', fontFamily: 'inherit', border: '1px solid #DDE3EA', borderRadius: 6, padding: '4px 4px', background: '#fff', boxSizing: 'border-box' }
+  const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#8A8A8A' }
+  const muted = { color: '#8A8A8A', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
+  const teeSelect = { width: '100%', fontSize: 12, fontWeight: 600, color: '#161616', fontFamily: 'inherit', border: '1px solid #E2E2E2', borderRadius: 6, padding: '4px 4px', background: '#fff', boxSizing: 'border-box' }
 
   // Course HCP uses each player's individual tee (WHS). Playing handicap is the
   // absolute round(courseHCP * allowance/100) per player (the PLAYING column).
@@ -888,9 +888,9 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   for (const id of targetOrder) if (!placed.has(id)) orderedRows.push(rowById.get(id))
 
   function playingColor(v) {
-    if (v == null) return '#7A8FA6'
-    if (v === 0) return '#7A8FA6'
-    if (v <= 9) return '#0D1B2A'
+    if (v == null) return '#8A8A8A'
+    if (v === 0) return '#8A8A8A'
+    if (v <= 9) return '#161616'
     if (v <= 18) return 'var(--navy)'
     return '#C0392B'
   }
@@ -901,14 +901,14 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   return (
     <div style={{ marginTop: 8 }}>
       {(
-        <div style={{ border: '1px solid #DDE3EA', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid #E2E2E2', borderRadius: 8, overflow: 'hidden' }}>
           {!hasCourse ? (
             <div style={muted}>Set a course to calculate handicaps</div>
           ) : allNull ? (
             <div style={muted}>Add player handicaps in the Players tab</div>
           ) : (
             <>
-              <div style={{ ...grid, padding: '8px 10px', background: '#F5F8FA', borderBottom: '1px solid #DDE3EA' }}>
+              <div style={{ ...grid, padding: '8px 10px', background: '#F7F7F7', borderBottom: '1px solid #E2E2E2' }}>
                 <span style={headCell}>Player</span>
                 <span style={headCell}>Tee</span>
                 <span style={{ ...headCell, textAlign: 'right' }}>Idx</span>
@@ -919,8 +919,8 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
               {orderedRows.map((r, i) => (
                 <div key={r.id}
                   ref={node => { const m = rowElemsRef.current; if (node) m.set(r.id, node); else m.delete(r.id) }}
-                  style={{ ...grid, padding: '8px 10px', borderBottom: i === orderedRows.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', lineHeight: 1.2, overflowWrap: 'break-word', wordBreak: 'normal' }}>{r.name}</span>
+                  style={{ ...grid, padding: '8px 10px', borderBottom: i === orderedRows.length - 1 ? 'none' : '1px solid #EDEDED' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#161616', lineHeight: 1.2, overflowWrap: 'break-word', wordBreak: 'normal' }}>{r.name}</span>
                   {tees.length > 0 ? (
                     <select
                       style={teeSelect}
@@ -931,15 +931,15 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                       {tees.map((t, ti) => <option key={`${t.label}-${ti}`} value={t.label}>{t.label}</option>)}
                     </select>
                   ) : (
-                    <span style={{ fontSize: 12, color: '#7A8FA6' }}>{r.teeName ?? round.tee_name ?? '—'}</span>
+                    <span style={{ fontSize: 12, color: '#8A8A8A' }}>{r.teeName ?? round.tee_name ?? '—'}</span>
                   )}
-                  <span style={{ ...numCell, color: r.idx == null ? '#7A8FA6' : '#2C3E50' }}>{r.idx ?? 'TBD'}</span>
-                  {show18 && <span style={{ ...numCell, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>}
+                  <span style={{ ...numCell, color: r.idx == null ? '#8A8A8A' : '#3A3A3A' }}>{r.idx ?? 'TBD'}</span>
+                  {show18 && <span style={{ ...numCell, color: '#3A3A3A' }}>{r.courseHCP ?? '—'}</span>}
                   {show18 && <span style={{ ...numCell, fontWeight: 700, color: 'var(--navy)' }}>{r.playing ?? '—'}</span>}
                   <span style={{ ...numCell, fontWeight: 700, color: 'var(--navy)' }}>{r.shotsOff ?? '—'}</span>
                 </div>
               ))}
-              <div style={{ background: '#F5F8FA', padding: '8px 10px', fontSize: 11, color: '#7A8FA6', fontStyle: 'italic' }}>
+              <div style={{ background: '#F7F7F7', padding: '8px 10px', fontSize: 11, color: '#8A8A8A', fontStyle: 'italic' }}>
                 {round.handicap_allowance != null
                   ? `Allowance: ${alw}% (course override)`
                   : (allowance == null ? 'Allowance: 100% (default)' : `Allowance: ${alw}%`)}
@@ -960,8 +960,8 @@ const lockToastStyle = { flexBasis: '100%', fontSize: 12, color: '#C0392B', padd
 // label), centered at the bottom of the card. Handicaps · Tournament · Edit.
 const toolbarRowStyle = { display: 'flex', gap: 8, marginTop: 12 }
 const toolbarPillStyle = { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, background: '#fff', border: '1px solid var(--navy)', color: 'var(--navy)', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '7px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', width: '100%' }
-const nameEditBtnStyle = { background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: '#7A8FA6', display: 'inline-flex', alignItems: 'center', flexShrink: 0, fontFamily: 'inherit' }
-const toolbarPillDisabledStyle = { ...toolbarPillStyle, opacity: 0.4, cursor: 'not-allowed', borderColor: '#DDE3EA', color: '#7A8FA6' }
+const nameEditBtnStyle = { background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: '#8A8A8A', display: 'inline-flex', alignItems: 'center', flexShrink: 0, fontFamily: 'inherit' }
+const toolbarPillDisabledStyle = { ...toolbarPillStyle, opacity: 0.4, cursor: 'not-allowed', borderColor: '#E2E2E2', color: '#8A8A8A' }
 const ICON = { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
 const IconHandicaps = () => <svg {...ICON}><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
 const IconTournament = () => <svg {...ICON}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
@@ -998,9 +998,9 @@ function EditCourseButton({ round, locked, lockReason, onEditCourse }) {
 }
 
 const typeBadgeBase = { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit', whiteSpace: 'nowrap' }
-const typeBadgeTour = { ...typeBadgeBase, background: 'rgba(27,63,110,0.1)', color: 'var(--navy)', border: '1px solid var(--navy)' }
-const typeBadgePrac = { ...typeBadgeBase, background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }
-const typeBadgeNone = { ...typeBadgeBase, background: '#F5F8FA', color: '#9AA8B8', border: '1px dashed #C4CEDA' }
+const typeBadgeTour = { ...typeBadgeBase, background: 'color-mix(in srgb, var(--navy) 10%, transparent)', color: 'var(--navy)', border: '1px solid var(--navy)' }
+const typeBadgePrac = { ...typeBadgeBase, background: '#EDEDED', color: '#8A8A8A', border: '1px solid #E2E2E2' }
+const typeBadgeNone = { ...typeBadgeBase, background: '#F7F7F7', color: '#9AA8B8', border: '1px dashed #CFCFCF' }
 
 // round_type meta. 'none' = "not decided yet" (hidden elsewhere in the app); the
 // commissioner picks Tournament or Practice here.
@@ -1057,7 +1057,7 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
       position: 'fixed',
       right: Math.max(8, window.innerWidth - rect.right),
       ...(dropUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
-      zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8,
+      zIndex: 1000, background: '#fff', border: '1px solid #E2E2E2', borderRadius: 8,
       boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: 150,
     }
     menu = createPortal(
@@ -1066,8 +1066,8 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
           const active = val === type
           return (
             <div key={val} onClick={() => { if (!active) pick(val); else setOpen(false) }}
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#0D1B2A' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#161616' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#F7F7F7' }}
               onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
               <span>{txt}</span>
               {active && <span style={{ color: 'var(--navy)' }}>✓</span>}
@@ -1087,9 +1087,9 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
   )
 }
 
-const cdRow = (last) => ({ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'baseline', padding: '4px 0', borderBottom: last ? 'none' : '1px solid #E8EDF3' })
-const cdLabel = { fontSize: 9, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7A8FA6' }
-const cdValue = { fontSize: 12, fontWeight: 600, color: '#0D1B2A' }
+const cdRow = (last) => ({ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'baseline', padding: '4px 0', borderBottom: last ? 'none' : '1px solid #EDEDED' })
+const cdLabel = { fontSize: 9, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#8A8A8A' }
+const cdValue = { fontSize: 12, fontWeight: 600, color: '#161616' }
 
 function locationText(r) {
   if (r.location_city && r.location_state) return `${r.location_city}, ${r.location_state}`
@@ -1111,13 +1111,13 @@ const DAY_PLACEHOLDER_META = {
   non_golf: { label: 'Non-Golf Day',      accent: 'var(--navy)' },
   unknown:  { label: 'Not Scheduled Yet', accent: '#9AA8B8' },
 }
-const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', marginBottom: 6 }
+const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#8A8A8A', marginBottom: 6 }
 
 // Day-card chrome (navy bar Today badge, bottom text-link actions, non-golf type label).
 const todayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: 'var(--navy)', background: '#fff', borderRadius: 10, padding: '1px 8px' }
-const dayActionsRowStyle = { display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 14, borderTop: '1px solid #E8EDF3', paddingTop: 10 }
+const dayActionsRowStyle = { display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 14, borderTop: '1px solid #EDEDED', paddingTop: 10 }
 const dayActionLinkStyle = { background: 'none', border: 'none', color: 'var(--navy)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }
-const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: '#7A8FA6' }
+const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: '#8A8A8A' }
 
 // One golf round: unchanged content (name, rating/slope, location, par) plus the
 // new bottom toolbar (Handicaps · Tournament · Edit). Own hcOpen state so the
@@ -1136,16 +1136,16 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
       {roundCount > 1 && <div style={roundNumLabel}>Round {roundIndex + 1}</div>}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B2A' }}>{r.club_name || r.course_name}</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#161616' }}>{r.club_name || r.course_name}</div>
           {isCommissioner && !readOnly && (
             <button style={nameEditBtnStyle} onClick={() => onEditName(r)} aria-label="Edit course name"><IconEdit /></button>
           )}
         </div>
         {r.club_name && r.course_name && r.course_name !== r.club_name && (
-          <div style={{ fontSize: '12px', color: '#7A8FA6', marginTop: '1px' }}>{r.course_name}</div>
+          <div style={{ fontSize: '12px', color: '#8A8A8A', marginTop: '1px' }}>{r.course_name}</div>
         )}
         {(r.course_rating != null || r.slope_rating != null) && (
-          <div style={{ fontSize: '11px', color: '#7A8FA6', marginTop: '3px' }}>
+          <div style={{ fontSize: '11px', color: '#8A8A8A', marginTop: '3px' }}>
             Rating: {r.course_rating ?? '—'} · Slope: {r.slope_rating ?? '—'}
           </div>
         )}
@@ -1242,7 +1242,7 @@ function NameEditModal({ round, saving, onSave, onClose }) {
         <input style={modalInput} value={name} onChange={e => setName(e.target.value)} placeholder="Course name" />
         <div style={modalFieldLabel}>Scorecard display name</div>
         <input style={modalInput} value={scName} onChange={e => setScName(e.target.value)} placeholder="e.g. The Loop – Red" />
-        <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Shown on the round pill in the Scores tab. Leave blank to use the course sub-name automatically.</div>
+        <div style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6 }}>Shown on the round pill in the Scores tab. Leave blank to use the course sub-name automatically.</div>
         <button style={{ ...pc.saveBtn, width: '100%', marginTop: 16 }} disabled={saving} onClick={() => onSave(name, scName)}>{saving ? 'Saving…' : 'Save'}</button>
       </div>
     </div>
@@ -1328,20 +1328,20 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
 
 // ── Stays (lodging) + Meals ───────────────────────────────────────
 // Shared visual tokens, matching the app's card/pill/field-row language.
-const stayBannerStyle = { background: '#EAEFF4', border: '1px solid #CFD9E4', borderLeft: '5px solid var(--navy)', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }
-const stayLabelStyle = { fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }
-const stayTitleStyle = { fontSize: 15, fontWeight: 700, color: '#2C3E50', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-const staySubStyle = { fontSize: 12, color: '#7A8FA6', marginTop: 2 }
-const mealsLabelStyle = { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#7A8FA6', margin: '14px 0 8px' }
+const stayBannerStyle = { background: '#EFEFEF', border: '1px solid #DCDCDC', borderLeft: '5px solid var(--navy)', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }
+const stayLabelStyle = { fontSize: 11, fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: '0.5px' }
+const stayTitleStyle = { fontSize: 15, fontWeight: 700, color: '#3A3A3A', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const staySubStyle = { fontSize: 12, color: '#8A8A8A', marginTop: 2 }
+const mealsLabelStyle = { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#8A8A8A', margin: '14px 0 8px' }
 const mealSubCardStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: 8 }
-const addActionStyle = { display: 'block', width: '100%', background: '#fff', border: '1px dashed #C4CEDA', color: 'var(--navy)', fontSize: 12, fontWeight: 700, borderRadius: 6, padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }
-const mealCustomInputStyle = { width: '100%', marginTop: 8, padding: '7px 10px', borderRadius: 6, border: '1px solid #DDE3EA', fontSize: 13, fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box' }
+const addActionStyle = { display: 'block', width: '100%', background: '#fff', border: '1px dashed #CFCFCF', color: 'var(--navy)', fontSize: 12, fontWeight: 700, borderRadius: 6, padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }
+const mealCustomInputStyle = { width: '100%', marginTop: 8, padding: '7px 10px', borderRadius: 6, border: '1px solid #E2E2E2', fontSize: 13, fontFamily: 'inherit', color: '#161616', boxSizing: 'border-box' }
 const mealBadgeStyle = { ...typeBadgeBase, background: 'rgba(15,110,86,0.1)', color: '#0F6E56', border: '1px solid #0F6E56' }
-const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', margin: '12px 0 5px' }
+const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#8A8A8A', margin: '12px 0 5px' }
 // Fixed height so text / date / time inputs render identically (native date/time
 // inputs otherwise pick their own intrinsic height). Textareas override height:auto.
-const modalInput = { width: '100%', height: 40, padding: '9px 11px', borderRadius: 8, border: '1px solid #DDE3EA', fontSize: 14, lineHeight: '20px', fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box', background: '#fff', WebkitAppearance: 'none', appearance: 'none' }
-const convertDayBtnStyle = { flex: 1, padding: '9px', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
+const modalInput = { width: '100%', height: 40, padding: '9px 11px', borderRadius: 8, border: '1px solid #E2E2E2', fontSize: 14, lineHeight: '20px', fontFamily: 'inherit', color: '#161616', boxSizing: 'border-box', background: '#fff', WebkitAppearance: 'none', appearance: 'none' }
+const convertDayBtnStyle = { flex: 1, padding: '9px', background: '#fff', border: '1px solid #E2E2E2', borderRadius: 8, color: '#8A8A8A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
 const removeRoundBtnStyle = { width: '100%', padding: '9px', background: '#fff', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
 const manualAddLinkStyle = { background: 'none', border: 'none', color: 'var(--navy)', fontSize: 13, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap' }
 const editDetailsBtnStyle = { display: 'block', width: '100%', marginTop: 12, padding: '10px', background: '#fff', border: '1px solid var(--navy)', borderRadius: 8, color: 'var(--navy)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
@@ -1374,8 +1374,8 @@ function MealRow({ meal, isCommissioner, onEditMeal }) {
       style={{ ...scheduleRowStyle, cursor: clickable ? 'pointer' : 'default' }}>
       <div style={mealLabelLineStyle}>{typeLabel || 'Meal'}</div>
       <div style={{ fontSize: 13, marginTop: 2 }}>
-        <span style={{ fontWeight: 700, color: '#0D1B2A' }}>{name}</span>
-        {detail && <span style={{ color: '#7A8FA6' }}> — {detail}</span>}
+        <span style={{ fontWeight: 700, color: '#161616' }}>{name}</span>
+        {detail && <span style={{ color: '#8A8A8A' }}> — {detail}</span>}
       </div>
     </button>
   )
@@ -1389,7 +1389,7 @@ function MealsSection({ meals = [], isCommissioner, onEditMeal }) {
     <div style={{ marginTop: 12 }}>
       <div style={mealsLabelStyle}>Meals</div>
       {meals.map((m, i) => (
-        <div key={m.id} style={i > 0 ? { borderTop: '1px solid #E8EDF3' } : undefined}>
+        <div key={m.id} style={i > 0 ? { borderTop: '1px solid #EDEDED' } : undefined}>
           <MealRow meal={m} isCommissioner={isCommissioner} onEditMeal={onEditMeal} />
         </div>
       ))}
@@ -1414,17 +1414,17 @@ function LodgingRow({ stay, isCommissioner, onEditStay }) {
       {/* Left: hotel name + address. Right: CHECK-IN label above the date range. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginTop: 2 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-          {address && <div style={{ fontSize: 12, color: '#7A8FA6', marginTop: 2 }}>{address}</div>}
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#161616', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+          {address && <div style={{ fontSize: 12, color: '#8A8A8A', marginTop: 2 }}>{address}</div>}
         </div>
         {range
           ? (
             <div style={{ flexShrink: 0, textAlign: 'right' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#8a96a3' }}>Check-in</div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#949494' }}>Check-in</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', marginTop: 2 }}>{range}</div>
             </div>
           )
-          : confFallback && <span style={{ fontSize: 12, color: '#7A8FA6', flexShrink: 0 }}>{confFallback}</span>}
+          : confFallback && <span style={{ fontSize: 12, color: '#8A8A8A', flexShrink: 0 }}>{confFallback}</span>}
       </div>
     </button>
   )
@@ -1580,16 +1580,16 @@ const fl = {
   toggleBtnDisabled: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', background: 'transparent', border: '1px dashed rgba(255,255,255,0.35)', borderRadius: 6, padding: '4px 10px', cursor: 'not-allowed', fontFamily: 'inherit', whiteSpace: 'nowrap' },
   cols: { display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: '#fff' },
   col: { padding: '10px 12px' },
-  divider: { background: '#DDE3EA' },
+  divider: { background: '#E2E2E2' },
   colHeader: { fontSize: 8, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 8 },
   colRow: { display: 'flex', flexDirection: 'column', marginBottom: 7 },
-  label: { fontSize: 8, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#7A8FA6', marginBottom: 2 },
-  cellValue: { fontSize: 13, fontWeight: 600, color: '#0D1B2A' },
-  placeholder: { fontSize: 12, fontWeight: 400, color: '#7A8FA6' },
+  label: { fontSize: 8, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#8A8A8A', marginBottom: 2 },
+  cellValue: { fontSize: 13, fontWeight: 600, color: '#161616' },
+  placeholder: { fontSize: 12, fontWeight: 400, color: '#8A8A8A' },
   // All four field types share this box — same height, padding, border; no focus underline.
   // appearance:none stops mobile from giving date/time inputs an intrinsic (thin) width,
   // so they fill 100% and match the text inputs even when empty.
-  input: { width: '100%', display: 'block', appearance: 'none', WebkitAppearance: 'none', border: '1px solid #DDE3EA', borderRadius: 5, background: '#F5F8FA', color: '#0D1B2A', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '5px 7px', minHeight: 30, boxSizing: 'border-box', minWidth: 0, textAlign: 'left' },
+  input: { width: '100%', display: 'block', appearance: 'none', WebkitAppearance: 'none', border: '1px solid #E2E2E2', borderRadius: 5, background: '#F7F7F7', color: '#161616', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '5px 7px', minHeight: 30, boxSizing: 'border-box', minWidth: 0, textAlign: 'left' },
 }
 
 function FlightField({ label, type = 'text', placeholder, value, canEdit, onSave, isLast }) {
@@ -1791,17 +1791,17 @@ function LocalRulesCard({ tripId, isCommissioner }) {
             value={rule} placeholder="Rule…"
             onChange={e => editRule(i, e.target.value)}
             onBlur={blurSave}
-            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, lineHeight: 1.5, color: '#0D1B2A', fontFamily: 'inherit', padding: 0 }}
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, lineHeight: 1.5, color: '#161616', fontFamily: 'inherit', padding: 0 }}
           />
           <button onClick={() => deleteRule(i)} aria-label="Remove rule"
-            style={{ background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, cursor: 'pointer', padding: '0 0 0 6px', flexShrink: 0, lineHeight: 1 }}>✕</button>
+            style={{ background: 'none', border: 'none', color: '#8A8A8A', fontSize: 14, cursor: 'pointer', padding: '0 0 0 6px', flexShrink: 0, lineHeight: 1 }}>✕</button>
         </div>
       ))}
       <button onClick={addRule}
         style={{ background: 'none', border: 'none', color: 'var(--navy)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '10px 0 0' }}>+ Add Rule</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
         <button onClick={save} disabled={saving} style={pc.saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
-        <button onClick={() => setEditing(false)} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+        <button onClick={() => setEditing(false)} style={{ background: 'transparent', border: 'none', color: '#8A8A8A', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
       </div>
     </Card>
   )
@@ -2047,7 +2047,7 @@ function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate, onClose }) 
     <>
       <div style={rowUI.fieldLabel}>Purse Amount</div>
       <div style={{ position: 'relative' }}>
-        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#7A8FA6', fontSize: 14 }}>$</span>
+        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#8A8A8A', fontSize: 14 }}>$</span>
         <input type="number" min="0" inputMode="decimal" placeholder="e.g., 640" value={amount}
           onChange={e => setAmount(e.target.value)} style={{ ...rowUI.input, paddingLeft: 24 }} />
       </div>
@@ -2188,7 +2188,7 @@ function AppInfoPage() {
         <InfoRow label="App" value="Trip Clubhouse" />
         <InfoRow label="Built by" value="Owen Chamberlin" />
         <InfoRow label="Version" value="v2026.1" last />
-        <div style={{ fontSize: '12px', color: '#7A8FA6', textAlign: 'center', marginTop: '12px' }}>
+        <div style={{ fontSize: '12px', color: '#8A8A8A', textAlign: 'center', marginTop: '12px' }}>
           © 2026 The Trip Clubhouse. All rights reserved.
         </div>
       </Card>
@@ -2228,31 +2228,31 @@ function fmtLedgerDate(startIso, endIso) {
 const sw = {
   // The SecondaryPage frame already shows the "Switch Trip" title; this is just
   // the ledger's "N trips · viewing X" subtitle beneath it.
-  subtitle: { fontSize: 13, color: '#7A8FA6', padding: '2px 16px 10px' },
-  sectionHeader: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#8A98A8', padding: '14px 16px 4px' },
-  deletedLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#8A98A8' },
+  subtitle: { fontSize: 13, color: '#8A8A8A', padding: '2px 16px 10px' },
+  sectionHeader: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#959595', padding: '14px 16px 4px' },
+  deletedLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#959595' },
   row: { display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' },
   rowDivider: { borderBottom: '1px solid #EAEEF3' },
   dot: { width: 9, height: 9, borderRadius: '50%', flexShrink: 0, marginTop: 5 },
   dotCurrent: { background: '#22A559' },
   left: { minWidth: 0, flex: 1 },
-  name: { display: 'block', fontSize: 15, fontWeight: 700, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  loc: { display: 'block', fontSize: 12.5, color: '#8A98A8', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  name: { display: 'block', fontSize: 15, fontWeight: 700, color: '#161616', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  loc: { display: 'block', fontSize: 12.5, color: '#959595', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   right: { textAlign: 'right', flexShrink: 0, paddingLeft: 8 },
-  dates: { display: 'block', fontSize: 12.5, fontWeight: 600, color: '#5A7290', fontVariantNumeric: 'tabular-nums' },
-  golfers: { display: 'block', fontSize: 12, color: '#8A98A8', marginTop: 1, fontVariantNumeric: 'tabular-nums' },
-  empty: { padding: '6px 16px 10px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
-  loading: { padding: '16px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
+  dates: { display: 'block', fontSize: 12.5, fontWeight: 600, color: '#6E6E6E', fontVariantNumeric: 'tabular-nums' },
+  golfers: { display: 'block', fontSize: 12, color: '#959595', marginTop: 1, fontVariantNumeric: 'tabular-nums' },
+  empty: { padding: '6px 16px 10px', fontSize: 13, color: '#8A8A8A', fontStyle: 'italic' },
+  loading: { padding: '16px', fontSize: 13, color: '#8A8A8A', fontStyle: 'italic' },
   createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '18px 16px', padding: '13px', borderRadius: 8, border: 'none', background: 'var(--navy)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   // Recently Deleted — set off from the trip groups by a heavier top border.
-  deletedWrap: { borderTop: '3px solid #E1E7EE', marginTop: 14 },
+  deletedWrap: { borderTop: '3px solid #E6E6E6', marginTop: 14 },
   deletedHeaderBtn: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '14px 16px 4px' },
-  caret: { transition: 'transform 0.2s ease', color: '#8A98A8', display: 'flex', flexShrink: 0 },
+  caret: { transition: 'transform 0.2s ease', color: '#959595', display: 'flex', flexShrink: 0 },
   deletedInner: { overflow: 'hidden', transition: 'height 0.24s ease' },
   deletedRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 16px' },
   deletedName: { fontSize: 14.5, color: '#A6B0BC', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
   restoreBtn: { background: 'none', border: 'none', color: 'var(--navy)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, padding: '2px 4px' },
-  deletedNote: { fontSize: 12, color: '#8A98A8', padding: '4px 16px 14px' },
+  deletedNote: { fontSize: 12, color: '#959595', padding: '4px 16px 14px' },
 }
 
 function CaretIcon() {
@@ -2269,7 +2269,7 @@ function SwipeRow({ deleteLabel, divider, onPick, onDelete, children }) {
   const rowStyle = { ...sw.row, ...(divider ? sw.rowDivider : null) }
   return (
     <SwipeDeleteRow canDelete deleteLabel={deleteLabel} rowStyle={rowStyle} outerStyle={divider ? sw.rowDivider : undefined}
-      coverBg="#F0F4F8" onPick={onPick} onDelete={onDelete}>
+      coverBg="#F4F4F4" onPick={onPick} onDelete={onDelete}>
       {children}
     </SwipeDeleteRow>
   )
@@ -2305,7 +2305,7 @@ function RecentlyDeleted({ trips, onRestore }) {
               <span style={sw.deletedName}>{t.name || 'Untitled Trip'}</span>
               {t.canRestore
                 ? <button style={sw.restoreBtn} onClick={() => onRestore(t.id)}>Restore</button>
-                : <span style={{ fontSize: 12, color: '#7A8FA6' }}>Commissioner can restore</span>}
+                : <span style={{ fontSize: 12, color: '#8A8A8A' }}>Commissioner can restore</span>}
             </div>
           ))}
           <div style={sw.deletedNote}>Permanently deleted after 30 days.</div>
@@ -2413,13 +2413,13 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
       {notice && (
         <div style={s.modalOverlay} onClick={() => setNotice(null)}>
           <div style={{ ...s.modalSheet, maxWidth: 360 }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#0D1B2A', marginBottom: 8 }}>{notice.title}</div>
-            <div style={{ fontSize: 13.5, color: '#2C3E50', lineHeight: 1.5 }}>{notice.body}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#161616', marginBottom: 8 }}>{notice.title}</div>
+            <div style={{ fontSize: 13.5, color: '#3A3A3A', lineHeight: 1.5 }}>{notice.body}</div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               {notice.canOpen && (
-                <button onClick={() => { const id = notice.trip.id; setNotice(null); onPick(id) }} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#0D1B2A', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Open trip</button>
+                <button onClick={() => { const id = notice.trip.id; setNotice(null); onPick(id) }} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#161616', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Open trip</button>
               )}
-              <button onClick={() => setNotice(null)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #DDE3EA', background: '#fff', color: '#2C3E50', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{notice.canOpen ? 'Cancel' : 'OK'}</button>
+              <button onClick={() => setNotice(null)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #E2E2E2', background: '#fff', color: '#3A3A3A', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{notice.canOpen ? 'Cancel' : 'OK'}</button>
             </div>
           </div>
         </div>
@@ -2469,14 +2469,14 @@ function LeaveTripAction({ tripId, tripName, groupId, userId, isCommissioner, ro
       {confirm && createPortal(
         <div style={s.modalOverlay} onClick={() => !busy && setConfirm(false)}>
           <div style={{ ...s.modalSheet, maxWidth: 360 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#0D1B2A', marginBottom: 8 }}>Leave {tripName || 'this trip'}?</div>
-            <div style={{ fontSize: 13.5, color: '#2C3E50', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#161616', marginBottom: 8 }}>Leave {tripName || 'this trip'}?</div>
+            <div style={{ fontSize: 13.5, color: '#3A3A3A', lineHeight: 1.5 }}>
               Your spot becomes {PLACEHOLDER_LABEL} so the commissioner can fill it, and the trip comes off your list. To come back you'll need a new invite.
             </div>
             {err && <div style={{ fontSize: 13, color: '#C0392B', marginTop: 10 }}>{err}</div>}
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={leave} disabled={busy} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#C0392B', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Leaving…' : 'Leave trip'}</button>
-              <button onClick={() => setConfirm(false)} disabled={busy} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #DDE3EA', background: '#fff', color: '#2C3E50', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button onClick={() => setConfirm(false)} disabled={busy} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #E2E2E2', background: '#fff', color: '#3A3A3A', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
             </div>
           </div>
         </div>,
@@ -3287,11 +3287,11 @@ export default function MenuDrawer({
             )}
             {savingCourse && <div style={{ ...s.muted, textAlign: 'center', marginTop: '10px' }}>Saving…</div>}
             {/* Keep score toggle — off = tee-times-only round (hidden from Scores). */}
-            <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>
+            <div style={{ borderTop: '1px solid #EDEDED', marginTop: 16, paddingTop: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ ...modalFieldLabel, margin: 0 }}>Keep score for this round</div>
-                  <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 4 }}>Off: shows in Tee Times and Schedule &amp; Courses, but not the Scores tab.</div>
+                  <div style={{ fontSize: 11, color: '#8A8A8A', marginTop: 4 }}>Off: shows in Tee Times and Schedule &amp; Courses, but not the Scores tab.</div>
                 </div>
                 <button
                   role="switch" aria-checked={!editRound.no_scoring} aria-label="Keep score for this round"
@@ -3303,18 +3303,18 @@ export default function MenuDrawer({
               </div>
             </div>
             {/* Convert this day to a non-golf day (moved here from the type pill). */}
-            <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>
+            <div style={{ borderTop: '1px solid #EDEDED', marginTop: 16, paddingTop: 12 }}>
               <div style={modalFieldLabel}>Change day type</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button style={convertDayBtnStyle} onClick={() => revertRoundToDay(editRound, 'travel')}>Travel Day</button>
                 <button style={convertDayBtnStyle} onClick={() => revertRoundToDay(editRound, 'non_golf')}>Non-Golf Day</button>
               </div>
-              <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Removes this round and any scores entered for it.</div>
+              <div style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6 }}>Removes this round and any scores entered for it.</div>
             </div>
             {/* Delete the round entirely, leaving the day as a golf day. */}
-            <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>
+            <div style={{ borderTop: '1px solid #EDEDED', marginTop: 16, paddingTop: 12 }}>
               <button style={removeRoundBtnStyle} onClick={() => removeRound(editRound)}>Remove round</button>
-              <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Deletes this round and any scores entered for it. The day stays a golf day.</div>
+              <div style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6 }}>Deletes this round and any scores entered for it. The day stays a golf day.</div>
             </div>
             </>
             )}

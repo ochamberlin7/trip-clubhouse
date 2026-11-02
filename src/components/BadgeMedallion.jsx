@@ -13,9 +13,9 @@ export default function BadgeMedallion({ badge, state, size = 64 }) {
       <span style={{
         width: '100%', height: '100%', borderRadius: '50%', boxSizing: 'border-box',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: earned ? '#0D1B2A' : 'transparent',
+        background: earned ? '#161616' : 'transparent',
         border: earned ? `3px solid ${ring}` : `1.5px dashed ${ring}`,
-        boxShadow: earned ? `inset 0 0 0 2px #0D1B2A, inset 0 0 0 3px ${ring}55` : 'none',
+        boxShadow: earned ? `inset 0 0 0 2px #161616, inset 0 0 0 3px ${ring}55` : 'none',
         color: earned ? '#D8C08A' : 'rgba(199,214,234,0.55)',
         fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: markSize,
         fontVariantNumeric: 'lining-nums', letterSpacing: badge.mark.length >= 3 ? '-0.5px' : 0,

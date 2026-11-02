@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { saveTripName, TRIP_NAME_MAX as TRIP_NAME_MAX_CHARS } from '../lib/tripSettings'
 import ResortMark from './ResortMark'
+import { APP_BRAND } from '../lib/appBrand'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -33,7 +34,7 @@ const styles = {
     // Top-most element on the Home tab now (tab bar moved to the bottom), so it
     // carries the status-bar / notch inset; white bg fills the safe area.
     padding: 'max(env(safe-area-inset-top), 20px) 16px 16px',
-    borderBottom: '1px solid #DDE3EA',
+    borderBottom: '1px solid #E2E2E2',
     textAlign: 'center',
   },
   // "Trip Clubhouse" wordmark — TOP, small small-caps serif label. Navy to match
@@ -66,7 +67,7 @@ const styles = {
     fontWeight: 600,
     letterSpacing: '2px',
     textTransform: 'uppercase',
-    color: '#5A7290',
+    color: '#6E6E6E',
     marginTop: '7px',
   },
   // Commissioner-only pencil, pinned to the header's upper-right (aligned with the
@@ -79,7 +80,7 @@ const styles = {
     border: 'none',
     padding: 4,
     cursor: 'pointer',
-    color: '#5A7290',
+    color: '#6E6E6E',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -90,8 +91,8 @@ const styles = {
   editWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, margin: '4px auto 2px', width: 'min(92%, 380px)' },
   editInput: {
     width: '100%', boxSizing: 'border-box', textAlign: 'center',
-    fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 22, color: '#0D1B2A',
-    border: '1px solid #CBD5E1', borderRadius: 12, background: '#F7F9FB',
+    fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 22, color: '#161616',
+    border: '1px solid #D4D4D4', borderRadius: 12, background: '#F8F8F8',
     padding: '9px 14px', outline: 'none',
   },
   editActions: { display: 'flex', alignItems: 'center', gap: 8 },
@@ -100,7 +101,7 @@ const styles = {
     padding: '7px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
   },
   cancelBtn: {
-    background: 'transparent', color: '#7A8FA6', border: 'none',
+    background: 'transparent', color: '#8A8A8A', border: 'none',
     padding: '7px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
   },
   editErr: { fontSize: 11, color: '#C0392B', marginTop: -2 },
@@ -185,9 +186,7 @@ export default function TripHeader({ tripName, startDate, endDate, tripId, canEd
 
   return (
     <div style={{ ...styles.container, position: 'relative' }}>
-      {resort
-        ? <div style={{ marginBottom: 10 }}><ResortMark resort={resort} /></div>
-        : <div style={styles.wordmark}>Trip Clubhouse</div>}
+      <div style={{ marginBottom: 10 }}><ResortMark resort={resort || APP_BRAND} /></div>
 
       {editing ? (
         <div style={styles.editWrap}>

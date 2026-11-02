@@ -118,7 +118,7 @@ function StepTripDetails({
           {tripDays > 0 && <span className="wz-stripe-detail">{tripDays} day{tripDays === 1 ? '' : 's'}</span>}
         </p>
         <RangeCalendar startDate={startDate} endDate={endDate} onSelect={handleDateClick} />
-        <div style={{ marginTop: 10, fontFamily: 'var(--font-serif)', fontSize: 18, color: startDate && endDate ? '#0D1B2A' : '#8C97A6' }}>
+        <div style={{ marginTop: 10, fontFamily: 'var(--font-serif)', fontSize: 18, color: startDate && endDate ? '#161616' : '#979797' }}>
           {rangeText}
         </div>
       </div>
@@ -233,12 +233,12 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {round.course ? (
                       // Course chosen → show it and collapse the picker. "Change" reopens it.
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #D5D9DF', borderRadius: 3, padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #DADADA', borderRadius: 3, padding: '10px 12px' }}>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 16, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 16, color: '#161616', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {round.course.club_name || round.course.course_name}
                           </div>
-                          <div style={{ fontSize: 12, color: '#7A8FA6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 12, color: '#8A8A8A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {[round.course.tee_name && `${round.course.tee_name} tees`, round.course.location].filter(Boolean).join(' · ') || 'Course selected'}
                           </div>
                         </div>
@@ -409,15 +409,15 @@ const T = {
   // stripe (.wz-stripe in index.css), same as the other wizard steps.
   list: {},
   // Field labels inside a section (e.g. Number of teams) stay light grey.
-  fieldLabel: { fontSize: 10.5, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: '#8C97A6', margin: '0 0 10px' },
+  fieldLabel: { fontSize: 10.5, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: '#979797', margin: '0 0 10px' },
   row: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid #E3E1DA', padding: '14px 2px', cursor: 'pointer', fontFamily: 'inherit' },
-  name: { display: 'block', fontFamily: "var(--font-serif)", fontSize: 18, color: '#0D1B2A', lineHeight: 1.2 },
-  desc: { display: 'block', fontSize: 13, color: '#7C8796', marginTop: 3, lineHeight: 1.4 },
-  radio: on => ({ flexShrink: 0, marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%', boxSizing: 'border-box', border: on ? '5px solid var(--navy)' : '1.5px solid #9AA6B5' }),
+  name: { display: 'block', fontFamily: "var(--font-serif)", fontSize: 18, color: '#161616', lineHeight: 1.2 },
+  desc: { display: 'block', fontSize: 13, color: '#888888', marginTop: 3, lineHeight: 1.4 },
+  radio: on => ({ flexShrink: 0, marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%', boxSizing: 'border-box', border: on ? '5px solid var(--navy)' : '1.5px solid #A6A6A6' }),
   seg: { display: 'flex', border: '1px solid var(--navy)', borderRadius: 4, overflow: 'hidden' },
   segBtn: (on, first) => ({ flex: 1, padding: '10px 0', background: on ? 'var(--navy)' : 'transparent', color: on ? '#fff' : 'var(--navy)', border: 'none', borderLeft: first ? 'none' : '1px solid var(--navy)', fontSize: 14, fontWeight: 600, letterSpacing: '0.3px', cursor: 'pointer', fontFamily: 'inherit' }),
-  note: { fontSize: 13, color: '#7C8796', margin: 0, lineHeight: 1.45 },
-  check: on => ({ flexShrink: 0, width: 16, height: 16, borderRadius: 2, marginTop: 3, boxSizing: 'border-box', border: `1.5px solid ${on ? 'var(--navy)' : '#9AA6B5'}`, background: on ? 'var(--navy)' : 'transparent', color: '#fff', fontSize: 11, lineHeight: '13px', textAlign: 'center' }),
+  note: { fontSize: 13, color: '#888888', margin: 0, lineHeight: 1.45 },
+  check: on => ({ flexShrink: 0, width: 16, height: 16, borderRadius: 2, marginTop: 3, boxSizing: 'border-box', border: `1.5px solid ${on ? 'var(--navy)' : '#A6A6A6'}`, background: on ? 'var(--navy)' : 'transparent', color: '#fff', fontSize: 11, lineHeight: '13px', textAlign: 'center' }),
 }
 const TEAM_WORD = { 2: 'Two', 3: 'Three', 4: 'Four' }
 
@@ -503,7 +503,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
             style={{ ...T.row, borderTop: '1px solid #E3E1DA', padding: '12px 2px' }}
           >
             <span style={{ ...T.name, fontSize: 16 }}>Add a bonus game{bonusGames.length ? ` (${bonusGames.length})` : ''}</span>
-            <span style={{ marginLeft: 'auto', color: '#9AA6B5', fontSize: 18, transform: bonusOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>›</span>
+            <span style={{ marginLeft: 'auto', color: '#A6A6A6', fontSize: 18, transform: bonusOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>›</span>
           </button>
           {bonusOpen && BONUS_GAMES.map(g => {
             const on = bonusGames.includes(g.id)

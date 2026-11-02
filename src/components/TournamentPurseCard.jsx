@@ -16,7 +16,7 @@ function todayIsoLocal() {
 }
 
 const NAVY = 'var(--navy)'
-const GREY = '#8a96a3'
+const GREY = '#949494'
 const RED = '#C0392B'
 const styles = {
   body: { padding: '16px' },

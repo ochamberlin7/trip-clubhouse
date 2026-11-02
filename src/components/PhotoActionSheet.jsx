@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 const st = {
   overlay: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(11, 22, 38, 0.45)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '0 10px', paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 10px), 16px)', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
   group: { background: '#fff', borderRadius: 14, overflow: 'hidden', width: '100%', maxWidth: 420, margin: '0 auto' },
-  title: { fontSize: 13, color: '#7A8FA6', textAlign: 'center', padding: '12px 16px', borderBottom: '1px solid #E5E7EB' },
+  title: { fontSize: 13, color: '#8A8A8A', textAlign: 'center', padding: '12px 16px', borderBottom: '1px solid #E5E7EB' },
   btn: { display: 'block', width: '100%', background: '#fff', border: 'none', padding: '16px', fontSize: 17, fontFamily: 'inherit', cursor: 'pointer', textAlign: 'center' },
 }
 

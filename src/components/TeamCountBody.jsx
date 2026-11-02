@@ -16,12 +16,12 @@ const ui = {
   warn: { fontSize: 12.5, color: '#7A4B00', lineHeight: 1.5, marginTop: 10, background: '#FFF4DC', borderRadius: 8, padding: '9px 11px' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   sheet: { background: '#fff', borderRadius: 12, padding: 24, width: 'calc(100% - 40px)', maxWidth: 360, textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
-  sheetTitle: { fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 },
-  sheetText: { fontSize: 14, color: '#2C3E50', lineHeight: 1.45 },
+  sheetTitle: { fontSize: 18, fontWeight: 700, color: '#161616', marginBottom: 8 },
+  sheetText: { fontSize: 14, color: '#3A3A3A', lineHeight: 1.45 },
   sheetBtns: { display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 },
   // Same as the Trip Dates pop-up: Cancel red, Change grey-blue.
   cancelBtn: { background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  changeBtn: { background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  changeBtn: { background: '#EDEDED', color: '#3A3A3A', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 }
 
 const nameOf = p => [p.first_name, p.last_name].filter(Boolean).join(' ') || p.guest_name || 'Player'

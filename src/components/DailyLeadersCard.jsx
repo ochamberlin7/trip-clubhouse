@@ -16,28 +16,28 @@ import HomeCard from './homeCard'
 // the end you can flip through every day. All math is in src/lib/dailyLeaders.js.
 
 const NAVY = 'var(--navy)'
-const GREY = '#8a96a3'
+const GREY = '#949494'
 const MUTED = '#A9B4C0'
 const st = {
   body: { display: 'flex', flexDirection: 'column', gap: 8, padding: 10 },
-  tile: { border: '1px solid #E3E8EE', borderRadius: 10, overflow: 'hidden', minWidth: 0 },
+  tile: { border: '1px solid #E7E7E7', borderRadius: 10, overflow: 'hidden', minWidth: 0 },
   // Light navy title bar across the top of each tile; the title keeps its tone colour.
-  titleBar: { background: '#EEF2F7', padding: '5px 12px' },
+  titleBar: { background: '#F2F2F2', padding: '5px 12px' },
   inner: { padding: '7px 12px 9px' },
   wideRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   title: { fontSize: 15, fontWeight: 700, lineHeight: 1.3 },
-  who: { fontSize: 14, fontWeight: 600, color: '#2C3E50', lineHeight: 1.35 },
+  who: { fontSize: 14, fontWeight: 600, color: '#3A3A3A', lineHeight: 1.35 },
   bigNum: { fontSize: 24, fontWeight: 700, color: NAVY, flexShrink: 0, lineHeight: 1.1 },
   split: { display: 'grid', gridTemplateColumns: '1fr 1fr' },
   half: { minWidth: 0 },
-  halfRight: { minWidth: 0, borderLeft: '1px solid #E3E8EE', paddingLeft: 12 },
+  halfRight: { minWidth: 0, borderLeft: '1px solid #E7E7E7', paddingLeft: 12 },
   mode: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
   num: { fontSize: 18, fontWeight: 700, color: NAVY, lineHeight: 1.25 },
-  nm: { fontSize: 13, fontWeight: 600, color: '#2C3E50', lineHeight: 1.35 },
+  nm: { fontSize: 13, fontWeight: 600, color: '#3A3A3A', lineHeight: 1.35 },
   none: { color: MUTED, fontWeight: 500 },
   placeholder: { fontSize: 13, color: GREY, fontStyle: 'italic', padding: '14px 16px' },
   dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '2px 0 12px' },
-  dot: { width: 7, height: 7, borderRadius: '50%', background: '#C4CEDA', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
+  dot: { width: 7, height: 7, borderRadius: '50%', background: '#CFCFCF', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
   dotActive: { background: NAVY },
 }
 

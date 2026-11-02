@@ -22,7 +22,7 @@ const sb = {
   row2: { display: 'grid', gridTemplateColumns: '1fr 2.2fr 1fr', alignItems: 'center', textAlign: 'center', padding: '11px 8px' },
   course: { fontSize: 13, fontWeight: 600, color: 'var(--cream2)', lineHeight: 1.3 },
   score: { fontSize: 16, fontWeight: 800 },
-  strip: { background: '#EEF2F7', color: 'var(--navy)', fontSize: 11.5, fontWeight: 700, padding: '5px 12px' },
+  strip: { background: '#F2F2F2', color: 'var(--navy)', fontSize: 11.5, fontWeight: 700, padding: '5px 12px' },
   rowN: { display: 'grid', textAlign: 'center', padding: '8px 0' },
   line: { borderTop: '1px solid var(--bg2)' },
   empty: { padding: 16, textAlign: 'center', color: 'var(--muted)', fontStyle: 'italic', fontSize: 13 },

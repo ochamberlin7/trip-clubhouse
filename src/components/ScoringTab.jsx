@@ -16,7 +16,7 @@ import { setScoreSyncHandlers } from '../lib/useScoreSync'
 const SLOT_TEAM = { 1: 0, 2: 0, 3: 1, 4: 1 } // slot -> side (0 = team1_id, 1 = team2_id)
 // Unassigned header slots render neutral gray (not pre-coloured by team) until a
 // player is placed.
-const EMPTY_TH = { background: '#E8EDF3', color: '#7A8FA6' }
+const EMPTY_TH = { background: '#EDEDED', color: '#8A8A8A' }
 
 // ── scoring math ──────────────────────────────────────────────────
 function scoreClass(gross, par) {
@@ -719,12 +719,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
               <button key={p.id} className="sc-th-opt" onClick={() => assignSlot(slot, p.id)}>
                 <span className="sc-th-opt-avatar">{initialsOf(p)}</span>
                 <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', display: 'block' }}>{p.name}</span>
-                  <span style={{ fontSize: 11, color: '#7A8FA6' }}>HCP: {p.handicap_index ?? 'TBD'}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#161616', display: 'block' }}>{p.name}</span>
+                  <span style={{ fontSize: 11, color: '#8A8A8A' }}>HCP: {p.handicap_index ?? 'TBD'}</span>
                 </span>
               </button>
             ))}
-            {availableForSlot(slot).length === 0 && <div style={{ padding: '10px 14px', fontSize: 12, color: '#7A8FA6', fontStyle: 'italic' }}>No available players</div>}
+            {availableForSlot(slot).length === 0 && <div style={{ padding: '10px 14px', fontSize: 12, color: '#8A8A8A', fontStyle: 'italic' }}>No available players</div>}
           </div>
         )}
       </div>
@@ -972,7 +972,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       )}
 
       {!visibleFilled && !isCommissioner && (
-        <div style={{ textAlign: 'center', fontSize: 12, color: '#7A8FA6', fontStyle: 'italic', padding: '8px 0' }}>
+        <div style={{ textAlign: 'center', fontSize: 12, color: '#8A8A8A', fontStyle: 'italic', padding: '8px 0' }}>
           Pairings not set yet — ask your commissioner
         </div>
       )}
@@ -1024,11 +1024,11 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       <button
         type="button" role="checkbox" aria-checked={hideFire}
         onClick={() => setHideFire(v => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: '#2C3E50' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: '#3A3A3A' }}
       >
         <span style={{
           width: 18, height: 18, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: hideFire ? 'var(--navy)' : '#fff', border: `1px solid ${hideFire ? 'var(--navy)' : '#C4CEDA'}`,
+          background: hideFire ? 'var(--navy)' : '#fff', border: `1px solid ${hideFire ? 'var(--navy)' : '#CFCFCF'}`,
           color: '#fff', fontSize: 12, fontWeight: 700, lineHeight: 1, transition: 'background 0.12s, border-color 0.12s',
         }}>{hideFire ? '✓' : ''}</span>
         Hide fire icons
@@ -1080,8 +1080,8 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           onClick={() => setNotice(null)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
         >
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid #DDE3EA', borderRadius: 14, padding: '24px 20px 18px', width: '100%', maxWidth: 340, textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A', lineHeight: 1.4, marginBottom: 20 }}>{notice}</div>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid #E2E2E2', borderRadius: 14, padding: '24px 20px 18px', width: '100%', maxWidth: 340, textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#161616', lineHeight: 1.4, marginBottom: 20 }}>{notice}</div>
             {onOpenMenuPage && (
               <button
                 onClick={() => { setNotice(null); onOpenMenuPage('players') }}
@@ -1092,7 +1092,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
             )}
             <button
               onClick={() => setNotice(null)}
-              style={{ width: '100%', padding: 11, marginTop: 8, background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ width: '100%', padding: 11, marginTop: 8, background: 'none', border: 'none', color: '#8A8A8A', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               OK
             </button>
@@ -1163,24 +1163,24 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
     // matches the app's modal-overlay convention (MenuDrawer modals) and, in the
     // root context, reliably covers both the banner (200) and the Feedback FAB (201).
     overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 400, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' },
-    sheet: { background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 32px', width: '100%', maxWidth: 430, borderTop: '1px solid #DDE3EA' },
-    round: { fontSize: 11, color: '#7A8FA6', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 },
-    holeNum: { fontSize: 30, fontWeight: 900, color: '#0D1B2A', textAlign: 'center', lineHeight: 1 },
+    sheet: { background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 32px', width: '100%', maxWidth: 430, borderTop: '1px solid #E2E2E2' },
+    round: { fontSize: 11, color: '#8A8A8A', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 },
+    holeNum: { fontSize: 30, fontWeight: 900, color: '#161616', textAlign: 'center', lineHeight: 1 },
     parInfo: { fontSize: 13, color: 'var(--navy)', textAlign: 'center', marginBottom: 16 },
     playerRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     team: { fontSize: 10, padding: '2px 7px', borderRadius: 10, marginRight: 10, fontWeight: 700 },
-    name: { fontSize: 14, fontWeight: 600, color: '#0D1B2A', flex: 1 },
+    name: { fontSize: 14, fontWeight: 600, color: '#161616', flex: 1 },
     controls: { display: 'flex', alignItems: 'center' },
-    scoreBtn: { width: 52, height: 52, borderRadius: 6, border: '1px solid #DDE3EA', background: '#E8EDF3', color: '#0D1B2A', fontSize: 28, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation', fontFamily: 'inherit' },
-    scoreDisp: { width: 60, textAlign: 'center', fontSize: 28, fontWeight: 900, color: '#0D1B2A' },
-    divider: { height: 1, background: '#DDE3EA', margin: '12px 0', border: 'none' },
-    label: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: '#7A8FA6', marginBottom: 8, fontWeight: 600 },
-    drinkBtn: { width: 40, height: 40, borderRadius: 6, border: '1px solid #DDE3EA', background: '#E8EDF3', color: '#7AAAD4', fontSize: 22, fontWeight: 300, cursor: 'pointer', touchAction: 'manipulation', fontFamily: 'inherit' },
+    scoreBtn: { width: 52, height: 52, borderRadius: 6, border: '1px solid #E2E2E2', background: '#EDEDED', color: '#161616', fontSize: 28, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation', fontFamily: 'inherit' },
+    scoreDisp: { width: 60, textAlign: 'center', fontSize: 28, fontWeight: 900, color: '#161616' },
+    divider: { height: 1, background: '#E2E2E2', margin: '12px 0', border: 'none' },
+    label: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: '#8A8A8A', marginBottom: 8, fontWeight: 600 },
+    drinkBtn: { width: 40, height: 40, borderRadius: 6, border: '1px solid #E2E2E2', background: '#EDEDED', color: '#7AAAD4', fontSize: 22, fontWeight: 300, cursor: 'pointer', touchAction: 'manipulation', fontFamily: 'inherit' },
     drinkDisp: { width: 48, textAlign: 'center', fontSize: 22, fontWeight: 900, color: '#7AAAD4' },
     save: { width: '100%', padding: 15, background: 'var(--navy)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
-    disabled: { width: '100%', padding: 15, background: '#E8EDF3', border: 'none', borderRadius: 10, color: '#7A8FA6', fontSize: 15, fontWeight: 700, textAlign: 'center', marginTop: 4 },
+    disabled: { width: '100%', padding: 15, background: '#EDEDED', border: 'none', borderRadius: 10, color: '#8A8A8A', fontSize: 15, fontWeight: 700, textAlign: 'center', marginTop: 4 },
     remove: { width: '100%', padding: 10, background: 'none', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 10, color: '#f08080', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8, fontFamily: 'inherit' },
-    cancel: { width: '100%', padding: 10, background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
+    cancel: { width: '100%', padding: 10, background: 'none', border: 'none', color: '#8A8A8A', fontSize: 14, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
   }
   // individualTeam: undefined = match play (side colours); null = an individual
   // format with no team (pill hidden); a team row = that player's team colour.
@@ -1207,7 +1207,7 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
         <hr style={m.divider} />
         <div style={m.label}>🍺 Drinks this hole</div>
         <div style={{ ...m.playerRow, marginBottom: 0 }}>
-          <span style={{ color: '#7A8FA6', fontSize: 13 }}>Add drinks consumed</span>
+          <span style={{ color: '#8A8A8A', fontSize: 13 }}>Add drinks consumed</span>
           <div style={m.controls}>
             <button style={m.drinkBtn} onClick={() => setDrinkCount(d => Math.max(0, d - 1))}>−</button>
             <div style={m.drinkDisp}>{drinkCount}</div>

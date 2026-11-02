@@ -2,17 +2,21 @@
 /* Pull-to-refresh spinner (PullToRefresh.jsx). */
 @keyframes ptr-spin { to { transform: rotate(360deg); } }
 :root {
-  --bg0:    #F0F4F8;
+  --bg0:    #F4F4F4;
   --bg1:    #FFFFFF;
-  --bg2:    #E8EDF3;
-  --bg3:    #DDE3EA;
-  --navy:   #1B3F6E;
-  --navy2:  #2C5F8A;
+  --bg2:    #EDEDED;
+  --bg3:    #E2E2E2;
+  /* App brand: Dormie Network (black / red / gray / white). --navy is the
+     brand primary; a club trip overrides it via useApplyResortTheme. */
+  --navy:   #1A1A1A;
+  --navy2:  #3A3A3A;
+  --brand-accent: #B72026; /* Dormie red */
+  --brand-link: var(--navy); /* sign-in links follow the brand */
   --teal:   #0F6E56;   /* green accent (meal pills). Team colours live in src/lib/teamColors.js (--team-1 … --team-6, injected at startup). */
-  --cream:  #0D1B2A;
-  --cream2: #2C3E50;
-  --muted:  #7A8FA6;
-  --blue:   #7AAAD4;
+  --cream:  #161616;
+  --cream2: #3A3A3A;
+  --muted:  #8A8A8A;
+  --blue:   #9A9A9A;
   --red:    #C0392B;
   --gold:   #C49A2A;   /* amber/gold accent — live-match banner */
   --radius:    10px;
@@ -26,21 +30,21 @@
   --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
   /* ── "Classic, Softened" design tokens (Part 2 rollout) ──
-     Single navy accent + a cool neutral ink/slate ramp. Added now for Home; will
+     Single brand accent + a neutral ink/slate ramp. Added now for Home; will
      be adopted app-wide as later screens are restyled. */
-  --navy-soft-text:  #C7D6EA;   /* secondary text on navy fills (lighter option) */
-  --navy-soft-text-2:#AFC2DE;   /* dimmer secondary-on-navy */
-  --accent-bg:       #E7EDF5;   /* light navy tint — active nav circle, pills */
-  --ink:             #0F1E33;
-  --ink-soft:        #33455E;
-  --slate:           #5B6B84;
-  --mist:            #94A3B8;
+  --navy-soft-text:  #D6D6D6;   /* secondary text on navy fills (lighter option) */
+  --navy-soft-text-2:#C4C4C4;   /* dimmer secondary-on-navy */
+  --accent-bg:       #EDEDED;   /* light navy tint — active nav circle, pills */
+  --ink:             #171717;
+  --ink-soft:        #444444;
+  --slate:           #696969;
+  --mist:            #A3A3A3;
   --hairline:        #E5E7EB;
-  --hairline-soft:   #F1F5F9;
+  --hairline-soft:   #F3F3F3;
   /* Card / nav elevation + radius shared by the Home cards, the floating bottom
      nav, and the reskinned Score/Leaderboard/Stats/Tee Times cards. Single source
      of truth so the shell isn't hand-rolled per page (mirrors HOME_CARD). */
-  --shadow-card: 0 16px 28px -12px rgba(15,30,51,.30), 0 3px 8px rgba(15,30,51,.14);
+  --shadow-card: 0 16px 28px -12px rgba(0,0,0,.30), 0 3px 8px rgba(0,0,0,.14);
   --card-radius: 20px;
   /* Occupied height of the fixed bottom tab bar (content + home-indicator inset).
      The live-score banner floats just above this; scroll views pad by it. */
@@ -101,7 +105,7 @@ select {
 .btn:active { transform: scale(0.98); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .btn-primary { background: var(--navy); color: #fff; }
-.btn-primary:active:not(:disabled) { background: #163460; }
+.btn-primary:active:not(:disabled) { background: #000000; }
 .btn-outline { background: var(--bg2); color: var(--cream2); border: 1px solid var(--bg3); font-weight: 700; font-size: 15px; }
 .btn-outline:active:not(:disabled) { background: var(--bg3); }
 .btn-ghost { background: transparent; color: var(--muted); border: none; width: auto; padding: 10px 14px; font-size: 14px; font-weight: 600; }
@@ -230,7 +234,7 @@ select {
    feedback FAB (201) — so scrolling chat never covers the nav; still below the
    Menu drawer / secondary pages (250+) so those overlays cover the nav as before. */
 .bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 220; display: flex; justify-content: center; padding: 0 14px calc(env(safe-area-inset-bottom) + 12px); pointer-events: none; }
-.bnav-pill { pointer-events: auto; display: flex; gap: 2px; width: 100%; max-width: 402px; background: #fff; border-radius: 999px; border: 1.5px solid rgba(27,63,110,.22); box-shadow: 0 24px 40px -12px rgba(15,30,51,.55), 0 8px 16px rgba(15,30,51,.32); padding: 7px 8px; }
+.bnav-pill { pointer-events: auto; display: flex; gap: 2px; width: 100%; max-width: 402px; background: #fff; border-radius: 999px; border: 1.5px solid color-mix(in srgb, var(--navy) 22%, transparent); box-shadow: 0 24px 40px -12px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.32); padding: 7px 8px; }
 .bnav-btn { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; font-family: inherit; padding: 2px 0; color: #AEB4CE; transition: color 0.15s; }
 .bnav-btn svg { display: block; }
 .bnav-icon { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; transition: background 0.15s; }
@@ -258,8 +262,8 @@ select {
 
 /* ── Type pills — CTI .tee-time-badge ── */
 .type-pill { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.3px; display: inline-block; }
-.type-pill.golf       { background: rgba(27,63,110,0.1); color: var(--navy); border: 1px solid rgba(27,63,110,0.3); }
-.type-pill.tournament { background: rgba(27,63,110,0.1); color: var(--navy); border: 1px solid rgba(27,63,110,0.3); }
+.type-pill.golf       { background: color-mix(in srgb, var(--navy) 10%, transparent); color: var(--navy); border: 1px solid color-mix(in srgb, var(--navy) 30%, transparent); }
+.type-pill.tournament { background: color-mix(in srgb, var(--navy) 10%, transparent); color: var(--navy); border: 1px solid color-mix(in srgb, var(--navy) 30%, transparent); }
 .type-pill.practice   { background: var(--bg2); color: var(--muted); border: 1px solid var(--bg3); }
 .type-pill.travel     { background: rgba(255,107,26,0.1); color: #E05A00; border: 1px solid rgba(255,107,26,0.3); }
 .type-pill.non_golf   { background: var(--bg2); color: var(--muted); border: 1px solid var(--bg3); }
@@ -271,7 +275,7 @@ select {
 .pill-btn { position: relative; flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: 1px solid var(--bg3); background: none; color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all 0.15s; }
 .pill-btn.active { background: var(--navy); border-color: var(--navy); color: #fff; }
 .round-pill-name { display: inline-block; }
-.round-practice-badge { position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; border-radius: 50%; background: #7A8FA6; color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; pointer-events: none; border: 1.5px solid #fff; z-index: 2; }
+.round-practice-badge { position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; border-radius: 50%; background: #8A8A8A; color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; pointer-events: none; border: 1.5px solid #fff; z-index: 2; }
 
 /* ── Pairing tabs — CTI .pair-tabs ── */
 .pair-tabs { display: grid; grid-template-columns: 1fr 1fr; border-radius: var(--card-radius); overflow: hidden; box-shadow: var(--shadow-card); margin-bottom: 14px; }
@@ -400,7 +404,7 @@ select {
 .chat-input:focus { outline: none; border-color: var(--navy); }
 .chat-send-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--navy); color: #fff; border: none; font-size: 16px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .chat-send-btn:disabled { background: var(--bg3); color: var(--muted); cursor: not-allowed; }
-.chat-send-btn:not(:disabled):active { background: #163460; }
+.chat-send-btn:not(:disabled):active { background: #000000; }
 
 /* ── Scorecard (Scoring tab) ── */
 .sc-card { background: var(--bg1); border-radius: var(--card-radius); box-shadow: var(--shadow-card); padding: 8px 8px 12px; }
@@ -419,8 +423,8 @@ select {
 .sc-score { width: 100%; aspect-ratio: 1; min-width: 36px; max-width: 52px; border-radius: 8px; border: none; font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; justify-self: center; font-family: inherit; }
 .sc-score:active { transform: scale(0.92); }
 .sc-score.empty  { background: var(--bg2); color: var(--bg3); font-size: 20px; }
-.sc-score.eagle  { background: var(--navy); color: #fff; border-radius: 50%; outline: 3px solid var(--navy); outline-offset: 3px; box-shadow: 0 0 0 6px rgba(27,63,110,0.15); }
-.sc-score.birdie { background: rgba(27,63,110,0.1); color: var(--navy); border: 2px solid var(--navy); border-radius: 50%; }
+.sc-score.eagle  { background: var(--navy); color: #fff; border-radius: 50%; outline: 3px solid var(--navy); outline-offset: 3px; box-shadow: 0 0 0 6px color-mix(in srgb, var(--navy) 15%, transparent); }
+.sc-score.birdie { background: color-mix(in srgb, var(--navy) 10%, transparent); color: var(--navy); border: 2px solid var(--navy); border-radius: 50%; }
 .sc-score.par    { background: transparent; color: var(--cream2); border: none; }
 .sc-score.bogey  { background: rgba(192,57,43,0.12); color: var(--red); }
 .sc-score.double { background: var(--red); color: #fff; outline: 3px solid var(--red); outline-offset: 3px; box-shadow: 0 0 0 6px rgba(192,57,43,0.15); }
@@ -430,7 +434,7 @@ select {
 .sc-score.fire-score { outline: 2px solid #FF6B1A; outline-offset: 2px; }
 .sc-score.fire-score::after { content: '🔥'; position: absolute; top: -10px; right: -8px; font-size: 9px; pointer-events: none; z-index: 3; }
 /* Eagle while on fire: keep the orange fire outline + emoji, stack the eagle's navy glow on top. */
-.sc-score.eagle.fire-score { outline: 2px solid #FF6B1A; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(27,63,110,0.15); }
+.sc-score.eagle.fire-score { outline: 2px solid #FF6B1A; outline-offset: 2px; box-shadow: 0 0 0 5px color-mix(in srgb, var(--navy) 15%, transparent); }
 
 .stroke-dots { position: absolute; bottom: -4px; left: -3px; display: flex; gap: 2px; align-items: center; pointer-events: none; z-index: 2; }
 .stroke-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--navy); border: 1px solid #fff; }
@@ -445,7 +449,7 @@ select {
 .sc-th-dropdown { position: absolute; z-index: 50; top: 100%; background: #fff; border: 1px solid var(--bg3); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); min-width: 160px; max-width: min(260px, calc(100vw - 24px)); max-height: 220px; overflow-y: auto; }
 .sc-th-opt { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--bg2); cursor: pointer; background: #fff; width: 100%; border: none; text-align: left; font-family: inherit; }
 .sc-th-opt:last-child { border-bottom: none; }
-.sc-th-opt:hover { background: #F5F8FA; }
+.sc-th-opt:hover { background: #F7F7F7; }
 .sc-th-opt-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
 
 /* Point Match Play: filled 48px circular hole-winner badge (one per hole).
@@ -453,14 +457,14 @@ select {
 .sc-pts-badge { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; font-size: 13px; font-weight: 700; color: #fff; line-height: 1; }
 .sc-pts-badge.t1 { background: var(--team-1); }
 .sc-pts-badge.t2 { background: var(--team-2); }
-.sc-pts-badge.halve { background: #8a96a3; }
+.sc-pts-badge.halve { background: #949494; }
 .sc-pts-badge.empty { background: transparent; }
 /* Standard Match Play: filled 52px circular running-status badge (one per hole),
    coloured by the leading team (Option 9 — large number + tiny inline "UP"). */
 .sc-match-badge { width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; justify-self: center; color: #fff; line-height: 1; }
 .sc-match-badge.t1 { background: var(--team-1); }
 .sc-match-badge.t2 { background: var(--team-2); }
-.sc-match-badge.as { background: #8a96a3; }
+.sc-match-badge.as { background: #949494; }
 .sc-match-badge.empty { background: transparent; }
 .sc-match-inner { display: inline-flex; align-items: baseline; line-height: 1; }
 .sc-match-num { font-size: 14px; font-weight: 700; }
@@ -535,24 +539,24 @@ select {
 /* ── Stats page: category tabs + podium tiles ── */
 .stat-tabs{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px 0 4px;margin-bottom:12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .stat-tabs::-webkit-scrollbar{display:none}
-.stat-tab{flex-shrink:0;padding:8px 18px;border-radius:999px;background:#fff;color:#5B6B84;border:1px solid #E5E7EB;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background 0.15s,color 0.15s,border-color 0.15s}
+.stat-tab{flex-shrink:0;padding:8px 18px;border-radius:999px;background:#fff;color:#696969;border:1px solid #E5E7EB;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background 0.15s,color 0.15s,border-color 0.15s}
 .stat-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .stat-tiles-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* Thin border so the light title bar reads as the top of the card on the grey page. */
-.stat-tile{background:#fff;border:1px solid #D5DEE8;border-radius:16px;box-shadow:0 10px 20px -12px rgba(15,30,51,.22);overflow:hidden}
+.stat-tile{background:#fff;border:1px solid #D5DEE8;border-radius:16px;box-shadow:0 10px 20px -12px rgba(0,0,0,.22);overflow:hidden}
 /* Skinny navy header bar (shorter than the Home-widget bar) — white icon + label. */
 /* Same title bar as the Daily Leaders tiles: light navy bar, 15px bold title in
    green / red / gold (colour set inline per stat). */
-.stat-tile-header{background:#EEF2F7;padding:5px 14px;display:flex;align-items:center;gap:8px;position:relative}
+.stat-tile-header{background:#F2F2F2;padding:5px 14px;display:flex;align-items:center;gap:8px;position:relative}
 .stat-tile-title{color:inherit;font-size:15px;font-weight:700;line-height:1.3}
 .stat-tile-icon{width:16px;height:16px;color:#fff;flex-shrink:0;display:block}
 .stat-tile-plus{color:#fff;font-size:13px;font-weight:800;line-height:1}
 .stat-tile-row{display:flex;align-items:center;gap:10px;padding:10px 14px}
-.stat-tile-row + .stat-tile-row{border-top:1px solid #EEF2F6}
-.stat-tile-rank{width:18px;font-size:13px;font-weight:700;color:#94A3B8;flex-shrink:0}
-.stat-tile-name{flex:1;font-size:15px;font-weight:700;color:#0F1E33;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stat-tile-val{font-size:15px;font-weight:800;color:#0F1E33;min-width:24px;text-align:right}
-.stat-tile-seeall{display:block;width:100%;text-align:center;padding:11px;background:#FBFCFD;border:none;border-top:1px solid #EEF2F6;color:var(--navy);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.stat-tile-row + .stat-tile-row{border-top:1px solid #F2F2F2}
+.stat-tile-rank{width:18px;font-size:13px;font-weight:700;color:#A3A3A3;flex-shrink:0}
+.stat-tile-name{flex:1;font-size:15px;font-weight:700;color:#171717;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-tile-val{font-size:15px;font-weight:800;color:#171717;min-width:24px;text-align:right}
+.stat-tile-seeall{display:block;width:100%;text-align:center;padding:11px;background:#FBFCFD;border:none;border-top:1px solid #F2F2F2;color:var(--navy);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
 /* "See all" full-list modal */
 .stat-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
 .stat-modal-sheet{display:flex;flex-direction:column;background:#fff;border-radius:16px;width:100%;max-width:400px;max-height:calc(100vh - 40px);overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.25)}
@@ -560,20 +564,20 @@ select {
 /* Gross | Net split tile: two top-3 columns side by side. */
 .stat-split{display:grid;grid-template-columns:1fr 1fr}
 .stat-split-col{min-width:0}
-.stat-split-col + .stat-split-col{border-left:1px solid #EEF2F6}
+.stat-split-col + .stat-split-col{border-left:1px solid #F2F2F2}
 .stat-split-mode{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#A9B4C0;padding:8px 14px 0}
 .stat-split .stat-tile-row{padding:7px 14px;gap:8px}
 .stat-split .stat-tile-name,.stat-split .stat-tile-val{font-size:14px}
 /* "See all" table: every player, Gross / Net columns, sortable. */
 .stat-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}
-.stat-table th{position:sticky;top:0;background:#fff;font-size:11px;font-weight:700;color:#7A8FA6;text-align:right;padding:8px 14px;border-bottom:1px solid #E3E8EE;letter-spacing:.04em;text-transform:uppercase}
+.stat-table th{position:sticky;top:0;background:#fff;font-size:11px;font-weight:700;color:#8A8A8A;text-align:right;padding:8px 14px;border-bottom:1px solid #E7E7E7;letter-spacing:.04em;text-transform:uppercase}
 .stat-table th:first-child{text-align:left;width:52%}
 .stat-table th.on{color:var(--navy)}
 .stat-sort{background:none;border:none;padding:0;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
-.stat-table td{padding:8px 14px;border-bottom:1px solid #F2F4F7;color:#0F1E33}
+.stat-table td{padding:8px 14px;border-bottom:1px solid #F2F4F7;color:#171717}
 .stat-table-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stat-table-val{text-align:right;font-weight:800;color:var(--navy);white-space:nowrap}
-.stat-modal-close{position:absolute;top:50%;right:10px;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;border:none;background:#DDE4EC;color:#5A7290;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.stat-modal-close{position:absolute;top:50%;right:10px;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;border:none;background:#DDE4EC;color:#6E6E6E;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 /* Flights page — keep entered date/time values left-aligned like the text fields
    (WebKit date/time inputs otherwise center/right-align their value). */
 .flight-field-input::-webkit-datetime-edit{text-align:left;padding:0}
@@ -590,29 +594,29 @@ select {
    Serif headings, small-caps labels, hairline rules, square corners. Scoped to
    .wizard-page so nothing outside the wizard changes. */
 .wizard-page input, .wizard-page select {
-  background-color: #fff; border: 1px solid #D5D9DF; border-radius: 3px !important; /* beats the course search's inline 8px */
-  padding: 11px 12px; font-size: 15px; color: #0D1B2A;
+  background-color: #fff; border: 1px solid #DADADA; border-radius: 3px !important; /* beats the course search's inline 8px */
+  padding: 11px 12px; font-size: 15px; color: #161616;
 }
 .wizard-page input:focus, .wizard-page select:focus { border-color: var(--navy); }
 .wizard-page .btn { border-radius: 4px; font-size: 13px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; padding: 15px 16px; }
 .wizard-page .btn-outline { background: transparent; color: var(--navy); border: 1px solid var(--navy); font-size: 13px; }
-.wizard-page .btn-outline:active:not(:disabled) { background: rgba(27,63,110,0.06); }
+.wizard-page .btn-outline:active:not(:disabled) { background: color-mix(in srgb, var(--navy) 6%, transparent); }
 .wizard-page .error-msg { border-radius: 3px; }
-.wz-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: #8C97A6; margin: 0 0 8px; }
+.wz-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: #979797; margin: 0 0 8px; }
 .wz-intro { font-family: var(--font-serif); font-size: 17px; line-height: 1.4; color: var(--cream2); margin: 0; }
-.wz-hint { font-size: 12px; color: #7C8796; margin: 6px 0 0; line-height: 1.4; }
+.wz-hint { font-size: 12px; color: #888888; margin: 6px 0 0; line-height: 1.4; }
 .wz-link { background: none; border: none; padding: 10px 0 0; color: var(--navy); font-size: 10.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; cursor: pointer; font-family: inherit; text-align: left; width: auto; }
-.wz-x { flex-shrink: 0; margin-left: auto; background: none; border: none; color: #9AA6B5; font-size: 18px; line-height: 1; padding: 0 2px; cursor: pointer; font-family: inherit; width: auto; }
+.wz-x { flex-shrink: 0; margin-left: auto; background: none; border: none; color: #A6A6A6; font-size: 18px; line-height: 1; padding: 0 2px; cursor: pointer; font-family: inherit; width: auto; }
 .wz-day { border-bottom: 1px solid #E3E1DA; padding: 14px 0; }
 .wz-day-head { display: flex; align-items: center; gap: 12px; }
-.wz-day-name { font-family: var(--font-serif); font-size: 18px; color: #0D1B2A; line-height: 1.2; flex: 1; min-width: 0; }
-.wz-day-name small { display: block; font-family: inherit; font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: #8C97A6; margin-bottom: 2px; font-weight: 700; }
+.wz-day-name { font-family: var(--font-serif); font-size: 18px; color: #161616; line-height: 1.2; flex: 1; min-width: 0; }
+.wz-day-name small { display: block; font-family: inherit; font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: #979797; margin-bottom: 2px; font-weight: 700; }
 .wizard-page .wz-day-head select { width: auto; flex-shrink: 0; font-size: 13px; padding: 8px 32px 8px 10px; background-position: right 10px center; }
 .wz-rounds { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding-left: 12px; border-left: 1px solid var(--navy); }
-.wz-add-row { display: flex; align-items: center; width: 100%; background: none; border: none; border-bottom: 1px solid #E3E1DA; padding: 14px 2px; cursor: pointer; font-family: var(--font-serif); font-size: 17px; color: #0D1B2A; text-align: left; }
+.wz-add-row { display: flex; align-items: center; width: 100%; background: none; border: none; border-bottom: 1px solid #E3E1DA; padding: 14px 2px; cursor: pointer; font-family: var(--font-serif); font-size: 17px; color: #161616; text-align: left; }
 /* Section stripe (design "V1", 2026-10-29): grey band, navy small caps, and an
    optional short summary on the right ("4 days", "3 rounds", a player's name). */
-.wz-stripe { display: flex; align-items: center; gap: 8px; background: #DFE5ED; color: var(--navy); padding: 8px 10px; margin: 0; font-size: 11.5px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; min-height: 34px; box-sizing: border-box; }
-.wz-stripe-detail { margin-left: auto; font-size: 12.5px; font-weight: 600; letter-spacing: 0.2px; text-transform: none; color: #4F6178; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.wz-stripe { display: flex; align-items: center; gap: 8px; background: #E6E6E6; color: var(--navy); padding: 8px 10px; margin: 0; font-size: 11.5px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; min-height: 34px; box-sizing: border-box; }
+.wz-stripe-detail { margin-left: auto; font-size: 12.5px; font-weight: 600; letter-spacing: 0.2px; text-transform: none; color: #5E5E5E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .wz-stripe .wz-x { margin-left: 0; color: #5A6B80; }
 .wz-cancel { background: none; border: none; padding: 4px 0; width: auto; color: var(--navy); font-size: 10.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; cursor: pointer; font-family: inherit; }

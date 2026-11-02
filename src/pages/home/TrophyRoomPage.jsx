@@ -10,7 +10,7 @@ import BadgeMedallion from '../../components/BadgeMedallion'
 // placeholders. Tap a badge for what it takes and when you earned it.
 const SERIF = "'Playfair Display', Georgia, serif"
 const GOLD_SOFT = '#D8C08A'
-const ON_NAVY = '#C7D6EA'
+const ON_NAVY = '#D6D6D6'
 
 const t = {
   page: { minHeight: '100vh', background: 'var(--navy)', padding: '18px 16px 40px', paddingTop: 'calc(env(safe-area-inset-top) + 18px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)', boxSizing: 'border-box' },
@@ -86,10 +86,10 @@ export default function TrophyRoomPage() {
             <div style={{ background: 'var(--navy)', borderRadius: '50%', width: 92, height: 92, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <BadgeMedallion badge={openBadge} state={badges?.get(openBadge.id)} size={80} />
             </div>
-            <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 700, color: '#0D1B2A', marginTop: 12 }}>{openBadge.name}</div>
-            <div style={{ fontSize: 14, color: '#2C3E50', marginTop: 6, lineHeight: 1.45 }}>{openBadge.desc}</div>
-            <div style={{ fontSize: 13, color: '#8A96A3', marginTop: 10, lineHeight: 1.45 }}>{statusLine(openBadge, badges?.get(openBadge.id))}</div>
-            <button onClick={() => setOpen(null)} style={{ marginTop: 16, padding: '9px 24px', borderRadius: 999, border: '1px solid #DDE3EA', background: '#fff', color: 'var(--navy)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
+            <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 700, color: '#161616', marginTop: 12 }}>{openBadge.name}</div>
+            <div style={{ fontSize: 14, color: '#3A3A3A', marginTop: 6, lineHeight: 1.45 }}>{openBadge.desc}</div>
+            <div style={{ fontSize: 13, color: '#949494', marginTop: 10, lineHeight: 1.45 }}>{statusLine(openBadge, badges?.get(openBadge.id))}</div>
+            <button onClick={() => setOpen(null)} style={{ marginTop: 16, padding: '9px 24px', borderRadius: 999, border: '1px solid #E2E2E2', background: '#fff', color: 'var(--navy)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
           </div>
         </div>,
         document.body,

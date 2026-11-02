@@ -15,11 +15,11 @@ const st = {
   shell: { position: 'fixed', inset: 0, zIndex: 1000, background: '#0B1626', display: 'flex', flexDirection: 'column', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
   bar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', paddingTop: 'max(env(safe-area-inset-top), 12px)', color: '#fff' },
   title: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, fontWeight: 700 },
-  cancel: { background: 'none', border: 'none', color: '#C7D6EA', fontSize: 16, fontFamily: 'inherit', padding: '6px 2px', cursor: 'pointer' },
+  cancel: { background: 'none', border: 'none', color: '#D6D6D6', fontSize: 16, fontFamily: 'inherit', padding: '6px 2px', cursor: 'pointer' },
   save: { background: '#C49A2A', border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: '8px 18px', borderRadius: 999, cursor: 'pointer' },
   stage: { position: 'relative', flex: 1, minHeight: 0 },
   bottom: { padding: '14px 24px', paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 14px), 22px)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 },
-  hint: { fontSize: 13, color: '#AFC2DE' },
+  hint: { fontSize: 13, color: '#C4C4C4' },
   sliderRow: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', maxWidth: 360 },
   slider: { flex: 1, accentColor: '#C49A2A' },
   err: { fontSize: 13, color: '#F09595', textAlign: 'center' },
@@ -27,7 +27,7 @@ const st = {
 
 function ZoomIcon({ plus }) {
   return (
-    <svg width={plus ? 22 : 16} height={plus ? 22 : 16} viewBox="0 0 24 24" fill="none" stroke="#C7D6EA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={plus ? 22 : 16} height={plus ? 22 : 16} viewBox="0 0 24 24" fill="none" stroke="#D6D6D6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 15l5-5 4 4 3-3 6 6" />
     </svg>
   )

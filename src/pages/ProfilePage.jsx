@@ -35,14 +35,14 @@ const emailLooksValid = (e) => /^\S+@\S+\.\S+$/.test((e || '').trim())
 const DEV_USER_EMAIL = 'o.chamberlin@gmail.com'
 
 const hdr = {
-  page: { minHeight: '100vh', background: '#F0F4F8' },
-  bar: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: 'max(env(safe-area-inset-top), 16px) 16px 12px', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: 12 },
-  back: { width: 34, height: 34, flexShrink: 0, borderRadius: 8, border: '1px solid #E1E7EE', background: '#fff', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 },
-  eyebrow: { fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#7A8FA6' },
-  title: { fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: '#0D1B2A', lineHeight: 1.1 },
+  page: { minHeight: '100vh', background: '#F4F4F4' },
+  bar: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: 'max(env(safe-area-inset-top), 16px) 16px 12px', borderBottom: '1px solid #E2E2E2', display: 'flex', alignItems: 'center', gap: 12 },
+  back: { width: 34, height: 34, flexShrink: 0, borderRadius: 8, border: '1px solid #E6E6E6', background: '#fff', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 },
+  eyebrow: { fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#8A8A8A' },
+  title: { fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: '#161616', lineHeight: 1.1 },
   body: { padding: 16 },
   photoWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '8px 0 20px' },
-  photo: { width: 96, height: 96, fontSize: 30, background: '#E7EDF5', color: '#33455E', border: 'none', boxShadow: 'none' },
+  photo: { width: 96, height: 96, fontSize: 30, background: '#EDEDED', color: '#444444', border: 'none', boxShadow: 'none' },
   photoLink: { background: 'none', border: 'none', padding: '4px 0', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: 'var(--navy)', cursor: 'pointer' },
   photoErr: { fontSize: 12, color: '#C0392B', textAlign: 'center' },
 }

@@ -92,32 +92,32 @@ const wxStyles = {
   headerRight: { ...HOME_CARD_TAIL },
   inner: { padding: '14px' },
   mainRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  temp: { fontSize: '42px', fontWeight: 900, color: '#0D1B2A', lineHeight: 1 },
-  condition: { fontSize: '13px', color: '#2C3E50', marginTop: '4px' },
+  temp: { fontSize: '42px', fontWeight: 900, color: '#161616', lineHeight: 1 },
+  condition: { fontSize: '13px', color: '#3A3A3A', marginTop: '4px' },
   rightCol: { display: 'flex', alignItems: 'center', gap: '10px' },
   hiloBlock: { textAlign: 'right', lineHeight: 1.6 },
-  hi: { fontSize: '13px', fontWeight: 700, color: '#0D1B2A' },
-  lo: { fontSize: '13px', fontWeight: 700, color: '#7A8FA6' },
+  hi: { fontSize: '13px', fontWeight: 700, color: '#161616' },
+  lo: { fontSize: '13px', fontWeight: 700, color: '#8A8A8A' },
   emoji: { fontSize: '36px' },
-  detailsRow: { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #E8EDF3', display: 'flex', gap: '16px' },
-  detailLabel: { fontSize: '11px', color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' },
-  detailValue: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#2C3E50' },
-  loading: { padding: '14px', fontSize: '13px', color: '#7A8FA6', textAlign: 'center' },
+  detailsRow: { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #EDEDED', display: 'flex', gap: '16px' },
+  detailLabel: { fontSize: '11px', color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  detailValue: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#3A3A3A' },
+  loading: { padding: '14px', fontSize: '13px', color: '#8A8A8A', textAlign: 'center' },
   forecastHint: { marginLeft: 'auto', alignSelf: 'center', fontSize: '12px', fontWeight: 700, color: 'var(--navy)' },
   // Location pager dots — muted gray, active filled navy (widget accent).
   dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '2px 0 12px' },
-  dot: { width: 7, height: 7, borderRadius: '50%', background: '#C4CEDA', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
+  dot: { width: 7, height: 7, borderRadius: '50%', background: '#CFCFCF', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
   dotActive: { background: 'var(--navy)' },
   // 10-day forecast modal (portal + centered overlay, matching the app pattern).
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   modalCard: { position: 'relative', background: '#fff', borderRadius: '14px', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
   modalClose: { position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
-  fRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid #E8EDF3' },
-  fDay: { fontSize: '13px', fontWeight: 700, color: '#0D1B2A', width: 78, flexShrink: 0 },
+  fRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid #EDEDED' },
+  fDay: { fontSize: '13px', fontWeight: 700, color: '#161616', width: 78, flexShrink: 0 },
   fEmoji: { fontSize: '22px', width: 26, textAlign: 'center', flexShrink: 0 },
-  fCond: { fontSize: '12px', color: '#7A8FA6', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  fCond: { fontSize: '12px', color: '#8A8A8A', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   fPop: { fontSize: '12px', color: '#3F6FA6', width: 40, textAlign: 'right', flexShrink: 0 },
-  fTemp: { fontSize: '13px', fontWeight: 700, color: '#0D1B2A', width: 74, textAlign: 'right', flexShrink: 0 },
+  fTemp: { fontSize: '13px', fontWeight: 700, color: '#161616', width: 74, textAlign: 'right', flexShrink: 0 },
 }
 
 const WX_DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -632,7 +632,7 @@ const powCard = {
   name: { fontSize: 16, fontWeight: 800, color: '#fff' },
   total: { fontSize: 28, fontWeight: 900, color: '#fff' },
   body: { background: '#fff', padding: '10px 12px' },
-  divider: { height: 1, background: '#E8EDF3', margin: '8px 0' },
+  divider: { height: 1, background: '#EDEDED', margin: '8px 0' },
 }
 
 function PowHoleGrid({ cells, start }) {
@@ -640,8 +640,8 @@ function PowHoleGrid({ cells, start }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 2 }}>
       {cells.map((v, i) => (
         <div key={i} style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 9, color: '#7A8FA6', fontWeight: 700 }}>{start + i}</div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: v == null ? '#C4CEDA' : '#0D1B2A' }}>{v == null ? '·' : v}</div>
+          <div style={{ fontSize: 9, color: '#8A8A8A', fontWeight: 700 }}>{start + i}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: v == null ? '#CFCFCF' : '#161616' }}>{v == null ? '·' : v}</div>
         </div>
       ))}
     </div>
@@ -805,20 +805,20 @@ const tp = {
   // Rendered via a portal to document.body and fixed-centred so the parent card's
   // overflow:hidden (.tee-group) can't clip it.
   backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 999, touchAction: 'none' },
-  popover: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 12, boxShadow: '0 8px 28px rgba(13,27,42,0.18)', padding: 16, width: 240 },
+  popover: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, background: '#fff', border: '1px solid #E2E2E2', borderRadius: 12, boxShadow: '0 8px 28px rgba(13,27,42,0.18)', padding: 16, width: 240 },
   cols: { display: 'flex', gap: 8 },
   colWrap: { flex: 1, minWidth: 0 },
-  colLabel: { fontSize: 9, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: '#7A8FA6', textAlign: 'center', marginBottom: 4 },
+  colLabel: { fontSize: 9, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: '#8A8A8A', textAlign: 'center', marginBottom: 4 },
   // overscrollBehavior:contain + touchAction:pan-y keep touch scrolling inside the
   // list instead of chaining to the page behind the popover.
-  list: { height: 150, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y', display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: '#F5F8FA', borderRadius: 8 },
-  item: { padding: '7px 0', fontSize: 14, fontWeight: 600, color: '#2C3E50', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
+  list: { height: 150, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y', display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: '#F7F7F7', borderRadius: 8 },
+  item: { padding: '7px 0', fontSize: 14, fontWeight: 600, color: '#3A3A3A', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
   itemActive: { background: 'var(--navy)', color: '#fff', fontWeight: 800 },
   apCol: { display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' },
-  ap: { padding: '8px 12px', fontSize: 13, fontWeight: 700, color: '#7A8FA6', background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' },
+  ap: { padding: '8px 12px', fontSize: 13, fontWeight: 700, color: '#8A8A8A', background: '#EDEDED', border: '1px solid #E2E2E2', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' },
   apActive: { background: 'var(--navy)', color: '#fff', border: '1px solid var(--navy)' },
   footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-  cancel: { background: 'none', border: 'none', color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '6px 4px' },
+  cancel: { background: 'none', border: 'none', color: '#8A8A8A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '6px 4px' },
   confirm: { width: 38, height: 38, borderRadius: '50%', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' },
 }
 
@@ -884,7 +884,7 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
   if (!isCommissioner) {
     return value
       ? <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)' }}>{value}</span>
-      : <span style={{ fontSize: 13, fontWeight: 600, color: '#7A8FA6' }}>TBD</span>
+      : <span style={{ fontSize: 13, fontWeight: 600, color: '#8A8A8A' }}>TBD</span>
   }
 
   return (
@@ -892,7 +892,7 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
       {value ? (
         <>
           <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 17, fontWeight: 800, color: 'var(--navy)' }}>{value}</button>
-          <button onClick={() => onSave(round.id, col, null)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: '#7A8FA6' }}>Clear</button>
+          <button onClick={() => onSave(round.id, col, null)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: '#8A8A8A' }}>Clear</button>
         </>
       ) : (
         <button onClick={openPicker} style={{ background: '#fff', border: '1px solid var(--navy)', color: 'var(--navy)', padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>TBD</button>
@@ -949,15 +949,15 @@ function MealTeeRow({ meal }) {
   const label = type && name !== type ? `${name} · ${type}` : name
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '4px 14px 4px 26px' }}>
-      <span style={{ fontSize: 12, color: '#7A8FA6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      <span style={{ fontSize: 12, color: '#7A8FA6', flexShrink: 0 }}>{meal.meal_time || ''}</span>
+      <span style={{ fontSize: 12, color: '#8A8A8A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <span style={{ fontSize: 12, color: '#8A8A8A', flexShrink: 0 }}>{meal.meal_time || ''}</span>
     </div>
   )
 }
 
 const teeRoundCardStyle = { background: 'var(--bg2)', border: '1px solid var(--bg3)', borderRadius: 14, margin: '10px 12px', overflow: 'hidden' }
 const teeRoundHeaderStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '10px 12px', borderBottom: '1px solid var(--bg3)' }
-const teePairingLabelStyle = { fontSize: 13, fontWeight: 600, color: '#2C3E50' }
+const teePairingLabelStyle = { fontSize: 13, fontWeight: 600, color: '#3A3A3A' }
 const teeTodayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: 'var(--navy)', background: '#fff', borderRadius: 10, padding: '1px 8px' }
 
 function TabTeeTimes({ rounds, meals = [], trip, isCommissioner, onUpdateRound, playerCount = 0 }) {
@@ -1019,8 +1019,8 @@ function TabTeeTimes({ rounds, meals = [], trip, isCommissioner, onUpdateRound, 
                   <div key={r.id} style={teeRoundCardStyle}>
                     <div style={teeRoundHeaderStyle}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#0D1B2A' }}>{primary}</div>
-                        {secondary && <div style={{ fontSize: 12, color: '#7A8FA6', marginTop: 1 }}>{secondary}</div>}
+                        <div style={{ fontSize: 15, fontWeight: 700, color: '#161616' }}>{primary}</div>
+                        {secondary && <div style={{ fontSize: 12, color: '#8A8A8A', marginTop: 1 }}>{secondary}</div>}
                       </div>
                       <span className={`type-pill ${isTournament ? 'tournament' : 'practice'}`}>
                         {isTournament ? 'Tournament' : 'Practice'}
@@ -1525,7 +1525,7 @@ export default function TripDashboard() {
                   display: 'inline-block', width: 7, height: 7, borderRadius: '50%', marginLeft: 4, verticalAlign: 'super',
                   // Red while any score is saved on this phone but not synced (or no signal);
                   // green once everything has synced and live updates are connected.
-                  background: scoresUnsynced ? '#C0392B' : scoreConnStatus === 'connected' ? '#2E7D32' : scoreConnStatus === 'disconnected' ? '#C0392B' : '#DDE3EA',
+                  background: scoresUnsynced ? '#C0392B' : scoreConnStatus === 'connected' ? '#2E7D32' : scoreConnStatus === 'disconnected' ? '#C0392B' : '#E2E2E2',
                 }}
               />
             )}

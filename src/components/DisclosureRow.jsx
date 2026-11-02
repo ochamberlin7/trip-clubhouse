@@ -5,25 +5,25 @@
 import { useState } from 'react'
 
 export const rowUI = {
-  divider: { borderBottom: '1px solid #E1E7EE' },
+  divider: { borderBottom: '1px solid #E6E6E6' },
   rowBtn: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '15px 2px', cursor: 'pointer', fontFamily: 'inherit' },
   rowStatic: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '15px 2px' },
-  label: { fontSize: 15, fontWeight: 700, color: '#0D1B2A', flexShrink: 0 },
-  value: { marginLeft: 'auto', fontSize: 14, color: '#8A98A8', textAlign: 'right', fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
+  label: { fontSize: 15, fontWeight: 700, color: '#161616', flexShrink: 0 },
+  value: { marginLeft: 'auto', fontSize: 14, color: '#959595', textAlign: 'right', fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
   chevronBox: { marginLeft: 10, color: '#B4BECB', display: 'flex', flexShrink: 0 },
   body: { padding: '0 2px 16px' },
-  fieldLabel: { fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: '#7A8FA6', margin: '10px 0 5px' },
-  input: { width: '100%', boxSizing: 'border-box', background: '#EEF2F6', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: '#0D1B2A', fontFamily: 'inherit', outline: 'none' },
+  fieldLabel: { fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: '#8A8A8A', margin: '10px 0 5px' },
+  input: { width: '100%', boxSizing: 'border-box', background: '#F2F2F2', border: '1px solid #E2E2E2', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: '#161616', fontFamily: 'inherit', outline: 'none' },
   saveRow: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, marginTop: 14 },
   linkBtn: { background: 'none', border: 'none', color: 'var(--navy)', fontSize: 14.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', padding: '2px 2px' },
-  note: { fontSize: 12.5, color: '#8A98A8', lineHeight: 1.5, marginTop: 8 },
+  note: { fontSize: 12.5, color: '#959595', lineHeight: 1.5, marginTop: 8 },
   ok: { fontSize: 12, color: '#2E7D32', fontWeight: 600 },
   err: { fontSize: 12, color: '#C0392B', marginTop: 8 },
-  info: { fontSize: 12.5, color: '#2C3E50', lineHeight: 1.5, marginTop: 8, background: '#EAF1F8', borderRadius: 8, padding: '9px 11px' },
+  info: { fontSize: 12.5, color: '#3A3A3A', lineHeight: 1.5, marginTop: 8, background: '#EAF1F8', borderRadius: 8, padding: '9px 11px' },
   dangerWrap: { borderTop: '3px solid #D3DBE4', marginTop: 12, paddingTop: 14 },
   dangerBtn: { background: 'none', border: 'none', color: '#C0392B', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 2px' },
   toggleRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14 },
-  toggleLabel: { fontSize: 13.5, color: '#2C3E50', fontWeight: 600 },
+  toggleLabel: { fontSize: 13.5, color: '#3A3A3A', fontWeight: 600 },
 }
 
 // Collapsed chevron points right (›); rotates 90° to point down (⌄) when open.

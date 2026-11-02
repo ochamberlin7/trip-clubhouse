@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useGroup } from '../context/GroupContext'
 import { useTripResort, useApplyResortTheme } from '../lib/useResortBrand'
 import ResortMark from '../components/ResortMark'
+import { APP_BRAND } from '../lib/appBrand'
 
 // Invite link handler: /join/:inviteToken
 // Flow: require auth → look up the trip by invite_token → match the signed-in user
@@ -31,9 +32,7 @@ export default function JoinTrip() {
   // White-label: an invite to a resort trip shows the resort's logo + colors.
   const resort = useTripResort(trip)
   useApplyResortTheme(resort)
-  const brandEyebrow = style => resort
-    ? <div style={{ marginBottom: 14 }}><ResortMark resort={resort} logoHeight={40} /></div>
-    : <div style={style}>Trip Clubhouse</div>
+  const brandEyebrow = () => <div style={{ marginBottom: 14 }}><ResortMark resort={resort || APP_BRAND} logoHeight={40} /></div>
 
   useEffect(() => {
     if (authLoading) return
@@ -187,20 +186,20 @@ export default function JoinTrip() {
 
   // ── styles ──
   const sh = {
-    page: { minHeight: '100vh', background: '#F0F4F8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+    page: { minHeight: '100vh', background: '#F4F4F4', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
     card: { background: '#fff', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', textAlign: 'center' },
     eyebrow: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--navy)', fontWeight: 600, marginBottom: 6 },
     eyebrowLg: { fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--navy)', fontWeight: 700, marginBottom: 8 },
-    tripName: { fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 10 },
-    prompt: { fontSize: 16, color: '#0D1B2A', lineHeight: 1.5, marginBottom: 4 },
+    tripName: { fontSize: 18, fontWeight: 700, color: '#161616', marginBottom: 10 },
+    prompt: { fontSize: 16, color: '#161616', lineHeight: 1.5, marginBottom: 4 },
     matchName: { fontWeight: 800, color: 'var(--navy)' },
     error: { fontSize: 15, color: '#C0392B', lineHeight: 1.5 },
-    body: { fontSize: 15, color: '#2C3E50', lineHeight: 1.5 },
+    body: { fontSize: 15, color: '#3A3A3A', lineHeight: 1.5 },
     contact: { fontSize: 15, color: 'var(--navy)', fontWeight: 700, marginTop: 8 },
-    loading: { fontSize: 14, color: '#7A8FA6', padding: '20px 0' },
-    code: { fontSize: 12, color: '#7A8FA6', marginTop: 14, fontFamily: 'ui-monospace, Menlo, monospace', letterSpacing: '0.5px' },
+    loading: { fontSize: 14, color: '#8A8A8A', padding: '20px 0' },
+    code: { fontSize: 12, color: '#8A8A8A', marginTop: 14, fontFamily: 'ui-monospace, Menlo, monospace', letterSpacing: '0.5px' },
     btn: { width: '100%', padding: 15, borderRadius: 10, border: 'none', background: 'var(--navy)', color: '#fff', fontSize: 16, fontWeight: 800, marginTop: 16, cursor: 'pointer', fontFamily: 'inherit' },
-    btnGhost: { width: '100%', padding: 15, borderRadius: 10, border: '2px solid #DDE3EA', background: '#fff', color: 'var(--navy)', fontSize: 16, fontWeight: 700, marginTop: 10, cursor: 'pointer', fontFamily: 'inherit' },
+    btnGhost: { width: '100%', padding: 15, borderRadius: 10, border: '2px solid #E2E2E2', background: '#fff', color: 'var(--navy)', fontSize: 16, fontWeight: 700, marginTop: 10, cursor: 'pointer', fontFamily: 'inherit' },
   }
 
   if (status === 'confirm' && candidate) {

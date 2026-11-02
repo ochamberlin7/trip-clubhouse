@@ -30,22 +30,22 @@ const styles = {
   headerText: { ...HOME_CARD_LABEL },
   area: { padding: '12px', flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' },
   msgRow: { display: 'flex', flexDirection: 'column', gap: '2px' },
-  meta: { fontSize: '10px', color: '#7A8FA6', padding: '0 4px' },
+  meta: { fontSize: '10px', color: '#8A8A8A', padding: '0 4px' },
   senderName: { fontWeight: 700, color: 'var(--navy)' },
   bubble: { maxWidth: '75%', padding: '7px 10px', fontSize: '13px', lineHeight: 1.4, wordBreak: 'break-word' },
   bubbleMine: { background: '#4472A8', color: '#fff', borderRadius: '12px 12px 2px 12px' },
-  bubbleOther: { background: '#E8EDF3', color: '#0F1E33', borderRadius: '12px 12px 12px 2px' },
-  empty: { textAlign: 'center', color: '#7A8FA6', fontSize: '13px', padding: '20px 0', fontStyle: 'italic' },
+  bubbleOther: { background: '#EDEDED', color: '#171717', borderRadius: '12px 12px 12px 2px' },
+  empty: { textAlign: 'center', color: '#8A8A8A', fontSize: '13px', padding: '20px 0', fontStyle: 'italic' },
   divider: { alignSelf: 'center', color: '#9AA7B4', fontSize: '10px', letterSpacing: '0.3px', padding: '6px 0 2px', textAlign: 'center' },
   error: { color: '#C0392B', fontSize: '11px', padding: '6px 14px 0', textAlign: 'center' },
-  inputRow: { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #DDE3EA', background: '#FFFFFF', flexShrink: 0, alignItems: 'flex-end' },
-  input: { flex: 1, background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: '20px', padding: '8px 14px', fontSize: '16px', lineHeight: '20px', color: '#0D1B2A', outline: 'none', fontFamily: 'inherit', resize: 'none', overflowY: 'hidden', maxHeight: COMPOSER_MAX, boxSizing: 'border-box', display: 'block' },
+  inputRow: { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #E2E2E2', background: '#FFFFFF', flexShrink: 0, alignItems: 'flex-end' },
+  input: { flex: 1, background: '#EDEDED', border: '1px solid #E2E2E2', borderRadius: '20px', padding: '8px 14px', fontSize: '16px', lineHeight: '20px', color: '#161616', outline: 'none', fontFamily: 'inherit', resize: 'none', overflowY: 'hidden', maxHeight: COMPOSER_MAX, boxSizing: 'border-box', display: 'block' },
   sendBtn: { width: '38px', height: '38px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  pushPrompt: { display: 'flex', alignItems: 'center', gap: 9, margin: '10px 10px 0', padding: '9px 10px 9px 12px', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: 12, boxShadow: '0 2px 6px rgba(15,30,51,.06)', flexShrink: 0 },
+  pushPrompt: { display: 'flex', alignItems: 'center', gap: 9, margin: '10px 10px 0', padding: '9px 10px 9px 12px', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: 12, boxShadow: '0 2px 6px rgba(0,0,0,.06)', flexShrink: 0 },
   pushIcon: { display: 'flex', flexShrink: 0, color: 'var(--navy)' },
-  pushText: { fontSize: 12.5, color: '#33455E', flex: 1, lineHeight: 1.3 },
+  pushText: { fontSize: 12.5, color: '#444444', flex: 1, lineHeight: 1.3 },
   pushEnable: { background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
-  pushDismiss: { background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, color: '#94A3B8' },
+  pushDismiss: { background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, color: '#A3A3A3' },
 }
 
 function SendIcon() {
@@ -424,12 +424,12 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
           // sends via the blue send button. No keyboard send shortcut.
           onChange={e => { setText(e.target.value); autoGrow() }}
           onFocus={e => { e.target.style.borderColor = 'var(--navy)' }}
-          onBlur={e => { e.target.style.borderColor = '#DDE3EA' }}
+          onBlur={e => { e.target.style.borderColor = '#E2E2E2' }}
         />
         <button
           type="button"
           aria-label="Send message"
-          style={{ ...styles.sendBtn, background: pressed ? '#163560' : 'var(--navy)' }}
+          style={{ ...styles.sendBtn, background: pressed ? '#000000' : 'var(--navy)' }}
           onMouseDown={() => setPressed(true)}
           onMouseUp={() => setPressed(false)}
           onMouseLeave={() => setPressed(false)}

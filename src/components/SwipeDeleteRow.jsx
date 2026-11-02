@@ -25,7 +25,7 @@ export function TrashIcon({ size = 20, color = '#fff' }) {
   )
 }
 
-export default function SwipeDeleteRow({ canDelete, rowStyle, outerStyle, coverBg = '#F0F4F8', deleteLabel = 'Delete trip', onPick, onDelete, children }) {
+export default function SwipeDeleteRow({ canDelete, rowStyle, outerStyle, coverBg = '#F4F4F4', deleteLabel = 'Delete trip', onPick, onDelete, children }) {
   const [dx, setDx] = useState(0)
   const [dragging, setDragging] = useState(false)
   const st = useRef({ x0: 0, y0: 0, base: 0, axis: null, drag: false })

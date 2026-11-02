@@ -6,23 +6,23 @@ import { fileToImageBlock, extractScorecard, toReview, resizeHoles, blockingIssu
 // saved until the user taps Save Course with an unblocked form. Amber
 // "double-check" flags never block save; only orange "missing" cells do.
 
-const INK = '#16213a', NAVY = 'var(--navy)', MUTED = '#8a96a3', BORDER = '#e2e6ec'
+const INK = '#1C1C1C', NAVY = 'var(--navy)', MUTED = '#949494', BORDER = '#e2e6ec'
 const AMBER = '#f2b23d', AMBER_BG = '#fffbf0'
 const MISS = '#d97757', MISS_DK = '#b25a41', MISS_BG = '#fdf3f0'
 
 const st = {
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   hLeft: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 },
-  back: { width: 28, height: 28, borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: 20, lineHeight: 1, cursor: 'pointer', flexShrink: 0 },
-  close: { width: 28, height: 28, borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
+  back: { width: 28, height: 28, borderRadius: '50%', background: '#EDEDED', border: 'none', color: '#8A8A8A', fontSize: 20, lineHeight: 1, cursor: 'pointer', flexShrink: 0 },
+  close: { width: 28, height: 28, borderRadius: '50%', background: '#EDEDED', border: 'none', color: '#8A8A8A', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
   title: { fontSize: 18, fontWeight: 700, color: INK },
   sub: { fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.5 },
-  row: { position: 'relative', display: 'flex', flexDirection: 'column', padding: '15px 14px', border: `1px solid ${NAVY}`, borderRadius: 10, background: '#E8EDF3', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit', marginBottom: 10 },
+  row: { position: 'relative', display: 'flex', flexDirection: 'column', padding: '15px 14px', border: `1px solid ${NAVY}`, borderRadius: 10, background: '#EDEDED', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit', marginBottom: 10 },
   rowTitle: { fontSize: 15, fontWeight: 700, color: INK, display: 'flex', alignItems: 'center', gap: 8 },
   rowSub: { fontSize: 13, color: MUTED, marginTop: 3, paddingRight: 44 },
   betaBadge: { position: 'absolute', top: 12, right: 12, fontSize: 9, fontWeight: 800, color: '#fff', background: '#C0392B', borderRadius: 5, padding: '2px 6px', letterSpacing: '0.5px', textTransform: 'uppercase' },
   cta: { width: '100%', padding: 13, background: NAVY, border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 16 },
-  ctaDisabled: { width: '100%', padding: 13, background: '#C4CEDA', border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 700, marginTop: 16, cursor: 'not-allowed', fontFamily: 'inherit' },
+  ctaDisabled: { width: '100%', padding: 13, background: '#CFCFCF', border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 700, marginTop: 16, cursor: 'not-allowed', fontFamily: 'inherit' },
   slotLabel: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: MUTED, marginBottom: 6 },
   drop: { border: `2px dashed ${BORDER}`, borderRadius: 10, padding: '26px 12px', textAlign: 'center', cursor: 'pointer', color: NAVY, fontSize: 14, fontWeight: 600, background: '#F8FAFC' },
   thumbWrap: { position: 'relative', borderRadius: 10, overflow: 'hidden', border: `1px solid ${BORDER}` },
@@ -32,8 +32,8 @@ const st = {
   addMore: { display: 'block', width: '100%', border: `2px dashed ${BORDER}`, borderRadius: 10, padding: '10px', background: 'none', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 },
   hint: { fontSize: 11, color: MUTED, marginTop: 6, lineHeight: 1.4, fontStyle: 'italic' },
   center: { textAlign: 'center', padding: '32px 12px' },
-  spinner: { width: 34, height: 34, borderRadius: '50%', border: '3px solid rgba(27,63,110,0.2)', borderTopColor: NAVY, margin: '0 auto 14px', animation: 'ptr-spin 0.8s linear infinite' },
-  legend: { display: 'flex', gap: 14, alignItems: 'center', background: '#F5F8FA', borderRadius: 8, padding: '7px 10px', marginBottom: 14 },
+  spinner: { width: 34, height: 34, borderRadius: '50%', border: '3px solid color-mix(in srgb, var(--navy) 20%, transparent)', borderTopColor: NAVY, margin: '0 auto 14px', animation: 'ptr-spin 0.8s linear infinite' },
+  legend: { display: 'flex', gap: 14, alignItems: 'center', background: '#F7F7F7', borderRadius: 8, padding: '7px 10px', marginBottom: 14 },
   legendItem: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: MUTED },
   dot: w => ({ width: 8, height: 8, borderRadius: '50%', background: w }),
   fieldLabel: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: MUTED, marginBottom: 4 },

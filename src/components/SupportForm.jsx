@@ -47,7 +47,7 @@ const styles = {
   sendBase: { width: '100%', borderRadius: 14, padding: '13px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', border: 'none', color: '#fff', background: 'var(--navy)' },
   // Elevated success state.
   doneWrap: { textAlign: 'center', padding: '18px 8px 12px' },
-  doneBadge: { width: 76, height: 76, borderRadius: '50%', background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 12px 24px -6px rgba(27,63,110,.45), 0 4px 10px rgba(27,63,110,.26)' },
+  doneBadge: { width: 76, height: 76, borderRadius: '50%', background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 12px 24px -6px color-mix(in srgb, var(--navy) 45%, transparent), 0 4px 10px color-mix(in srgb, var(--navy) 26%, transparent)' },
   doneHead: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.2px', margin: '0 0 8px' },
   doneSub: { fontSize: 14, color: 'var(--slate)', lineHeight: 1.5, margin: '0 auto 22px', maxWidth: 300 },
   doneLink: { background: 'none', border: 'none', padding: 6, fontFamily: 'inherit', fontSize: 15, fontWeight: 800, color: 'var(--navy)', cursor: 'pointer' },

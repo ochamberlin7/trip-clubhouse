@@ -5,8 +5,6 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { brandThemeVars } from './brand'
 
-const DEFAULT_THEME_COLOR = '#1B3F6E'
-
 // The resort a trip is linked to (trips.resort_id), or null.
 export function useTripResort(trip) {
   const resortId = trip?.resort_id || null
@@ -39,8 +37,8 @@ export function useInviteResort(inviteToken) {
   return inviteToken && loaded.token === inviteToken ? loaded.brand : null
 }
 
-// Re-theme the app for a resort while the calling screen is mounted; restores
-// the stock Trip Clubhouse colors on unmount or when the resort goes away.
+// Re-theme the app for a resort (club) while the calling screen is mounted;
+// on unmount the app-brand colors from index.css (:root) take over again.
 export function useApplyResortTheme(resort) {
   const primary = resort?.primary_color
   const accent = resort?.accent_color
@@ -50,12 +48,6 @@ export function useApplyResortTheme(resort) {
     if (!keys.length) return
     const root = document.documentElement
     keys.forEach(k => root.style.setProperty(k, vars[k]))
-    const meta = document.querySelector('meta[name="theme-color"]')
-    const prevMeta = meta?.getAttribute('content')
-    meta?.setAttribute('content', vars['--navy'])
-    return () => {
-      keys.forEach(k => root.style.removeProperty(k))
-      meta?.setAttribute('content', prevMeta || DEFAULT_THEME_COLOR)
-    }
+    return () => { keys.forEach(k => root.style.removeProperty(k)) }
   }, [primary, accent])
 }

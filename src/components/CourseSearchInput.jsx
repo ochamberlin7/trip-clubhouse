@@ -19,32 +19,32 @@ const GUTTER = 8
 // Neutral style shared by every tee option; only the selected tee is
 // highlighted (see the render). Tee names like "Black"/"Blue" are labels, not
 // theming — they must not drive the box color.
-const TEE_NEUTRAL = { background: '#E8EDF3', color: '#0D1B2A', border: '1px solid #DDE3EA' }
+const TEE_NEUTRAL = { background: '#EDEDED', color: '#161616', border: '1px solid #E2E2E2' }
 const TEE_SELECTED = { background: 'var(--navy)', color: '#fff', border: '1px solid var(--navy)' }
 
 const s = {
   wrap: { position: 'relative' },
-  input: { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #DDE3EA', background: '#fff', fontSize: '14px', color: '#0D1B2A', fontFamily: 'inherit', outline: 'none' },
+  input: { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E2E2E2', background: '#fff', fontSize: '14px', color: '#161616', fontFamily: 'inherit', outline: 'none' },
   // Portaled to document.body with position:fixed (coords computed from the input
   // rect) so an overflow:hidden/auto ancestor — the course-edit modal sheet, the
   // wizard cards — can never clip it. zIndex sits above the modal overlay (400).
-  dropdown: { position: 'fixed', zIndex: 4000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: '8px', boxShadow: '0 6px 20px rgba(0,0,0,0.18)', maxHeight: '240px', overflowY: 'auto' },
-  resultRow: { padding: '12px 14px', borderBottom: '1px solid #E8EDF3', cursor: 'pointer', background: '#fff' },
-  resultName: { fontSize: '14px', fontWeight: 600, color: '#0D1B2A' },
-  resultSub: { fontSize: '12px', color: '#7A8FA6', marginTop: '1px' },
-  msg: { padding: '12px 14px', fontSize: '13px', color: '#7A8FA6', fontStyle: 'italic' },
-  selectedCard: { background: '#E8EDF3', borderRadius: '8px', padding: '12px 14px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' },
-  selName: { fontSize: '14px', fontWeight: 600, color: '#0D1B2A' },
-  selSub: { fontSize: '12px', color: '#7A8FA6', marginTop: '1px' },
-  clearBtn: { background: 'none', border: 'none', color: '#7A8FA6', fontSize: '18px', cursor: 'pointer', flexShrink: 0, lineHeight: 1, padding: 0 },
-  teeLabel: { fontSize: '12px', textTransform: 'uppercase', color: '#7A8FA6', letterSpacing: '0.8px', marginBottom: '8px' },
-  sectionHeader: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', marginBottom: '6px' },
+  dropdown: { position: 'fixed', zIndex: 4000, background: '#fff', border: '1px solid #E2E2E2', borderRadius: '8px', boxShadow: '0 6px 20px rgba(0,0,0,0.18)', maxHeight: '240px', overflowY: 'auto' },
+  resultRow: { padding: '12px 14px', borderBottom: '1px solid #EDEDED', cursor: 'pointer', background: '#fff' },
+  resultName: { fontSize: '14px', fontWeight: 600, color: '#161616' },
+  resultSub: { fontSize: '12px', color: '#8A8A8A', marginTop: '1px' },
+  msg: { padding: '12px 14px', fontSize: '13px', color: '#8A8A8A', fontStyle: 'italic' },
+  selectedCard: { background: '#EDEDED', borderRadius: '8px', padding: '12px 14px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' },
+  selName: { fontSize: '14px', fontWeight: 600, color: '#161616' },
+  selSub: { fontSize: '12px', color: '#8A8A8A', marginTop: '1px' },
+  clearBtn: { background: 'none', border: 'none', color: '#8A8A8A', fontSize: '18px', cursor: 'pointer', flexShrink: 0, lineHeight: 1, padding: 0 },
+  teeLabel: { fontSize: '12px', textTransform: 'uppercase', color: '#8A8A8A', letterSpacing: '0.8px', marginBottom: '8px' },
+  sectionHeader: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: '#8A8A8A', marginBottom: '6px' },
   teeGrid: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' },
   teeBtn: { borderRadius: '8px', padding: '8px 12px', cursor: 'pointer', textAlign: 'left', minWidth: '92px', transition: 'transform 0.1s' },
   teeName: { fontSize: '13px', fontWeight: 700 },
   teeMeta: { fontSize: '10px', opacity: 0.85, marginTop: '2px' },
   confirm: { width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'var(--navy)', color: '#fff', fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  loadingCard: { padding: '14px', fontSize: '13px', color: '#7A8FA6', textAlign: 'center' },
+  loadingCard: { padding: '14px', fontSize: '13px', color: '#8A8A8A', textAlign: 'center' },
 }
 
 function courseLocation(course) {
@@ -299,7 +299,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
           <div
             key={r.id}
             style={s.resultRow}
-            onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F7F7F7' }}
             onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}
             // onMouseDown + preventDefault: fires before the input blurs, so the
             // list doesn't unmount out from under the tap (onClick does nothing on
