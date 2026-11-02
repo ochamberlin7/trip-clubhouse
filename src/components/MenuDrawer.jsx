@@ -173,7 +173,7 @@ function Chevron({ open }) {
 // the Dormie logo.
 function ClubhouseFlagIcon() {
   return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="32" height="32" viewBox="0 1.6 24 24" fill="none" aria-hidden="true">
       <defs>
         <linearGradient id="dormieFlagFold" gradientUnits="userSpaceOnUse" x1="23.1" y1="101.3" x2="23.1" y2="85">
           <stop offset="0" stopColor="#B72026" />
@@ -186,7 +186,7 @@ function ClubhouseFlagIcon() {
         <path d="M6.3 15.6V22h11.4v-6.4" />
         <path d="M10.5 22v-3.6h3v3.6" />
       </g>
-      <g transform="translate(9.7 0.1) scale(0.026)">
+      <g transform="translate(10.31 3.14) scale(0.019)">
         <path fill="#ED1C24" d="M31.3,34.2c0.3,1.4,0.2,3.1-0.2,4.9c-0.4,1.9-1.1,4-2.1,6.2c-5.1,11.9-16.7,26-16.7,26S-5.1,86.9,7.1,97.2c0.1,0.1,0.2,0.2,0.3,0.3c1.8,1.4,3.5,2.4,5,3c9.7,3.8,15.4-5.8,15.4-5.8s-3.2-1.4-2.8-4.2c0.1-0.9,1.6-2.1,2.4-3.3c1.9-2.9,32-1.9,52.5-1.5h18.2V2.2C98.1,2.2,29.2,23,31.3,34.2z" />
         <path fill="#FFFFFF" d="M98.1,85.6H80v327.2h2.9V440h3.3H89h3.2h2.9v-27.3h2.9V85.6z M84.7,85.6h8.7v51.1h-8.7V85.6z M84.7,230h8.7v89.4h-8.7V230z" />
         <path fill="url(#dormieFlagFold)" d="M3.5,92.3c0.7,1.7,1.8,3.3,3.6,4.8c0.1,0.1,0.2,0.2,0.3,0.3c1.8,1.4,3.5,2.4,5,3c9.7,3.8,15.4-5.8,15.4-5.8s-4.2-3,0-7.1c2-1.9,4.3-1.9,15.1-2.3C44.3,85.1-0.2,83.2,3.5,92.3z" />
