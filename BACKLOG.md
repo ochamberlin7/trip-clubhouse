@@ -62,7 +62,7 @@ Default round rules: first round of the day = that round all day until live; 2nd
 0. **Resort white-label demo (Dormie Network)** — 🚧 on `feat/resort-branding`, not merged. Decided 2026-11-02:
    - `resorts` table + `trips.resort_id` (migration `20260680_resorts.sql`, NOT applied yet). A linked trip shows the resort logo + "Powered by Trip Clubhouse" in the Home header and re-themes the app (`--navy` family) via `src/lib/brand.js` / `useResortBrand.js`. Team colors are intentionally unchanged.
    - Invite links are branded before sign-in: login/signup read `redirect=/join/:token` and call `resort_branding_for_invite` (anon-readable; returns branding + trip name only).
-   - Demo data: `supabase/demo/dormie_demo_trips.sql` creates two branded trips for Owen in group "The Dormie Crew": Briggs Ranch Weekend (Dec 4–6, 2026) and Ballyhack Spring Trip (Apr 23–25, 2027), with real scorecards, 4 rounds + tee times, 8 players / 2 teams / pairings, stay and meals.
+   - Demo data: `supabase/demo/dormie_demo_trips.sql` creates two branded trips for Owen, each in its own group (DB allows one active trip per group): Briggs Ranch Weekend (Dec 4–6, 2026) and Ballyhack Spring Trip (Apr 23–25, 2027), with real scorecards, 4 rounds + tee times, 8 players / 2 teams / pairings, stay and meals.
    - Dormie colors (#1F1F1F / #A6192E) are guessed from their logo; logo is hotlinked from their site. Confirm with their brand-standards PDF / logo pack before showing widely.
    - All hardcoded `#1B3F6E` in components now use `var(--navy)` (except team color 2 in `teamColors.js`).
 1. **Remove members from a trip** — ✅ merged 2026-10-26 (`feat/roster-remove-replace`). Join test passed on preview. Decided 2026-10-23:

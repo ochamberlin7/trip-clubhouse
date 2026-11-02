@@ -1,6 +1,6 @@
 -- =============================================================
 -- DEMO ONLY (not a numbered migration). Creates two Dormie Network demo trips
--- for o.chamberlin@gmail.com in a group called "The Dormie Crew":
+-- for o.chamberlin@gmail.com, each in its own group (one active trip per group):
 --   • Briggs Ranch Weekend   — Dec 4–6, 2026 (2 nights), San Antonio TX
 --   • Ballyhack Spring Trip  — Apr 23–25, 2027 (2 nights), Roanoke VA
 -- Each has real course scorecards (from the golf-course API), 4 rounds with
@@ -46,14 +46,6 @@ BEGIN
   v_first := coalesce(v_first, 'Owen');
   v_last  := coalesce(v_last, 'Chamberlin');
 
-  -- One group for both trips, with Owen as admin (= commissioner).
-  SELECT g.id INTO v_group FROM public.groups g
-    JOIN public.group_members m ON m.group_id = g.id AND m.user_id = v_uid AND m.role = 'admin'
-   WHERE g.name = 'The Dormie Crew' LIMIT 1;
-  IF v_group IS NULL THEN
-    INSERT INTO public.groups (name, created_by) VALUES ('The Dormie Crew', v_uid) RETURNING id INTO v_group;
-    INSERT INTO public.group_members (group_id, user_id, role) VALUES (v_group, v_uid, 'admin');
-  END IF;
 
 
   -- ───────────── Briggs Ranch Weekend ─────────────
@@ -61,6 +53,11 @@ BEGIN
               WHERE tr.name = 'Briggs Ranch Weekend' AND tr.deleted_at IS NULL) THEN
     RAISE NOTICE 'Skipping %: already exists', 'Briggs Ranch Weekend';
   ELSE
+    -- Each trip gets its own group (a group can have only one active trip),
+    -- with Owen as admin (= commissioner) — same as the trip wizard.
+    INSERT INTO public.groups (name, created_by) VALUES ('Briggs Ranch Crew', v_uid) RETURNING id INTO v_group;
+    INSERT INTO public.group_members (group_id, user_id, role) VALUES (v_group, v_uid, 'admin');
+
     INSERT INTO public.trips (group_id, name, format, team_mode, bonus_games, created_by, status,
                               start_date, end_date, time_zone, schedule, resort_id)
     VALUES (v_group, 'Briggs Ranch Weekend', 'standard_match_play', true, '[]'::jsonb, v_uid, 'active',
@@ -174,6 +171,11 @@ BEGIN
               WHERE tr.name = 'Ballyhack Spring Trip' AND tr.deleted_at IS NULL) THEN
     RAISE NOTICE 'Skipping %: already exists', 'Ballyhack Spring Trip';
   ELSE
+    -- Each trip gets its own group (a group can have only one active trip),
+    -- with Owen as admin (= commissioner) — same as the trip wizard.
+    INSERT INTO public.groups (name, created_by) VALUES ('Ballyhack Crew', v_uid) RETURNING id INTO v_group;
+    INSERT INTO public.group_members (group_id, user_id, role) VALUES (v_group, v_uid, 'admin');
+
     INSERT INTO public.trips (group_id, name, format, team_mode, bonus_games, created_by, status,
                               start_date, end_date, time_zone, schedule, resort_id)
     VALUES (v_group, 'Ballyhack Spring Trip', 'standard_match_play', true, '[]'::jsonb, v_uid, 'active',
