@@ -786,3 +786,22 @@ test('defaultRoundForTrip is only the DEFAULT — a manual choice wins (componen
   const shown = TRIP3.find(r => r.id === manualId) || def
   assert.equal(idOf(shown), 'd3') // manual overrides the default
 })
+
+// The Dozen (12 holes): finished at 12 even when the caller passes no hole-count map
+// (the trip screen and Home pass only the round rows).
+test('getTripPhase / isRoundLiveAt: a 12-hole round is complete at 12 holes', () => {
+  const HOLES12 = Array.from({ length: 12 }, (_, i) => ({ par: 4, handicap: i + 1 }))
+  const dozen = R('d', '2026-10-03', '7:00 AM', { holes: HOLES12 })
+  const ctx = { assignedByRound: { d: new Set(['p1']) }, holesByRoundPlayer: { 'd:p1': new Set(Array.from({ length: 12 }, (_, i) => i + 1)) } }
+  const res = getTripPhase({ trip: TRIP6, rounds: [dozen], now: at('2026-10-03', 15), timeZone: 'UTC', completeness: ctx })
+  assert.equal(res.phase, 'after-last-round')
+  assert.equal(res.lastCompletedRound?.id, 'd')
+  assert.equal(isRoundLiveAt(dozen, ctx, '2026-10-03', 15 * 60), false)
+  // 11 of 12 holes → still in play
+  const ctx11 = { assignedByRound: ctx.assignedByRound, holesByRoundPlayer: { 'd:p1': new Set(Array.from({ length: 11 }, (_, i) => i + 1)) } }
+  assert.equal(isRoundLiveAt(dozen, ctx11, '2026-10-03', 15 * 60), true)
+  // An 18-hole round with only 12 holes in is NOT complete (unchanged behavior).
+  const full = R('f', '2026-10-03', '7:00 AM')
+  const ctxF = { assignedByRound: { f: new Set(['p1']) }, holesByRoundPlayer: { 'f:p1': new Set(Array.from({ length: 12 }, (_, i) => i + 1)) } }
+  assert.equal(isRoundLiveAt(full, ctxF, '2026-10-03', 15 * 60), true)
+})

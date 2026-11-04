@@ -160,3 +160,16 @@ test('Fire holes and fire streak: net-only, 3+ par-or-better in a row lights the
   assert.equal(leader(coldDay, 'fireHoles'), null)
   assert.equal(leader(coldDay, 'fireStreak'), null)
 })
+
+// The Dozen: a 12-hole round is complete at 12 holes (its own length, not 18).
+test('a 12-hole round (The Dozen) counts once all 12 holes are scored', () => {
+  const HOLES12 = HOLES18.slice(0, 12)
+  const rounds = [
+    round('D1', '2026-11-05', { holes: HOLES12, par_total: 48 }),  // all 12 in → shown
+    round('D2', '2026-11-06', { holes: HOLES12, par_total: 48 }),  // only 9 of 12 → hidden
+  ]
+  const scores = [...fullScores('D1', 12), ...fullScores('D2', 9)]
+  const days = buildDailyLeaders(data({ rounds, scores }), { tripStartDate: '2026-11-05' })
+  assert.deepEqual(days.map(d => d.date), ['2026-11-05'])
+  assert.equal(days[0].roundCount, 1)
+})
