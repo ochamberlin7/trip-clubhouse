@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LEADERBOARDS, rankLeaderboard, rivalsOf } from '../../lib/groupStats'
 import GroupPicker from '../../components/GroupPicker'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM, CAPS } from './careerTheme'
-import { one, roundWhere, plural } from '../../lib/careerFormat'
+import { one, roundWhere, intVsPar, fmtRange, fmtDate } from '../../lib/careerFormat'
 import { Tile, Cols, TapValue, PeopleTile } from './statTiles'
 
 // Group stats (Owen, 2026-11-06; the Group side of the Career stats page): pick one of your groups, then see that group's
@@ -23,47 +23,127 @@ const g = {
   seg: { display: 'inline-flex', alignSelf: 'flex-start', background: '#E4E8EE', borderRadius: 28, padding: 3 },
   segBtn: on => ({ padding: '5px 16px', fontSize: 12, fontWeight: 700, borderRadius: 28, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: on ? NAVY : 'transparent', color: on ? '#fff' : MUTED }),
   row: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: `1px solid ${ROW_LINE}` },
-  rank: { width: 22, fontSize: 13, color: MUTED, ...LNUM, textAlign: 'right', flex: 'none' },
   name: { fontSize: 14, color: '#2C3E50', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   value: { marginLeft: 'auto', fontSize: 15, fontWeight: 800, color: INK, ...LNUM },
   me: { background: '#F3F6FA', margin: '0 -12px', padding: '9px 12px' },
   holders: { fontSize: 13, color: '#2C3E50', textAlign: 'center', marginTop: 6, lineHeight: 1.4 },
+  cardBtn: { display: 'block', width: '100%', padding: 0, background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: INK },
+  dates: { display: 'block', fontSize: 12.5, color: MUTED, marginTop: 2 },
+  listRow: { display: 'flex', alignItems: 'baseline', gap: 10, padding: '9px 0', borderTop: `1px solid ${ROW_LINE}`, fontSize: 14, color: '#2C3E50' },
+  listSub: { fontSize: 12, color: MUTED, marginTop: 2, lineHeight: 1.35 },
+  openBtn: { display: 'block', width: '100%', padding: '14px 0', background: NAVY, color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' },
+  teamName: { fontSize: 14.5, fontWeight: 700, color: INK },
 }
 
 const fmtVal = (def, v) => (v == null ? '—' : def.fmt === 'one' ? one(v) : v)
-const yearsOf = t => (t.firstYear ? (t.lastYear && t.lastYear !== t.firstYear ? `${t.firstYear}–${t.lastYear}` : t.firstYear) : null)
 
-function TripCard({ t }) {
-  const status = t.status === 'upcoming' ? 'Upcoming' : t.status === 'live' ? 'In progress' : null
+// The trip's result line: "Won by Team Owen", "Upcoming", "In progress"…
+function resultLine(t) {
+  if (t.winner) return { text: t.winner.tied ? t.winner.label : `Won by ${t.winner.label}`, gold: true }
+  if (t.status === 'upcoming') return { text: 'Upcoming' }
+  if (t.status === 'live') return { text: 'In progress' }
+  return { text: t.format === 'No tournament' ? 'No tournament' : 'Final' }
+}
+
+// History card (Owen 2026-11-06): big year · name, dates, result; rounds /
+// players / courses. Tap for the trip's full summary.
+function TripCard({ t, onOpen }) {
+  const res = resultLine(t)
   return (
     <section style={s.trip}>
-      <div style={{ ...s.tripHead, cursor: 'default' }}>
-        <span style={s.yr}>{t.startDate ? t.startDate.slice(0, 4) : ''}</span>
-        <span style={{ minWidth: 0 }}>
-          <span style={{ ...s.tripName, display: 'block' }}>{t.name}</span>
-          <span style={{ ...g.muted, display: 'block' }}>{t.format}</span>
-          {t.winner && <span style={{ ...g.winner, display: 'block' }}>Won by {t.winner.label}</span>}
-          {!t.winner && status && <span style={{ ...g.statusPill, display: 'block', marginTop: 3 }}>{status}</span>}
-        </span>
-      </div>
-      <div style={{ ...s.grid4, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-        <div><b style={s.g4Num}>{t.rounds}</b><span style={s.g4Lab}>Rounds</span></div>
-        <div><b style={s.g4Num}>{t.players}</b><span style={s.g4Lab}>Players</span></div>
-        <div><b style={s.g4Num}>{t.courses.length}</b><span style={s.g4Lab}>Courses</span></div>
-      </div>
-      {(t.courses.length > 0 || t.winner?.players?.length > 0) && (
-        <div style={{ ...s.rounds, paddingTop: 8 }}>
-          {t.winner?.kind === 'team' && t.winner.players.length > 0 && <div style={g.muted}>{t.winner.label}: {t.winner.players.join(', ')}</div>}
-          {t.courses.length > 0 && <div style={{ ...g.muted, marginTop: t.winner?.kind === 'team' ? 4 : 0 }}>{t.courses.join(' · ')}</div>}
+      <button type="button" style={g.cardBtn} onClick={onOpen} aria-label={`${t.name}: see the trip`}>
+        <div style={{ ...s.tripHead, cursor: 'pointer' }}>
+          <span style={s.yr}>{t.startDate ? t.startDate.slice(0, 4) : ''}</span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ ...s.tripName, display: 'block' }}>{t.name}</span>
+            {t.startDate && <span style={g.dates}>{fmtRange(t.startDate, t.endDate)}</span>}
+            <span style={{ ...(res.gold ? g.winner : g.statusPill), display: 'block', marginTop: 3 }}>{res.text}</span>
+          </span>
+          <span style={{ marginLeft: 'auto', color: '#9AA6B5', fontSize: 20 }} aria-hidden="true">›</span>
         </div>
-      )}
+        <div style={{ ...s.grid4, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+          <div><b style={s.g4Num}>{t.rounds}</b><span style={s.g4Lab}>Rounds</span></div>
+          <div><b style={s.g4Num}>{t.players}</b><span style={s.g4Lab}>Players</span></div>
+          <div><b style={s.g4Num}>{t.courses.length}</b><span style={s.g4Lab}>Courses</span></div>
+        </div>
+      </button>
     </section>
   )
 }
 
-function HistoryTab({ d }) {
+function HistoryTab({ d, onOpenTrip }) {
   if (!d.trips.length) return <div style={s.empty}>This group has no trips yet.</div>
-  return d.trips.map(t => <TripCard key={t.tripId} t={t} />)
+  return d.trips.map(t => <TripCard key={t.tripId} t={t} onOpen={() => onOpenTrip(t.tripId)} />)
+}
+
+// Full-screen summary of one trip: when, where, courses, who went, teams, the
+// final score, and a button into the trip itself (old scorecards etc.).
+function TripSummary({ t, onClose, onOpenTrip }) {
+  useEffect(() => { window.scrollTo(0, 0) }, [])
+  const res = resultLine(t)
+  const st = t.standings
+  const fmtTotal = v => (v == null ? '—' : st?.unit === 'net' ? intVsPar(v) : v)
+  return (
+    <div style={s.page}>
+      <header style={s.mast}>
+        <button style={s.back} onClick={onClose}>‹ Group</button>
+        <div style={s.eyebrow}>{t.startDate ? t.startDate.slice(0, 4) : 'Trip'}</div>
+        <h1 style={{ ...s.title, fontSize: 30, padding: '0 40px', textWrap: 'balance' }}>{t.name}</h1>
+        <div style={s.rule} />
+        <div style={s.hi}>{[t.startDate && fmtRange(t.startDate, t.endDate), t.location.join(' · ')].filter(Boolean).join(' · ')}</div>
+      </header>
+      <div style={s.inner}>
+        <div style={{ ...s.totals, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+          {[['Rounds', t.rounds], ['Players', t.players], ['Courses', t.courses.length]].map(([label, v], i) => (
+            <div key={label} style={{ textAlign: 'center', ...(i ? { borderLeft: `1px solid ${HAIR}` } : null) }}>
+              <b style={{ ...s.totNum, fontSize: 28 }}>{v}</b><span style={s.totLab}>{label}</span>
+            </div>
+          ))}
+        </div>
+
+        <Tile title={st ? (t.status === 'past' ? 'Final score' : 'Standings so far') : 'Result'} note={t.format}>
+          {st ? st.rows.map((r, i) => (
+            <div key={r.id} style={{ ...g.listRow, ...(i === 0 ? { borderTop: 'none', paddingTop: 0 } : null) }}>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontWeight: r.rank === 1 ? 700 : 400, color: INK }}>{r.name}</span>
+              </span>
+              <b style={{ ...g.value, alignSelf: 'center' }}>{fmtTotal(r.total)}</b>
+            </div>
+          )) : <div style={{ ...s.note, marginTop: 0, textAlign: 'center' }}>{res.text}</div>}
+          {st && <div style={s.note}>{st.unit === 'net' ? 'Net to par, lowest wins.' : st.unit === 'match points' ? 'Match points: 1 for a win, ½ for a tie.' : 'Most points wins.'}</div>}
+        </Tile>
+
+        {t.roundList.length > 0 && (
+          <Tile title="Courses" note={`${t.roundList.length} round${t.roundList.length === 1 ? '' : 's'}`}>
+            {t.roundList.map((r, i) => (
+              <div key={r.id} style={{ ...g.listRow, ...(i === 0 ? { borderTop: 'none', paddingTop: 0 } : null) }}>
+                <span style={{ width: 92, flex: 'none', color: MUTED, fontSize: 13 }}>{r.date ? fmtDate(r.date, { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}</span>
+                <span style={{ minWidth: 0 }}>{r.course}{r.practice && <span style={{ color: MUTED }}> · Practice</span>}</span>
+              </div>
+            ))}
+          </Tile>
+        )}
+
+        {t.teams.length > 0 ? (
+          <Tile title="Teams">
+            {t.teams.map((tm, i) => (
+              <div key={tm.id} style={{ ...g.listRow, display: 'block', ...(i === 0 ? { borderTop: 'none', paddingTop: 0 } : null) }}>
+                <div style={g.teamName}>{tm.name}</div>
+                <div style={g.listSub}>{tm.players.join(', ')}</div>
+              </div>
+            ))}
+          </Tile>
+        ) : t.playerNames.length > 0 && (
+          <Tile title="Who went" note={`${t.playerNames.length} players`}>
+            <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.6 }}>{t.playerNames.join(', ')}</div>
+          </Tile>
+        )}
+
+        {onOpenTrip && <button type="button" style={g.openBtn} onClick={() => onOpenTrip(t.tripId)}>Open trip</button>}
+        {onOpenTrip && <div style={{ ...s.note, textAlign: 'center', marginTop: -6 }}>Scorecards, leaderboard, schedule and chat for this trip.</div>}
+      </div>
+    </div>
+  )
 }
 
 function LeadersTab({ d }) {
@@ -90,7 +170,6 @@ function LeadersTab({ d }) {
           const mine = r.member.key === d.viewerKey
           return (
             <div key={r.member.key} style={{ ...g.row, ...(i === 0 ? { borderTop: 'none' } : null), ...(mine ? g.me : null) }}>
-              <span style={g.rank}>{r.rank ?? ''}</span>
               <span style={{ ...g.name, fontWeight: mine ? 700 : 400 }}>{r.member.name}</span>
               <span style={g.value}>
                 {r.where && r.v != null ? <TapValue value={fmtVal(def, r.v)} where={roundWhere(r.where)} size="sm" /> : fmtVal(def, r.v)}
@@ -134,21 +213,22 @@ function RivalsTab({ d }) {
 }
 
 // The Group view of the Career stats page (CareerPage.jsx holds the
-// Individual | Group switch and loads the data with useGroupStats).
-export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, switcher }) {
+// Individual | Group switch and loads the data with useGroupStats). The header
+// matches the Individual side (Owen 2026-11-06): the group is chosen with the
+// dropdown, not named in the banner. onOpenTrip(tripId) goes into a trip.
+export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, switcher, onOpenTrip }) {
   const [tab, setTab] = useState('history')
-  const group = groups?.find(x => x.id === groupId) || null
+  const [openTripId, setOpenTripId] = useState(null)
   const t = stats?.totals
-  const sub = t ? [plural(t.trips, 'trip'), yearsOf(t), plural(t.players, 'player')].filter(Boolean).join(' · ') : null
+  const openTrip = openTripId && stats?.trips.find(x => x.tripId === openTripId)
+  if (openTrip) return <TripSummary t={openTrip} onClose={() => setOpenTripId(null)} onOpenTrip={onOpenTrip} />
   return (
     <div style={s.page}>
       <header style={s.mast}>
         <button style={s.back} onClick={onBack}>‹ Home</button>
         {switcher}
-        <div style={{ ...s.eyebrow, ...(switcher ? { marginTop: 14 } : null) }}>Career stats · Group</div>
-        <h1 style={g.title}>{group?.name || 'Your groups'}</h1>
+        <h1 style={{ ...s.title, marginTop: switcher ? 14 : 30 }}>Career stats</h1>
         <div style={s.rule} />
-        {sub && <div style={s.hi}>{sub}</div>}
       </header>
 
       <div style={s.inner}>
@@ -156,11 +236,9 @@ export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, 
           : groups.length === 0 ? <div style={s.empty}>Your groups show up here after your first trip.</div>
             : (
               <>
-                {groups.length > 1 && (
-                  <div style={g.pickerWrap}>
-                    <GroupPicker groups={groups} value={groupId} onChange={id => { onPick(id); setTab('history') }} allowCreate={false} />
-                  </div>
-                )}
+                <div style={g.pickerWrap}>
+                  <GroupPicker groups={groups} value={groupId} onChange={id => { onPick(id); setTab('history'); setOpenTripId(null) }} allowCreate={false} />
+                </div>
                 {error ? <div style={s.empty}>{error}</div>
                   : !stats ? <div style={s.empty}>Adding up the group's stats…</div>
                     : (
@@ -177,7 +255,7 @@ export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, 
                             <button key={x.id} role="tab" aria-selected={tab === x.id} style={{ ...s.tab, ...(tab === x.id ? s.tabOn : null) }} onClick={() => setTab(x.id)}>{x.label}</button>
                           ))}
                         </div>
-                        {tab === 'history' && <HistoryTab d={stats} />}
+                        {tab === 'history' && <HistoryTab d={stats} onOpenTrip={setOpenTripId} />}
                         {tab === 'leaders' && <LeadersTab key={groupId} d={stats} />}
                         {tab === 'records' && <RecordsTab d={stats} />}
                         {tab === 'rivals' && <RivalsTab key={groupId} d={stats} />}
@@ -189,4 +267,3 @@ export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, 
     </div>
   )
 }
-

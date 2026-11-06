@@ -29,38 +29,67 @@ function teamFormatName(trip, hasTeams) {
   return (f === 'stableford' || f === 'stroke') && hasTeams ? `Team ${FORMAT_NAMES[f]}` : FORMAT_NAMES[f]
 }
 
-// Who won a finished trip: a team ("Team Ben", with its players) or a player.
-// null while the trip isn't over, has no tournament, or nothing was scored.
-export function tripWinner(t, now = new Date()) {
+// A trip's standings and winner, from the Leaderboard's own math:
+//   standings: { kind: 'team' | 'player', lowWins, unit, rows: [{ name, total, rank, players? }] }
+//              (null when nothing's been scored or there's no tournament)
+//   winner:    the top team ("Team Ben", with its players) or player, once the trip
+//              is over; null before that. Ties say "Tied: A & B".
+// unit: 'points' (match play / Stableford: most wins), 'match points' (Standard
+// Match Play), or 'net' (stroke play: net to par, lowest wins).
+export function tripResult(t, now = new Date()) {
   const gt = tripGameType(t.trip)
-  if (!gt || tripTimeStatus(t.trip, now) !== 'past') return null
+  if (!gt) return { standings: null, winner: null }
+  const over = tripTimeStatus(t.trip, now) === 'past'
   const players = (t.tripPlayers || []).filter(isPerson)
   const teams = t.teams || []
   const teamIds = [...new Set(players.map(p => p.team_id).filter(Boolean))]
+  let standings = null
   if (teamIds.length) {
     const st = teamStandingsFromRows({ format: t.trip.format, ...t, teamIds })
-    if (st.lowWins ? !st.anyScored : !st.ranked.some(r => r.total > 0)) return null
-    const top = st.ranked.filter(r => r.rank === 1)
-    const names = top.map(r => getTeamDisplayName(teams.find(tm => tm.id === r.teamId) || { team_index: '?' }))
-    return {
-      kind: 'team',
-      tied: top.length > 1,
-      label: top.length > 1 ? `Tied: ${names.join(' & ')}` : names[0],
-      players: players.filter(p => top.some(r => r.teamId === p.team_id)).map(p => playerName(p)),
+    if (st.lowWins ? st.anyScored : st.ranked.some(r => r.total > 0)) {
+      standings = {
+        kind: 'team',
+        lowWins: !!st.lowWins,
+        unit: st.lowWins ? 'net' : t.trip.format === 'standard_match_play' ? 'match points' : 'points',
+        rows: st.ranked.map(r => ({
+          id: r.teamId,
+          name: getTeamDisplayName(teams.find(tm => tm.id === r.teamId) || { team_index: '?' }),
+          total: r.total,
+          rank: r.rank,
+          players: players.filter(p => p.team_id === r.teamId).map(p => playerName(p)),
+        })),
+      }
     }
-  }
-  if (isIndividualGameType(gt)) {
+  } else if (isIndividualGameType(gt)) {
     const scoresMap = {}, teeRowMap = {}, hcpByPlayer = {}
     for (const sc of t.scores || []) if (sc.gross_score != null) scoresMap[`${sc.round_id}:${sc.trip_player_id}:${sc.hole_number}`] = sc.gross_score
     for (const pr of t.playerRounds || []) teeRowMap[`${pr.round_id}:${pr.trip_player_id}`] = pr
     for (const p of players) hcpByPlayer[p.id] = p.handicap_index
     const { ranked } = individualStandings({ gameType: gt, rounds: t.rounds || [], playerIds: players.map(p => p.id), scoresMap, hcpByPlayer, teeRowMap, allowance: t.allowance ?? 100 })
-    const top = ranked.filter(r => r.rank === 1)
-    if (!top.length) return null
-    const names = top.map(r => playerName(players.find(p => p.id === r.id)))
-    return { kind: 'player', tied: top.length > 1, label: top.length > 1 ? `Tied: ${names.join(' & ')}` : names[0], players: names }
+    const scored = ranked.filter(r => r.rank != null)
+    if (scored.length) {
+      standings = {
+        kind: 'player',
+        lowWins: gt === 'stroke',
+        unit: gt === 'stroke' ? 'net' : 'points',
+        rows: scored.map(r => ({ id: r.id, name: playerName(players.find(p => p.id === r.id)), total: r.value, rank: r.rank })),
+      }
+    }
   }
-  return null
+  let winner = null
+  if (over && standings) {
+    const top = standings.rows.filter(r => r.rank === 1)
+    const label = top.length > 1 ? `Tied: ${top.map(r => r.name).join(' & ')}` : top[0].name
+    winner = standings.kind === 'team'
+      ? { kind: 'team', tied: top.length > 1, label, players: top.flatMap(r => r.players) }
+      : { kind: 'player', tied: top.length > 1, label, players: top.map(r => r.name) }
+  }
+  return { standings, winner }
+}
+
+// Who won a finished trip (see tripResult).
+export function tripWinner(t, now = new Date()) {
+  return tripResult(t, now).winner
 }
 
 // The leaderboard categories. `gross` / `net` pairs show a Gross | Net switch.
@@ -142,6 +171,9 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
       const scoredIds = new Set((t.scores || []).filter(s => s.gross_score != null).map(s => s.round_id))
       const playedRounds = rounds.filter(r => scoredIds.has(r.id))
       const hasTeams = (t.tripPlayers || []).some(p => p.team_id)
+      const people = (t.tripPlayers || []).filter(isPerson)
+      const { standings, winner } = tripResult(t, now)
+      const sortedRounds = [...rounds].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || (a.round_number || 0) - (b.round_number || 0))
       return {
         tripId: t.tripId,
         name: t.tripName,
@@ -149,10 +181,22 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
         endDate: t.trip.end_date || null,
         status: tripTimeStatus(t.trip, now),
         format: teamFormatName(t.trip, hasTeams),
-        players: (t.tripPlayers || []).filter(isPerson).length,
-        rounds: playedRounds.length,
+        players: people.length,
+        // Rounds played; a trip that hasn't started shows the rounds on its schedule.
+        rounds: playedRounds.length || (tripTimeStatus(t.trip, now) === 'upcoming' ? rounds.length : 0),
+        playedRounds: playedRounds.length,
         courses: [...new Set(rounds.map(roundCourseName).filter(Boolean))],
-        winner: tripWinner(t, now),
+        winner,
+        // For the trip summary screen:
+        location: [...new Set(rounds.map(r => [r.location_city, r.location_state].filter(Boolean).join(', ')).filter(Boolean))],
+        roundList: sortedRounds.map(r => ({ id: r.id, date: r.date || null, course: roundCourseName(r) || 'Course TBD', practice: r.round_type === 'practice', played: scoredIds.has(r.id) })),
+        playerNames: people.map(p => playerName(p)).sort((a, b) => a.localeCompare(b)),
+        teams: hasTeams
+          ? (t.teams || []).slice().sort((a, b) => (a.team_index || 0) - (b.team_index || 0))
+            .map(tm => ({ id: tm.id, name: getTeamDisplayName(tm), players: people.filter(p => p.team_id === tm.id).map(p => playerName(p)) }))
+            .filter(tm => tm.players.length)
+          : [],
+        standings,
       }
     })
     .sort((a, b) => String(b.startDate || '').localeCompare(String(a.startDate || '')))
@@ -176,7 +220,7 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
   return {
     totals: {
       trips: trips.length,
-      rounds: trips.reduce((a, t) => a + t.rounds, 0),
+      rounds: trips.reduce((a, t) => a + t.playedRounds, 0),
       players: members.length,
       courses: allCourses.size,
       firstYear: years[0] || null,

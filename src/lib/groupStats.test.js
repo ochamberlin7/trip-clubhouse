@@ -1,7 +1,7 @@
 // Group stats (groupStats.js). Run: `npm test`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildGroupStats, rankLeaderboard, rivalsOf, tripWinner } from './groupStats.js'
+import { buildGroupStats, rankLeaderboard, rivalsOf, tripWinner, tripResult } from './groupStats.js'
 import { buildCareerDetail } from './careerDetail.js'
 
 const PARS = [4, 4, 3, 5, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4]
@@ -106,4 +106,36 @@ test('rivals combine Standard and Point Match Play records', () => {
   const { partners, opponents } = rivalsOf(g.members.find(m => m.key === 'u:U'))
   assert.deepEqual(partners.map(p => [p.name, p.w, p.t, p.l]), [['Ben Cole', 1, 0, 1]])
   assert.deepEqual(opponents.map(p => p.matches), [2, 2])
+})
+
+test('trip summary: dates, place, rounds, players, teams and the final score', () => {
+  const t = trip('T1', '2026-06-01', { gross: { A: (h, p) => (h <= 3 ? p - 1 : p) }, end: '2026-06-03' })
+  t.rounds[0].location_city = 'Arcadia'; t.rounds[0].location_state = 'MI'
+  const g = buildGroupStats([t], 'U', NOW)
+  const c = g.trips[0]
+  assert.deepEqual([c.startDate, c.endDate], ['2026-06-01', '2026-06-03'])
+  assert.deepEqual(c.location, ['Arcadia, MI'])
+  assert.deepEqual(c.roundList.map(r => [r.course, r.played]), [['Pine', true]])
+  assert.deepEqual(c.playerNames, ['Ben Cole', 'Dan Smith', 'Mike Ross', 'Owen C'])
+  assert.deepEqual(c.teams.map(tm => [tm.name, tm.players]), [['Team Owen', ['Owen C', 'Ben Cole']], ['Team 2', ['Mike Ross', 'Dan Smith']]])
+  assert.equal(c.standings.kind, 'team')
+  assert.equal(c.standings.unit, 'points')
+  assert.deepEqual(c.standings.rows.map(r => [r.name, r.total, r.rank]), [['Team Owen', 3, 1], ['Team 2', 0, 2]])
+})
+
+test('standings show while a trip is going, but no winner until it is over', () => {
+  const live = trip('T1', '2027-12-30', { gross: { A: (h, p) => p - 1 }, end: '2028-01-02' })
+  const r = tripResult(live, NOW)
+  assert.equal(r.standings.rows[0].name, 'Team Owen')
+  assert.equal(r.winner, null)
+})
+
+test('individual Stableford: players ranked by points, winner named', () => {
+  const t = trip('T1', '2026-06-01', { format: 'stableford', gross: { B: (h, p) => p - 1 } })
+  t.tripPlayers.forEach(p => { p.team_id = null })
+  const r = tripResult(t, NOW)
+  assert.equal(r.standings.kind, 'player')
+  assert.equal(r.standings.rows[0].name, 'Ben Cole')
+  assert.equal(r.standings.rows[0].total, 54)
+  assert.equal(r.winner.label, 'Ben Cole')
 })

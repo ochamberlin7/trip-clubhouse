@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useMyCareer } from '../../lib/useMyCareer'
+import { useGroup } from '../../context/GroupContext'
 import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM } from './careerTheme'
 import { one, vsPar, pct, half, fmtDate, roundWhere, tripWhere, intVsPar, plural, formatLabel } from '../../lib/careerFormat'
@@ -310,13 +311,15 @@ export default function CareerPage() {
   const navigate = useNavigate()
   const [view, setViewState] = useState(initialView)
   const setView = v => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v) } catch { /* private mode */ } }
+  const { switchTrip } = useGroup()
   const { detail } = useMyCareer(user?.id)
   const group = useGroupStats(user?.id, { enabled: view === 'group' })
   const name = (user?.user_metadata?.display_name || '').trim()
   const switcher = <CareerSwitch value={view} onChange={setView} />
   const onBack = () => navigate('/home')
   return view === 'group'
-    ? <GroupStatsView groups={group.groups} groupId={group.groupId} onPick={group.setGroupId} stats={group.stats} error={group.error} onBack={onBack} switcher={switcher} />
+    ? <GroupStatsView groups={group.groups} groupId={group.groupId} onPick={group.setGroupId} stats={group.stats} error={group.error} onBack={onBack} switcher={switcher}
+        onOpenTrip={id => { switchTrip(id); navigate('/dashboard') }} />
     : <CareerView detail={detail} name={name} onBack={onBack} switcher={switcher} />
 }
 
@@ -331,8 +334,7 @@ export function CareerView({ detail, name, onBack, switcher }) {
       <header style={s.mast}>
         <button style={s.back} onClick={onBack}>‹ Home</button>
         {switcher}
-        <div style={{ ...s.eyebrow, ...(switcher ? { marginTop: 14 } : null) }}>Career stats</div>
-        <h1 style={s.title}>Career</h1>
+        <h1 style={{ ...s.title, marginTop: switcher ? 14 : 30 }}>Career stats</h1>
         {name && <div style={s.who}>{name}</div>}
         <div style={s.rule} />
         {(hi != null || since) && (
