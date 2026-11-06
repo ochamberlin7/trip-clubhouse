@@ -2160,13 +2160,13 @@ function CommissionerPage({ data, tripId, groupId, groupName, tripName, tripStar
         <StripeRow label="Trip name" value={tripName || '—'}>
           {({ close }) => <TripNameBody tripId={tripId} name={tripName} onSaved={onNameChanged} onClose={close} />}
         </StripeRow>
-        <StripeRow label="Dates" value={fmtDatesShort(tripStartDate, tripEndDate)} detail={days ? `${days} day${days === 1 ? '' : 's'}` : null}>
-          {({ close }) => <TripDatesBody tripId={tripId} startDate={tripStartDate} endDate={tripEndDate} onSaved={onDatesChanged} onClose={close} />}
-        </StripeRow>
-        {/* Group: move this trip into another of your groups (migration 20260682).
+        {/* Group (under Trip name, above Dates — Owen 2026-11-05): move this trip into another of your groups (migration 20260682).
             The page reloads after a move so every screen picks up the new group. */}
         <StripeRow label="Group" value={groupName || '—'}>
           {() => <TripGroupBody tripId={tripId} tripName={tripName} groupId={groupId} groupName={groupName} onMoved={() => window.location.reload()} />}
+        </StripeRow>
+        <StripeRow label="Dates" value={fmtDatesShort(tripStartDate, tripEndDate)} detail={days ? `${days} day${days === 1 ? '' : 's'}` : null}>
+          {({ close }) => <TripDatesBody tripId={tripId} startDate={tripStartDate} endDate={tripEndDate} onSaved={onDatesChanged} onClose={close} />}
         </StripeRow>
       </StripeSection>
 
