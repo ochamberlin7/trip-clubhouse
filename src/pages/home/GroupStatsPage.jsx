@@ -187,19 +187,21 @@ function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
 
         {t.teams.length > 0 ? (
           <Tile title="Teams" note={`${t.teams.length} teams`}>
-            {/* A grid of team columns (Owen 2026-11-06), like the Players & Teams roster:
-                a band in the team's colour, then one player per line. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-              {t.teams.map((tm, i) => {
+            {/* Team cards stacked one per row so any number of teams fits (Owen
+                2026-11-06): a band in the team's colour, then the players in a
+                two-column grid. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {t.teams.map(tm => {
                 const pal = paletteForTrip({ end_date: t.endDate }) === 'legacy' ? LEGACY_TEAM_COLORS : TEAM_COLORS
                 const color = (pal[tm.teamIndex] || pal[1]).solid
-                const lone = t.teams.length % 2 === 1 && i === t.teams.length - 1
                 return (
-                  <div key={tm.id} style={{ border: '1px solid #E1E7EE', borderRadius: 6, overflow: 'hidden', alignSelf: 'start', ...(lone ? { gridColumn: '1 / -1' } : null) }}>
+                  <div key={tm.id} style={{ border: '1px solid #E1E7EE', borderRadius: 6, overflow: 'hidden' }}>
                     <div style={{ background: color, color: '#fff', fontSize: 13, fontWeight: 800, padding: '7px 10px', lineHeight: 1.2 }}>{tm.name}</div>
-                    {tm.players.map((name, j) => (
-                      <div key={name + j} style={{ fontSize: 13, color: INK, padding: '6px 10px', borderTop: j ? '1px solid #EEF1F4' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                    ))}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 10, padding: '4px 10px 6px' }}>
+                      {tm.players.map((name, j) => (
+                        <div key={name + j} style={{ fontSize: 13, color: INK, padding: '5px 0', borderTop: j > 1 ? '1px solid #EEF1F4' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                      ))}
+                    </div>
                   </div>
                 )
               })}
