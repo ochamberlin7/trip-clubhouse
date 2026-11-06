@@ -88,9 +88,9 @@ test('badges are earned once (first time kept); milestones tier up; no Champion 
   assert.equal(got(m, 'champion').earned, false)
 })
 
-test('nothing earned for someone who is not on the trip', () => {
+test('nothing earned for someone who is not on the trip (beyond Joined the Club for having an account)', () => {
   const m = computeBadges([trip({ rounds: [round('R1', '2026-10-01')], gross: () => 3 })], 'NOBODY', NOW)
-  assert.equal([...m.values()].some(v => v.earned), false)
+  assert.deepEqual([...m].filter(([, v]) => v.earned).map(([id]) => id), ['joined'])
 })
 
 test('Champion + past-trip finish come from the shared team standings', () => {
@@ -170,22 +170,34 @@ test('Albatross: three under on a hole (gross); an ace on a par 4 is one too', (
   assert.equal(got(a, 'hole_in_one').earned, true)
 })
 
-test('Joined the Club: earned as soon as you are on a trip, before any score', () => {
+test('Joined the Club = an account; Tee Time = on a trip roster; Commissioner = created a trip', () => {
+  // No trips: just Joined the Club (the Home shelf shows its "plan or join" note).
+  const none = computeBadges([], 'U', NOW)
+  assert.equal(got(none, 'joined').earned, true)
+  assert.equal(got(none, 'tee_time').earned, false)
+  assert.equal(got(none, 'commissioner').earned, false)
+  // On an upcoming trip, nothing scored yet: Tee Time, but not Commissioner (someone else made it).
   const t = trip({ rounds: [round('R1', '2026-11-20')], gross: () => null, start: '2026-11-20', end: '2026-11-22' })
   const m = computeBadges([t], 'U', NOW)
-  assert.equal(got(m, 'joined').earned, true)
+  assert.equal(got(m, 'tee_time').earned, true)
+  assert.equal(got(m, 'commissioner').earned, false)
   assert.equal(got(m, 'first_trip').earned, false)
-  // Not on the trip → not earned.
-  assert.equal(got(computeBadges([t], 'someone-else', NOW), 'joined').earned, false)
-  // No trips at all → nothing (the Home shelf shows its "plan or join" note).
-  assert.equal(got(computeBadges([], 'U', NOW), 'joined').earned, false)
+  // Created the trip → Commissioner.
+  const mine = { ...t, trip: { ...t.trip, created_by: 'U' } }
+  assert.equal(got(computeBadges([mine], 'U', NOW), 'commissioner').earned, true)
+  // Not on the trip and didn't create it → neither.
+  const other = computeBadges([t], 'someone-else', NOW)
+  assert.equal(got(other, 'tee_time').earned, false)
+  assert.equal(got(other, 'commissioner').earned, false)
 })
 
-test('Home shelf: Albatross outranks the ace and hides Eagle; First Trip hides Joined', () => {
+test('Home shelf: Albatross outranks the ace and hides Eagle; trip badges hide the starter ones', () => {
   const earned = ids => new Map(ids.map(id => [id, { earned: true }]))
   const ids = bs => bs.map(b => b.id)
   assert.deepEqual(ids(bestBadges(earned(['eagle', 'hole_in_one', 'albatross']))), ['albatross', 'hole_in_one'])
-  assert.deepEqual(ids(bestBadges(earned(['joined', 'first_trip']))), ['first_trip'])
+  assert.deepEqual(ids(bestBadges(earned(['joined', 'tee_time', 'first_trip']))), ['first_trip'])
+  assert.deepEqual(ids(bestBadges(earned(['joined', 'tee_time']))), ['tee_time'])
+  assert.deepEqual(ids(bestBadges(earned(['joined', 'tee_time', 'commissioner']))), ['commissioner'])
   assert.deepEqual(ids(bestBadges(earned(['joined']))), ['joined'])
 })
 

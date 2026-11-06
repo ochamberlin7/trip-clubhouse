@@ -31,7 +31,9 @@ export const TIER_NAMES = ['Bronze', 'Silver', 'Gold']
 
 // mark: the short label on the medallion. tiers: milestone thresholds (bronze, silver, gold).
 export const BADGES = [
-  { id: 'joined', group: 'journey', name: 'Joined the Club', mark: 'JC', desc: 'Join your first trip.' },
+  { id: 'joined', group: 'journey', name: 'Joined the Club', mark: 'JC', desc: 'Join Trip Clubhouse.' },
+  { id: 'tee_time', group: 'journey', name: 'Tee Time', mark: 'TT', desc: 'Join your first trip.' },
+  { id: 'commissioner', group: 'journey', name: 'Commissioner', mark: 'CM', desc: 'Create your first trip.' },
   { id: 'first_trip', group: 'journey', name: 'First Trip', mark: '1st', desc: 'Finish your first trip.' },
   { id: 'trip_veteran', group: 'journey', name: 'Trip Veteran', mark: 'TV', tiers: [3, 5, 10], unit: 'trips', desc: 'Finish 3, 5 or 10 trips.' },
   { id: 'rounds', group: 'journey', name: 'Rounds', mark: 'R', tiers: [10, 25, 50], unit: 'rounds', desc: 'Play 10, 25 or 50 full rounds.' },
@@ -77,11 +79,16 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
   const add = (id, e) => ev.get(id).push(e)
   let finishedTrips = 0, fullRounds = 0
 
+  // Joined the Club: you have an account — earned on sign-up, trips or not.
+  if (userId) add('joined', {})
+
   for (const t of perTrip) {
+    // Commissioner: you created this trip (trips.created_by), roster or not.
+    if (userId && t.trip?.created_by === userId) add('commissioner', { date: t.trip?.start_date, tripName: t.tripName || '' })
     const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
     if (!me) continue
-    // Joined the Club: you're on a trip's roster (counts before any score).
-    add('joined', { date: t.trip?.start_date, tripName: t.tripName || '' })
+    // Tee Time: you're on a trip's roster (counts before any score).
+    add('tee_time', { date: t.trip?.start_date, tripName: t.tripName || '' })
     const rounds = (t.rounds || []).filter(r => r && !isNoneRound(r))
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue
@@ -224,13 +231,15 @@ export const BADGE_PRESTIGE = [
   'albatross', 'hole_in_one', 'champion', 'broke_70', 'eagle', 'broke_80', 'birdie_bonanza', 'bogey_free',
   'warrior_trip', 'workhorse_trip', 'trip_veteran', 'broke_90', 'par_train', 'back_to_back',
   'hat_trick', 'on_fire', 'low_gross_day', 'low_net_day', 'most_points_day', 'warrior_day',
-  'workhorse_day', 'double_bogey_free', 'rounds', 'par_machine', 'broke_100', 'first_trip', 'joined',
+  'workhorse_day', 'double_bogey_free', 'rounds', 'par_machine', 'broke_100', 'first_trip', 'commissioner', 'tee_time', 'joined',
 ]
 // A stronger badge hides the weaker ones on its ladder, so the shelf doesn't
 // show Broke 80 next to Broke 90 and Broke 100.
 const SUPERSEDES = {
   albatross: ['eagle'],
-  first_trip: ['joined'],
+  first_trip: ['tee_time', 'joined'],
+  commissioner: ['tee_time', 'joined'],
+  tee_time: ['joined'],
   broke_70: ['broke_80', 'broke_90', 'broke_100'],
   broke_80: ['broke_90', 'broke_100'],
   broke_90: ['broke_100'],

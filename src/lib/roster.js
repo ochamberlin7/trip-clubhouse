@@ -78,10 +78,29 @@ async function releaseGroupMembership(client, { userId, groupId, tripPlayerId })
 export async function removeTripPlayer(client, { player, groupId, rosterLocked }) {
   const blocked = rosterChangeBlockReason({ player, rosterLocked })
   if (blocked) return { error: new Error(blocked) }
+  // Flights have no delete policy — blank them. Done FIRST: a player leaving on
+  // their own can only edit their flight while the spot is still linked to them.
+  await client.from('flights').update(BLANK_FLIGHT).eq('trip_player_id', player.id)
   const { error } = await client.from('trip_players').update(PLACEHOLDER_PATCH).eq('id', player.id)
   if (error) return { error }
-  // Flights have a commissioner update policy but no delete policy — blank them.
-  await client.from('flights').update(BLANK_FLIGHT).eq('trip_player_id', player.id)
   await releaseGroupMembership(client, { userId: accountOf(player), groupId, tripPlayerId: player.id })
   return { error: null }
+}
+
+// Plain-language reason this person can't leave the trip themselves, or null if
+// they can. Same lock as removal: only before the trip starts. The commissioner
+// can't leave their own trip (they can delete it instead, before it starts).
+export function leaveTripBlockReason({ isCommissioner, rosterLocked }) {
+  if (rosterLocked) return 'This trip has started, so nobody can leave it.'
+  if (isCommissioner) return "The commissioner can't leave the trip. You can delete it from Commissioner Tools instead."
+  return null
+}
+
+// A player leaves the trip: their spot becomes an empty "Player TBD" (same as a
+// commissioner removing them), and the trip drops off their trip list.
+export async function leaveTrip(client, { player, groupId, isCommissioner, rosterLocked }) {
+  const blocked = leaveTripBlockReason({ isCommissioner, rosterLocked })
+  if (blocked) return { error: new Error(blocked) }
+  if (!player?.id) return { error: new Error("Couldn't find your spot on this trip.") }
+  return removeTripPlayer(client, { player: { ...player, is_commissioner: false }, groupId, rosterLocked })
 }
