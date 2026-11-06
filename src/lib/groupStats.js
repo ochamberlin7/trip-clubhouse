@@ -92,15 +92,15 @@ export function tripWinner(t, now = new Date()) {
   return tripResult(t, now).winner
 }
 
-// The leaderboard categories. `gross` / `net` pairs show a Gross | Net switch.
-// hi: higher is better. min: fewest rounds to be ranked (averages).
+// The leaderboard categories. Scoring ones are gross only (Owen 2026-11-06);
+// match / Stableford ones are as the games were scored. hi: higher is better.
 export const LEADERBOARDS = [
   { id: 'titles', label: 'Trips won', value: d => d.competition.titles },
-  { id: 'avg', label: 'Scoring average', hi: false, fmt: 'one', gross: d => d.gross.average, net: d => d.net.average },
-  { id: 'best', label: 'Best round', hi: false, gross: d => d.gross.best?.total ?? null, net: d => d.net.best?.total ?? null, whereG: d => d.gross.best, whereN: d => d.net.best },
-  { id: 'birdies', label: 'Birdies', gross: d => d.gross.counts.birdies, net: d => d.net.counts.birdies },
-  { id: 'eagles', label: 'Eagles', gross: d => d.gross.counts.eagles + d.gross.counts.albatrosses, net: d => d.net.counts.eagles + d.net.counts.albatrosses },
-  { id: 'pars', label: 'Pars', gross: d => d.gross.counts.pars, net: d => d.net.counts.pars },
+  { id: 'avg', label: 'Scoring average', hi: false, fmt: 'one', value: d => d.gross.average },
+  { id: 'best', label: 'Best round', hi: false, value: d => d.gross.best?.total ?? null, where: d => d.gross.best },
+  { id: 'birdies', label: 'Birdies', value: d => d.gross.counts.birdies },
+  { id: 'eagles', label: 'Eagles', value: d => d.gross.counts.eagles + d.gross.counts.albatrosses },
+  { id: 'pars', label: 'Pars', value: d => d.gross.counts.pars },
   { id: 'wins', label: 'Match wins', value: d => d.competition.record.w, onlyIf: g => g.hasMatchPlay },
   { id: 'points', label: 'Points won', value: d => d.competition.formats.points?.points ?? null, onlyIf: g => g.formats.has('points') },
   { id: 'stableford', label: 'Stableford points', value: d => d.competition.formats.stableford?.points ?? null, onlyIf: g => g.formats.has('stableford') },
@@ -109,14 +109,13 @@ export const LEADERBOARDS = [
   { id: 'holes', label: 'Holes played', value: d => d.totals.holes },
 ]
 
-// Ranked rows for one category: [{ member, v, rank, where }]. `mode` 'gross' | 'net'.
-export function rankLeaderboard(group, id, mode = 'gross') {
+// Ranked rows for one category: [{ member, v, rank, where }].
+export function rankLeaderboard(group, id) {
   const def = LEADERBOARDS.find(l => l.id === id)
   if (!def) return []
-  const get = def.value || def[mode]
-  const whereOf = mode === 'net' ? def.whereN : def.whereG
+  const whereOf = def.where
   const rows = rankRows(group.members, m => {
-    const v = get(m.detail)
+    const v = def.value(m.detail)
     return v == null ? null : v
   }, { hi: def.hi !== false, nameOf: m => m.name })
   return rows.map(r => ({ member: r.item, v: r.v, rank: r.rank, where: whereOf ? whereOf(r.item.detail) : null }))
@@ -208,7 +207,6 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
   // Group records: who holds the best of each, with where (tap to see).
   const records = [
     { id: 'lowGross', label: 'Lowest round', note: 'gross, 18 holes', hi: false, rec: record(members, m => m.detail.gross.best && { v: m.detail.gross.best.total, where: m.detail.gross.best }, { hi: false }) },
-    { id: 'lowNet', label: 'Lowest net round', note: '18 holes', hi: false, rec: record(members, m => m.detail.net.best && { v: m.detail.net.best.total, where: m.detail.net.best }, { hi: false }) },
     { id: 'birdiesRound', label: 'Most birdies in a round', note: 'gross', rec: record(members, m => bestRoundBy(m.detail, r => r.birdies, true)) },
     { id: 'pointsRound', label: 'Most points in a round', note: 'Point Match Play', rec: record(members, m => m.detail.competition.formats.points?.bestRound && { v: m.detail.competition.formats.points.bestRound.points, where: m.detail.competition.formats.points.bestRound }) },
     { id: 'stablefordRound', label: 'Best Stableford round', rec: record(members, m => m.detail.competition.formats.stableford?.best && { v: m.detail.competition.formats.stableford.best.points, where: m.detail.competition.formats.stableford.best }) },

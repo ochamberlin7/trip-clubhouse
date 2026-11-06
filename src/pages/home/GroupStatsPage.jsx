@@ -20,8 +20,6 @@ const g = {
   muted: { fontSize: 12, color: MUTED, lineHeight: 1.4 },
   statusPill: { fontSize: 10.5, ...CAPS, letterSpacing: '1px', color: NAVY },
   pills: { display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 },
-  seg: { display: 'inline-flex', alignSelf: 'flex-start', background: '#E4E8EE', borderRadius: 28, padding: 3 },
-  segBtn: on => ({ padding: '5px 16px', fontSize: 12, fontWeight: 700, borderRadius: 28, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: on ? NAVY : 'transparent', color: on ? '#fff' : MUTED }),
   row: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: `1px solid ${ROW_LINE}` },
   name: { fontSize: 14, color: '#2C3E50', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   value: { marginLeft: 'auto', fontSize: 15, fontWeight: 800, color: INK, ...LNUM },
@@ -149,10 +147,8 @@ function TripSummary({ t, onClose, onOpenTrip }) {
 function LeadersTab({ d }) {
   const boards = LEADERBOARDS.filter(l => !l.onlyIf || l.onlyIf(d))
   const [id, setId] = useState(boards[0].id)
-  const [mode, setMode] = useState('gross')
   const def = boards.find(b => b.id === id) || boards[0]
-  const split = !def.value
-  const rows = rankLeaderboard(d, def.id, mode)
+  const rows = rankLeaderboard(d, def.id)
   return (
     <>
       <div style={g.pills} role="tablist" aria-label="Leaderboard">
@@ -160,12 +156,7 @@ function LeadersTab({ d }) {
           <button key={b.id} role="tab" aria-selected={b.id === def.id} className={`pill-btn${b.id === def.id ? ' active' : ''}`} onClick={() => setId(b.id)}>{b.label}</button>
         ))}
       </div>
-      {split && (
-        <div style={g.seg} role="tablist" aria-label="Gross or net">
-          {['gross', 'net'].map(m => <button key={m} role="tab" aria-selected={mode === m} style={g.segBtn(mode === m)} onClick={() => setMode(m)}>{m === 'gross' ? 'Gross' : 'Net'}</button>)}
-        </div>
-      )}
-      <Tile title={def.label} note={split ? (mode === 'gross' ? 'gross' : 'net') : null}>
+      <Tile title={def.label} note={['avg', 'best', 'birdies', 'eagles', 'pars'].includes(def.id) ? 'gross' : null}>
         {rows.map((r, i) => {
           const mine = r.member.key === d.viewerKey
           return (
@@ -178,7 +169,7 @@ function LeadersTab({ d }) {
           )
         })}
       </Tile>
-      <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>Counts only this group's trips. Net uses each player's full handicap.</div>
+      <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>Counts only this group's trips.</div>
     </>
   )
 }

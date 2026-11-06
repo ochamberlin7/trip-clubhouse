@@ -6,7 +6,7 @@ import { useGroup } from '../../context/GroupContext'
 import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM } from './careerTheme'
 import { one, vsPar, pct, half, fmtDate, roundWhere, tripWhere, intVsPar, plural, formatLabel } from '../../lib/careerFormat'
-import { Tile, Cols, GrossNetTable, PeopleTile, CareerSwitch } from './statTiles'
+import { Tile, Cols, StatList, PeopleTile, CareerSwitch } from './statTiles'
 import { GroupStatsView } from './GroupStatsPage'
 import { useGroupStats } from '../../lib/useGroupStats'
 
@@ -54,53 +54,52 @@ function HandicapTrend({ points }) {
   )
 }
 
+// Scoring is gross only (Owen 2026-11-06, like 18Birdies / TheGrint / GHIN): it's
+// your real record. Net lives on the Competition tab (games are scored on net) and
+// in one "played to your handicap" line under the handicap chart.
 function ScoringTab({ d }) {
-  const { gross: g, net: n } = d
+  const g = d.gross
   const counts = [
     ['Holes in one', 'aces'], ['Albatrosses', 'albatrosses'], ['Eagles', 'eagles'], ['Birdies', 'birdies'],
     ['Pars', 'pars'], ['Bogeys', 'bogeys'], ['Double bogeys', 'doubles'], ['Triple bogeys or worse', 'triples'],
   ]
+  const th = d.toHandicap
   return (
     <>
-      <Tile title="Scoring average" note={g.roundsCounted ? `${g.roundsCounted} full 18-hole round${g.roundsCounted === 1 ? '' : 's'}` : null}>
+      <Tile title="Scoring" note={g.roundsCounted ? `gross · ${g.roundsCounted} full 18-hole round${g.roundsCounted === 1 ? '' : 's'}` : 'gross'}>
         {g.roundsCounted
-          ? <Cols items={[{ label: 'Gross', value: one(g.average) }, { label: 'Net', value: one(n.average) }]} />
+          ? <Cols items={[
+              { label: 'Average', value: one(g.average) },
+              { label: 'Best', value: g.best?.total ?? '—', where: roundWhere(g.best) },
+              { label: 'Worst', value: g.worst?.total ?? '—', where: g.roundsCounted > 1 ? roundWhere(g.worst) : null },
+            ]} />
           : <div style={{ ...s.note, marginTop: 0, textAlign: 'center' }}>Finish an 18-hole round to see your average.</div>}
       </Tile>
-      {g.best && (
-        <Tile title="Best round">
-          <Cols items={[
-            { label: 'Gross', value: g.best.total, where: roundWhere(g.best) },
-            { label: 'Net', value: n.best.total, where: roundWhere(n.best) },
-          ]} />
-        </Tile>
-      )}
-      {g.worst && g.roundsCounted > 1 && (
-        <Tile title="Worst round">
-          <Cols items={[
-            { label: 'Gross', value: g.worst.total, where: roundWhere(g.worst) },
-            { label: 'Net', value: n.worst.total, where: roundWhere(n.worst) },
-          ]} />
-        </Tile>
-      )}
       {d.handicap.length > 0 && (
-        <Tile title="Handicap index" note="at each trip"><HandicapTrend points={d.handicap} /></Tile>
+        <Tile title="Handicap index" note="at each trip">
+          <HandicapTrend points={d.handicap} />
+          {th.rounds > 0 && (
+            <div style={{ borderTop: `1px solid ${ROW_LINE}`, marginTop: 10, paddingTop: 10 }}>
+              <Cols items={[{ label: 'Played to your handicap', value: `${th.made} of ${th.rounds}`, sub: 'full rounds at net par or better' }]} />
+            </div>
+          )}
+        </Tile>
       )}
-      <Tile title="Where the strokes go" note="average vs par">
-        <GrossNetTable rows={[
-          { label: 'Par 3s', gross: vsPar(g.byPar[3].vsPar), net: vsPar(n.byPar[3].vsPar) },
-          { label: 'Par 4s', gross: vsPar(g.byPar[4].vsPar), net: vsPar(n.byPar[4].vsPar) },
-          { label: 'Par 5s', gross: vsPar(g.byPar[5].vsPar), net: vsPar(n.byPar[5].vsPar) },
-          { label: 'Hardest 6 holes', gross: vsPar(g.hardest), net: vsPar(n.hardest) },
-          { label: 'Front 9 average', gross: one(g.front), net: one(n.front) },
-          { label: 'Back 9 average', gross: one(g.back), net: one(n.back) },
-          { label: 'Bounce-back', gross: pct(g.bounceBack), net: pct(n.bounceBack) },
+      <Tile title="Where the strokes go" note="gross · average vs par">
+        <StatList rows={[
+          { label: 'Par 3s', value: vsPar(g.byPar[3].vsPar) },
+          { label: 'Par 4s', value: vsPar(g.byPar[4].vsPar) },
+          { label: 'Par 5s', value: vsPar(g.byPar[5].vsPar) },
+          { label: 'Hardest 6 holes', value: vsPar(g.hardest) },
+          { label: 'Front 9 average', value: one(g.front) },
+          { label: 'Back 9 average', value: one(g.back) },
+          { label: 'Bounce-back', value: pct(g.bounceBack) },
         ]} />
         <div style={s.note}>Hardest 6 = the holes with stroke index 1–6. Bounce-back = par or better on the hole right after a bogey or worse.</div>
       </Tile>
-      <Tile title="Score totals" note={`${d.totals.holes} holes`}>
-        <GrossNetTable rows={counts.map(([label, k]) => ({ label, gross: g.counts[k], net: k === 'aces' ? '—' : n.counts[k] }))} />
-        <div style={s.note}>A hole in one also counts in its own row (an ace on a par 3 is an eagle). Holes in one are gross only.</div>
+      <Tile title="Score totals" note={`gross · ${d.totals.holes} holes`}>
+        <StatList rows={counts.map(([label, k]) => ({ label, value: g.counts[k] }))} />
+        <div style={s.note}>A hole in one also counts in its own row (an ace on a par 3 is an eagle).</div>
       </Tile>
     </>
   )

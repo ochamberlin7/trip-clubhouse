@@ -268,3 +268,14 @@ test('finishRank reads every finish label', () => {
   assert.equal(finishRank('11th of 12'), 11)
   assert.equal(finishRank(null), null)
 })
+
+test('played to handicap: full rounds with net par or better', () => {
+  // A plays off 6: round 1 bogeys SI 1–6 (net 72 = par → made), round 2 bogeys SI 1–7 (net 73 → not).
+  const r1 = round('R1', { date: '2026-06-01' }), r2 = round('R2', { date: '2026-06-02' })
+  const t = trip('T1', [r1, r2], { hcp: 6 })
+  t.scores = t.scores.map(sc => (sc.trip_player_id === 'T1A'
+    ? { ...sc, gross_score: PARS[sc.hole_number - 1] + (sc.hole_number <= (sc.round_id === 'R1' ? 6 : 7) ? 1 : 0) }
+    : sc))
+  const d = buildCareerDetail([t], 'U')
+  assert.deepEqual(d.toHandicap, { rounds: 2, made: 1 })
+})

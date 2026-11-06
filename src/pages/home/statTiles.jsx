@@ -71,22 +71,6 @@ export function Cols({ items }) {
   )
 }
 
-export function GrossNetTable({ rows }) {
-  return (
-    <table style={s.table}>
-      <thead><tr><th style={{ ...s.th, width: 'auto' }} /><th style={s.th}>Gross</th><th style={s.th}>Net</th></tr></thead>
-      <tbody>
-        {rows.map(r => (
-          <tr key={r.label}>
-            <td style={s.tdName}>{r.label}</td>
-            <td style={s.td}>{r.gross}</td>
-            <td style={{ ...s.td, ...(r.net === '—' ? { color: '#9AA6B5', fontWeight: 400 } : null) }}>{r.net}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
 
 export function PeopleTile({ title, list, lead, leadIf, unit = 'match' }) {
   if (!list.length) return null
@@ -117,5 +101,21 @@ export function CareerSwitch({ value, onChange }) {
         ))}
       </div>
     </div>
+  )
+}
+
+// Label on the left, value on the right, one row per stat (gross-only lists).
+export function StatList({ rows }) {
+  return (
+    <table style={s.table}>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={r.label}>
+            <td style={{ ...s.tdName, ...(i === 0 ? { borderTop: 'none' } : null) }}>{r.label}</td>
+            <td style={{ ...s.td, ...(i === 0 ? { borderTop: 'none' } : null) }}>{r.value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }

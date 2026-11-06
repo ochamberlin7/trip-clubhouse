@@ -77,12 +77,12 @@ test('a tied trip says so; an unnamed winning team reads "Team 2"', () => {
 
 test('leaderboards rank everyone; ties share a rank; lower is better for averages', () => {
   const g = buildGroupStats([trip('T1', '2026-06-01', { gross: { A: (h, p) => p - 1, C: (h, p) => p + 1 } })], 'U', NOW)
-  const avg = rankLeaderboard(g, 'avg', 'gross')
+  const avg = rankLeaderboard(g, 'avg')
   assert.deepEqual(avg.map(r => [r.member.name, r.v, r.rank]), [['Owen C', 54, 1], ['Ben Cole', 72, 2], ['Dan Smith', 72, 2], ['Mike Ross', 90, 4]])
   const titles = rankLeaderboard(g, 'titles')
   assert.equal(titles[0].v, 1) // Owen and Ben won the trip
   assert.deepEqual(titles.filter(r => r.v === 1).map(r => r.member.name), ['Ben Cole', 'Owen C'])
-  const best = rankLeaderboard(g, 'best', 'gross')
+  const best = rankLeaderboard(g, 'best')
   assert.equal(best[0].where.course, 'Pine')
 })
 

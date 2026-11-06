@@ -138,7 +138,7 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
     for (const r of sortedRounds) {
       const holes = courseHoles.filter(h => h.round_id === r.id).sort((a, b) => a.hole_number - b.hole_number)
       const ph = shots.get(r.id)?.get(me.id) ?? 0
-      let scored = 0, gTot = 0, nTot = 0, gFront = 0, gBack = 0, nFront = 0, nBack = 0, gBirdies = 0
+      let scored = 0, gTot = 0, nTot = 0, gFront = 0, gBack = 0, nFront = 0, nBack = 0, gBirdies = 0, parTot = 0, parKnown = true
       const prev = { g: null, n: null }
       for (const h of holes) {
         const g = gByKey.get(`${r.id}:${h.hole_number}`)
@@ -146,7 +146,8 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
         const n = g - strokesOnHole(ph, h.stroke_index)
         scored++; gTot += g; nTot += n
         if (h.hole_number <= 9) { gFront += g; nFront += n } else { gBack += g; nBack += n }
-        if (h.par == null) { prev.g = null; prev.n = null; continue }
+        if (h.par == null) { parKnown = false; prev.g = null; prev.n = null; continue }
+        parTot += h.par
         for (const [m, v, key] of [[gross, g, 'g'], [net, n, 'n']]) {
           const diff = v - h.par
           if (key === 'g' && diff <= -1) gBirdies++ // birdie or better (gross), for "most birdies in a round"
@@ -163,7 +164,7 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
       const where = { tripName: t.tripName, course: roundCourseName(r), date: r.date || null }
       if (complete18) {
         gross.rounds.push({ total: gTot, front: gFront, back: gBack, ...where })
-        net.rounds.push({ total: nTot, front: nFront, back: nBack, ...where })
+        net.rounds.push({ total: nTot, front: nFront, back: nBack, par: parKnown ? parTot : null, ...where })
       }
       roundsList.push({ roundId: r.id, ...where, gross: gTot, net: nTot, birdies: gBirdies, holesScored: scored, holeCount, complete: scored >= holeCount, practice: isPracticeRound(r) })
     }
@@ -279,6 +280,13 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
     gross: finishMode(gross),
     net: finishMode(net),
     handicap,
+    // Played to your handicap (Owen 2026-11-06: scoring stats are gross; this is
+    // the one net number on the Scoring tab): full 18-hole rounds where your net
+    // score (full playing handicap) was par or better.
+    toHandicap: {
+      rounds: net.rounds.filter(r => r.par != null).length,
+      made: net.rounds.filter(r => r.par != null && r.total <= r.par).length,
+    },
     competition: {
       // Trips won: team titles plus outright individual wins. Top 3: any finish 1st–3rd.
       titles: finished.filter(t => t.finish === 'Champion' || t.finish === 'Winner').length,
