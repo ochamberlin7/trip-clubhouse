@@ -67,11 +67,13 @@ test('Warrior / Workhorse: per day and per trip, only when you lead your team', 
   const gross = (p, h) => ({ A: h === 1 ? 3 : 4, B: h === 1 ? 4 : 5, C: h === 1 ? 3 : 5, D: 5 })[p]
   const m = computeBadges([trip({ rounds: [round('R1', '2026-10-01')], gross })], 'U', NOW)
   for (const id of ['warrior_day', 'warrior_trip', 'workhorse_day', 'workhorse_trip']) assert.equal(got(m, id).earned, true, id)
-  // Trip still going → no trip-level badges yet, day ones still count.
+  // Trip still going → nothing from it yet (Owen 2026-11-06: badges count finished
+  // trips only), not even the day badges; Tee Time still counts (you're on it).
   const live = computeBadges([trip({ rounds: [round('R1', '2026-10-26')], gross, start: '2026-10-26', end: '2026-10-29' })], 'U', NOW)
-  assert.equal(got(live, 'warrior_day').earned, true)
+  assert.equal(got(live, 'warrior_day').earned, false)
   assert.equal(got(live, 'warrior_trip').earned, false)
   assert.equal(got(live, 'first_trip').earned, false)
+  assert.equal(got(live, 'tee_time').earned, true)
 })
 
 test('badges are earned once (first time kept); milestones tier up; no Champion without teams', () => {
@@ -203,4 +205,28 @@ test('Home shelf: Albatross outranks the ace and hides Eagle; trip badges hide t
 
 test('Hole in One reads HiO', () => {
   assert.equal(BADGES.find(b => b.id === 'hole_in_one').mark, 'HiO')
+})
+
+test("an unfinished round earns no scoring badges", () => {
+  // A birdies holes 1-5 then stops after 9 holes: no Hat Trick from that round.
+  const t = trip({ rounds: [round('R1', '2026-10-01')], gross: (p, h) => (p === 'A' ? (h <= 5 ? 3 : 4) : 5) })
+  t.scores = t.scores.filter(s => s.trip_player_id !== 'A' || s.hole_number <= 9)
+  const m = computeBadges([t], 'U', NOW)
+  assert.equal(got(m, 'hat_trick').earned, false)
+  assert.equal(got(m, 'birdie_bonanza').earned, false)
+})
+
+test('past trips (old spreadsheets): Tee Time, First Trip, Trip Veteran and Champion', async () => {
+  const { pastTripRows } = await import('./pastTrips.js')
+  const T = (id, start, rank1, rank2) => ({ id, group_id: 'g', name: `Past ${id}`, start_date: start, end_date: start, rounds: 5, courses: [], result_kind: 'team',
+    teams: [{ index: 1, name: 'Us', points: null, rank: rank1 }, { index: 2, name: 'Them', points: null, rank: rank2 }] })
+  const rows = pastTripRows([T('P1', '2022-08-11', 1, 2), T('P2', '2023-06-08', 2, 1), T('P3', '2024-10-10', 1, 1)],
+    ['P1', 'P2', 'P3'].map(id => ({ past_trip_id: id, user_id: 'U', name: 'Owen C', handicap_index: 10, team_index: 1 })))
+  const m = computeBadges(rows, 'U', NOW)
+  assert.equal(got(m, 'tee_time').earned, true)
+  assert.equal(got(m, 'first_trip').earned, true)
+  assert.equal(got(m, 'trip_veteran').earned, true)  // 3 finished trips
+  assert.equal(got(m, 'champion').count, 1)          // P1 outright; P3 was a tie
+  assert.equal(got(m, 'rounds').earned, false)       // no scorecards, so no rounds
+  assert.equal(got(m, 'hat_trick').earned, false)
 })

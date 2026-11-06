@@ -17,7 +17,7 @@ import {
 import { courseHolesFromRounds } from './playerStats.js'
 import { buildDailyLeaders } from './dailyLeaders.js'
 import { tripTimeStatus } from './myTrips.js'
-import { tripFinishes } from './careerStats.js'
+import { tripFinishes, finishedOnly } from './careerStats.js'
 
 export const BADGE_GROUPS = [
   { id: 'journey', title: 'Journey' },
@@ -74,7 +74,11 @@ export const BADGES = [
 // Returns Map(badgeId → { earned, count, tier, events: [{ date, tripName, detail }] }).
 // One-time badges: events holds only the FIRST time it was earned (count is 0 or 1).
 // `tier` is 0/1/2 (bronze/silver/gold) for tiered badges, else null.
-export function computeBadges(perTrip = [], userId, now = new Date()) {
+// Badges count FINISHED trips and rounds only (Owen 2026-11-06, like the stats:
+// finishedOnly in careerStats.js), except joining / creating a trip, which count
+// right away. Past trips from the old spreadsheets (t.past: roster + result, no
+// scores) earn Tee Time, First Trip, Trip Veteran and Champion.
+export function computeBadges(allTrips = [], userId, now = new Date()) {
   const ev = new Map(BADGES.map(b => [b.id, []]))
   const add = (id, e) => ev.get(id).push(e)
   let finishedTrips = 0, fullRounds = 0
@@ -82,13 +86,24 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
   // Joined the Club: you have an account — earned on sign-up, trips or not.
   if (userId) add('joined', {})
 
-  for (const t of perTrip) {
+  const isMe = p => p.user_id === userId || p.claimed_user_id === userId
+  for (const t of allTrips) {
     // Commissioner: you created this trip (trips.created_by), roster or not.
     if (userId && t.trip?.created_by === userId) add('commissioner', { date: t.trip?.start_date, tripName: t.tripName || '' })
-    const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
-    if (!me) continue
     // Tee Time: you're on a trip's roster (counts before any score).
-    add('tee_time', { date: t.trip?.start_date, tripName: t.tripName || '' })
+    if ((t.tripPlayers || []).some(isMe)) add('tee_time', { date: t.trip?.start_date, tripName: t.tripName || '' })
+  }
+
+  const perTrip = finishedOnly(allTrips, now)
+  for (const t of perTrip) {
+    const me = (t.tripPlayers || []).find(isMe)
+    if (!me) continue
+    if (t.past) {
+      // A past trip is a finished trip; there are no scores for the rest.
+      finishedTrips++
+      add('first_trip', { date: t.trip?.end_date, tripName: t.tripName || '' })
+      continue
+    }
     const rounds = (t.rounds || []).filter(r => r && !isNoneRound(r))
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue

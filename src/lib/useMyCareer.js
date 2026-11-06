@@ -42,11 +42,12 @@ export function useMyCareer(userId) {
       const [perTrip, past] = await Promise.all([loadCareerData(supabase, rows.map(t => t.id)), loadMyPastTrips(supabase, userId)])
       if (cancelled) return
       // Past trips (pastTrips.js: from the old spreadsheets, no scores) count toward
-      // trips, handicap and finishes; badges stay scorecard-only.
+      // trips, handicap, finishes and the badges they can earn.
       // Stats count finished trips and finished rounds only (finishedOnly).
       const withPast = finishedOnly([...perTrip, ...past])
       const career = buildCareer(withPast, userId)
-      const badges = computeBadges(perTrip, userId)
+      // Badges: every trip incl. past ones; computeBadges applies finishedOnly itself.
+      const badges = computeBadges([...perTrip, ...past], userId)
       // Team finishes, plus your own place on individual Stableford / stroke play trips.
       const finishes = new Map([...tripFinishes(withPast, userId), ...individualFinishes(withPast, userId)])
       const detail = buildCareerDetail(withPast, userId)
