@@ -31,6 +31,7 @@ import TripDatesBody from './TripDatesBody'
 import TeamCountBody from './TeamCountBody'
 import { StripePage, StripeSection, StripeRow, StripeInviteRow, StripeDanger, TripNameBody } from './StripeRows'
 import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL, leaveTrip, leaveTripBlockReason } from '../lib/roster'
+import { transferCommissioner } from '../lib/commissioner'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -356,15 +357,16 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
     email: player.email || '',
     handicap_index: player.handicap_index ?? '', team_id: player.team_id || '', phone: player.phone || '',
     is_captain: !!player.is_captain,
-    is_commissioner: !!commissioner,
   })
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  // Co-commissioner: only for a player who has joined with an account. You can't
-  // untick yourself; another commissioner removes you (so a trip always has one).
+  const [confirmTransfer, setConfirmTransfer] = useState(false)
+  // "Make commissioner" hands the job for THIS trip to another player (you lose it).
+  // Shown on every other player's card; only someone who has joined with an
+  // account can take it, so it's greyed out for players who haven't joined yet.
   const accountId = player.claimed_user_id || player.user_id || null
-  const canSetCommissioner = isCommissioner && !!accountId && !isOwnCard
+  const canOfferCommissioner = isCommissioner && !isOwnCard && !isPlaceholderPlayer(player) && !commissioner
   const [confirmRemove, setConfirmRemove] = useState(false)
   const isOpenSpot = isPlaceholderPlayer(player)
   // Commissioner-only, before the trip starts, never on their own card or an empty spot.
@@ -406,17 +408,8 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
       await supabase.from('trip_players').update({ is_captain: false })
         .eq('team_id', form.team_id).neq('id', player.id)
     }
-    // Make / unmake co-commissioner of THIS trip (trip_commissioners, migration 20260680).
-    let commError = null
-    if (!error && canSetCommissioner && form.is_commissioner !== !!commissioner) {
-      const res = form.is_commissioner
-        ? await supabase.from('trip_commissioners').insert({ trip_id: player.trip_id, user_id: accountId })
-        : await supabase.from('trip_commissioners').delete().eq('trip_id', player.trip_id).eq('user_id', accountId)
-      commError = res.error
-    }
     setSaving(false)
-    setSaveError(error ? 'Couldn\'t save. Try again.' : commError ? 'Saved, but the commissioner change didn\'t go through.' : '')
-    if (commError) return
+    setSaveError(error ? 'Couldn\'t save. Try again.' : '')
     // Filling an empty spot → the Players page pops up the invite link for them.
     const filledSpot = isOpenSpot && isCommissioner && !!payload.first_name
     if (!error) onSaved(filledSpot ? { invite: [payload.first_name, payload.last_name].filter(Boolean).join(' ') } : undefined)
@@ -474,6 +467,14 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           )}
         </div>
       )}
+      {confirmTransfer && (
+        <TransferCommissionerModal
+          player={player}
+          toUserId={accountId}
+          fromUserId={currentUserId}
+          onClose={() => setConfirmTransfer(false)}
+        />
+      )}
       {confirmRemove && (
         <RemovePlayerModal
           player={{ ...player, is_commissioner: commissioner }}
@@ -530,19 +531,18 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               )}
             </label>
           )}
-          {/* Co-commissioner of this trip only (same custom checkbox as Captain). */}
-          {canSetCommissioner && (
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content', padding: '2px 0' }}>
-              <input type="checkbox" checked={!!form.is_commissioner} onChange={e => setForm({ ...form, is_commissioner: e.target.checked })} style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }} />
-              <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${form.is_commissioner ? '#1B3F6E' : '#C4CEDA'}`, background: form.is_commissioner ? '#1B3F6E' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
-                {form.is_commissioner && <CheckIcon />}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>Commissioner</span>
-              <span style={{ fontSize: 11, color: '#7A8FA6' }}>this trip only</span>
-            </label>
-          )}
-          {isCommissioner && isOwnCard && commissioner && (
-            <span style={{ fontSize: 11, color: '#7A8FA6' }}>To hand over the job, make someone else a commissioner; they can then remove you.</span>
+          {/* Make commissioner: ticking opens the hand-over pop-up (same custom box as Captain). */}
+          {canOfferCommissioner && (
+            <div>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: accountId ? 'pointer' : 'default', width: 'fit-content', padding: '2px 0', opacity: accountId ? 1 : 0.5 }}>
+                <input type="checkbox" checked={confirmTransfer} disabled={!accountId} onChange={e => e.target.checked && setConfirmTransfer(true)} style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }} />
+                <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${confirmTransfer ? '#1B3F6E' : '#C4CEDA'}`, background: confirmTransfer ? '#1B3F6E' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+                  {confirmTransfer && <CheckIcon />}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>Make commissioner</span>
+              </label>
+              {!accountId && <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 2 }}>Available once {player.first_name || 'they'} {player.first_name ? 'joins' : 'join'} the trip.</div>}
+            </div>
           )}
           <label style={{ display: 'block' }}>
             <span style={pc.editLabel}>Phone</span>
@@ -570,6 +570,35 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
 
 // Centered "are you sure" pop-up for removing a player. Portaled to <body> so it
 // sits above the drawer. The write goes through src/lib/roster.js.
+// "Make commissioner" pop-up: hands this trip's commissioner job to the player.
+// On success the page reloads so every screen drops your commissioner tools.
+function TransferCommissionerModal({ player, toUserId, fromUserId, onClose }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  async function confirm() {
+    setBusy(true); setErr(null)
+    const { error } = await transferCommissioner(supabase, { tripId: player.trip_id, toUserId, fromUserId })
+    if (error) { setBusy(false); setErr(error.message || 'Something went wrong.'); return }
+    window.location.reload()
+  }
+  return createPortal(
+    <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={() => !busy && onClose()}>
+      <div style={{ ...s.modalSheet, maxWidth: 360, textAlign: 'center' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>Make {player.name} commissioner?</div>
+        <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.45 }}>
+          You are about to transfer commissioner duties for this trip to {player.name}. You will lose all commissioner authority for this trip. Are you sure?
+        </div>
+        {err && <div style={{ marginTop: 10, fontSize: 12, color: '#C0392B' }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
+          <button onClick={onClose} disabled={busy} style={{ background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={confirm} disabled={busy} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Transferring…' : 'Yes, transfer'}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function RemovePlayerModal({ player, groupId, rosterLocked, onClose, onRemoved }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
