@@ -226,6 +226,7 @@ function LeadersTab({ d }) {
   const def = boards.find(b => b.id === id) || boards[0]
   const rows = rankLeaderboard(d, def.id)
   const bar = barScale(def, rows)
+  if (!d.members.length) return <div style={s.empty}>Leaders show up here once the group has played a round.</div>
   return (
     <>
       <div style={g.pills} role="tablist" aria-label="Leaderboard">
@@ -277,6 +278,8 @@ function RivalsTab({ d }) {
   const h2h = headToHead(d, mode)
   const member = d.members.find(m => m.key === key) || d.members[0]
   const { partners, opponents } = rivalsOf(member)
+  // Nobody has scored with this group yet (e.g. its only trip is still upcoming).
+  if (!member) return <div style={s.empty}>Rivals show up here once the group has played a round.</div>
   return (
     <>
       <Tile title="Head to head" note="row player's record">

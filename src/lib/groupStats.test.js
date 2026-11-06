@@ -205,3 +205,13 @@ test('averages by trip: oldest first, null when a member missed a trip', () => {
   assert.deepEqual(c.trips.map(t => t.year), ['2026', '2027'])
   assert.deepEqual(c.lines.find(l => l.name === 'Dan Smith').values, [72, null])
 })
+
+test('a group whose only trip has no scores yet: no members, and the rivals helpers still work', () => {
+  const t = { ...trip('Z', '2028-05-01'), scores: [] }
+  const g = buildGroupStats([t], 'U', NOW)
+  assert.equal(g.members.length, 0)
+  assert.equal(g.hasMatchPlay, true) // why the Rivals tab used to crash: match play, but nobody to pick
+  assert.deepEqual(rivalsOf(undefined), { partners: [], opponents: [] })
+  assert.equal(headToHead(g, 'matches').order.length, 0)
+  assert.equal(headToHead(g, 'rounds').order.length, 0)
+})
