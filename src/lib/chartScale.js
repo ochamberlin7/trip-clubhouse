@@ -11,7 +11,7 @@ export function niceScale(values, { pad = 0.5, step: fixed, maxGaps = 6 } = {}) 
   let step = fixed
   if (!step) {
     const raw = span / 5, mag = 10 ** Math.floor(Math.log10(raw || 1))
-    step = [1, 2, 5, 10].map(m => m * mag).find(c => Math.ceil(hi / c - 1e-9) - Math.floor(lo / c + 1e-9) <= maxGaps) || 10 * mag
+    step = [1, 2, 5, 10, 20, 50].map(m => m * mag).find(c => Math.ceil(hi / c - 1e-9) - Math.floor(lo / c + 1e-9) <= maxGaps) || 10 * mag
     if (step < 1) step = Math.max(0.5, step) // whole or half strokes only
   }
   lo = Math.floor(lo / step) * step

@@ -30,15 +30,39 @@ export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi,
   const top = 18, bot = height - 26
   // Enough room on the left that the first label isn't cut off (~5.6px a character).
   const pad = Math.max(22, xTicks ? 0 : Math.ceil(String(labels[0] || '').length * 2.9) + 4)
-  const xAt = xs ? (i => pad + xs[i]) : (i => pad + i * step)
-  const width = Math.max(pad * 2 + Math.max(xs ? Math.max(0, ...xs) : step * Math.max(0, labels.length - 1), ...(xTicks || []).map(t => t.x)) + endPad, 120)
+  // Fill the card when there are only a few points (Owen 2026-11-06): stretch the
+  // x positions across the width the chart has; scroll only when they don't fit.
+  const [avail, setAvail] = useState(0)
+  const span = Math.max(xs ? Math.max(0, ...xs) : step * Math.max(0, labels.length - 1), ...(xTicks || []).map(t => t.x))
+  const rightPad = series.some(s => s.endLabel) ? endPad : Math.max(22, Math.ceil(String(labels.at(-1) || '').length * 2.9) + 4)
+  // Evenly spaced points may squeeze closer (down to about a label's width) to fit
+  // without scrolling; real-date positions (xs) only stretch.
+  const longest = Math.max(0, ...labels.map(l => String(l || '').length))
+  const minK = xs ? 1 : Math.min(1, Math.max(56, longest * 5.6 + 12) / step)
+  const fill = avail > 0 && avail >= pad + rightPad + span * minK
+  // Too many to fit: scroll, at the closest spacing so more trips show at once.
+  const k = fill ? (span > 0 ? Math.max(minK, (avail - pad - rightPad) / span) : 1) : minK
+  const natural = Math.max(pad + span * k + rightPad, 120)
+  const shift = fill && span === 0 ? avail / 2 - pad : 0 // a single point sits in the middle
+  const px = x => pad + shift + x * k
+  const xAt = xs ? (i => px(xs[i])) : (i => px(i * step))
+  const width = fill ? avail : natural
+  useLayoutEffect(() => {
+    const b = bodyRef.current
+    if (!b) return
+    const measure = () => setAvail(b.clientWidth)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    ro.observe(b)
+    return () => ro.disconnect()
+  }, [])
   const y = v => bot - (v - lo) / (hi - lo || 1) * (bot - top)
   useLayoutEffect(() => {
     const b = bodyRef.current
     if (!b) return
     b.scrollLeft = b.scrollWidth
     setScrolls(b.scrollWidth > b.clientWidth + 4)
-    // Again once layout settles (fonts, tile width), so it opens on the very end.
     // Again once layout settles (fonts, tile width, the hint line), so it opens on the very end.
     const end = () => { b.scrollLeft = b.scrollWidth }
     const id = requestAnimationFrame(end)
@@ -64,8 +88,8 @@ export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi,
             {xTicks
               ? xTicks.map(t => (
                 <g key={t.label}>
-                  <line x1={pad + t.x} x2={pad + t.x} y1={bot} y2={bot + 4} stroke="#C9D3E0" />
-                  <text x={pad + t.x} y={height - 8} textAnchor="middle" style={txt}>{t.label}</text>
+                  <line x1={px(t.x)} x2={px(t.x)} y1={bot} y2={bot + 4} stroke="#C9D3E0" />
+                  <text x={px(t.x)} y={height - 8} textAnchor="middle" style={txt}>{t.label}</text>
                 </g>
               ))
               : labels.map((l, i) => <text key={`${l}${i}`} x={xAt(i)} y={height - 8} textAnchor="middle" style={txt}>{l}</text>)}

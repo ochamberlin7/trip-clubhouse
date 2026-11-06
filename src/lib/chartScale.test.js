@@ -24,3 +24,9 @@ test('niceScale: maxGaps gives a short chart fewer gridlines', () => {
   assert.ok(few.ticks.length < many.ticks.length)
   assert.ok(few.lo <= 74.5 && few.hi >= 87.5)
 })
+
+test('niceScale: one value still gets few gridlines on a short chart', () => {
+  const r = niceScale([76.5], { pad: 2, maxGaps: 3 })
+  assert.ok(r.ticks.length <= 4)
+  assert.ok(r.lo <= 74.5 && r.hi >= 78.5)
+})
