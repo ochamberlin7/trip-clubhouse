@@ -6,11 +6,11 @@ export function niceScale(values, { pad = 0.5, step: fixed } = {}) {
   if (!vs.length) return { lo: 0, hi: 1, ticks: [0, 1] }
   let lo = Math.min(...vs) - pad, hi = Math.max(...vs) + pad
   const span = hi - lo
-  // About five gridlines: the smallest "nice" step (1, 2, 2.5, 5 × 10^k) giving ≤ 6 gaps.
+  // About five gridlines: the smallest "nice" step (1, 2, 5 × 10^k) giving ≤ 6 gaps.
   let step = fixed
   if (!step) {
     const raw = span / 5, mag = 10 ** Math.floor(Math.log10(raw || 1))
-    step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(c => span / c <= 6) || 10 * mag
+    step = [1, 2, 5, 10].map(m => m * mag).find(c => span / c <= 6) || 10 * mag
     if (step < 1) step = Math.max(0.5, step) // whole or half strokes only
   }
   lo = Math.floor(lo / step) * step

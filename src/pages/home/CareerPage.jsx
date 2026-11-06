@@ -7,7 +7,7 @@ import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM } from './careerTheme'
 import { one, vsPar, pct, half, fmtDate, roundWhere, tripWhere, intVsPar, plural, formatLabel } from '../../lib/careerFormat'
 import { Tile, Cols, StatList, PeopleTile, CareerSwitch } from './statTiles'
-import { ScrollLineChart, ScoreMixBars, VsParDots } from './statCharts'
+import { ScrollLineChart, ScrollBarChart, ScoreMixBars, VsParDots } from './statCharts'
 import { niceScale } from '../../lib/chartScale'
 import { GroupStatsView } from './GroupStatsPage'
 import { useGroupStats } from '../../lib/useGroupStats'
@@ -24,22 +24,18 @@ const TABS = [{ id: 'scoring', label: 'Scoring' }, { id: 'competition', label: '
 
 
 // Scoring is gross only (Owen 2026-11-06, like 18Birdies / TheGrint / GHIN): it's
-// your real record. Net lives on the Competition tab (games are scored on net) and
-// in one "played to your handicap" line under the handicap chart. Charts from the
+// your real record; net lives on the Competition tab (games are scored on net).
+// Charts from the
 // "Stats Chart Upgrades" mockups: lower scores sit lower; line charts scroll.
 function ScoringTab({ d }) {
   const g = d.gross
-  const th = d.toHandicap
   // Gross average on each trip, oldest first (trips with a full 18-hole round).
   const byTrip = [...d.trips].reverse().filter(t => t.average != null)
   const last = byTrip.at(-1), prev = byTrip.at(-2)
   const delta = last && prev ? last.average - prev.average : null
   const avgScale = niceScale(byTrip.map(t => t.average), { pad: 1 })
-  // Handicap at each trip on a real time axis (80px a year).
+  // Handicap index at each trip, oldest first.
   const hc = d.handicap
-  const t0 = hc.length ? new Date(`${hc[0].date || '2020-01-01'}T12:00:00Z`) : null
-  const hcXs = hc.map(p => (p.date && t0 ? (new Date(`${p.date}T12:00:00Z`) - t0) / (365.25 * 864e5) * 80 : 0))
-  const hcScale = niceScale(hc.map(p => p.index), { pad: 0.5 })
   const mix = [
     { label: 'Eagle+', n: g.counts.eagles + g.counts.albatrosses, tone: 'eagle' },
     { label: 'Birdie', n: g.counts.birdies, tone: 'birdie' },
@@ -74,18 +70,11 @@ function ScoringTab({ d }) {
       </Tile>
       {hc.length > 0 && (
         <Tile title="Handicap index" note="at each trip">
-          {hc.length > 1 ? (
-            <ScrollLineChart
-              labels={hc.map(p => (p.date ? `${fmtDate(p.date, { month: 'short' })} ’${p.date.slice(2, 4)}` : ''))} xs={hcXs} height={124} area pointLabels
-              series={[{ key: 'hcp', title: 'Handicap index', values: hc.map(p => p.index), color: NAVY, lastDot: GOLD }]}
-              {...hcScale} fmt={v => (Number.isInteger(v) ? v : v.toFixed(1))}
-            />
-          ) : <Cols items={[{ label: hc[0].tripName, value: one(hc[0].index) }]} />}
-          {th.rounds > 0 && (
-            <div style={{ borderTop: `1px solid ${ROW_LINE}`, marginTop: 10, paddingTop: 10 }}>
-              <Cols items={[{ label: 'Played to your handicap', value: `${th.made} of ${th.rounds}`, sub: 'full rounds at net par or better' }]} />
-            </div>
-          )}
+          {/* One bar per trip, oldest left; opens on the latest (Owen 2026-11-06). */}
+          <ScrollBarChart
+            items={hc.map(p => ({ key: p.tripId, label: p.date ? `${fmtDate(p.date, { month: 'short' })} ’${p.date.slice(2, 4)}` : '', value: p.index, title: `${p.tripName}: ${one(p.index)}` }))}
+            fmt={v => one(v)}
+          />
         </Tile>
       )}
       <Tile title="Where the strokes go" note="gross · average vs par per hole">
@@ -339,8 +328,7 @@ export function CareerView({ detail, name, onBack, switcher }) {
     <div style={s.page}>
       <header style={s.mast}>
         <button style={s.back} onClick={onBack}>‹ Home</button>
-        {switcher}
-        <h1 style={{ ...s.title, marginTop: switcher ? 14 : 30 }}>Career stats</h1>
+        <h1 style={{ ...s.title, marginTop: 30 }}>Career stats</h1>
         {name && <div style={s.who}>{name}</div>}
         <div style={s.rule} />
         {(hi != null || since) && (
@@ -349,6 +337,8 @@ export function CareerView({ detail, name, onBack, switcher }) {
       </header>
 
       <div style={s.inner}>
+        {/* Individual | Group switch sits just under the navy header (Owen 2026-11-06). */}
+        {switcher}
         {!detail ? (
           <div style={s.empty}>Adding up your stats…</div>
         ) : (

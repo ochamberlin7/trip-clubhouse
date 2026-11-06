@@ -35,8 +35,11 @@ export function ScrollLineChart({ labels, xs, step = 76, series, lo, hi, ticks, 
     b.scrollLeft = b.scrollWidth
     setScrolls(b.scrollWidth > b.clientWidth + 4)
     // Again once layout settles (fonts, tile width), so it opens on the very end.
-    const id = requestAnimationFrame(() => { b.scrollLeft = b.scrollWidth })
-    return () => cancelAnimationFrame(id)
+    // Again once layout settles (fonts, tile width, the hint line), so it opens on the very end.
+    const end = () => { b.scrollLeft = b.scrollWidth }
+    const id = requestAnimationFrame(end)
+    const t = setTimeout(end, 120)
+    return () => { cancelAnimationFrame(id); clearTimeout(t) }
   }, [width])
   const segs = vals => {
     const out = []; let cur = []
@@ -83,6 +86,56 @@ export function ScrollLineChart({ labels, xs, step = 76, series, lo, hi, ticks, 
   )
 }
 
+
+// A scrolling column chart: one bar per item from a zero baseline (so a lower
+// value is a shorter bar), its value on top, its label underneath. Opens on the
+// latest (right end) and scrolls sideways once there are more than fit.
+//   items: [{ key, label, value, title? }]; the last bar is gold (now).
+export function ScrollBarChart({ items, step = 56, barW = 30, height = 130, fmt = v => v, color = NAVY, lastColor = '#B08A3E' }) {
+  const bodyRef = useRef(null)
+  const [scrolls, setScrolls] = useState(false)
+  const top = 18, bot = height - 24, pad = 10
+  const width = pad * 2 + step * items.length
+  const max = Math.max(1, ...items.map(i => i.value ?? 0))
+  const y = v => bot - (v / max) * (bot - top)
+  useLayoutEffect(() => {
+    const b = bodyRef.current
+    if (!b) return
+    b.scrollLeft = b.scrollWidth
+    setScrolls(b.scrollWidth > b.clientWidth + 4)
+    // Again once layout settles (fonts, tile width, the hint line), so it opens on the very end.
+    const end = () => { b.scrollLeft = b.scrollWidth }
+    const id = requestAnimationFrame(end)
+    const t = setTimeout(end, 120)
+    return () => { cancelAnimationFrame(id); clearTimeout(t) }
+  }, [width])
+  return (
+    <div>
+      <div ref={bodyRef} style={{ overflowX: 'auto', overscrollBehaviorX: 'contain', scrollbarWidth: 'none' }}>
+        <svg width={width} height={height} style={{ display: 'block' }} role="img" aria-label={items.map(i => `${i.label}: ${i.value == null ? '—' : fmt(i.value)}`).join(', ')}>
+          <line x1={0} x2={width} y1={bot} y2={bot} stroke={ROW_LINE} />
+          {items.map((it, i) => {
+            const cx = pad + step * i + step / 2, last = i === items.length - 1
+            return (
+              <g key={it.key}>
+                {it.value != null && (
+                  <>
+                    <rect x={cx - barW / 2} y={y(it.value)} width={barW} height={Math.max(0, bot - y(it.value))} rx="4" fill={last ? lastColor : color}>
+                      <title>{it.title || `${it.label}: ${fmt(it.value)}`}</title>
+                    </rect>
+                    <text x={cx} y={y(it.value) - 5} textAnchor="middle" style={val}>{fmt(it.value)}</text>
+                  </>
+                )}
+                <text x={cx} y={height - 8} textAnchor="middle" style={txt}>{it.label}</text>
+              </g>
+            )
+          })}
+        </svg>
+      </div>
+      {scrolls && <div style={{ fontSize: 10.5, color: '#9AA6B5', textAlign: 'right', marginTop: 2 }}>← swipe for earlier</div>}
+    </div>
+  )
+}
 
 // Score mix: one bar per score, best to worst (the order is the scale), each with
 // its count and share. counts: { eagles (incl. albatrosses), birdies, pars, bogeys, doubles, triples }.

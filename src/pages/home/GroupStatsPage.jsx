@@ -241,7 +241,7 @@ function LeadersTab({ d }) {
             <div key={r.member.key} style={{ ...g.row, ...(i === 0 ? { borderTop: 'none' } : null), ...(mine ? g.me : null) }}>
               <span style={{ ...g.name, fontWeight: mine ? 700 : 400, width: 128, flex: 'none' }}>{r.member.name}</span>
               <span style={{ flex: 1, minWidth: 0, height: 10, display: 'flex' }} aria-hidden="true">
-                {r.v != null && <span style={{ width: `${Math.max(2, bar(r.v) * 100)}%`, background: mine ? NAVY : CROWD, borderRadius: '0 4px 4px 0' }} />}
+                {r.v != null && bar(r.v) > 0 && <span style={{ width: `${bar(r.v) * 100}%`, background: mine ? NAVY : CROWD, borderRadius: '0 4px 4px 0' }} />}
               </span>
               <span style={{ ...g.value, marginLeft: 8, minWidth: 34, textAlign: 'right' }}>
                 {r.where && r.v != null ? <TapValue value={fmtVal(def, r.v)} where={roundWhere(r.where)} size="sm" /> : fmtVal(def, r.v)}
@@ -323,12 +323,13 @@ export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, 
     <div style={s.page}>
       <header style={s.mast}>
         <button style={s.back} onClick={onBack}>‹ Home</button>
-        {switcher}
-        <h1 style={{ ...s.title, marginTop: switcher ? 14 : 30 }}>Career stats</h1>
+        <h1 style={{ ...s.title, marginTop: 30 }}>Career stats</h1>
         <div style={s.rule} />
       </header>
 
       <div style={s.inner}>
+        {/* Individual | Group switch sits just under the navy header (Owen 2026-11-06). */}
+        {switcher}
         {groups == null ? <div style={s.empty}>Loading your groups…</div>
           : groups.length === 0 ? <div style={s.empty}>Your groups show up here after your first trip.</div>
             : (

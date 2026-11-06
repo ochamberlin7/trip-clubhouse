@@ -90,7 +90,7 @@ export function PeopleTile({ title, list, lead, leadIf, unit = 'match' }) {
   )
 }
 
-// Career stats: Individual | Group, at the top of the masthead (Owen 2026-11-06:
+// Career stats: Individual | Group, just under the navy header (Owen 2026-11-06:
 // one Career stats page for both).
 export function CareerSwitch({ value, onChange }) {
   return (
