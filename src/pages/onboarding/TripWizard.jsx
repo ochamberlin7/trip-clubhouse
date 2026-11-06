@@ -88,7 +88,7 @@ function StepTripDetails({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      <p className="wz-intro">{groups.length ? 'Pick your group, name the trip, then pick your dates.' : 'Name your group and trip, then pick your dates.'}</p>
+      <p className="wz-intro">{groups.length ? 'Pick or create your group, name the trip, then pick your dates.' : 'Name your group and trip, then pick your dates.'}</p>
       {/* Section stripes (design V1): "The trip" and "Dates", each with a short
           summary on the right. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -99,9 +99,6 @@ function StepTripDetails({
         <div>
           <label className="wz-label">Group</label>
           <GroupPicker groups={groups} value={groupId} onChange={setGroupId} />
-          {groupId !== NEW_GROUP && (
-            <p className="wz-hint">This trip joins <b>{groups.find(g => g.id === groupId)?.name}</b> and counts toward the group's history and stats. You'll be this trip's commissioner.</p>
-          )}
         </div>
       )}
       {groupId === NEW_GROUP && (
