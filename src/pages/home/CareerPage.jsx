@@ -293,7 +293,7 @@ function CompetitionTab({ d }) {
 
 function TripsTab({ d }) {
   const [open, setOpen] = useState(() => d.trips[0]?.tripId || null)
-  if (!d.trips.length) return <div style={s.empty}>Your trips show up here after your first round.</div>
+  if (!d.trips.length) return <div style={s.empty}>Your trips show up here once they're over.</div>
   return d.trips.map(t => {
     const isOpen = open === t.tripId
     return (

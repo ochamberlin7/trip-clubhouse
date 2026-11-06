@@ -9,6 +9,7 @@ import { rankRows } from './statRanks.js'
 import { tripTimeStatus } from './myTrips.js'
 import { getTeamDisplayName } from './teamColors.js'
 import { pastResult } from './pastTrips.js'
+import { withAllScores } from './careerStats.js'
 import {
   playerName, tripGameType, isIndividualGameType, teamStandingsFromRows,
   individualStandings, roundCourseName, isNoneRound,
@@ -37,8 +38,9 @@ function teamFormatName(trip, hasTeams) {
 //              is over; null before that. Ties say "Tied: A & B".
 // unit: 'points' (match play / Stableford: most wins), 'match points' (Standard
 // Match Play), or 'net' (stroke play: net to par, lowest wins).
-export function tripResult(t, now = new Date()) {
-  if (t.past) return pastResult(t, playerName) // the result recorded from the old spreadsheet
+export function tripResult(row, now = new Date()) {
+  if (row.past) return pastResult(row, playerName) // the result recorded from the old spreadsheet
+  const t = withAllScores(row) // results use every score, like the trip's Leaderboard
   const gt = tripGameType(t.trip)
   if (!gt) return { standings: null, winner: null }
   const over = tripTimeStatus(t.trip, now) === 'past'
@@ -250,11 +252,12 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
         // Rounds played; a trip that hasn't started shows the rounds on its schedule.
         rounds: playedRounds.length || (tripTimeStatus(t.trip, now) === 'upcoming' ? rounds.length : 0),
         playedRounds: playedRounds.length,
-        courses: [...new Set(rounds.map(roundCourseName).filter(Boolean))],
+        // Courses of the rounds actually finished (finishedOnly drops the rest).
+        courses: [...new Set(playedRounds.map(roundCourseName).filter(Boolean))],
         winner,
         // For the trip summary screen:
         location: [...new Set(rounds.map(r => [r.location_city, r.location_state].filter(Boolean).join(', ')).filter(Boolean))],
-        roundList: sortedRounds.map(r => ({ id: r.id, date: r.date || null, course: roundCourseName(r) || 'Course TBD', practice: r.round_type === 'practice', played: scoredIds.has(r.id) })),
+        roundList: sortedRounds.filter(r => scoredIds.has(r.id)).map(r => ({ id: r.id, date: r.date || null, course: roundCourseName(r) || 'Course TBD', practice: r.round_type === 'practice', played: scoredIds.has(r.id) })),
         playerNames: people.map(p => playerName(p)).sort((a, b) => a.localeCompare(b)),
         teams: hasTeams
           ? (t.teams || []).slice().sort((a, b) => (a.team_index || 0) - (b.team_index || 0))

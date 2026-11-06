@@ -131,7 +131,7 @@ function TripCard({ t, onOpen }) {
 }
 
 function HistoryTab({ d, onOpenTrip }) {
-  if (!d.trips.length) return <div style={s.empty}>This group has no trips yet.</div>
+  if (!d.trips.length) return <div style={s.empty}>Trips show up here once they're over.</div>
   return d.trips.map(t => <TripCard key={t.tripId} t={t} onOpen={() => onOpenTrip(t.tripId)} />)
 }
 

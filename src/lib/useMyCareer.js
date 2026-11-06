@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { loadMyTrips } from './myTrips'
-import { loadCareerData, buildCareer, tripFinishes, individualFinishes } from './careerStats'
+import { loadCareerData, buildCareer, tripFinishes, individualFinishes, finishedOnly } from './careerStats'
 import { computeBadges } from './badges'
 import { buildCareerDetail } from './careerDetail'
 import { saveCopy, readCopy, mapToJson, jsonToMap } from './offlineCache'
@@ -43,7 +43,8 @@ export function useMyCareer(userId) {
       if (cancelled) return
       // Past trips (pastTrips.js: from the old spreadsheets, no scores) count toward
       // trips, handicap and finishes; badges stay scorecard-only.
-      const withPast = [...perTrip, ...past]
+      // Stats count finished trips and finished rounds only (finishedOnly).
+      const withPast = finishedOnly([...perTrip, ...past])
       const career = buildCareer(withPast, userId)
       const badges = computeBadges(perTrip, userId)
       // Team finishes, plus your own place on individual Stableford / stroke play trips.

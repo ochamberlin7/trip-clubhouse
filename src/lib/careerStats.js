@@ -53,6 +53,35 @@ export function buildCareer(perTrip = [], userId) {
   return out
 }
 
+// Stats count FINISHED things only (Owen 2026-11-06): trips that are over and,
+// within them, the rounds each player finished (every hole scored). Upcoming and
+// in-progress trips drop out, and a player's unfinished rounds add nothing to
+// their numbers. Past trips from the old spreadsheets (t.past) are finished.
+// Results (finishes, who won, how it was won) still use EVERY score, so they match
+// the trip's own Leaderboard: the full list is kept as `resultScores`.
+export function finishedOnly(perTrip = [], now = new Date()) {
+  return perTrip
+    .filter(t => t.past || (t.trip && tripTimeStatus(t.trip, now) === 'past'))
+    .map(t => {
+      if (t.past) return t
+      const roundById = new Map((t.rounds || []).map(r => [r.id, r]))
+      const holes = new Map()
+      for (const s of t.scores || []) {
+        if (s.gross_score == null) continue
+        const k = `${s.round_id}:${s.trip_player_id}`
+        holes.set(k, (holes.get(k) || 0) + 1)
+      }
+      const done = s => {
+        const r = roundById.get(s.round_id)
+        return !!r && s.gross_score != null && (holes.get(`${s.round_id}:${s.trip_player_id}`) || 0) >= roundHoleCount(r)
+      }
+      return { ...t, scores: (t.scores || []).filter(done), resultScores: t.scores || [] }
+    })
+}
+
+// A trip row with every score back in, for results (see finishedOnly).
+export const withAllScores = t => (t.resultScores ? { ...t, scores: t.resultScores } : t)
+
 // Your team's finish on each finished team trip — "Champion", "2nd place", … —
 // from the shared teamStandings (same math as the Leaderboard). Returns
 // Map(tripId → label); trips with no teams, no team for you, or still going are skipped.
@@ -68,7 +97,7 @@ export function tripFinishes(perTrip = [], userId, now = new Date()) {
     if (!t.trip?.team_mode || tripTimeStatus(t.trip, now) !== 'past') continue
     const me = findPlayer(t.tripPlayers, userId)
     if (!me?.team_id) continue
-    const st = teamStandingsFromRows({ format: t.trip.format, ...t })
+    const st = teamStandingsFromRows({ format: t.trip.format, ...withAllScores(t) })
     const { ranked } = st
     // Nothing scored → no finish yet. Stroke play totals can be 0 or below par, so
     // it asks "was anything played"; the other formats keep the points check.
@@ -92,7 +121,7 @@ export function individualFinishes(perTrip = [], userId, now = new Date()) {
     const me = findPlayer(t.tripPlayers, userId)
     if (!me || me.team_id) continue
     const scoresMap = {}, teeRowMap = {}, hcpByPlayer = {}
-    for (const s of t.scores || []) if (s.gross_score != null) scoresMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score
+    for (const s of withAllScores(t).scores || []) if (s.gross_score != null) scoresMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score
     for (const pr of t.playerRounds || []) teeRowMap[`${pr.round_id}:${pr.trip_player_id}`] = pr
     for (const p of t.tripPlayers || []) hcpByPlayer[p.id] = p.handicap_index
     const { ranked } = individualStandings({ gameType, rounds: t.rounds || [], playerIds: (t.tripPlayers || []).map(p => p.id), scoresMap, hcpByPlayer, teeRowMap, allowance: t.allowance ?? 100 })

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { loadMyGroups } from './myGroups'
-import { loadCareerData } from './careerStats'
+import { loadCareerData, finishedOnly } from './careerStats'
 import { buildGroupStats } from './groupStats'
 import { loadGroupPastTrips } from './pastTrips'
 
@@ -41,8 +41,9 @@ export function useGroupStats(userId, { enabled = true } = {}) {
       if (tErr) { setError('Couldn\'t load this group. Check your signal and try again.'); return }
       const [perTrip, past] = await Promise.all([loadCareerData(supabase, (trips || []).map(t => t.id)), loadGroupPastTrips(supabase, groupId)])
       if (cancelled) return
-      // Real trips first, so members keep the names they use in the app.
-      setStats({ groupId, data: buildGroupStats([...perTrip, ...past], userId) })
+      // Real trips first, so members keep the names they use in the app. Finished
+      // trips and finished rounds only (finishedOnly).
+      setStats({ groupId, data: buildGroupStats(finishedOnly([...perTrip, ...past]), userId) })
     })()
     return () => { cancelled = true }
   }, [groupId, userId, enabled])
