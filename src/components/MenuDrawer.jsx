@@ -516,6 +516,15 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               </label>
             </div>
           )}
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Phone</span>
+            <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Email</span>
+            <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+          </label>
+          {/* Captain and Make commissioner sit under Email (Owen 2026-11-05). */}
           {/* Subtle Captain checkmark (the global input rule would balloon a native
               checkbox to a full-width bar, so the box is a custom span). Captain
               reads the player's existing team — no team picker needed. */}
@@ -544,14 +553,6 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               {!accountId && <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 2 }}>Available once {player.first_name || 'they'} {player.first_name ? 'joins' : 'join'} the trip.</div>}
             </div>
           )}
-          <label style={{ display: 'block' }}>
-            <span style={pc.editLabel}>Phone</span>
-            <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
-          </label>
-          <label style={{ display: 'block' }}>
-            <span style={pc.editLabel}>Email</span>
-            <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-          </label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
             <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
