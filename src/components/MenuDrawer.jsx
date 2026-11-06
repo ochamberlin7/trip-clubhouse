@@ -29,6 +29,7 @@ import { loadMyTrips, tripListRemoveNotice } from '../lib/myTrips'
 import SwipeDeleteRow from './SwipeDeleteRow'
 import TripDatesBody from './TripDatesBody'
 import TeamCountBody from './TeamCountBody'
+import TripGroupBody from './TripGroupBody'
 import { StripePage, StripeSection, StripeRow, StripeInviteRow, StripeDanger, TripNameBody } from './StripeRows'
 import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL, leaveTrip, leaveTripBlockReason } from '../lib/roster'
 import { transferCommissioner } from '../lib/commissioner'
@@ -2146,7 +2147,7 @@ function DeleteTripAction({ tripName, locked, onDelete }) {
 // Commissioner Tools (redesign "1C", 2026-10-30): wizard-style grey stripes
 // grouping The Trip / Players & Teams / The Game, with Fraunces + Inter.
 // Each row expands in place to edit; Roster opens Players & Teams.
-function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, rosterLocked = true, onDatesChanged, onNameChanged, onOpenPlayers, onTeamCountChanged, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
+function CommissionerPage({ data, tripId, groupId, groupName, tripName, tripStartDate, tripEndDate, rosterLocked = true, onDatesChanged, onNameChanged, onOpenPlayers, onTeamCountChanged, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const teams = data.teams || []
   const joined = data.joinedCount ?? 0
@@ -2158,6 +2159,11 @@ function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, 
       <StripeSection title="The trip">
         <StripeRow label="Trip name" value={tripName || '—'}>
           {({ close }) => <TripNameBody tripId={tripId} name={tripName} onSaved={onNameChanged} onClose={close} />}
+        </StripeRow>
+        {/* Group (under Trip name, above Dates — Owen 2026-11-05): move this trip into another of your groups (migration 20260682).
+            The page reloads after a move so every screen picks up the new group. */}
+        <StripeRow label="Group" value={groupName || '—'}>
+          {() => <TripGroupBody tripId={tripId} tripName={tripName} groupId={groupId} groupName={groupName} onMoved={() => window.location.reload()} />}
         </StripeRow>
         <StripeRow label="Dates" value={fmtDatesShort(tripStartDate, tripEndDate)} detail={days ? `${days} day${days === 1 ? '' : 's'}` : null}>
           {({ close }) => <TripDatesBody tripId={tripId} startDate={tripStartDate} endDate={tripEndDate} onSaved={onDatesChanged} onClose={close} />}
@@ -3227,6 +3233,8 @@ export default function MenuDrawer({
           <CommissionerPage
             data={commissionerData}
             tripId={tripId}
+            groupId={groupId}
+            groupName={groupName}
             tripName={tripName}
             tripStartDate={tripStartDate}
             tripEndDate={tripEndDate}
