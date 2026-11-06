@@ -286,8 +286,8 @@ export default function HomePage() {
         )}
 
         <section>
-          {/* Title is the link (like Trophy room) to the full Career page once there are stats. */}
-          <SectionHead style={{ marginBottom: 4 }} onClick={hasCareer ? () => navigate('/career') : undefined}>Career</SectionHead>
+          {/* "Career stats" opens the Career stats page (Individual | Group) once there are stats. */}
+          <SectionHead style={{ marginBottom: 4 }} onClick={hasCareer ? () => navigate('/career') : undefined}>Career stats</SectionHead>
           {hasCareer ? (
             <>
               <div style={h.stats}>
@@ -301,14 +301,6 @@ export default function HomePage() {
             <div style={{ ...h.empty, marginTop: 6 }}>{career == null && trips != null && !isNew ? 'Adding up your stats…' : 'Your stats start with your first round.'}</div>
           )}
         </section>
-
-        {/* Groups: the title opens the Group stats page (each group's all-time numbers). */}
-        {hasCareer && (
-          <section>
-            <SectionHead style={{ marginBottom: 4 }} onClick={() => navigate('/group')}>Groups</SectionHead>
-            <p style={{ ...h.shelfNote, marginTop: 6 }}>All-time stats, records and rivalries for each group you've played with.</p>
-          </section>
-        )}
 
         <section>
           <SectionHead style={{ marginBottom: 14 }} onClick={() => navigate('/trophies')}>Trophy room</SectionHead>

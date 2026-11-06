@@ -5,7 +5,9 @@ import { useMyCareer } from '../../lib/useMyCareer'
 import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM } from './careerTheme'
 import { one, vsPar, pct, half, fmtDate, roundWhere, tripWhere, intVsPar, plural, formatLabel } from '../../lib/careerFormat'
-import { Tile, Cols, GrossNetTable, PeopleTile } from './statTiles'
+import { Tile, Cols, GrossNetTable, PeopleTile, CareerSwitch } from './statTiles'
+import { GroupStatsView } from './GroupStatsPage'
+import { useGroupStats } from '../../lib/useGroupStats'
 
 // Career page (opened from the Career title on Home): one player's numbers across
 // every trip. Layout "B" (Owen, 2026-10-30): totals on top, then three tabs —
@@ -293,16 +295,33 @@ function TripsTab({ d }) {
   })
 }
 
+// Career stats (Owen 2026-11-06): one page, linked as "Career stats" on Home, with
+// an Individual | Group switch — your own numbers, or a group's (GroupStatsView).
+// /career?view=group opens on Group; the last view is remembered on the phone.
+const VIEW_KEY = 'careerStats:view'
+function initialView() {
+  const q = new URLSearchParams(window.location.search).get('view')
+  if (q === 'group' || q === 'me') return q
+  try { return localStorage.getItem(VIEW_KEY) === 'group' ? 'group' : 'me' } catch { return 'me' }
+}
+
 export default function CareerPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [view, setViewState] = useState(initialView)
+  const setView = v => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v) } catch { /* private mode */ } }
   const { detail } = useMyCareer(user?.id)
+  const group = useGroupStats(user?.id, { enabled: view === 'group' })
   const name = (user?.user_metadata?.display_name || '').trim()
-  return <CareerView detail={detail} name={name} onBack={() => navigate('/home')} />
+  const switcher = <CareerSwitch value={view} onChange={setView} />
+  const onBack = () => navigate('/home')
+  return view === 'group'
+    ? <GroupStatsView groups={group.groups} groupId={group.groupId} onPick={group.setGroupId} stats={group.stats} error={group.error} onBack={onBack} switcher={switcher} />
+    : <CareerView detail={detail} name={name} onBack={onBack} switcher={switcher} />
 }
 
 // The page itself, given the numbers (kept apart from loading so it can be previewed).
-export function CareerView({ detail, name, onBack }) {
+export function CareerView({ detail, name, onBack, switcher }) {
   const [tab, setTab] = useState('scoring')
   const hi = detail?.handicap?.length ? detail.handicap[detail.handicap.length - 1].index : null
   const since = detail?.trips?.length ? detail.trips[detail.trips.length - 1].startDate?.slice(0, 4) : null
@@ -311,7 +330,8 @@ export function CareerView({ detail, name, onBack }) {
     <div style={s.page}>
       <header style={s.mast}>
         <button style={s.back} onClick={onBack}>‹ Home</button>
-        <div style={s.eyebrow}>Your career</div>
+        {switcher}
+        <div style={{ ...s.eyebrow, ...(switcher ? { marginTop: 14 } : null) }}>Career stats</div>
         <h1 style={s.title}>Career</h1>
         {name && <div style={s.who}>{name}</div>}
         <div style={s.rule} />

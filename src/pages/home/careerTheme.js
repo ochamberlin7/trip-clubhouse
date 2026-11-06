@@ -20,6 +20,10 @@ export const s = {
   mast: { background: NAVY, padding: '14px 16px 20px', paddingTop: 'calc(env(safe-area-inset-top) + 14px)', position: 'relative', textAlign: 'center' },
   back: { position: 'absolute', left: 16, top: 'calc(env(safe-area-inset-top) + 14px)', background: 'none', border: 'none', padding: 0, color: GOLD_TEXT, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   eyebrow: { fontSize: 10.5, letterSpacing: '2px', textTransform: 'uppercase', color: '#AFC2DE', marginTop: 26 },
+  // Individual | Group switch at the top of the Career stats masthead.
+  switchRow: { display: 'flex', justifyContent: 'center', marginTop: 30 },
+  switchBox: { display: 'inline-flex', background: 'rgba(255,255,255,0.12)', borderRadius: 28, padding: 3 },
+  switchBtn: on => ({ padding: '6px 18px', fontSize: 12.5, fontWeight: 700, borderRadius: 28, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: on ? GOLD_TEXT : 'transparent', color: on ? NAVY : '#C7D6EA' }),
   title: { margin: '4px 0 0', fontFamily: SERIF, fontSize: 34, fontWeight: 700, color: GOLD_TEXT, lineHeight: 1.05 },
   who: { fontFamily: SERIF, fontSize: 18, color: '#fff', marginTop: 6 },
   rule: { width: 70, height: 2, background: GOLD, margin: '10px auto 0' },

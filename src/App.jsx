@@ -10,7 +10,6 @@ import GroupSelector from './pages/home/GroupSelector'
 import HomePage from './pages/home/HomePage'
 import TrophyRoomPage from './pages/home/TrophyRoomPage'
 import CareerPage from './pages/home/CareerPage'
-import GroupStatsPage from './pages/home/GroupStatsPage'
 import TripWizard from './pages/onboarding/TripWizard'
 import TripDashboard from './pages/dashboard/TripDashboard'
 import JoinTrip from './pages/JoinTrip'
@@ -34,7 +33,7 @@ export default function App() {
               <Route path="/home" element={<HomePage />} />
               <Route path="/trophies" element={<TrophyRoomPage />} />
               <Route path="/career" element={<CareerPage />} />
-              <Route path="/group" element={<GroupStatsPage />} />
+              <Route path="/group" element={<Navigate to="/career?view=group" replace />} />
               <Route path="/onboarding/trip" element={<TripWizard />} />
               <Route path="/dashboard" element={<TripDashboard />} />
               <Route path="/profile" element={<ProfilePage />} />

@@ -11,7 +11,8 @@ const LAST_KEY = userId => `groupStats:last:${userId}`
 function readLast(userId) { try { return localStorage.getItem(LAST_KEY(userId)) } catch { return null } }
 function saveLast(userId, id) { try { localStorage.setItem(LAST_KEY(userId), id) } catch { /* private mode */ } }
 
-export function useGroupStats(userId) {
+// enabled=false: load the group list only (the Career page's Individual view).
+export function useGroupStats(userId, { enabled = true } = {}) {
   const [groups, setGroups] = useState(null)
   const [groupId, setGroupIdState] = useState(null)
   const [stats, setStats] = useState(null) // { groupId, data }
@@ -30,7 +31,7 @@ export function useGroupStats(userId) {
   }, [userId])
 
   useEffect(() => {
-    if (!groupId) return
+    if (!groupId || !enabled) return
     let cancelled = false
     ;(async () => {
       setError('')
@@ -42,7 +43,7 @@ export function useGroupStats(userId) {
       setStats({ groupId, data: buildGroupStats(perTrip, userId) })
     })()
     return () => { cancelled = true }
-  }, [groupId, userId])
+  }, [groupId, userId, enabled])
 
   const setGroupId = id => { setGroupIdState(id); if (userId) saveLast(userId, id) }
   const loading = !stats || stats.groupId !== groupId

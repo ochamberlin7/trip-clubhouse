@@ -1,14 +1,11 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
-import { useGroupStats } from '../../lib/useGroupStats'
 import { LEADERBOARDS, rankLeaderboard, rivalsOf } from '../../lib/groupStats'
 import GroupPicker from '../../components/GroupPicker'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM, CAPS } from './careerTheme'
 import { one, roundWhere, plural } from '../../lib/careerFormat'
 import { Tile, Cols, TapValue, PeopleTile } from './statTiles'
 
-// Group stats (Owen, 2026-11-06): pick one of your groups, then see that group's
+// Group stats (Owen, 2026-11-06; the Group side of the Career stats page): pick one of your groups, then see that group's
 // numbers across every trip it has taken — trip history and winners, all-time
 // leaderboards, group records, and each member's partners and rivals. Same look
 // as the Career page; every member's numbers come from the Career page's own math
@@ -136,15 +133,9 @@ function RivalsTab({ d }) {
   )
 }
 
-export default function GroupStatsPage() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-  const { groups, groupId, setGroupId, stats, error } = useGroupStats(user?.id)
-  return <GroupStatsView groups={groups} groupId={groupId} onPick={setGroupId} stats={stats} error={error} onBack={() => navigate('/home')} />
-}
-
-// The page itself, given the data (kept apart from loading so it can be previewed).
-export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack }) {
+// The Group view of the Career stats page (CareerPage.jsx holds the
+// Individual | Group switch and loads the data with useGroupStats).
+export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, switcher }) {
   const [tab, setTab] = useState('history')
   const group = groups?.find(x => x.id === groupId) || null
   const t = stats?.totals
@@ -153,7 +144,8 @@ export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack }
     <div style={s.page}>
       <header style={s.mast}>
         <button style={s.back} onClick={onBack}>‹ Home</button>
-        <div style={s.eyebrow}>Group</div>
+        {switcher}
+        <div style={{ ...s.eyebrow, ...(switcher ? { marginTop: 14 } : null) }}>Career stats · Group</div>
         <h1 style={g.title}>{group?.name || 'Your groups'}</h1>
         <div style={s.rule} />
         {sub && <div style={s.hi}>{sub}</div>}

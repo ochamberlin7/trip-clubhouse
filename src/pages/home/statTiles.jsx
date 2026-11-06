@@ -105,3 +105,17 @@ export function PeopleTile({ title, list, lead, leadIf, unit = 'match' }) {
     </Tile>
   )
 }
+
+// Career stats: Individual | Group, at the top of the masthead (Owen 2026-11-06:
+// one Career stats page for both).
+export function CareerSwitch({ value, onChange }) {
+  return (
+    <div style={s.switchRow}>
+      <div style={s.switchBox} role="tablist" aria-label="Career stats">
+        {[['me', 'Individual'], ['group', 'Group']].map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={value === id} style={s.switchBtn(value === id)} onClick={() => onChange(id)}>{label}</button>
+        ))}
+      </div>
+    </div>
+  )
+}
