@@ -313,7 +313,7 @@ function RivalsTab({ d }) {
 // Individual | Group switch and loads the data with useGroupStats). The header
 // matches the Individual side (Owen 2026-11-06): the group is chosen with the
 // dropdown, not named in the banner. onOpenTrip(tripId) goes into a trip.
-export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, switcher, onOpenTrip }) {
+export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, switcher, onOpenTrip, name, headline }) {
   const [tab, setTab] = useState('history')
   const [openTripId, setOpenTripId] = useState(null)
   const t = stats?.totals
@@ -324,7 +324,9 @@ export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, 
       <header style={s.mast}>
         <button style={s.back} onClick={onBack}>‹ Home</button>
         <h1 style={{ ...s.title, marginTop: 30 }}>Career stats</h1>
+        {name && <div style={s.who}>{name}</div>}
         <div style={s.rule} />
+        {headline && <div style={s.hi}>{headline}</div>}
       </header>
 
       <div style={s.inner}>

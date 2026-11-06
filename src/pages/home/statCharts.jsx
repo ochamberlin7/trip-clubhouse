@@ -21,6 +21,7 @@ const val = { fontFamily: 'inherit', fontSize: 11, fontWeight: 700, fill: INK }
 //            null values break the line (a player who missed a trip)
 //   lo / hi / ticks: the value scale; fmt formats tick and point labels
 //   pointLabels: draw the value above each point of the FIRST series
+//            (or per series: pointLabel: 'above' | 'below')
 //   xTicks:  optional [{ x, label }] axis ticks (e.g. Jan 1 of each year) drawn instead of a label per point
 export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi, ticks, fmt = v => v, pointLabels = false, height = 150, endPad = 52, area = false }) {
   const bodyRef = useRef(null)
@@ -79,9 +80,12 @@ export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi,
                 <title>{`${s.title ? `${s.title}, ` : ''}${labels[i]}: ${fmt(v)}`}</title>
               </circle>
             )))}
-            {pointLabels && first && first.values.map((v, i) => v == null ? null : (
-              <text key={`p${i}`} x={xAt(i)} y={y(v) - 8} textAnchor="middle" style={val}>{fmt(v)}</text>
-            ))}
+            {series.map((s, k) => {
+              const where = s.pointLabel || (pointLabels && k === 0 ? 'above' : null)
+              return where && s.values.map((v, i) => v == null ? null : (
+                <text key={`p${s.key}${i}`} x={xAt(i)} y={where === 'below' ? y(v) + 17 : y(v) - 8} textAnchor="middle" style={val}>{fmt(v)}</text>
+              ))
+            })}
             {series.filter(s => s.endLabel).map(s => {
               const i = s.values.reduce((k, v, j) => (v != null ? j : k), -1)
               return i < 0 ? null : <text key={`e${s.key}`} x={xAt(i) + 9} y={y(s.values[i]) + 4} style={{ ...val, fill: s.labelColor || INK }}>{s.endLabel}</text>
@@ -94,61 +98,6 @@ export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi,
   )
 }
 
-
-// A scrolling column chart: per item one bar per series (e.g. gross and net side
-// by side) from a zero baseline, each value on top, the item label underneath.
-// Opens on the latest (right end) and scrolls sideways once there are more than fit.
-//   items:  [{ key, label, values: [number|null], title? }]
-//   colors: one colour per series
-export function ScrollBarChart({ items, colors = [NAVY], step = 76, barW = 22, gap = 4, height = 140, fmt = v => v }) {
-  const bodyRef = useRef(null)
-  const [scrolls, setScrolls] = useState(false)
-  const top = 18, bot = height - 24, pad = 8
-  const width = pad * 2 + step * items.length
-  const max = Math.max(1, ...items.flatMap(i => i.values.map(v => v ?? 0)))
-  const y = v => bot - (v / max) * (bot - top)
-  useLayoutEffect(() => {
-    const b = bodyRef.current
-    if (!b) return
-    b.scrollLeft = b.scrollWidth
-    setScrolls(b.scrollWidth > b.clientWidth + 4)
-    const end = () => { b.scrollLeft = b.scrollWidth }
-    const id = requestAnimationFrame(end)
-    const t = setTimeout(end, 120)
-    return () => { cancelAnimationFrame(id); clearTimeout(t) }
-  }, [width])
-  return (
-    <div>
-      <div ref={bodyRef} style={{ overflowX: 'auto', overscrollBehaviorX: 'contain', scrollbarWidth: 'none' }}>
-        <svg width={width} height={height} style={{ display: 'block' }} role="img" aria-label={items.map(i => `${i.label}: ${i.values.map(v => (v == null ? '—' : fmt(v))).join(' / ')}`).join(', ')}>
-          <line x1={0} x2={width} y1={bot} y2={bot} stroke={ROW_LINE} />
-          {items.map((it, i) => {
-            const n = it.values.length, groupW = n * barW + (n - 1) * gap
-            const cx = pad + step * i + step / 2
-            return (
-              <g key={it.key}>
-                {it.values.map((v, j) => {
-                  if (v == null) return null
-                  const x = cx - groupW / 2 + j * (barW + gap)
-                  return (
-                    <g key={j}>
-                      <rect x={x} y={y(v)} width={barW} height={Math.max(0, bot - y(v))} rx="4" fill={colors[j] || NAVY}>
-                        <title>{it.title ? `${it.title}: ${fmt(v)}` : `${it.label}: ${fmt(v)}`}</title>
-                      </rect>
-                      <text x={x + barW / 2} y={y(v) - 5} textAnchor="middle" style={{ ...val, fontSize: 10.5 }}>{fmt(v)}</text>
-                    </g>
-                  )
-                })}
-                <text x={cx} y={height - 8} textAnchor="middle" style={txt}>{it.label}</text>
-              </g>
-            )
-          })}
-        </svg>
-      </div>
-      {scrolls && <div style={{ fontSize: 10.5, color: '#9AA6B5', textAlign: 'right', marginTop: 2 }}>← swipe for earlier</div>}
-    </div>
-  )
-}
 
 // Score mix: one bar per score, best to worst (the order is the scale), each with
 // its count and share. counts: { eagles (incl. albatrosses), birdies, pars, bogeys, doubles, triples }.

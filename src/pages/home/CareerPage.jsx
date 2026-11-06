@@ -7,7 +7,7 @@ import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM } from './careerTheme'
 import { one, vsPar, pct, half, fmtDate, roundWhere, tripWhere, intVsPar, plural, formatLabel } from '../../lib/careerFormat'
 import { Tile, Cols, StatList, PeopleTile, CareerSwitch } from './statTiles'
-import { ScrollLineChart, ScrollBarChart, ScoreMixBars, VsParDots, LineKey } from './statCharts'
+import { ScrollLineChart, ScoreMixBars, VsParDots, LineKey } from './statCharts'
 import { niceScale } from '../../lib/chartScale'
 import { GroupStatsView } from './GroupStatsPage'
 import { useGroupStats } from '../../lib/useGroupStats'
@@ -24,10 +24,10 @@ const TABS = [{ id: 'scoring', label: 'Scoring' }, { id: 'competition', label: '
 
 
 // Scoring (Owen 2026-11-06): the scoring average shows gross and net side by side
-// with paired bars per trip; best/worst rounds and the rest stay gross. Net uses the
+// as two lines (gross over net) by trip; best/worst rounds and the rest stay gross. Net uses the
 // full handicap, so it means the same on every trip. Handicap is a line on a real
 // timeline. Charts from the "Stats Chart Upgrades" mockups; they scroll sideways.
-const NET_BAR = '#8FA6C4'
+const NET_LINE = '#7C97BC'
 
 // Handicap points on a real timeline: x by date (PX_PER_YEAR), nudged apart so two
 // trips close together don't overlap; a tick at Jan 1 of each year.
@@ -64,6 +64,7 @@ function ScoringTab({ d }) {
   const g = d.gross
   // Average on each trip, oldest first (trips with a full 18-hole round).
   const byTrip = [...d.trips].reverse().filter(t => t.average != null)
+  const avgScale = niceScale(byTrip.flatMap(t => [t.average, t.netAverage]).filter(v => v != null), { pad: 2 })
   const last = byTrip.at(-1), prev = byTrip.at(-2)
   // Handicap index at each trip, oldest first.
   const hc = d.handicap
@@ -90,10 +91,13 @@ function ScoringTab({ d }) {
             ]} />
             {byTrip.length > 0 && (
               <div style={{ marginTop: 12 }}>
-                <LineKey items={[{ label: 'Gross', color: NAVY, square: true }, { label: 'Net', color: NET_BAR, square: true }]} />
-                <ScrollBarChart
-                  items={byTrip.map(t => ({ key: t.tripId, label: shortTrip(t), title: t.name, values: [t.average, t.netAverage] }))}
-                  colors={[NAVY, NET_BAR]} fmt={fmtAvg}
+                <LineKey items={[{ label: 'Gross', color: NAVY }, { label: 'Net', color: NET_LINE }]} />
+                <ScrollLineChart
+                  labels={byTrip.map(shortTrip)} step={84} height={190} {...avgScale} fmt={fmtAvg}
+                  series={[
+                    { key: 'gross', title: 'Gross', values: byTrip.map(t => t.average), color: NAVY, lastDot: GOLD, pointLabel: 'above' },
+                    { key: 'net', title: 'Net', values: byTrip.map(t => t.netAverage), color: NET_LINE, pointLabel: 'below' },
+                  ]}
                 />
               </div>
             )}
@@ -353,18 +357,26 @@ export default function CareerPage() {
   const group = useGroupStats(user?.id, { enabled: view === 'group' })
   const name = (user?.user_metadata?.display_name || '').trim()
   const switcher = <CareerSwitch value={view} onChange={setView} />
+  // Name, handicap and "since" stay in the header on both sides (Owen 2026-11-06).
+  const headline = careerHeadline(detail)
   const onBack = () => navigate('/home')
   return view === 'group'
-    ? <GroupStatsView groups={group.groups} groupId={group.groupId} onPick={group.setGroupId} stats={group.stats} error={group.error} onBack={onBack} switcher={switcher}
+    ? <GroupStatsView groups={group.groups} groupId={group.groupId} onPick={group.setGroupId} stats={group.stats} error={group.error} onBack={onBack} switcher={switcher} name={name} headline={headline}
         onOpenTrip={id => { switchTrip(id); navigate('/dashboard') }} />
     : <CareerView detail={detail} name={name} onBack={onBack} switcher={switcher} />
+}
+
+// "Handicap index 12.8 · since 2019" under your name in the header.
+function careerHeadline(detail) {
+  const hi = detail?.handicap?.length ? detail.handicap[detail.handicap.length - 1].index : null
+  const since = detail?.trips?.length ? detail.trips[detail.trips.length - 1].startDate?.slice(0, 4) : null
+  return [hi != null && `Handicap index ${one(hi)}`, since && `since ${since}`].filter(Boolean).join(' · ')
 }
 
 // The page itself, given the numbers (kept apart from loading so it can be previewed).
 export function CareerView({ detail, name, onBack, switcher }) {
   const [tab, setTab] = useState('scoring')
-  const hi = detail?.handicap?.length ? detail.handicap[detail.handicap.length - 1].index : null
-  const since = detail?.trips?.length ? detail.trips[detail.trips.length - 1].startDate?.slice(0, 4) : null
+  const headline = careerHeadline(detail)
 
   return (
     <div style={s.page}>
@@ -373,9 +385,7 @@ export function CareerView({ detail, name, onBack, switcher }) {
         <h1 style={{ ...s.title, marginTop: 30 }}>Career stats</h1>
         {name && <div style={s.who}>{name}</div>}
         <div style={s.rule} />
-        {(hi != null || since) && (
-          <div style={s.hi}>{[hi != null && `Handicap index ${one(hi)}`, since && `since ${since}`].filter(Boolean).join(' · ')}</div>
-        )}
+        {headline && <div style={s.hi}>{headline}</div>}
       </header>
 
       <div style={s.inner}>
