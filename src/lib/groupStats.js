@@ -224,7 +224,7 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
         playerNames: people.map(p => playerName(p)).sort((a, b) => a.localeCompare(b)),
         teams: hasTeams
           ? (t.teams || []).slice().sort((a, b) => (a.team_index || 0) - (b.team_index || 0))
-            .map(tm => ({ id: tm.id, name: getTeamDisplayName(tm), players: people.filter(p => p.team_id === tm.id).map(p => playerName(p)) }))
+            .map(tm => ({ id: tm.id, name: getTeamDisplayName(tm), teamIndex: tm.team_index ?? null, players: people.filter(p => p.team_id === tm.id).map(p => playerName(p)) }))
             .filter(tm => tm.players.length)
           : [],
         standings,

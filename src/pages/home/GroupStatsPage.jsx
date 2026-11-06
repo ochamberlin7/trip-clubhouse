@@ -33,7 +33,6 @@ const g = {
   listRow: { display: 'flex', alignItems: 'baseline', gap: 10, padding: '9px 0', borderTop: `1px solid ${ROW_LINE}`, fontSize: 14, color: '#2C3E50' },
   listSub: { fontSize: 12, color: MUTED, marginTop: 2, lineHeight: 1.35 },
   openBtn: { display: 'block', width: '100%', padding: '14px 0', background: NAVY, color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' },
-  teamName: { fontSize: 14.5, fontWeight: 700, color: INK },
 }
 
 const fmtVal = (def, v) => (v == null ? '—' : def.fmt === 'one' ? one(v) : def.fmt === 'vsPar' ? (Math.abs(v) < 0.05 ? 'E' : `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`) : v)
@@ -187,13 +186,24 @@ function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
         )}
 
         {t.teams.length > 0 ? (
-          <Tile title="Teams">
-            {t.teams.map((tm, i) => (
-              <div key={tm.id} style={{ ...g.listRow, display: 'block', ...(i === 0 ? { borderTop: 'none', paddingTop: 0 } : null) }}>
-                <div style={g.teamName}>{tm.name}</div>
-                <div style={g.listSub}>{tm.players.join(', ')}</div>
-              </div>
-            ))}
+          <Tile title="Teams" note={`${t.teams.length} teams`}>
+            {/* A grid of team columns (Owen 2026-11-06), like the Players & Teams roster:
+                a band in the team's colour, then one player per line. */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+              {t.teams.map((tm, i) => {
+                const pal = paletteForTrip({ end_date: t.endDate }) === 'legacy' ? LEGACY_TEAM_COLORS : TEAM_COLORS
+                const color = (pal[tm.teamIndex] || pal[1]).solid
+                const lone = t.teams.length % 2 === 1 && i === t.teams.length - 1
+                return (
+                  <div key={tm.id} style={{ border: '1px solid #E1E7EE', borderRadius: 6, overflow: 'hidden', alignSelf: 'start', ...(lone ? { gridColumn: '1 / -1' } : null) }}>
+                    <div style={{ background: color, color: '#fff', fontSize: 13, fontWeight: 800, padding: '7px 10px', lineHeight: 1.2 }}>{tm.name}</div>
+                    {tm.players.map((name, j) => (
+                      <div key={name + j} style={{ fontSize: 13, color: INK, padding: '6px 10px', borderTop: j ? '1px solid #EEF1F4' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
           </Tile>
         ) : t.playerNames.length > 0 && (
           <Tile title="Who went" note={`${t.playerNames.length} players`}>
