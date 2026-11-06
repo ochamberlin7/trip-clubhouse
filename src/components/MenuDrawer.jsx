@@ -31,6 +31,7 @@ import TripDatesBody from './TripDatesBody'
 import TeamCountBody from './TeamCountBody'
 import { StripePage, StripeSection, StripeRow, StripeInviteRow, StripeDanger, TripNameBody } from './StripeRows'
 import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL, leaveTrip, leaveTripBlockReason } from '../lib/roster'
+import { transferCommissioner } from '../lib/commissioner'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -359,6 +360,13 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
   })
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [confirmTransfer, setConfirmTransfer] = useState(false)
+  // "Make commissioner" hands the job for THIS trip to another player (you lose it).
+  // Shown on every other player's card; only someone who has joined with an
+  // account can take it, so it's greyed out for players who haven't joined yet.
+  const accountId = player.claimed_user_id || player.user_id || null
+  const canOfferCommissioner = isCommissioner && !isOwnCard && !isPlaceholderPlayer(player) && !commissioner
   const [confirmRemove, setConfirmRemove] = useState(false)
   const isOpenSpot = isPlaceholderPlayer(player)
   // Commissioner-only, before the trip starts, never on their own card or an empty spot.
@@ -401,6 +409,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
         .eq('team_id', form.team_id).neq('id', player.id)
     }
     setSaving(false)
+    setSaveError(error ? 'Couldn\'t save. Try again.' : '')
     // Filling an empty spot → the Players page pops up the invite link for them.
     const filledSpot = isOpenSpot && isCommissioner && !!payload.first_name
     if (!error) onSaved(filledSpot ? { invite: [payload.first_name, payload.last_name].filter(Boolean).join(' ') } : undefined)
@@ -458,6 +467,14 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           )}
         </div>
       )}
+      {confirmTransfer && (
+        <TransferCommissionerModal
+          player={player}
+          toUserId={accountId}
+          fromUserId={currentUserId}
+          onClose={() => setConfirmTransfer(false)}
+        />
+      )}
       {confirmRemove && (
         <RemovePlayerModal
           player={{ ...player, is_commissioner: commissioner }}
@@ -499,6 +516,15 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               </label>
             </div>
           )}
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Phone</span>
+            <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Email</span>
+            <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+          </label>
+          {/* Captain and Make commissioner sit under Email (Owen 2026-11-05). */}
           {/* Subtle Captain checkmark (the global input rule would balloon a native
               checkbox to a full-width bar, so the box is a custom span). Captain
               reads the player's existing team — no team picker needed. */}
@@ -514,17 +540,23 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               )}
             </label>
           )}
-          <label style={{ display: 'block' }}>
-            <span style={pc.editLabel}>Phone</span>
-            <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
-          </label>
-          <label style={{ display: 'block' }}>
-            <span style={pc.editLabel}>Email</span>
-            <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-          </label>
+          {/* Make commissioner: ticking opens the hand-over pop-up (same custom box as Captain). */}
+          {canOfferCommissioner && (
+            <div>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: accountId ? 'pointer' : 'default', width: 'fit-content', padding: '2px 0', opacity: accountId ? 1 : 0.5 }}>
+                <input type="checkbox" checked={confirmTransfer} disabled={!accountId} onChange={e => e.target.checked && setConfirmTransfer(true)} style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }} />
+                <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${confirmTransfer ? '#1B3F6E' : '#C4CEDA'}`, background: confirmTransfer ? '#1B3F6E' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+                  {confirmTransfer && <CheckIcon />}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>Make commissioner</span>
+              </label>
+              {!accountId && <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 2 }}>Available once {player.first_name || 'they'} {player.first_name ? 'joins' : 'join'} the trip.</div>}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
             <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            {saveError && <span role="alert" style={{ fontSize: 12, color: '#C0392B' }}>{saveError}</span>}
             {/* Remove lives in edit mode only, bottom-right of the panel. */}
             {canRemove && (
               <button onClick={() => setConfirmRemove(true)} disabled={saving} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
@@ -539,6 +571,35 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
 
 // Centered "are you sure" pop-up for removing a player. Portaled to <body> so it
 // sits above the drawer. The write goes through src/lib/roster.js.
+// "Make commissioner" pop-up: hands this trip's commissioner job to the player.
+// On success the page reloads so every screen drops your commissioner tools.
+function TransferCommissionerModal({ player, toUserId, fromUserId, onClose }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  async function confirm() {
+    setBusy(true); setErr(null)
+    const { error } = await transferCommissioner(supabase, { tripId: player.trip_id, toUserId, fromUserId })
+    if (error) { setBusy(false); setErr(error.message || 'Something went wrong.'); return }
+    window.location.reload()
+  }
+  return createPortal(
+    <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={() => !busy && onClose()}>
+      <div style={{ ...s.modalSheet, maxWidth: 360, textAlign: 'center' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>Make {player.name} commissioner?</div>
+        <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.45 }}>
+          You are about to transfer commissioner duties for this trip to {player.name}. You will lose all commissioner authority for this trip. Are you sure?
+        </div>
+        {err && <div style={{ marginTop: 10, fontSize: 12, color: '#C0392B' }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
+          <button onClick={onClose} disabled={busy} style={{ background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={confirm} disabled={busy} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Transferring…' : 'Yes, transfer'}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function RemovePlayerModal({ player, groupId, rosterLocked, onClose, onRemoved }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
@@ -2699,13 +2760,13 @@ export default function MenuDrawer({
       (async () => {
         const [tpRes, teamsRes, adminRes] = await Promise.all([
           supabase.from('trip_players')
-            .select('id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed, is_captain')
+            .select('id, trip_id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed, is_captain')
             .eq('trip_id', tripId).order('last_name'),
           // Ordered by team_index; includes color_index for the team-pill colours.
           supabase.from('teams').select('id, name, team_index, color_index').eq('trip_id', tripId).order('team_index'),
-          supabase.from('group_members').select('user_id').eq('group_id', groupId).eq('role', 'admin'),
+          supabase.from('trip_commissioners').select('user_id').eq('trip_id', tripId),
         ])
-        // The commissioner is the group admin; flag whichever player record they own/claimed.
+        // This trip's commissioners (per trip, not the group admin); flag whichever player record they own/claimed.
         const adminIds = new Set((adminRes.data || []).map(m => m.user_id))
         const tps = (tpRes.data || []).map(tp => ({
           ...tp,
