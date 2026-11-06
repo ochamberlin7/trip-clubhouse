@@ -221,7 +221,9 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
       }
     }
 
-    const tripGross18 = roundsList.filter(r => r.holeCount === 18 && r.holesScored === 18).map(r => r.gross)
+    const full18 = roundsList.filter(r => r.holeCount === 18 && r.holesScored === 18)
+    const tripGross18 = full18.map(r => r.gross)
+    const tripNet18 = full18.map(r => r.net)
     trips.push({
       tripId: t.tripId,
       name: t.tripName,
@@ -229,6 +231,7 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
       finish: finishes.get(t.tripId) || null,
       rounds: roundsList.filter(r => r.complete).length,
       average: avg(tripGross18.reduce((a, b) => a + b, 0), tripGross18.length),
+      netAverage: avg(tripNet18.reduce((a, b) => a + b, 0), tripNet18.length), // full playing handicap
       best: tripGross18.length ? Math.min(...tripGross18) : null,
       points: mp[fmt] ? (mine?.primary || 0) : null,
       stableford: tripStableford,

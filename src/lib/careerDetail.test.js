@@ -279,3 +279,10 @@ test('played to handicap: full rounds with net par or better', () => {
   const d = buildCareerDetail([t], 'U')
   assert.deepEqual(d.toHandicap, { rounds: 2, made: 1 })
 })
+
+test('each trip carries its gross and net average (full 18-hole rounds)', () => {
+  const A = (h, p) => (h <= 6 ? p + 1 : p)          // 78 gross; off 6 → 72 net
+  const d = buildCareerDetail([trip('T1', [round('R1')], { gross: { A }, hcp: 6 })], 'U')
+  assert.equal(d.trips[0].average, 78)
+  assert.equal(d.trips[0].netAverage, 72)
+})

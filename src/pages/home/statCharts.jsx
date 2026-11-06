@@ -21,13 +21,14 @@ const val = { fontFamily: 'inherit', fontSize: 11, fontWeight: 700, fill: INK }
 //            null values break the line (a player who missed a trip)
 //   lo / hi / ticks: the value scale; fmt formats tick and point labels
 //   pointLabels: draw the value above each point of the FIRST series
-export function ScrollLineChart({ labels, xs, step = 76, series, lo, hi, ticks, fmt = v => v, pointLabels = false, height = 150, endPad = 52, area = false }) {
+//   xTicks:  optional [{ x, label }] axis ticks (e.g. Jan 1 of each year) drawn instead of a label per point
+export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi, ticks, fmt = v => v, pointLabels = false, height = 150, endPad = 52, area = false }) {
   const bodyRef = useRef(null)
   const [scrolls, setScrolls] = useState(false)
   const top = 18, bot = height - 26
   const pad = 22
   const xAt = xs ? (i => pad + xs[i]) : (i => pad + i * step)
-  const width = Math.max(pad * 2 + (xs ? Math.max(0, ...xs) : step * Math.max(0, labels.length - 1)) + endPad, 120)
+  const width = Math.max(pad * 2 + Math.max(xs ? Math.max(0, ...xs) : step * Math.max(0, labels.length - 1), ...(xTicks || []).map(t => t.x)) + endPad, 120)
   const y = v => bot - (v - lo) / (hi - lo || 1) * (bot - top)
   useLayoutEffect(() => {
     const b = bodyRef.current
@@ -57,7 +58,14 @@ export function ScrollLineChart({ labels, xs, step = 76, series, lo, hi, ticks, 
         <div ref={bodyRef} style={{ flex: 1, minWidth: 0, overflowX: 'auto', overscrollBehaviorX: 'contain', scrollbarWidth: 'none' }}>
           <svg width={width} height={height} style={{ display: 'block' }} role="img" aria-label={series.map(s => `${s.title || s.key}: ${s.values.map(v => (v == null ? '—' : fmt(v))).join(', ')}`).join('; ')}>
             {ticks.map(t => <line key={t} x1={0} x2={width} y1={y(t)} y2={y(t)} stroke={ROW_LINE} />)}
-            {labels.map((l, i) => <text key={`${l}${i}`} x={xAt(i)} y={height - 8} textAnchor="middle" style={txt}>{l}</text>)}
+            {xTicks
+              ? xTicks.map(t => (
+                <g key={t.label}>
+                  <line x1={pad + t.x} x2={pad + t.x} y1={bot} y2={bot + 4} stroke="#C9D3E0" />
+                  <text x={pad + t.x} y={height - 8} textAnchor="middle" style={txt}>{t.label}</text>
+                </g>
+              ))
+              : labels.map((l, i) => <text key={`${l}${i}`} x={xAt(i)} y={height - 8} textAnchor="middle" style={txt}>{l}</text>)}
             {area && first && segs(first.values).map((sg, i) => (
               <polygon key={`a${i}`} points={`${sg.map(p => p.join(',')).join(' ')} ${sg.at(-1)[0]},${bot} ${sg[0][0]},${bot}`} fill={first.color} fillOpacity="0.08" />
             ))}
@@ -87,23 +95,23 @@ export function ScrollLineChart({ labels, xs, step = 76, series, lo, hi, ticks, 
 }
 
 
-// A scrolling column chart: one bar per item from a zero baseline (so a lower
-// value is a shorter bar), its value on top, its label underneath. Opens on the
-// latest (right end) and scrolls sideways once there are more than fit.
-//   items: [{ key, label, value, title? }]; the last bar is gold (now).
-export function ScrollBarChart({ items, step = 56, barW = 30, height = 130, fmt = v => v, color = NAVY, lastColor = '#B08A3E' }) {
+// A scrolling column chart: per item one bar per series (e.g. gross and net side
+// by side) from a zero baseline, each value on top, the item label underneath.
+// Opens on the latest (right end) and scrolls sideways once there are more than fit.
+//   items:  [{ key, label, values: [number|null], title? }]
+//   colors: one colour per series
+export function ScrollBarChart({ items, colors = [NAVY], step = 76, barW = 22, gap = 4, height = 140, fmt = v => v }) {
   const bodyRef = useRef(null)
   const [scrolls, setScrolls] = useState(false)
-  const top = 18, bot = height - 24, pad = 10
+  const top = 18, bot = height - 24, pad = 8
   const width = pad * 2 + step * items.length
-  const max = Math.max(1, ...items.map(i => i.value ?? 0))
+  const max = Math.max(1, ...items.flatMap(i => i.values.map(v => v ?? 0)))
   const y = v => bot - (v / max) * (bot - top)
   useLayoutEffect(() => {
     const b = bodyRef.current
     if (!b) return
     b.scrollLeft = b.scrollWidth
     setScrolls(b.scrollWidth > b.clientWidth + 4)
-    // Again once layout settles (fonts, tile width, the hint line), so it opens on the very end.
     const end = () => { b.scrollLeft = b.scrollWidth }
     const id = requestAnimationFrame(end)
     const t = setTimeout(end, 120)
@@ -112,20 +120,25 @@ export function ScrollBarChart({ items, step = 56, barW = 30, height = 130, fmt 
   return (
     <div>
       <div ref={bodyRef} style={{ overflowX: 'auto', overscrollBehaviorX: 'contain', scrollbarWidth: 'none' }}>
-        <svg width={width} height={height} style={{ display: 'block' }} role="img" aria-label={items.map(i => `${i.label}: ${i.value == null ? '—' : fmt(i.value)}`).join(', ')}>
+        <svg width={width} height={height} style={{ display: 'block' }} role="img" aria-label={items.map(i => `${i.label}: ${i.values.map(v => (v == null ? '—' : fmt(v))).join(' / ')}`).join(', ')}>
           <line x1={0} x2={width} y1={bot} y2={bot} stroke={ROW_LINE} />
           {items.map((it, i) => {
-            const cx = pad + step * i + step / 2, last = i === items.length - 1
+            const n = it.values.length, groupW = n * barW + (n - 1) * gap
+            const cx = pad + step * i + step / 2
             return (
               <g key={it.key}>
-                {it.value != null && (
-                  <>
-                    <rect x={cx - barW / 2} y={y(it.value)} width={barW} height={Math.max(0, bot - y(it.value))} rx="4" fill={last ? lastColor : color}>
-                      <title>{it.title || `${it.label}: ${fmt(it.value)}`}</title>
-                    </rect>
-                    <text x={cx} y={y(it.value) - 5} textAnchor="middle" style={val}>{fmt(it.value)}</text>
-                  </>
-                )}
+                {it.values.map((v, j) => {
+                  if (v == null) return null
+                  const x = cx - groupW / 2 + j * (barW + gap)
+                  return (
+                    <g key={j}>
+                      <rect x={x} y={y(v)} width={barW} height={Math.max(0, bot - y(v))} rx="4" fill={colors[j] || NAVY}>
+                        <title>{it.title ? `${it.title}: ${fmt(v)}` : `${it.label}: ${fmt(v)}`}</title>
+                      </rect>
+                      <text x={x + barW / 2} y={y(v) - 5} textAnchor="middle" style={{ ...val, fontSize: 10.5 }}>{fmt(v)}</text>
+                    </g>
+                  )
+                })}
                 <text x={cx} y={height - 8} textAnchor="middle" style={txt}>{it.label}</text>
               </g>
             )
@@ -241,7 +254,7 @@ export function LineKey({ items }) {
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 6 }}>
       {items.map(it => (
         <span key={it.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#2C3E50' }}>
-          <span style={{ width: 16, height: it.thin ? 2 : 3, borderRadius: 2, background: it.color, flex: 'none' }} />
+          <span style={{ width: it.square ? 10 : 16, height: it.square ? 10 : it.thin ? 2 : 3, borderRadius: 2, background: it.color, flex: 'none' }} />
           {it.label}{it.value != null && <b style={{ color: INK, fontVariantNumeric: 'tabular-nums' }}>{it.value}</b>}
         </span>
       ))}

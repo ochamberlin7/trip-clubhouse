@@ -7,7 +7,7 @@ import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM } from './careerTheme'
 import { one, vsPar, pct, half, fmtDate, roundWhere, tripWhere, intVsPar, plural, formatLabel } from '../../lib/careerFormat'
 import { Tile, Cols, StatList, PeopleTile, CareerSwitch } from './statTiles'
-import { ScrollLineChart, ScrollBarChart, ScoreMixBars, VsParDots } from './statCharts'
+import { ScrollLineChart, ScrollBarChart, ScoreMixBars, VsParDots, LineKey } from './statCharts'
 import { niceScale } from '../../lib/chartScale'
 import { GroupStatsView } from './GroupStatsPage'
 import { useGroupStats } from '../../lib/useGroupStats'
@@ -23,19 +23,52 @@ import { useGroupStats } from '../../lib/useGroupStats'
 const TABS = [{ id: 'scoring', label: 'Scoring' }, { id: 'competition', label: 'Competition' }, { id: 'trips', label: 'Trips' }]
 
 
-// Scoring is gross only (Owen 2026-11-06, like 18Birdies / TheGrint / GHIN): it's
-// your real record; net lives on the Competition tab (games are scored on net).
-// Charts from the
-// "Stats Chart Upgrades" mockups: lower scores sit lower; line charts scroll.
+// Scoring (Owen 2026-11-06): the scoring average shows gross and net side by side
+// with paired bars per trip; best/worst rounds and the rest stay gross. Net uses the
+// full handicap, so it means the same on every trip. Handicap is a line on a real
+// timeline. Charts from the "Stats Chart Upgrades" mockups; they scroll sideways.
+const NET_BAR = '#8FA6C4'
+
+// Handicap points on a real timeline: x by date (PX_PER_YEAR), nudged apart so two
+// trips close together don't overlap; a tick at Jan 1 of each year.
+const PX_PER_YEAR = 84, MIN_GAP = 40
+function handicapTimeline(hc) {
+  const t = hc.map(p => (p.date ? Date.parse(p.date) : NaN))
+  if (t.some(Number.isNaN) || hc.length < 2) return null
+  const yr = 365.25 * 86400000
+  const startYear = new Date(t[0]).getUTCFullYear()
+  const origin = Date.UTC(startYear, 0, 1)
+  const raw = t.map(v => ((v - origin) / yr) * PX_PER_YEAR)
+  const xs = []
+  raw.forEach((r, i) => xs.push(i ? Math.max(r, xs[i - 1] + MIN_GAP) : r))
+  // Map a raw x onto the nudged axis (piecewise between neighbouring points).
+  const place = r => {
+    if (r <= raw[0]) return r + (xs[0] - raw[0])
+    for (let i = 1; i < raw.length; i++) {
+      if (r <= raw[i]) {
+        const f = raw[i] === raw[i - 1] ? 1 : (r - raw[i - 1]) / (raw[i] - raw[i - 1])
+        return xs[i - 1] + f * (xs[i] - xs[i - 1])
+      }
+    }
+    return r + (xs.at(-1) - raw.at(-1))
+  }
+  const endYear = new Date(t.at(-1)).getUTCFullYear() + 1
+  const xTicks = []
+  for (let y = startYear; y <= endYear; y++) xTicks.push({ x: place(((Date.UTC(y, 0, 1) - origin) / yr) * PX_PER_YEAR), label: String(y) })
+  return { xs, xTicks }
+}
+
+const trend = (a, b) => (a == null || b == null ? null : `${a < b ? '▼' : a > b ? '▲' : '='} ${Math.abs(a - b).toFixed(1)} vs last trip`)
+
 function ScoringTab({ d }) {
   const g = d.gross
-  // Gross average on each trip, oldest first (trips with a full 18-hole round).
+  // Average on each trip, oldest first (trips with a full 18-hole round).
   const byTrip = [...d.trips].reverse().filter(t => t.average != null)
   const last = byTrip.at(-1), prev = byTrip.at(-2)
-  const delta = last && prev ? last.average - prev.average : null
-  const avgScale = niceScale(byTrip.map(t => t.average), { pad: 1 })
   // Handicap index at each trip, oldest first.
   const hc = d.handicap
+  const timeline = handicapTimeline(hc)
+  const hcScale = niceScale(hc.map(p => p.index), { pad: 1 })
   const mix = [
     { label: 'Eagle+', n: g.counts.eagles + g.counts.albatrosses, tone: 'eagle' },
     { label: 'Birdie', n: g.counts.birdies, tone: 'birdie' },
@@ -45,36 +78,45 @@ function ScoringTab({ d }) {
     { label: 'Triple+', n: g.counts.triples, tone: 'triple' },
   ]
   const shortTrip = t => `${(t.name || '').replace(/\s*'?\d{2,4}$/, '').split(/\s+/).slice(-1)[0] || 'Trip'} '${(t.startDate || '').slice(2, 4)}`
+  const fmtAvg = v => (Number.isInteger(v) ? v : v.toFixed(1))
   return (
     <>
-      <Tile title="Scoring" note={g.roundsCounted ? `gross · ${g.roundsCounted} full round${g.roundsCounted === 1 ? '' : 's'} · ${plural(byTrip.length, 'trip')}` : 'gross'}>
+      <Tile title="Scoring average" note={g.roundsCounted ? `${g.roundsCounted} full round${g.roundsCounted === 1 ? '' : 's'} · ${plural(byTrip.length, 'trip')}` : null}>
         {g.roundsCounted ? (
           <>
             <Cols items={[
-              { label: 'Average', value: one(g.average), sub: delta == null ? null : `${delta < 0 ? '▼' : delta > 0 ? '▲' : '='} ${Math.abs(delta).toFixed(1)} vs last trip` },
-              { label: 'Best', value: g.best?.total ?? '—', where: roundWhere(g.best) },
-              { label: 'Worst', value: g.worst?.total ?? '—', where: g.roundsCounted > 1 ? roundWhere(g.worst) : null },
+              { label: 'Gross', value: one(g.average), sub: trend(last?.average, prev?.average) },
+              { label: 'Net', value: d.net?.average == null ? '—' : one(d.net.average), sub: trend(last?.netAverage, prev?.netAverage) },
             ]} />
-            {byTrip.length > 1 && (
+            {byTrip.length > 0 && (
               <div style={{ marginTop: 12 }}>
-                <ScrollLineChart
-                  labels={byTrip.map(shortTrip)} step={84} height={118} area pointLabels
-                  series={[{ key: 'avg', title: 'Average', values: byTrip.map(t => t.average), color: NAVY, lastDot: GOLD }]}
-                  {...avgScale} fmt={v => (Number.isInteger(v) ? v : v.toFixed(1))}
+                <LineKey items={[{ label: 'Gross', color: NAVY, square: true }, { label: 'Net', color: NET_BAR, square: true }]} />
+                <ScrollBarChart
+                  items={byTrip.map(t => ({ key: t.tripId, label: shortTrip(t), title: t.name, values: [t.average, t.netAverage] }))}
+                  colors={[NAVY, NET_BAR]} fmt={fmtAvg}
                 />
-                <div style={s.note}>Your average on each trip; a lower line is a lower score.</div>
               </div>
             )}
           </>
         ) : <div style={{ ...s.note, marginTop: 0, textAlign: 'center' }}>Finish an 18-hole round to see your average.</div>}
       </Tile>
+      {g.roundsCounted > 0 && (
+        <Tile title="Best and worst round" note="gross">
+          <Cols items={[
+            { label: 'Best', value: g.best?.total ?? '—', where: roundWhere(g.best) },
+            { label: 'Worst', value: g.worst?.total ?? '—', where: g.roundsCounted > 1 ? roundWhere(g.worst) : null },
+          ]} />
+        </Tile>
+      )}
       {hc.length > 0 && (
         <Tile title="Handicap index" note="at each trip">
-          {/* One bar per trip, oldest left; opens on the latest (Owen 2026-11-06). */}
-          <ScrollBarChart
-            items={hc.map(p => ({ key: p.tripId, label: p.date ? `${fmtDate(p.date, { month: 'short' })} ’${p.date.slice(2, 4)}` : '', value: p.index, title: `${p.tripName}: ${one(p.index)}` }))}
-            fmt={v => one(v)}
-          />
+          {hc.length > 1 ? (
+            <ScrollLineChart
+              labels={hc.map(p => p.tripName || '')} xs={timeline?.xs} xTicks={timeline?.xTicks} step={84}
+              height={160} pointLabels {...hcScale} fmt={v => (Number.isInteger(v) ? v : one(v))}
+              series={[{ key: 'hc', title: 'Handicap index', values: hc.map(p => p.index), color: NAVY, lastDot: GOLD }]}
+            />
+          ) : <Cols items={[{ label: 'Index', value: one(hc[0].index) }]} />}
         </Tile>
       )}
       <Tile title="Where the strokes go" note="gross · average vs par per hole">
@@ -95,7 +137,7 @@ function ScoringTab({ d }) {
       </Tile>
       <Tile title="Score totals" note={`gross · ${d.totals.holes} holes`}>
         <ScoreMixBars rows={mix} />
-        <div style={s.note}>{g.counts.aces ? `Holes in one: ${g.counts.aces} (counted in Eagle+). ` : ''}Blue under par, grey par, red over.</div>
+        {g.counts.aces > 0 && <div style={s.note}>Holes in one: {g.counts.aces} (counted in Eagle+).</div>}
       </Tile>
     </>
   )
