@@ -114,13 +114,15 @@ export function pastResult(t, playerName) {
 }
 
 // Loaders. Both return [] if the tables aren't there yet (migration not run) or
-// the request fails, so the pages still work without past trips.
+// the request fails, so the pages still work without past trips (with a console
+// warning, so a failure is visible).
+const warn = (what, error) => { console.warn(`Past trips: couldn't load ${what}`, error?.code || '', error?.message || error) }
 async function rowsFor(client, trips) {
   if (!trips?.length) return []
   const { data: players, error } = await client.from('past_trip_players')
     .select('past_trip_id, user_id, name, handicap_index, team_index, rank')
     .in('past_trip_id', trips.map(t => t.id))
-  if (error) return []
+  if (error) { warn('players', error); return [] }
   return pastTripRows(trips, players || [])
 }
 
@@ -130,7 +132,7 @@ const TRIP_COLS = 'id, group_id, name, start_date, end_date, location, format_la
 export async function loadGroupPastTrips(client, groupId) {
   if (!groupId) return []
   const { data, error } = await client.from('past_trips').select(TRIP_COLS).eq('group_id', groupId)
-  if (error) return []
+  if (error) { warn('group trips', error); return [] }
   return rowsFor(client, data)
 }
 
@@ -138,8 +140,9 @@ export async function loadGroupPastTrips(client, groupId) {
 export async function loadMyPastTrips(client, userId) {
   if (!userId) return []
   const { data: mine, error } = await client.from('past_trip_players').select('past_trip_id').eq('user_id', userId)
-  if (error || !mine?.length) return []
+  if (error) { warn('your trips', error); return [] }
+  if (!mine?.length) return []
   const { data, error: tErr } = await client.from('past_trips').select(TRIP_COLS).in('id', [...new Set(mine.map(m => m.past_trip_id))])
-  if (tErr) return []
+  if (tErr) { warn('trips', tErr); return [] }
   return rowsFor(client, data)
 }

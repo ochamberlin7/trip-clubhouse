@@ -51,6 +51,9 @@ CREATE INDEX IF NOT EXISTS past_trips_group_idx ON public.past_trips (group_id);
 ALTER TABLE public.past_trips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.past_trip_players ENABLE ROW LEVEL SECURITY;
 
+-- The app reads these as the signed-in user (RLS below decides which rows).
+GRANT SELECT ON public.past_trips, public.past_trip_players TO authenticated;
+
 DROP POLICY IF EXISTS "past_trips_select" ON public.past_trips;
 CREATE POLICY "past_trips_select" ON public.past_trips FOR SELECT TO authenticated
 USING (is_group_member(group_id));
@@ -164,6 +167,9 @@ BEGIN
 END $$;
 
 COMMIT;
+
+-- Make the API see the new tables right away.
+NOTIFY pgrst, 'reload schema';
 
 -- Check who got matched to an account (NULL user_id = stored by name only):
 -- SELECT t.name AS trip, p.name, p.user_id IS NOT NULL AS has_account, p.handicap_index, p.team_index
