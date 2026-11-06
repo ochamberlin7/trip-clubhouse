@@ -302,6 +302,14 @@ export default function HomePage() {
           )}
         </section>
 
+        {/* Groups: the title opens the Group stats page (each group's all-time numbers). */}
+        {hasCareer && (
+          <section>
+            <SectionHead style={{ marginBottom: 4 }} onClick={() => navigate('/group')}>Groups</SectionHead>
+            <p style={{ ...h.shelfNote, marginTop: 6 }}>All-time stats, records and rivalries for each group you've played with.</p>
+          </section>
+        )}
+
         <section>
           <SectionHead style={{ marginBottom: 14 }} onClick={() => navigate('/trophies')}>Trophy room</SectionHead>
           {/* Shelf: your 4 best badges (never roast ones), or faint placeholders until you earn some. */}

@@ -7,6 +7,14 @@ import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
 import { roundHoleCount, teamStandingsFromRows, finishLabel, tripGameType, isIndividualGameType, individualStandings } from './scoring.js'
 import { tripTimeStatus } from './myTrips.js'
 
+// Which trip player is "you". `who` is an account id (matches user_id or
+// claimed_user_id), or a function (tripPlayer) => boolean — the Group stats page
+// passes one per group member, so guests without an account can be counted too.
+export function findPlayer(tripPlayers = [], who) {
+  if (typeof who === 'function') return (tripPlayers || []).find(who)
+  return who ? (tripPlayers || []).find(p => p.user_id === who || p.claimed_user_id === who) : undefined
+}
+
 // perTrip: [{ tripId, rounds, scores, pairings, pairingPlayers, tripPlayers, playerRounds, allowance }]
 // userId:  the account whose career this is.
 // Returns { trips, rounds, holes, points, bestRound } — holes = every hole with a
@@ -15,7 +23,7 @@ import { tripTimeStatus } from './myTrips.js'
 export function buildCareer(perTrip = [], userId) {
   const out = { trips: 0, rounds: 0, holes: 0, points: 0, bestRound: null }
   for (const t of perTrip) {
-    const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
+    const me = findPlayer(t.tripPlayers, userId)
     if (!me) continue
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue // signed up but never played → not a trip played yet
@@ -49,7 +57,7 @@ export function tripFinishes(perTrip = [], userId, now = new Date()) {
   const out = new Map()
   for (const t of perTrip) {
     if (!t.trip?.team_mode || tripTimeStatus(t.trip, now) !== 'past') continue
-    const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
+    const me = findPlayer(t.tripPlayers, userId)
     if (!me?.team_id) continue
     const st = teamStandingsFromRows({ format: t.trip.format, ...t })
     const { ranked } = st
@@ -71,7 +79,7 @@ export function individualFinishes(perTrip = [], userId, now = new Date()) {
   for (const t of perTrip) {
     const gameType = tripGameType(t.trip)
     if (!isIndividualGameType(gameType) || tripTimeStatus(t.trip, now) !== 'past') continue
-    const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
+    const me = findPlayer(t.tripPlayers, userId)
     if (!me || me.team_id) continue
     const scoresMap = {}, teeRowMap = {}, hcpByPlayer = {}
     for (const s of t.scores || []) if (s.gross_score != null) scoresMap[`${s.round_id}:${s.trip_player_id}:${s.hole_number}`] = s.gross_score
@@ -114,10 +122,12 @@ export async function selectAllRows(build) {
 
 export async function loadCareerData(client, tripIds = []) {
   if (!tripIds.length) return []
-  const [tripsRes, roundsRes, playersRes] = await Promise.all([
+  const [tripsRes, roundsRes, playersRes, teamsRes] = await Promise.all([
     client.from('trips').select('id, name, start_date, end_date, time_zone, handicap_allowance, format, team_mode, created_by').in('id', tripIds),
     client.from('rounds').select('*').in('trip_id', tripIds),
     client.from('trip_players').select('id, trip_id, user_id, claimed_user_id, handicap_index, team_id, first_name, last_name, guest_name').in('trip_id', tripIds),
+    // Team names, for the Group stats page's trip history ("won by Team Ben").
+    client.from('teams').select('id, trip_id, name, team_index, color_index').in('trip_id', tripIds),
   ])
   const rounds = roundsRes.data || []
   const roundIds = rounds.map(r => r.id)
@@ -152,5 +162,6 @@ export async function loadCareerData(client, tripIds = []) {
     playerRounds: playerRounds.filter(pr => tripOfRound.get(pr.round_id) === id),
     drinks: drinks.filter(d => tripOfRound.get(d.round_id) === id),
     tripPlayers: (playersRes.data || []).filter(p => p.trip_id === id),
+    teams: (teamsRes?.data || []).filter(tm => tm.trip_id === id),
   }))
 }

@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useMyCareer } from '../../lib/useMyCareer'
 import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
+import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM } from './careerTheme'
+import { one, vsPar, pct, half, fmtDate, roundWhere, tripWhere, intVsPar, plural, formatLabel } from '../../lib/careerFormat'
+import { Tile, Cols, GrossNetTable, PeopleTile } from './statTiles'
 
 // Career page (opened from the Career title on Home): one player's numbers across
 // every trip. Layout "B" (Owen, 2026-10-30): totals on top, then three tabs —
@@ -12,173 +15,7 @@ import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 // they match Home and the Trophy Room. Every number is black (Owen, 2026-10-31);
 // a number that came from one trip or round can be tapped to see where.
 
-const NAVY = '#1B3F6E'
-const INK = '#0D1B2A'
-const MUTED = '#5F6B7A'
-const HAIR = '#E3E1DA'
-const RULE = '#C9D3E0'
-const TILE_BORDER = '#D5DEE8'
-const TILE_BAR = '#EEF2F7'
-const ROW_LINE = '#EDF0F4'
-const GOLD = '#B08A3E'
-const GOLD_TEXT = '#D8C08A'
-const FAINT = '#9AA6B5'
-const SERIF = "'Playfair Display', Georgia, serif"
-const CAPS = { fontWeight: 700, letterSpacing: '1.3px', textTransform: 'uppercase' }
-const LNUM = { fontVariantNumeric: 'lining-nums tabular-nums', fontFeatureSettings: '"lnum" 1' }
-
-const s = {
-  page: { minHeight: '100vh', background: 'var(--bg0)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)', boxSizing: 'border-box' },
-  mast: { background: NAVY, padding: '14px 16px 20px', paddingTop: 'calc(env(safe-area-inset-top) + 14px)', position: 'relative', textAlign: 'center' },
-  back: { position: 'absolute', left: 16, top: 'calc(env(safe-area-inset-top) + 14px)', background: 'none', border: 'none', padding: 0, color: GOLD_TEXT, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  eyebrow: { fontSize: 10.5, letterSpacing: '2px', textTransform: 'uppercase', color: '#AFC2DE', marginTop: 26 },
-  title: { margin: '4px 0 0', fontFamily: SERIF, fontSize: 34, fontWeight: 700, color: GOLD_TEXT, lineHeight: 1.05 },
-  who: { fontFamily: SERIF, fontSize: 18, color: '#fff', marginTop: 6 },
-  rule: { width: 70, height: 2, background: GOLD, margin: '10px auto 0' },
-  hi: { fontSize: 12, color: '#C7D6EA', marginTop: 8 },
-  inner: { maxWidth: 480, margin: '0 auto', padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 14 },
-  totals: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', background: '#fff', border: `1px solid ${HAIR}`, borderRadius: 3, padding: '14px 0' },
-  totNum: { display: 'block', fontFamily: SERIF, fontSize: 34, lineHeight: 1, color: INK, ...LNUM },
-  totLab: { display: 'block', marginTop: 6, fontSize: 10, ...CAPS, color: MUTED },
-  tabs: { display: 'flex', borderBottom: `1px solid ${RULE}` },
-  tab: { flex: 1, padding: '11px 0', background: 'none', border: 'none', fontSize: 14, fontWeight: 700, color: MUTED, cursor: 'pointer', fontFamily: 'inherit' },
-  tabOn: { color: NAVY, boxShadow: `inset 0 -2px 0 ${NAVY}` },
-  // overflow stays visible so a number's pop-up isn't cut off; the bar rounds its own corners.
-  tile: { background: '#fff', border: `1px solid ${TILE_BORDER}`, borderRadius: 6 },
-  tileBar: { background: TILE_BAR, borderRadius: '6px 6px 0 0', padding: '8px 12px', fontSize: 15, fontWeight: 700, color: NAVY, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
-  tileNote: { fontSize: 11, fontWeight: 600, color: MUTED },
-  tileBody: { padding: 12 },
-  // Every cell shares three rows (label, number, caption) so the numbers line up across a tile.
-  cols: n => ({ display: 'grid', gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))`, gridTemplateRows: 'auto auto auto', textAlign: 'center' }),
-  cell: { display: 'grid', gridRow: 'span 3', gridTemplateRows: 'subgrid', justifyItems: 'center', alignItems: 'end', rowGap: 3, position: 'relative', minWidth: 0 },
-  colLine: { borderLeft: `1px solid ${ROW_LINE}` },
-  colLab: { display: 'block', fontSize: 11, lineHeight: '14px', color: MUTED },
-  big: { display: 'block', fontSize: 24, fontWeight: 800, color: INK, ...LNUM, lineHeight: '30px', whiteSpace: 'nowrap' },
-  // Tappable number: looks like every other number.
-  tap: { display: 'block', fontFamily: 'inherit', fontSize: 24, fontWeight: 800, color: INK, ...LNUM, lineHeight: '30px', whiteSpace: 'nowrap', background: 'none', border: 0, padding: 0, cursor: 'pointer' },
-  pop: { position: 'absolute', zIndex: 5, top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', width: 'max-content', maxWidth: 210, background: NAVY, color: '#fff', fontSize: 12, lineHeight: 1.35, fontWeight: 600, padding: '8px 10px', borderRadius: 6, boxShadow: '0 6px 18px rgba(13,27,42,0.25)', textAlign: 'center', whiteSpace: 'normal' },
-  popArrow: { position: 'absolute', top: -5, left: '50%', marginLeft: -5, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderBottom: `5px solid ${NAVY}` },
-  popSmall: { display: 'block', fontWeight: 400, color: '#C7D6EA', fontSize: 11, marginTop: 2 },
-  // Win · Tie · Loss: the faint words and the numbers share fixed columns.
-  rec: { display: 'grid', gridTemplateColumns: '28px 9px 28px 9px 28px', justifyItems: 'center', ...LNUM },
-  recHead: { fontSize: 9, lineHeight: '14px', letterSpacing: '0.8px', textTransform: 'uppercase', color: FAINT, fontWeight: 700 },
-  recNum: { fontSize: 22, lineHeight: '30px', fontWeight: 800, color: INK },
-  recSm: { display: 'inline-grid', gridTemplateColumns: '17px 8px 17px 8px 17px', justifyItems: 'center', ...LNUM },
-  recSmHead: { fontSize: 8, lineHeight: '10px', letterSpacing: '0.5px', color: FAINT, fontWeight: 700 },
-  recSmNum: { fontSize: 15, lineHeight: '18px', fontWeight: 800, color: INK },
-  pills: { display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 },
-  where: { display: 'block', fontSize: 11, color: MUTED, marginTop: 2, lineHeight: 1.3 },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 14, ...LNUM },
-  th: { fontSize: 10.5, ...CAPS, letterSpacing: '1.2px', color: MUTED, textAlign: 'right', padding: '0 4px 6px', width: 70 },
-  td: { padding: '8px 4px', borderTop: `1px solid ${ROW_LINE}`, textAlign: 'right', fontWeight: 700, color: INK },
-  tdName: { padding: '8px 4px', borderTop: `1px solid ${ROW_LINE}`, textAlign: 'left', color: '#2C3E50' },
-  note: { fontSize: 11, color: MUTED, marginTop: 8, lineHeight: 1.4 },
-  empty: { border: `1px dashed ${RULE}`, borderRadius: 3, padding: 16, textAlign: 'center', fontSize: 13, color: MUTED, lineHeight: 1.45 },
-  person: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' },
-  av: { width: 30, height: 30, borderRadius: '50%', background: '#DCE4EE', color: NAVY, fontSize: 11, fontWeight: 800, display: 'grid', placeItems: 'center', flex: 'none' },
-  trip: { background: '#fff', border: `1px solid ${HAIR}`, borderRadius: 3 },
-  tripHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px 10px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: INK },
-  yr: { fontFamily: SERIF, fontSize: 24, color: NAVY, width: 54, flex: 'none', ...LNUM },
-  tripName: { fontFamily: SERIF, fontSize: 17, lineHeight: 1.2, color: INK },
-  finish: { fontSize: 10.5, ...CAPS, letterSpacing: '1px', color: GOLD, marginTop: 2 },
-  grid4: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', borderTop: `1px solid ${HAIR}`, textAlign: 'center', padding: '10px 0' },
-  g4Num: { display: 'block', fontSize: 16, fontWeight: 700, ...LNUM },
-  g4Lab: { fontSize: 10, ...CAPS, letterSpacing: '1px', color: MUTED },
-  rounds: { borderTop: `1px solid ${HAIR}`, padding: '6px 14px 10px', fontSize: 13 },
-  roundRow: { display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 0', color: '#2C3E50' },
-}
-
 const TABS = [{ id: 'scoring', label: 'Scoring' }, { id: 'competition', label: 'Competition' }, { id: 'trips', label: 'Trips' }]
-
-const one = n => (n == null ? '—' : n.toFixed(1))
-const vsPar = n => (n == null ? '—' : Math.abs(n) < 0.05 ? 'E' : `${n > 0 ? '+' : '−'}${Math.abs(n).toFixed(1)}`)
-const pct = n => (n == null ? '—' : `${Math.round(n * 100)}%`)
-const half = n => (n % 1 ? `${Math.floor(n) || ''}½` : String(n))
-const initials = name => (name || '').trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || '—'
-function fmtDate(iso, opts = { month: 'short', day: 'numeric', year: 'numeric' }) {
-  if (!iso) return ''
-  return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { ...opts, timeZone: 'UTC' })
-}
-
-function Tile({ title, note, children, pad = true }) {
-  return (
-    <section style={s.tile}>
-      <h3 style={{ ...s.tileBar, margin: 0 }}>{title}{note && <span style={s.tileNote}>{note}</span>}</h3>
-      <div style={pad ? s.tileBody : undefined}>{children}</div>
-    </section>
-  )
-}
-
-// A number that came from one trip or round: tap it for a small pop-up naming where.
-function TapValue({ value, where }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-  useEffect(() => {
-    if (!open) return
-    const close = e => { if (!ref.current?.contains(e.target)) setOpen(false) }
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
-  }, [open])
-  return (
-    <span ref={ref} style={{ position: 'relative', display: 'block' }}>
-      <button type="button" style={s.tap} onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={`${value}. Show where`}>{value}</button>
-      {open && (
-        <span role="status" style={s.pop}>
-          <span style={s.popArrow} />
-          {where.title}
-          {where.detail && <small style={s.popSmall}>{where.detail}</small>}
-        </span>
-      )}
-    </span>
-  )
-}
-
-// Win – Tie – Loss with a faint word over each number (`small` for lists).
-function RecordHead({ small }) {
-  const st = small ? s.recSmHead : s.recHead
-  return <span style={small ? s.recSm : s.rec}><span style={st}>{small ? 'W' : 'Win'}</span><span /><span style={st}>{small ? 'T' : 'Tie'}</span><span /><span style={st}>{small ? 'L' : 'Loss'}</span></span>
-}
-function RecordNums({ r, small }) {
-  const st = small ? s.recSmNum : s.recNum
-  return <span style={small ? s.recSm : s.rec}><span style={st}>{r.w}</span><span style={st}>–</span><span style={st}>{r.t}</span><span style={st}>–</span><span style={st}>{r.l}</span></span>
-}
-function SmallRecord({ r }) {
-  return <span style={{ display: 'flex', flexDirection: 'column' }} aria-label={`${r.w} won, ${r.t} tied, ${r.l} lost`}><RecordHead small /><RecordNums r={r} small /></span>
-}
-
-// Numbers side by side. Item: { label, value, sub?, where? } or { record, sub? }.
-function Cols({ items }) {
-  return (
-    <div style={s.cols(items.length)}>
-      {items.map((it, i) => (
-        <div key={it.label || `c${i}`} style={{ ...s.cell, ...(i ? s.colLine : null) }}>
-          {it.record ? <RecordHead /> : <span style={s.colLab}>{it.label}</span>}
-          {it.record
-            ? <span aria-label={`${it.record.w} won, ${it.record.t} tied, ${it.record.l} lost`}><RecordNums r={it.record} /></span>
-            : it.where ? <TapValue value={it.value} where={it.where} /> : <b style={s.big}>{it.value}</b>}
-          {it.sub ? <span style={{ ...s.where, alignSelf: 'start' }}>{it.sub}</span> : <span />}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function GrossNetTable({ rows }) {
-  return (
-    <table style={s.table}>
-      <thead><tr><th style={{ ...s.th, width: 'auto' }} /><th style={s.th}>Gross</th><th style={s.th}>Net</th></tr></thead>
-      <tbody>
-        {rows.map(r => (
-          <tr key={r.label}>
-            <td style={s.tdName}>{r.label}</td>
-            <td style={s.td}>{r.gross}</td>
-            <td style={{ ...s.td, ...(r.net === '—' ? { color: '#9AA6B5', fontWeight: 400 } : null) }}>{r.net}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
 
 // Handicap index at each trip, drawn to scale (oldest left).
 function HandicapTrend({ points }) {
@@ -213,10 +50,6 @@ function HandicapTrend({ points }) {
     </svg>
   )
 }
-
-// Pop-up text for a round ("CTI Michigan" / "Arcadia Bluffs · Oct 1, 2026") or a trip finish.
-const roundWhere = r => (r ? { title: r.tripName, detail: [r.course, fmtDate(r.date)].filter(Boolean).join(' · ') } : null)
-const tripWhere = f => (f ? { title: f.tripName, detail: f.date ? fmtDate(f.date, { month: 'short', year: 'numeric' }) : '' } : null)
 
 function ScoringTab({ d }) {
   const { gross: g, net: n } = d
@@ -269,28 +102,6 @@ function ScoringTab({ d }) {
     </>
   )
 }
-
-function PeopleTile({ title, list, lead, leadIf, unit = 'match' }) {
-  if (!list.length) return null
-  return (
-    <Tile title={title}>
-      {list.map((p, i) => (
-        <div key={p.key} style={{ ...s.person, ...(i ? { borderTop: `1px solid ${ROW_LINE}` } : null) }}>
-          <span style={s.av}>{initials(p.name)}</span>
-          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <span style={{ fontSize: 14, color: '#2C3E50' }}>{p.name}</span>
-            <span style={{ fontSize: 11, color: MUTED }}>{i === 0 && leadIf(p) ? `${lead} · ` : ''}{plural(p.matches, unit)}</span>
-          </span>
-          <span style={{ marginLeft: 'auto' }}><SmallRecord r={p} /></span>
-        </div>
-      ))}
-    </Tile>
-  )
-}
-
-const intVsPar = n => (n == null ? '—' : n === 0 ? 'E' : `${n > 0 ? '+' : '−'}${Math.abs(n)}`)
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : word.endsWith('h') ? 'es' : 's'}`
-const formatLabel = f => ((f.format === 'stableford' || f.format === 'stroke') && f.teams ? `Team ${FORMAT_NAMES[f.format]}` : FORMAT_NAMES[f.format])
 
 // First tile of every format pill: your best finish (tap for the trip) and trips won.
 function FormatHead({ name, f, note }) {

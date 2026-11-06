@@ -14,7 +14,7 @@
 // with each partner and opponent, Stableford and stroke play summaries, and the
 // trip-by-trip list. Pure; tested in Node.
 import { computePlayerStats, courseHolesFromRounds, netShotsByRound } from './playerStats.js'
-import { buildCareer, tripFinishes, individualFinishes } from './careerStats.js'
+import { buildCareer, tripFinishes, individualFinishes, findPlayer } from './careerStats.js'
 import {
   strokesOnHole, matchPairingOutcomes, tripGameType, isIndividualGameType,
   roundHoleCount, roundCourseName, isPracticeRound, playerName, leaderboardRounds, strokeRoundResult,
@@ -24,7 +24,7 @@ const COUNT_KEYS = ['aces', 'albatrosses', 'eagles', 'birdies', 'pars', 'bogeys'
 const HARDEST = 6 // stroke index 1–6
 
 const avg = (sum, n) => (n ? sum / n : null)
-const meOf = (t, userId) => (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
+const meOf = (t, who) => findPlayer(t.tripPlayers, who)
 
 function emptyMode() {
   return {
@@ -74,15 +74,15 @@ export function finishRank(label) {
   return m ? Number(m[1]) : null
 }
 
-function personKey(tp) {
+export function personKey(tp) {
   const acct = tp.user_id || tp.claimed_user_id
   return acct ? `u:${acct}` : `n:${playerName(tp).toLowerCase()}`
 }
 
 // perTrip: rows from loadCareerData. Returns everything the Career page shows.
-export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
-  const base = buildCareer(perTrip, userId)
-  const finishes = new Map([...tripFinishes(perTrip, userId, now), ...individualFinishes(perTrip, userId, now)])
+export function buildCareerDetail(perTrip = [], who, now = new Date()) {
+  const base = buildCareer(perTrip, who)
+  const finishes = new Map([...tripFinishes(perTrip, who, now), ...individualFinishes(perTrip, who, now)])
   const gross = emptyMode(), net = emptyMode()
   const handicap = []
   const trips = []
@@ -99,7 +99,7 @@ export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
   }
 
   for (const t of perTrip) {
-    const me = meOf(t, userId)
+    const me = meOf(t, who)
     if (!me) continue
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue
@@ -138,7 +138,7 @@ export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
     for (const r of sortedRounds) {
       const holes = courseHoles.filter(h => h.round_id === r.id).sort((a, b) => a.hole_number - b.hole_number)
       const ph = shots.get(r.id)?.get(me.id) ?? 0
-      let scored = 0, gTot = 0, nTot = 0, gFront = 0, gBack = 0, nFront = 0, nBack = 0
+      let scored = 0, gTot = 0, nTot = 0, gFront = 0, gBack = 0, nFront = 0, nBack = 0, gBirdies = 0
       const prev = { g: null, n: null }
       for (const h of holes) {
         const g = gByKey.get(`${r.id}:${h.hole_number}`)
@@ -149,6 +149,7 @@ export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
         if (h.par == null) { prev.g = null; prev.n = null; continue }
         for (const [m, v, key] of [[gross, g, 'g'], [net, n, 'n']]) {
           const diff = v - h.par
+          if (key === 'g' && diff <= -1) gBirdies++ // birdie or better (gross), for "most birdies in a round"
           const slot = m.byPar[h.par]
           if (slot) { slot.sum += v; slot.vsPar += diff; slot.n++ }
           if (h.stroke_index != null && h.stroke_index <= HARDEST) { m.hard.vsPar += diff; m.hard.n++ }
@@ -164,7 +165,7 @@ export function buildCareerDetail(perTrip = [], userId, now = new Date()) {
         gross.rounds.push({ total: gTot, front: gFront, back: gBack, ...where })
         net.rounds.push({ total: nTot, front: nFront, back: nBack, ...where })
       }
-      roundsList.push({ roundId: r.id, ...where, gross: gTot, net: nTot, holesScored: scored, holeCount, complete: scored >= holeCount, practice: isPracticeRound(r) })
+      roundsList.push({ roundId: r.id, ...where, gross: gTot, net: nTot, birdies: gBirdies, holesScored: scored, holeCount, complete: scored >= holeCount, practice: isPracticeRound(r) })
     }
 
     // Stableford / stroke play: the Leaderboard's own round results (counting rounds only).

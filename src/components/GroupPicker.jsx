@@ -21,7 +21,9 @@ const st = {
   plus: { width: 22, height: 22, borderRadius: '50%', border: `1.5px solid ${NAVY}`, color: NAVY, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 15, lineHeight: 1, flex: 'none', boxSizing: 'border-box' },
 }
 
-export default function GroupPicker({ groups, value, onChange }) {
+// allowCreate=false hides "+ Create new group" (the Group stats page's picker).
+// label: the list's accessible name.
+export default function GroupPicker({ groups, value, onChange, allowCreate = true, label = 'Group' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function GroupPicker({ groups, value, onChange }) {
       </button>
       {open && (
         <div style={st.pop}>
-          <ul style={st.list} role="listbox" aria-label="Group">
+          <ul style={st.list} role="listbox" aria-label={label}>
             {groups.map((g, i) => (
               <li key={g.id} role="option" aria-selected={g.id === value}>
                 <button type="button" style={{ ...st.opt, ...(i === 0 ? { borderTop: 'none' } : null), ...(g.id === value ? { background: '#F3F6FA' } : null) }} onClick={() => pick(g.id)}>
@@ -56,9 +58,11 @@ export default function GroupPicker({ groups, value, onChange }) {
               </li>
             ))}
           </ul>
-          <button type="button" style={{ ...st.opt, ...(groups.length ? { borderTop: '1px solid #D5DEE8' } : { borderTop: 'none' }), color: NAVY, fontWeight: 700 }} onClick={() => pick(NEW_GROUP)}>
-            <span style={st.plus}>+</span>Create new group
-          </button>
+          {allowCreate && (
+            <button type="button" style={{ ...st.opt, ...(groups.length ? { borderTop: '1px solid #D5DEE8' } : { borderTop: 'none' }), color: NAVY, fontWeight: 700 }} onClick={() => pick(NEW_GROUP)}>
+              <span style={st.plus}>+</span>Create new group
+            </button>
+          )}
         </div>
       )}
     </div>
