@@ -135,6 +135,18 @@ function HistoryTab({ d, onOpenTrip }) {
   return d.trips.map(t => <TripCard key={t.tripId} t={t} onOpen={() => onOpenTrip(t.tripId)} />)
 }
 
+// Players in a two-column grid (Owen 2026-11-06: anywhere it lists who went,
+// a grid, not a list) — team cards and "Who went".
+function NameGrid({ names, pad = 0 }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 10, padding: pad }}>
+      {names.map((name, j) => (
+        <div key={name + j} style={{ fontSize: 13, color: INK, padding: '5px 0', borderTop: j > 1 ? '1px solid #EEF1F4' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+      ))}
+    </div>
+  )
+}
+
 // Full-screen summary of one trip: when, where, courses, who went, teams, the
 // final score, and a button into the trip itself (old scorecards etc.).
 function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
@@ -208,11 +220,7 @@ function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
                 return (
                   <div key={tm.id} style={{ border: '1px solid #E1E7EE', borderRadius: 6, overflow: 'hidden' }}>
                     <div style={{ background: color, color: '#fff', fontSize: 13, fontWeight: 800, padding: '7px 10px', lineHeight: 1.2 }}>{tm.name}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 10, padding: '4px 10px 6px' }}>
-                      {tm.players.map((name, j) => (
-                        <div key={name + j} style={{ fontSize: 13, color: INK, padding: '5px 0', borderTop: j > 1 ? '1px solid #EEF1F4' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                      ))}
-                    </div>
+                    <NameGrid names={tm.players} pad="4px 10px 6px" />
                   </div>
                 )
               })}
@@ -220,7 +228,7 @@ function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
           </Tile>
         ) : t.playerNames.length > 0 && (
           <Tile title="Who went" note={`${t.playerNames.length} players`}>
-            <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.6 }}>{t.playerNames.join(', ')}</div>
+            <NameGrid names={t.playerNames} />
           </Tile>
         )}
 
