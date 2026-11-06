@@ -8,8 +8,9 @@
 -- Kept in their own tables, NOT in trips, so they never appear in the trip
 -- switcher, Home's trip list or anywhere a real trip can be opened.
 --
--- Players are matched to their accounts by name (first name + last initial)
--- among the CTI group's existing trip players. Anyone with no account (e.g. Tony,
+-- The CTI group is the "Couch Tour..." group with the most players on its trips
+-- (there are several groups with that name). Players are matched to their
+-- accounts by name (first name + last initial) among that group's trip players. Anyone with no account (e.g. Tony,
 -- Eric, John E.) is stored by name only: listed on the trip, no stats of their own.
 --
 -- Read access: members of the trip's group. No one writes from the app.
@@ -64,10 +65,27 @@ DECLARE
   g uuid;
   n int;
 BEGIN
-  SELECT count(*), min(id::text)::uuid INTO n, g FROM public.groups WHERE name ILIKE 'Couch Tour%';
-  IF n <> 1 THEN
-    RAISE EXCEPTION 'Expected exactly one group named Couch Tour…, found %', n;
+  -- Several groups can be named "Couch Tour..." (test / duplicate groups). Use
+  -- the one holding the real CTI trips: the most players with accounts on its
+  -- (not deleted) trips. Stop if none has any, or if two are level.
+  WITH c AS (
+    SELECT gr.id, count(DISTINCT COALESCE(tp.claimed_user_id, tp.user_id)) AS people
+    FROM public.groups gr
+    JOIN public.trips t ON t.group_id = gr.id AND t.deleted_at IS NULL
+    JOIN public.trip_players tp ON tp.trip_id = t.id AND COALESCE(tp.claimed_user_id, tp.user_id) IS NOT NULL
+    WHERE gr.name ILIKE 'Couch Tour%'
+    GROUP BY gr.id
+  )
+  SELECT (SELECT id FROM c ORDER BY people DESC LIMIT 1),
+         (SELECT count(*) FROM c WHERE people = (SELECT max(people) FROM c))
+    INTO g, n;
+  IF g IS NULL THEN
+    RAISE EXCEPTION 'No Couch Tour group with players found';
   END IF;
+  IF n > 1 THEN
+    RAISE EXCEPTION 'Two Couch Tour groups have the same number of players; pick one by id';
+  END IF;
+  RAISE NOTICE 'Using group % (%)', (SELECT name FROM public.groups WHERE id = g), g;
 
   -- Account for a name: first name + last initial (or first name alone when the
   -- sheet only had that), among this group's trip players. NULL unless exactly
