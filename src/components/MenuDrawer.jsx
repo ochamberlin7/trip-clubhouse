@@ -356,9 +356,15 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
     email: player.email || '',
     handicap_index: player.handicap_index ?? '', team_id: player.team_id || '', phone: player.phone || '',
     is_captain: !!player.is_captain,
+    is_commissioner: !!commissioner,
   })
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  // Co-commissioner: only for a player who has joined with an account. You can't
+  // untick yourself; another commissioner removes you (so a trip always has one).
+  const accountId = player.claimed_user_id || player.user_id || null
+  const canSetCommissioner = isCommissioner && !!accountId && !isOwnCard
   const [confirmRemove, setConfirmRemove] = useState(false)
   const isOpenSpot = isPlaceholderPlayer(player)
   // Commissioner-only, before the trip starts, never on their own card or an empty spot.
@@ -400,7 +406,17 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
       await supabase.from('trip_players').update({ is_captain: false })
         .eq('team_id', form.team_id).neq('id', player.id)
     }
+    // Make / unmake co-commissioner of THIS trip (trip_commissioners, migration 20260680).
+    let commError = null
+    if (!error && canSetCommissioner && form.is_commissioner !== !!commissioner) {
+      const res = form.is_commissioner
+        ? await supabase.from('trip_commissioners').insert({ trip_id: player.trip_id, user_id: accountId })
+        : await supabase.from('trip_commissioners').delete().eq('trip_id', player.trip_id).eq('user_id', accountId)
+      commError = res.error
+    }
     setSaving(false)
+    setSaveError(error ? 'Couldn\'t save. Try again.' : commError ? 'Saved, but the commissioner change didn\'t go through.' : '')
+    if (commError) return
     // Filling an empty spot → the Players page pops up the invite link for them.
     const filledSpot = isOpenSpot && isCommissioner && !!payload.first_name
     if (!error) onSaved(filledSpot ? { invite: [payload.first_name, payload.last_name].filter(Boolean).join(' ') } : undefined)
@@ -514,6 +530,20 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               )}
             </label>
           )}
+          {/* Co-commissioner of this trip only (same custom checkbox as Captain). */}
+          {canSetCommissioner && (
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content', padding: '2px 0' }}>
+              <input type="checkbox" checked={!!form.is_commissioner} onChange={e => setForm({ ...form, is_commissioner: e.target.checked })} style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }} />
+              <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${form.is_commissioner ? '#1B3F6E' : '#C4CEDA'}`, background: form.is_commissioner ? '#1B3F6E' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+                {form.is_commissioner && <CheckIcon />}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>Commissioner</span>
+              <span style={{ fontSize: 11, color: '#7A8FA6' }}>this trip only</span>
+            </label>
+          )}
+          {isCommissioner && isOwnCard && commissioner && (
+            <span style={{ fontSize: 11, color: '#7A8FA6' }}>To hand over the job, make someone else a commissioner; they can then remove you.</span>
+          )}
           <label style={{ display: 'block' }}>
             <span style={pc.editLabel}>Phone</span>
             <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
@@ -525,6 +555,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
             <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            {saveError && <span role="alert" style={{ fontSize: 12, color: '#C0392B' }}>{saveError}</span>}
             {/* Remove lives in edit mode only, bottom-right of the panel. */}
             {canRemove && (
               <button onClick={() => setConfirmRemove(true)} disabled={saving} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
@@ -2699,13 +2730,13 @@ export default function MenuDrawer({
       (async () => {
         const [tpRes, teamsRes, adminRes] = await Promise.all([
           supabase.from('trip_players')
-            .select('id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed, is_captain')
+            .select('id, trip_id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed, is_captain')
             .eq('trip_id', tripId).order('last_name'),
           // Ordered by team_index; includes color_index for the team-pill colours.
           supabase.from('teams').select('id, name, team_index, color_index').eq('trip_id', tripId).order('team_index'),
-          supabase.from('group_members').select('user_id').eq('group_id', groupId).eq('role', 'admin'),
+          supabase.from('trip_commissioners').select('user_id').eq('trip_id', tripId),
         ])
-        // The commissioner is the group admin; flag whichever player record they own/claimed.
+        // This trip's commissioners (per trip, not the group admin); flag whichever player record they own/claimed.
         const adminIds = new Set((adminRes.data || []).map(m => m.user_id))
         const tps = (tpRes.data || []).map(tp => ({
           ...tp,

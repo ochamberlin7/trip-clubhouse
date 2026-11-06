@@ -60,7 +60,7 @@ export function splitTrips(trips = [], now = new Date()) {
 
 // Loads the trips this user is on (plus `currentTripId`), with location, golfer
 // count and whether they're its commissioner; and their soft-deleted trips (< 30
-// days), each with canRestore (commissioner only — matches trips RLS).
+// days), each with canRestore (the trip's commissioner only — matches trips RLS).
 // Returns { rows, deleted, offline } — offline: true when it couldn't reach the server.
 // Takes the Supabase client so the pure helpers above stay testable in Node.
 export async function loadMyTrips(client, userId, { currentTripId = null } = {}) {
@@ -71,18 +71,20 @@ export async function loadMyTrips(client, userId, { currentTripId = null } = {})
     .eq('user_id', userId)
   if (gmErr) return { rows: [], deleted: [], offline: true } // no signal → caller uses its saved copy
   const groupIds = [...new Set((gm || []).map(m => m.group_id ?? m.groups?.id).filter(Boolean))]
-  // Only the commissioner (group admin) may delete or restore a trip (matches trips RLS).
-  const adminGroupIds = new Set((gm || []).filter(m => m.role === 'admin').map(m => m.group_id ?? m.groups?.id).filter(Boolean))
   if (!groupIds.length) return { rows: [], deleted: [] }
 
   const cutoff = new Date(Date.now() - 30 * 86400000).toISOString()
-  const [activeRes, deletedRes, tpRes] = await Promise.all([
+  const [activeRes, deletedRes, tpRes, commRes] = await Promise.all([
     client.from('trips').select('id, group_id, name, start_date, end_date, time_zone').in('group_id', groupIds).is('deleted_at', null),
     client.from('trips').select('id, group_id, name, deleted_at').in('group_id', groupIds).not('deleted_at', 'is', null).gte('deleted_at', cutoff).order('deleted_at', { ascending: false }),
     client.from('trip_players').select('trip_id').or(`user_id.eq.${userId},claimed_user_id.eq.${userId}`),
+    // Trips this user is a commissioner of (per trip, migration 20260680). Only a
+    // commissioner may delete or restore a trip (matches trips RLS).
+    client.from('trip_commissioners').select('trip_id').eq('user_id', userId),
   ])
   if (activeRes.error || tpRes.error) return { rows: [], deleted: [], offline: true }
   const myTripIds = new Set((tpRes.data || []).map(r => r.trip_id))
+  const commissionerTripIds = new Set((commRes?.data || []).map(r => r.trip_id))
 
   // Location (earliest located round → "City, ST") and golfer counts per trip.
   const tripIds = (activeRes.data || []).map(t => t.id)
@@ -109,8 +111,8 @@ export async function loadMyTrips(client, userId, { currentTripId = null } = {})
       location: locByTrip.get(t.id) || '',
       golfers: countByTrip.get(t.id) || 0,
       rounds: roundsByTrip.get(t.id) || 0,
-      isCommissioner: adminGroupIds.has(t.group_id),
+      isCommissioner: commissionerTripIds.has(t.id),
     }))
-  const deleted = (deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name, deleted_at: t.deleted_at, canRestore: adminGroupIds.has(t.group_id) }))
+  const deleted = (deletedRes.data || []).filter(t => myTripIds.has(t.id)).map(t => ({ id: t.id, name: t.name, deleted_at: t.deleted_at, canRestore: commissionerTripIds.has(t.id) }))
   return { rows, deleted }
 }
