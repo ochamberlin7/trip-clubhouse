@@ -300,8 +300,8 @@ function RivalsTab({ d }) {
         <>
           <GroupPicker groups={d.members.map(m => ({ id: m.key, name: m.key === d.viewerKey ? `${m.name} (you)` : m.name }))} value={member.key} onChange={setKey} allowCreate={false} label="Player" />
           {!partners.length && !opponents.length && <div style={s.empty}>{member.name} hasn't finished a match with this group yet.</div>}
-          <PeopleTile title="Partners" list={partners} lead="Best partner" leadIf={p => p.w > p.l} />
-          <PeopleTile title="Opponents" list={opponents} lead="Nemesis" leadIf={p => p.l > p.w} />
+          <PeopleTile title="Partners" list={partners} />
+          <PeopleTile title="Opponents" list={opponents} />
           {(partners.length > 0 || opponents.length > 0) && <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>Standard and Point Match Play together. A match counts once every hole is scored.</div>}
         </>
       )}

@@ -22,12 +22,14 @@ const val = { fontFamily: 'inherit', fontSize: 11, fontWeight: 700, fill: INK }
 //   lo / hi / ticks: the value scale; fmt formats tick and point labels
 //   pointLabels: draw the value above each point of the FIRST series
 //            (or per series: pointLabel: 'above' | 'below')
+//   pointFmt: formats point labels (defaults to fmt)
 //   xTicks:  optional [{ x, label }] axis ticks (e.g. Jan 1 of each year) drawn instead of a label per point
-export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi, ticks, fmt = v => v, pointLabels = false, height = 150, endPad = 52, area = false }) {
+export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi, ticks, fmt = v => v, pointFmt, pointLabels = false, height = 150, endPad = 52, area = false }) {
   const bodyRef = useRef(null)
   const [scrolls, setScrolls] = useState(false)
   const top = 18, bot = height - 26
-  const pad = 22
+  // Enough room on the left that the first label isn't cut off (~5.6px a character).
+  const pad = Math.max(22, xTicks ? 0 : Math.ceil(String(labels[0] || '').length * 2.9) + 4)
   const xAt = xs ? (i => pad + xs[i]) : (i => pad + i * step)
   const width = Math.max(pad * 2 + Math.max(xs ? Math.max(0, ...xs) : step * Math.max(0, labels.length - 1), ...(xTicks || []).map(t => t.x)) + endPad, 120)
   const y = v => bot - (v - lo) / (hi - lo || 1) * (bot - top)
@@ -83,7 +85,7 @@ export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi,
             {series.map((s, k) => {
               const where = s.pointLabel || (pointLabels && k === 0 ? 'above' : null)
               return where && s.values.map((v, i) => v == null ? null : (
-                <text key={`p${s.key}${i}`} x={xAt(i)} y={where === 'below' ? y(v) + 17 : y(v) - 8} textAnchor="middle" style={val}>{fmt(v)}</text>
+                <text key={`p${s.key}${i}`} x={xAt(i)} y={where === 'below' ? y(v) + 17 : y(v) - 8} textAnchor="middle" style={val}>{(pointFmt || fmt)(v)}</text>
               ))
             })}
             {series.filter(s => s.endLabel).map(s => {
@@ -93,7 +95,7 @@ export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi,
           </svg>
         </div>
       </div>
-      {scrolls && <div style={{ fontSize: 10.5, color: '#9AA6B5', textAlign: 'right', marginTop: 2 }}>← swipe for earlier</div>}
+      {scrolls && <div style={{ fontSize: 10.5, color: '#9AA6B5', textAlign: 'right', marginTop: 2 }}>← swipe for earlier trips</div>}
     </div>
   )
 }

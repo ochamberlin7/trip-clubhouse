@@ -17,3 +17,10 @@ test('winShareColor: blue when winning more, red when losing more, light grey wh
   assert.equal(winShareColor(0.5).bg, 'rgb(242,242,242)')
   assert.equal(winShareColor(0.5).dark, false)
 })
+
+test('niceScale: maxGaps gives a short chart fewer gridlines', () => {
+  const few = niceScale([76.5, 85.5], { pad: 2, maxGaps: 3 })
+  const many = niceScale([76.5, 85.5], { pad: 2 })
+  assert.ok(few.ticks.length < many.ticks.length)
+  assert.ok(few.lo <= 74.5 && few.hi >= 87.5)
+})

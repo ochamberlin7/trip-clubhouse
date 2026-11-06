@@ -72,7 +72,7 @@ export function Cols({ items }) {
 }
 
 
-export function PeopleTile({ title, list, lead, leadIf, unit = 'match' }) {
+export function PeopleTile({ title, list, unit = 'match' }) {
   if (!list.length) return null
   return (
     <Tile title={title}>
@@ -81,7 +81,7 @@ export function PeopleTile({ title, list, lead, leadIf, unit = 'match' }) {
           <span style={s.av}>{initials(p.name)}</span>
           <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <span style={{ fontSize: 14, color: '#2C3E50' }}>{p.name}</span>
-            <span style={{ fontSize: 11, color: MUTED }}>{i === 0 && leadIf(p) ? `${lead} · ` : ''}{plural(p.matches, unit)}</span>
+            <span style={{ fontSize: 11, color: MUTED }}>{plural(p.matches, unit)}</span>
           </span>
           <span style={{ marginLeft: 'auto' }}><SmallRecord r={p} /></span>
         </div>

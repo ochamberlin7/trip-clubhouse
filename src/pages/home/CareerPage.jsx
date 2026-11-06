@@ -7,7 +7,7 @@ import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM } from './careerTheme'
 import { one, vsPar, pct, half, fmtDate, roundWhere, tripWhere, intVsPar, plural, formatLabel } from '../../lib/careerFormat'
 import { Tile, Cols, StatList, PeopleTile, CareerSwitch } from './statTiles'
-import { ScrollLineChart, ScoreMixBars, VsParDots, LineKey } from './statCharts'
+import { ScrollLineChart, ScoreMixBars, VsParDots } from './statCharts'
 import { niceScale } from '../../lib/chartScale'
 import { GroupStatsView } from './GroupStatsPage'
 import { useGroupStats } from '../../lib/useGroupStats'
@@ -24,10 +24,9 @@ const TABS = [{ id: 'scoring', label: 'Scoring' }, { id: 'competition', label: '
 
 
 // Scoring (Owen 2026-11-06): the scoring average shows gross and net side by side
-// as two lines (gross over net) by trip; best/worst rounds and the rest stay gross. Net uses the
+// with a gross line by trip (net is listed, not charted); best/worst rounds and the rest stay gross. Net uses the
 // full handicap, so it means the same on every trip. Handicap is a line on a real
 // timeline. Charts from the "Stats Chart Upgrades" mockups; they scroll sideways.
-const NET_LINE = '#7C97BC'
 
 // Handicap points on a real timeline: x by date (PX_PER_YEAR), nudged apart so two
 // trips close together don't overlap; a tick at Jan 1 of each year.
@@ -58,13 +57,13 @@ function handicapTimeline(hc) {
   return { xs, xTicks }
 }
 
-const trend = (a, b) => (a == null || b == null ? null : `${a < b ? '▼' : a > b ? '▲' : '='} ${Math.abs(a - b).toFixed(1)} vs last trip`)
+const trend = (a, b) => (a == null || b == null ? null : <>{a < b ? '▼' : a > b ? '▲' : '='} <b style={{ color: INK }}>{Math.abs(a - b).toFixed(1)}</b> vs last trip</>)
 
 function ScoringTab({ d }) {
   const g = d.gross
   // Average on each trip, oldest first (trips with a full 18-hole round).
   const byTrip = [...d.trips].reverse().filter(t => t.average != null)
-  const avgScale = niceScale(byTrip.flatMap(t => [t.average, t.netAverage]).filter(v => v != null), { pad: 2 })
+  const avgScale = niceScale(byTrip.map(t => t.average), { pad: 2, maxGaps: 3 })
   const last = byTrip.at(-1), prev = byTrip.at(-2)
   // Handicap index at each trip, oldest first.
   const hc = d.handicap
@@ -91,13 +90,11 @@ function ScoringTab({ d }) {
             ]} />
             {byTrip.length > 0 && (
               <div style={{ marginTop: 12 }}>
-                <LineKey items={[{ label: 'Gross', color: NAVY }, { label: 'Net', color: NET_LINE }]} />
+                {/* Gross line only; net is the number above (Owen 2026-11-06 mockup). */}
                 <ScrollLineChart
-                  labels={byTrip.map(shortTrip)} step={84} height={190} {...avgScale} fmt={fmtAvg}
-                  series={[
-                    { key: 'gross', title: 'Gross', values: byTrip.map(t => t.average), color: NAVY, lastDot: GOLD, pointLabel: 'above' },
-                    { key: 'net', title: 'Net', values: byTrip.map(t => t.netAverage), color: NET_LINE, pointLabel: 'below' },
-                  ]}
+                  labels={byTrip.map(shortTrip)} step={100} height={124} area pointLabels {...avgScale}
+                  fmt={fmtAvg} pointFmt={v => v.toFixed(1)}
+                  series={[{ key: 'gross', title: 'Gross average', values: byTrip.map(t => t.average), color: NAVY, lastDot: GOLD }]}
                 />
               </div>
             )}
@@ -162,8 +159,8 @@ function FormatHead({ name, f, note }) {
 function People({ f, unit }) {
   return (
     <>
-      <PeopleTile title="Partners" list={f.partners} lead="Best partner" leadIf={p => p.w > p.l} unit={unit} />
-      <PeopleTile title="Opponents" list={f.opponents} lead="Nemesis" leadIf={p => p.l > p.w} unit={unit} />
+      <PeopleTile title="Partners" list={f.partners} unit={unit} />
+      <PeopleTile title="Opponents" list={f.opponents} unit={unit} />
     </>
   )
 }
