@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { LEADERBOARDS, rankLeaderboard, rivalsOf } from '../../lib/groupStats'
+import { LEADERBOARDS, rankLeaderboard, rivalsOf, headToHead, averagesByTrip } from '../../lib/groupStats'
 import GroupPicker from '../../components/GroupPicker'
-import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM, CAPS } from './careerTheme'
+import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM, CAPS, CROWD } from './careerTheme'
 import { one, roundWhere, intVsPar, fmtRange, fmtDate } from '../../lib/careerFormat'
 import { Tile, Cols, TapValue, PeopleTile } from './statTiles'
+import { ScrollLineChart, HeadToHeadGrid, LineKey } from './statCharts'
+import { niceScale } from '../../lib/chartScale'
+import { TEAM_COLORS, LEGACY_TEAM_COLORS, paletteForTrip } from '../../lib/teamColors'
 
 // Group stats (Owen, 2026-11-06; the Group side of the Career stats page): pick one of your groups, then see that group's
 // numbers across every trip it has taken — trip history and winners, all-time
@@ -33,7 +36,66 @@ const g = {
   teamName: { fontSize: 14.5, fontWeight: 700, color: INK },
 }
 
-const fmtVal = (def, v) => (v == null ? '—' : def.fmt === 'one' ? one(v) : v)
+const fmtVal = (def, v) => (v == null ? '—' : def.fmt === 'one' ? one(v) : def.fmt === 'vsPar' ? (Math.abs(v) < 0.05 ? 'E' : `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`) : v)
+
+// Bar length for a leaderboard value: counts from 0; lower-is-better stats from a
+// floor just under the best value, so the best has the shortest bar and gaps show.
+function barScale(def, rows) {
+  const vs = rows.map(r => r.v).filter(v => v != null)
+  if (!vs.length) return () => 0
+  const max = Math.max(...vs), min = Math.min(...vs)
+  if (def.hi !== false && min >= 0) return v => (max > 0 ? v / max : 0)
+  const floor = min - Math.max(1, (max - min) * 0.25)
+  return v => (max > floor ? (v - floor) / (max - floor) : 1)
+}
+
+// You vs the crowd: everyone's gross average by trip, you in navy, others grey.
+function CrowdChart({ d }) {
+  const c = averagesByTrip(d)
+  if (c.trips.length < 2) return null
+  const me = c.lines.find(l => l.key === d.viewerKey)
+  const others = c.lines.filter(l => l !== me && l.values.some(v => v != null))
+  const scale = niceScale(c.lines.flatMap(l => l.values), { pad: 1 })
+  const series = [
+    ...others.map(l => ({ key: l.key, title: l.name, values: l.values, color: CROWD, width: 1.5, dots: false })),
+    ...(me ? [{ key: me.key, title: 'You', values: me.values, color: NAVY, width: 2.5, endLabel: 'You', labelColor: NAVY }] : []),
+  ]
+  return (
+    <Tile title="Scoring average by trip" note="gross">
+      <ScrollLineChart labels={c.trips.map(t => `’${t.year.slice(2)}`)} step={72} height={170} series={series} {...scale} />
+      <div style={s.note}>A lower line is a lower score. You in navy, everyone else in grey.</div>
+    </Tile>
+  )
+}
+
+// How it was won: running totals round by round (teams in their colours; for a
+// big individual field the winner and you in colour, everyone else grey).
+function RaceChart({ t, viewerKey }) {
+  const race = t.race
+  if (!race || race.rounds.length < 2) return null
+  const pal = paletteForTrip({ end_date: t.endDate }) === 'legacy' ? LEGACY_TEAM_COLORS : TEAM_COLORS
+  const winnerIds = new Set((t.standings?.rows || []).filter(r => r.rank === 1).map(r => r.id))
+  const crowd = race.lines.length > 4 && race.lines.every(l => l.teamIndex == null)
+  const colorOf = (l, i) => {
+    if (l.teamIndex != null) return (pal[l.teamIndex] || pal[1]).solid
+    if (!crowd) return [NAVY, GOLD, '#15808F', '#7A3F9E'][i] || CROWD
+    return l.key && l.key === viewerKey ? NAVY : winnerIds.has(l.id) && t.status === 'past' ? GOLD : CROWD
+  }
+  const fmt = v => (race.lowWins ? (v === 0 ? 'E' : `${v > 0 ? '+' : '−'}${Math.abs(v)}`) : (Number.isInteger(v) ? v : v.toFixed(1)))
+  const lines = race.lines.map((l, i) => ({ ...l, color: colorOf(l, i) }))
+  const ordered = [...lines].sort((a, b) => (a.color === CROWD) - (b.color === CROWD)).reverse()
+  const scale = niceScale(lines.flatMap(l => l.values), { pad: race.lowWins ? 1 : 0.5 })
+  const keyItems = crowd
+    ? [...lines.filter(l => l.color !== CROWD).map(l => ({ label: l.key === viewerKey ? `${l.name} (you)` : l.name, color: l.color, value: fmt(l.values.at(-1)) })), { label: 'Everyone else', color: CROWD, thin: true }]
+    : lines.map(l => ({ label: l.name, color: l.color, value: fmt(l.values.at(-1)) }))
+  return (
+    <Tile title="How it was won" note={race.lowWins ? 'net to par, lowest wins' : 'running total'}>
+      <ScrollLineChart labels={race.rounds.map(r => r.label)} step={70} height={160} fmt={fmt}
+        series={ordered.map(l => ({ key: l.id, title: l.name, values: l.values, color: l.color, width: l.color === CROWD ? 1.5 : 2.5, dots: l.color !== CROWD }))} {...scale} />
+      <LineKey items={keyItems} />
+    </Tile>
+  )
+}
 
 // The trip's result line: "Won by Team Owen", "Upcoming", "In progress"…
 function resultLine(t) {
@@ -76,7 +138,7 @@ function HistoryTab({ d, onOpenTrip }) {
 
 // Full-screen summary of one trip: when, where, courses, who went, teams, the
 // final score, and a button into the trip itself (old scorecards etc.).
-function TripSummary({ t, onClose, onOpenTrip }) {
+function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
   useEffect(() => { window.scrollTo(0, 0) }, [])
   const res = resultLine(t)
   const st = t.standings
@@ -110,6 +172,8 @@ function TripSummary({ t, onClose, onOpenTrip }) {
           )) : <div style={{ ...s.note, marginTop: 0, textAlign: 'center' }}>{res.text}</div>}
           {st && <div style={s.note}>{st.unit === 'net' ? 'Net to par, lowest wins.' : st.unit === 'match points' ? 'Match points: 1 for a win, ½ for a tie.' : 'Most points wins.'}</div>}
         </Tile>
+
+        <RaceChart t={t} viewerKey={viewerKey} />
 
         {t.roundList.length > 0 && (
           <Tile title="Courses" note={`${t.roundList.length} round${t.roundList.length === 1 ? '' : 's'}`}>
@@ -149,6 +213,7 @@ function LeadersTab({ d }) {
   const [id, setId] = useState(boards[0].id)
   const def = boards.find(b => b.id === id) || boards[0]
   const rows = rankLeaderboard(d, def.id)
+  const bar = barScale(def, rows)
   return (
     <>
       <div style={g.pills} role="tablist" aria-label="Leaderboard">
@@ -156,13 +221,17 @@ function LeadersTab({ d }) {
           <button key={b.id} role="tab" aria-selected={b.id === def.id} className={`pill-btn${b.id === def.id ? ' active' : ''}`} onClick={() => setId(b.id)}>{b.label}</button>
         ))}
       </div>
-      <Tile title={def.label} note={['avg', 'best', 'birdies', 'eagles', 'pars'].includes(def.id) ? 'gross' : null}>
+      {def.id === 'avg' && <CrowdChart d={d} />}
+      <Tile title={def.label} note={def.note || (['avg', 'best', 'birdies', 'eagles', 'pars'].includes(def.id) ? 'gross' : null)}>
         {rows.map((r, i) => {
           const mine = r.member.key === d.viewerKey
           return (
             <div key={r.member.key} style={{ ...g.row, ...(i === 0 ? { borderTop: 'none' } : null), ...(mine ? g.me : null) }}>
-              <span style={{ ...g.name, fontWeight: mine ? 700 : 400 }}>{r.member.name}</span>
-              <span style={g.value}>
+              <span style={{ ...g.name, fontWeight: mine ? 700 : 400, width: 128, flex: 'none' }}>{r.member.name}</span>
+              <span style={{ flex: 1, minWidth: 0, height: 10, display: 'flex' }} aria-hidden="true">
+                {r.v != null && <span style={{ width: `${Math.max(2, bar(r.v) * 100)}%`, background: mine ? NAVY : CROWD, borderRadius: '0 4px 4px 0' }} />}
+              </span>
+              <span style={{ ...g.value, marginLeft: 8, minWidth: 34, textAlign: 'right' }}>
                 {r.where && r.v != null ? <TapValue value={fmtVal(def, r.v)} where={roundWhere(r.where)} size="sm" /> : fmtVal(def, r.v)}
               </span>
             </div>
@@ -180,25 +249,50 @@ function RecordsTab({ d }) {
     const one1 = r.rec.holders.length === 1 ? r.rec.holders[0] : null
     return (
       <Tile key={r.id} title={r.label} note={r.note}>
-        <Cols items={[{ label: r.rec.holders.length > 1 ? `${r.rec.holders.length}-way tie` : 'Record', value: r.rec.v, where: one1?.where ? roundWhere(one1.where) : null }]} />
+        <Cols items={[{ label: r.rec.holders.length > 1 ? `${r.rec.holders.length}-way tie` : 'Record', value: r.fmt === 'vsPar' ? intVsPar(r.rec.v) : r.rec.v, where: one1?.where ? roundWhere(one1.where) : null }]} />
         <div style={g.holders}>{r.rec.holders.map(h => h.name).join(' · ')}</div>
       </Tile>
     )
   })
 }
 
+// Rivals: a head-to-head grid of everyone (Rounds works for every format: the
+// lower net score each round you both played; Matches for match play groups),
+// then any member's match play partners and opponents.
 function RivalsTab({ d }) {
   const [key, setKey] = useState(d.viewerKey || d.members[0]?.key)
-  if (!d.hasMatchPlay) return <div style={s.empty}>Partners and rivals show up once the group has played match play.</div>
+  const [mode, setMode] = useState(d.hasMatchPlay ? 'matches' : 'rounds')
+  const h2h = headToHead(d, mode)
   const member = d.members.find(m => m.key === key) || d.members[0]
   const { partners, opponents } = rivalsOf(member)
   return (
     <>
-      <GroupPicker groups={d.members.map(m => ({ id: m.key, name: m.key === d.viewerKey ? `${m.name} (you)` : m.name }))} value={member.key} onChange={setKey} allowCreate={false} label="Player" />
-      {!partners.length && !opponents.length && <div style={s.empty}>{member.name} hasn't finished a match with this group yet.</div>}
-      <PeopleTile title="Partners" list={partners} lead="Best partner" leadIf={p => p.w > p.l} />
-      <PeopleTile title="Opponents" list={opponents} lead="Nemesis" leadIf={p => p.l > p.w} />
-      {(partners.length > 0 || opponents.length > 0) && <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>Standard and Point Match Play together. A match counts once every hole is scored.</div>}
+      <Tile title="Head to head" note="row player's record">
+        {d.hasMatchPlay && (
+          <div style={{ display: 'inline-flex', background: '#E4E8EE', borderRadius: 28, padding: 3, marginBottom: 10 }} role="tablist" aria-label="Count">
+            {[['matches', 'Matches'], ['rounds', 'Rounds']].map(([m, label]) => (
+              <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
+                style={{ padding: '5px 16px', fontSize: 12, fontWeight: 700, borderRadius: 28, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: mode === m ? NAVY : 'transparent', color: mode === m ? '#fff' : MUTED }}>{label}</button>
+            ))}
+          </div>
+        )}
+        <HeadToHeadGrid h2h={h2h} viewerKey={d.viewerKey} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: MUTED, marginTop: 8 }}>
+          <span>Lost more</span><span style={{ flex: 1, height: 8, borderRadius: 4, background: 'linear-gradient(90deg, #B2182B, #F4A582, #F2F2F2, #92C5DE, #2166AC)' }} /><span>Won more</span>
+        </div>
+        <div style={s.note}>{mode === 'matches'
+          ? 'Read across: the row player\'s win–tie–loss in match play against the column player. Grey: never played each other.'
+          : 'Read across: every full round both played, the lower net score wins (full handicaps, any format). Grey: never in the same round.'}</div>
+      </Tile>
+      {d.hasMatchPlay && (
+        <>
+          <GroupPicker groups={d.members.map(m => ({ id: m.key, name: m.key === d.viewerKey ? `${m.name} (you)` : m.name }))} value={member.key} onChange={setKey} allowCreate={false} label="Player" />
+          {!partners.length && !opponents.length && <div style={s.empty}>{member.name} hasn't finished a match with this group yet.</div>}
+          <PeopleTile title="Partners" list={partners} lead="Best partner" leadIf={p => p.w > p.l} />
+          <PeopleTile title="Opponents" list={opponents} lead="Nemesis" leadIf={p => p.l > p.w} />
+          {(partners.length > 0 || opponents.length > 0) && <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>Standard and Point Match Play together. A match counts once every hole is scored.</div>}
+        </>
+      )}
     </>
   )
 }
@@ -212,7 +306,7 @@ export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, 
   const [openTripId, setOpenTripId] = useState(null)
   const t = stats?.totals
   const openTrip = openTripId && stats?.trips.find(x => x.tripId === openTripId)
-  if (openTrip) return <TripSummary t={openTrip} onClose={() => setOpenTripId(null)} onOpenTrip={onOpenTrip} />
+  if (openTrip) return <TripSummary t={openTrip} onClose={() => setOpenTripId(null)} onOpenTrip={onOpenTrip} viewerKey={stats?.viewerKey} />
   return (
     <div style={s.page}>
       <header style={s.mast}>

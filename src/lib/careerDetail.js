@@ -43,6 +43,7 @@ function finishMode(m) {
   const par = k => ({ avg: avg(m.byPar[k].sum, m.byPar[k].n), vsPar: avg(m.byPar[k].vsPar, m.byPar[k].n), holes: m.byPar[k].n })
   return {
     counts: m.counts,
+    rounds: m.rounds.map(r => ({ roundId: r.roundId, total: r.total })), // full 18-hole rounds (head to head)
     roundsCounted: totals.length,
     average: avg(totals.reduce((a, b) => a + b, 0), totals.length),
     best, worst,
@@ -163,8 +164,8 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
       const complete18 = holes.length === 18 && scored === 18
       const where = { tripName: t.tripName, course: roundCourseName(r), date: r.date || null }
       if (complete18) {
-        gross.rounds.push({ total: gTot, front: gFront, back: gBack, ...where })
-        net.rounds.push({ total: nTot, front: nFront, back: nBack, par: parKnown ? parTot : null, ...where })
+        gross.rounds.push({ roundId: r.id, total: gTot, front: gFront, back: gBack, ...where })
+        net.rounds.push({ roundId: r.id, total: nTot, front: nFront, back: nBack, par: parKnown ? parTot : null, ...where })
       }
       roundsList.push({ roundId: r.id, ...where, gross: gTot, net: nTot, birdies: gBirdies, holesScored: scored, holeCount, complete: scored >= holeCount, practice: isPracticeRound(r) })
     }

@@ -7,6 +7,8 @@ import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM } from './careerTheme'
 import { one, vsPar, pct, half, fmtDate, roundWhere, tripWhere, intVsPar, plural, formatLabel } from '../../lib/careerFormat'
 import { Tile, Cols, StatList, PeopleTile, CareerSwitch } from './statTiles'
+import { ScrollLineChart, ScoreMixBars, VsParDots } from './statCharts'
+import { niceScale } from '../../lib/chartScale'
 import { GroupStatsView } from './GroupStatsPage'
 import { useGroupStats } from '../../lib/useGroupStats'
 
@@ -20,64 +22,65 @@ import { useGroupStats } from '../../lib/useGroupStats'
 
 const TABS = [{ id: 'scoring', label: 'Scoring' }, { id: 'competition', label: 'Competition' }, { id: 'trips', label: 'Trips' }]
 
-// Handicap index at each trip, drawn to scale (oldest left).
-function HandicapTrend({ points }) {
-  if (points.length === 1) return <Cols items={[{ label: points[0].tripName, value: one(points[0].index) }]} />
-  const W = 320, top = 22, bottom = 80
-  const vals = points.map(p => p.index)
-  const lo = Math.floor(Math.min(...vals)), hi = Math.ceil(Math.max(...vals))
-  const span = Math.max(hi - lo, 1)
-  const x = i => 34 + (i * (W - 64)) / (points.length - 1)
-  const y = v => bottom - ((v - lo) / span) * (bottom - top)
-  const line = points.map((p, i) => `${x(i)},${y(p.index)}`).join(' ')
-  return (
-    <svg viewBox={`0 0 ${W} 104`} width="100%" role="img" aria-label={`Handicap index by trip: ${vals.join(', ')}`}>
-      {[hi, lo].map(v => (
-        <g key={v}>
-          <line x1="24" x2={W - 10} y1={y(v)} y2={y(v)} stroke={ROW_LINE} />
-          <text x="0" y={y(v) + 4} fontSize="10" fill={MUTED}>{v}</text>
-        </g>
-      ))}
-      <polygon points={`${line} ${x(points.length - 1)},${bottom} ${x(0)},${bottom}`} fill={NAVY} fillOpacity="0.08" />
-      <polyline points={line} fill="none" stroke={NAVY} strokeWidth="2" />
-      {points.map((p, i) => {
-        const last = i === points.length - 1
-        return (
-          <g key={p.tripId}>
-            <circle cx={x(i)} cy={y(p.index)} r={last ? 4.5 : 3} fill={last ? GOLD : NAVY} />
-            <text x={x(i)} y={y(p.index) - 8} fontSize="11" fontWeight="700" fill={INK} textAnchor="middle">{one(p.index)}</text>
-            <text x={x(i)} y="98" fontSize="10" fill={MUTED} textAnchor="middle">{p.date ? `${fmtDate(p.date, { month: 'short' })} ’${p.date.slice(2, 4)}` : ''}</text>
-          </g>
-        )
-      })}
-    </svg>
-  )
-}
 
 // Scoring is gross only (Owen 2026-11-06, like 18Birdies / TheGrint / GHIN): it's
 // your real record. Net lives on the Competition tab (games are scored on net) and
-// in one "played to your handicap" line under the handicap chart.
+// in one "played to your handicap" line under the handicap chart. Charts from the
+// "Stats Chart Upgrades" mockups: lower scores sit lower; line charts scroll.
 function ScoringTab({ d }) {
   const g = d.gross
-  const counts = [
-    ['Holes in one', 'aces'], ['Albatrosses', 'albatrosses'], ['Eagles', 'eagles'], ['Birdies', 'birdies'],
-    ['Pars', 'pars'], ['Bogeys', 'bogeys'], ['Double bogeys', 'doubles'], ['Triple bogeys or worse', 'triples'],
-  ]
   const th = d.toHandicap
+  // Gross average on each trip, oldest first (trips with a full 18-hole round).
+  const byTrip = [...d.trips].reverse().filter(t => t.average != null)
+  const last = byTrip.at(-1), prev = byTrip.at(-2)
+  const delta = last && prev ? last.average - prev.average : null
+  const avgScale = niceScale(byTrip.map(t => t.average), { pad: 1 })
+  // Handicap at each trip on a real time axis (80px a year).
+  const hc = d.handicap
+  const t0 = hc.length ? new Date(`${hc[0].date || '2020-01-01'}T12:00:00Z`) : null
+  const hcXs = hc.map(p => (p.date && t0 ? (new Date(`${p.date}T12:00:00Z`) - t0) / (365.25 * 864e5) * 80 : 0))
+  const hcScale = niceScale(hc.map(p => p.index), { pad: 0.5 })
+  const mix = [
+    { label: 'Eagle+', n: g.counts.eagles + g.counts.albatrosses, tone: 'eagle' },
+    { label: 'Birdie', n: g.counts.birdies, tone: 'birdie' },
+    { label: 'Par', n: g.counts.pars, tone: 'par' },
+    { label: 'Bogey', n: g.counts.bogeys, tone: 'bogey' },
+    { label: 'Double', n: g.counts.doubles, tone: 'double' },
+    { label: 'Triple+', n: g.counts.triples, tone: 'triple' },
+  ]
+  const shortTrip = t => `${(t.name || '').replace(/\s*'?\d{2,4}$/, '').split(/\s+/).slice(-1)[0] || 'Trip'} '${(t.startDate || '').slice(2, 4)}`
   return (
     <>
-      <Tile title="Scoring" note={g.roundsCounted ? `gross · ${g.roundsCounted} full 18-hole round${g.roundsCounted === 1 ? '' : 's'}` : 'gross'}>
-        {g.roundsCounted
-          ? <Cols items={[
-              { label: 'Average', value: one(g.average) },
+      <Tile title="Scoring" note={g.roundsCounted ? `gross · ${g.roundsCounted} full round${g.roundsCounted === 1 ? '' : 's'} · ${plural(byTrip.length, 'trip')}` : 'gross'}>
+        {g.roundsCounted ? (
+          <>
+            <Cols items={[
+              { label: 'Average', value: one(g.average), sub: delta == null ? null : `${delta < 0 ? '▼' : delta > 0 ? '▲' : '='} ${Math.abs(delta).toFixed(1)} vs last trip` },
               { label: 'Best', value: g.best?.total ?? '—', where: roundWhere(g.best) },
               { label: 'Worst', value: g.worst?.total ?? '—', where: g.roundsCounted > 1 ? roundWhere(g.worst) : null },
             ]} />
-          : <div style={{ ...s.note, marginTop: 0, textAlign: 'center' }}>Finish an 18-hole round to see your average.</div>}
+            {byTrip.length > 1 && (
+              <div style={{ marginTop: 12 }}>
+                <ScrollLineChart
+                  labels={byTrip.map(shortTrip)} step={84} height={118} area pointLabels
+                  series={[{ key: 'avg', title: 'Average', values: byTrip.map(t => t.average), color: NAVY, lastDot: GOLD }]}
+                  {...avgScale} fmt={v => (Number.isInteger(v) ? v : v.toFixed(1))}
+                />
+                <div style={s.note}>Your average on each trip; a lower line is a lower score.</div>
+              </div>
+            )}
+          </>
+        ) : <div style={{ ...s.note, marginTop: 0, textAlign: 'center' }}>Finish an 18-hole round to see your average.</div>}
       </Tile>
-      {d.handicap.length > 0 && (
+      {hc.length > 0 && (
         <Tile title="Handicap index" note="at each trip">
-          <HandicapTrend points={d.handicap} />
+          {hc.length > 1 ? (
+            <ScrollLineChart
+              labels={hc.map(p => (p.date ? `${fmtDate(p.date, { month: 'short' })} ’${p.date.slice(2, 4)}` : ''))} xs={hcXs} height={124} area pointLabels
+              series={[{ key: 'hcp', title: 'Handicap index', values: hc.map(p => p.index), color: NAVY, lastDot: GOLD }]}
+              {...hcScale} fmt={v => (Number.isInteger(v) ? v : v.toFixed(1))}
+            />
+          ) : <Cols items={[{ label: hc[0].tripName, value: one(hc[0].index) }]} />}
           {th.rounds > 0 && (
             <div style={{ borderTop: `1px solid ${ROW_LINE}`, marginTop: 10, paddingTop: 10 }}>
               <Cols items={[{ label: 'Played to your handicap', value: `${th.made} of ${th.rounds}`, sub: 'full rounds at net par or better' }]} />
@@ -85,21 +88,25 @@ function ScoringTab({ d }) {
           )}
         </Tile>
       )}
-      <Tile title="Where the strokes go" note="gross · average vs par">
-        <StatList rows={[
-          { label: 'Par 3s', value: vsPar(g.byPar[3].vsPar) },
-          { label: 'Par 4s', value: vsPar(g.byPar[4].vsPar) },
-          { label: 'Par 5s', value: vsPar(g.byPar[5].vsPar) },
-          { label: 'Hardest 6 holes', value: vsPar(g.hardest) },
-          { label: 'Front 9 average', value: one(g.front) },
-          { label: 'Back 9 average', value: one(g.back) },
-          { label: 'Bounce-back', value: pct(g.bounceBack) },
+      <Tile title="Where the strokes go" note="gross · average vs par per hole">
+        <VsParDots rows={[
+          { label: 'Par 3s', v: g.byPar[3].vsPar, n: g.byPar[3].holes },
+          { label: 'Par 4s', v: g.byPar[4].vsPar, n: g.byPar[4].holes },
+          { label: 'Par 5s', v: g.byPar[5].vsPar, n: g.byPar[5].holes },
+          { label: 'Hardest 6', v: g.hardest, n: null },
         ]} />
+        <div style={{ marginTop: 6 }}>
+          <StatList rows={[
+            { label: 'Front 9 average', value: one(g.front) },
+            { label: 'Back 9 average', value: one(g.back) },
+            { label: 'Bounce-back', value: pct(g.bounceBack) },
+          ]} />
+        </div>
         <div style={s.note}>Hardest 6 = the holes with stroke index 1–6. Bounce-back = par or better on the hole right after a bogey or worse.</div>
       </Tile>
       <Tile title="Score totals" note={`gross · ${d.totals.holes} holes`}>
-        <StatList rows={counts.map(([label, k]) => ({ label, value: g.counts[k] }))} />
-        <div style={s.note}>A hole in one also counts in its own row (an ace on a par 3 is an eagle).</div>
+        <ScoreMixBars rows={mix} />
+        <div style={s.note}>{g.counts.aces ? `Holes in one: ${g.counts.aces} (counted in Eagle+). ` : ''}Blue under par, grey par, red over.</div>
       </Tile>
     </>
   )

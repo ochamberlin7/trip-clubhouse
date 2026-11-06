@@ -13,6 +13,10 @@ export const GOLD_TEXT = '#D8C08A'
 export const FAINT = '#9AA6B5'
 export const SERIF = "'Playfair Display', Georgia, serif"
 export const CAPS = { fontWeight: 700, letterSpacing: '1.3px', textTransform: 'uppercase' }
+// Chart colours. Score scale: ColorBrewer RdBu (colorblind-safe), blue under par,
+// grey par, red over. CROWD: everyone but you on group charts.
+export const SCORE_COLORS = { eagle: '#2166AC', birdie: '#67A9CF', par: '#C9CED6', bogey: '#F4A582', double: '#D6604D', triple: '#B2182B' }
+export const CROWD = '#C3CBD6'
 export const LNUM = { fontVariantNumeric: 'lining-nums tabular-nums', fontFeatureSettings: '"lnum" 1' }
 
 export const s = {

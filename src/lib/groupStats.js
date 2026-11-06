@@ -44,8 +44,14 @@ export function tripResult(t, now = new Date()) {
   const teams = t.teams || []
   const teamIds = [...new Set(players.map(p => p.team_id).filter(Boolean))]
   let standings = null
+  let race = null
+  const roundLabel = r => (r.date ? new Date(`${r.date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : 'Round')
   if (teamIds.length) {
     const st = teamStandingsFromRows({ format: t.trip.format, ...t, teamIds })
+    race = raceFrom(st.rounds, st.ranked.map(r => {
+      const tm = teams.find(x => x.id === r.teamId)
+      return { id: r.teamId, name: getTeamDisplayName(tm || { team_index: '?' }), teamIndex: tm?.team_index ?? null, per: st.perRound.get(r.teamId), played: c => c && (c.scored > 0 || c.completed > 0), val: c => c?.pts ?? 0 }
+    }), roundLabel, !!st.lowWins)
     if (st.lowWins ? st.anyScored : st.ranked.some(r => r.total > 0)) {
       standings = {
         kind: 'team',
@@ -65,8 +71,13 @@ export function tripResult(t, now = new Date()) {
     for (const sc of t.scores || []) if (sc.gross_score != null) scoresMap[`${sc.round_id}:${sc.trip_player_id}:${sc.hole_number}`] = sc.gross_score
     for (const pr of t.playerRounds || []) teeRowMap[`${pr.round_id}:${pr.trip_player_id}`] = pr
     for (const p of players) hcpByPlayer[p.id] = p.handicap_index
-    const { ranked } = individualStandings({ gameType: gt, rounds: t.rounds || [], playerIds: players.map(p => p.id), scoresMap, hcpByPlayer, teeRowMap, allowance: t.allowance ?? 100 })
+    const ist = individualStandings({ gameType: gt, rounds: t.rounds || [], playerIds: players.map(p => p.id), scoresMap, hcpByPlayer, teeRowMap, allowance: t.allowance ?? 100 })
+    const { ranked } = ist
     const scored = ranked.filter(r => r.rank != null)
+    race = raceFrom(ist.rounds, scored.map(r => {
+      const p = players.find(x => x.id === r.id)
+      return { id: r.id, key: personKey(p), name: playerName(p), per: ist.perRound.get(r.id), played: res => !!res, val: res => (res ? (gt === 'stroke' ? (res.netToPar ?? 0) : res.points) : 0) }
+    }), roundLabel, gt === 'stroke')
     if (scored.length) {
       standings = {
         kind: 'player',
@@ -84,7 +95,27 @@ export function tripResult(t, now = new Date()) {
       ? { kind: 'team', tied: top.length > 1, label, players: top.flatMap(r => r.players) }
       : { kind: 'player', tied: top.length > 1, label, players: top.map(r => r.name) }
   }
-  return { standings, winner }
+  return { standings, winner, race: standings ? race : null }
+}
+
+// Running totals round by round for "How it was won": rounds up to the last one
+// anyone played, one line per team / player (cumulative). lowWins: stroke play.
+function raceFrom(rounds, entries, roundLabel, lowWins) {
+  const ordered = [...rounds].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || (a.round_number || 0) - (b.round_number || 0))
+  let last = -1
+  ordered.forEach((r, i) => { if (entries.some(e => e.played(e.per?.get(r.id)))) last = i })
+  if (last < 0) return null
+  const used = ordered.slice(0, last + 1)
+  const labels = used.map(roundLabel)
+  const dupes = new Set(labels).size < labels.length // a 36-hole day: number the rounds instead
+  return {
+    lowWins,
+    rounds: used.map((r, i) => ({ id: r.id, label: dupes ? `R${i + 1}` : labels[i] })),
+    lines: entries.map(e => {
+      let sum = 0
+      return { id: e.id, key: e.key || null, name: e.name, teamIndex: e.teamIndex ?? null, values: used.map(r => (sum += e.val(e.per?.get(r.id)))) }
+    }),
+  }
 }
 
 // Who won a finished trip (see tripResult).
@@ -104,6 +135,7 @@ export const LEADERBOARDS = [
   { id: 'wins', label: 'Match wins', value: d => d.competition.record.w, onlyIf: g => g.hasMatchPlay },
   { id: 'points', label: 'Points won', value: d => d.competition.formats.points?.points ?? null, onlyIf: g => g.formats.has('points') },
   { id: 'stableford', label: 'Stableford points', value: d => d.competition.formats.stableford?.points ?? null, onlyIf: g => g.formats.has('stableford') },
+  { id: 'strokeNet', label: 'Stroke play net to par', hi: false, fmt: 'vsPar', note: 'per round, lowest first', value: d => d.competition.formats.stroke?.netToPar ?? null, onlyIf: g => g.formats.has('stroke') },
   { id: 'trips', label: 'Trips played', value: d => d.totals.trips },
   { id: 'rounds', label: 'Rounds', value: d => d.totals.rounds },
   { id: 'holes', label: 'Holes played', value: d => d.totals.holes },
@@ -171,7 +203,7 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
       const playedRounds = rounds.filter(r => scoredIds.has(r.id))
       const hasTeams = (t.tripPlayers || []).some(p => p.team_id)
       const people = (t.tripPlayers || []).filter(isPerson)
-      const { standings, winner } = tripResult(t, now)
+      const { standings, winner, race } = tripResult(t, now)
       const sortedRounds = [...rounds].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || (a.round_number || 0) - (b.round_number || 0))
       return {
         tripId: t.tripId,
@@ -196,6 +228,7 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
             .filter(tm => tm.players.length)
           : [],
         standings,
+        race,
       }
     })
     .sort((a, b) => String(b.startDate || '').localeCompare(String(a.startDate || '')))
@@ -210,6 +243,7 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
     { id: 'birdiesRound', label: 'Most birdies in a round', note: 'gross', rec: record(members, m => bestRoundBy(m.detail, r => r.birdies, true)) },
     { id: 'pointsRound', label: 'Most points in a round', note: 'Point Match Play', rec: record(members, m => m.detail.competition.formats.points?.bestRound && { v: m.detail.competition.formats.points.bestRound.points, where: m.detail.competition.formats.points.bestRound }) },
     { id: 'stablefordRound', label: 'Best Stableford round', rec: record(members, m => m.detail.competition.formats.stableford?.best && { v: m.detail.competition.formats.stableford.best.points, where: m.detail.competition.formats.stableford.best }) },
+    { id: 'strokeRound', label: 'Best stroke play round', note: 'net to par', fmt: 'vsPar', rec: record(members, m => m.detail.competition.formats.stroke?.best && { v: m.detail.competition.formats.stroke.best.netToPar, where: m.detail.competition.formats.stroke.best }, { hi: false }) },
     { id: 'titles', label: 'Most trips won', rec: record(members, m => m.detail.competition.titles > 0 && { v: m.detail.competition.titles }) },
     { id: 'birdies', label: 'Most birdies', note: 'gross, all trips', rec: record(members, m => m.detail.gross.counts.birdies > 0 && { v: m.detail.gross.counts.birdies }) },
     { id: 'holes', label: 'Most holes played', rec: record(members, m => ({ v: m.detail.totals.holes })) },
@@ -252,3 +286,40 @@ export function rivalsOf(member) {
   return { partners, opponents }
 }
 
+// Head to head between every pair of members, as W–T–L from the row member's side.
+//   mode 'matches': match play matches (both match formats, from rivalsOf).
+//   mode 'rounds':  every full 18-hole round both played (any format, practice
+//                   included): the lower NET score wins (full playing handicaps,
+//                   so players of different abilities compare fairly); equal = tie.
+// Returns { order: [member], cell(aKey, bKey) → { w, t, l } | null }.
+export function headToHead(group, mode = 'rounds') {
+  const order = [...group.members].sort((a, b) => (a.key === group.viewerKey ? -1 : b.key === group.viewerKey ? 1 : a.name.localeCompare(b.name)))
+  const cells = new Map()
+  const put = (a, b, rec) => cells.set(`${a}|${b}`, rec)
+  if (mode === 'matches') {
+    for (const m of order) for (const o of rivalsOf(m).opponents) put(m.key, o.key, { w: o.w, t: o.t, l: o.l })
+  } else {
+    const byMember = new Map(order.map(m => [m.key, new Map((m.detail.net.rounds || []).map(r => [r.roundId, r.total]))]))
+    for (const a of order) for (const b of order) {
+      if (a.key === b.key) continue
+      const ra = byMember.get(a.key), rb = byMember.get(b.key)
+      const rec = { w: 0, t: 0, l: 0 }
+      for (const [id, va] of ra) { const vb = rb.get(id); if (vb == null) continue; if (va < vb) rec.w++; else if (va > vb) rec.l++; else rec.t++ }
+      if (rec.w + rec.t + rec.l) put(a.key, b.key, rec)
+    }
+  }
+  return { order, cell: (a, b) => cells.get(`${a}|${b}`) || null }
+}
+
+// One member's gross average on each of the group's trips (null when absent),
+// trips oldest first — "You vs the crowd".
+export function averagesByTrip(group) {
+  const trips = [...group.trips].filter(t => t.status !== 'upcoming').reverse()
+  return {
+    trips: trips.map(t => ({ id: t.tripId, name: t.name, year: t.startDate?.slice(0, 4) || '' })),
+    lines: group.members.map(m => ({
+      key: m.key, name: m.name,
+      values: trips.map(t => m.detail.trips.find(x => x.tripId === t.tripId)?.average ?? null),
+    })),
+  }
+}

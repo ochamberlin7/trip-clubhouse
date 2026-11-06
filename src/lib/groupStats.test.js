@@ -1,7 +1,7 @@
 // Group stats (groupStats.js). Run: `npm test`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildGroupStats, rankLeaderboard, rivalsOf, tripWinner, tripResult } from './groupStats.js'
+import { buildGroupStats, rankLeaderboard, rivalsOf, tripWinner, tripResult, headToHead, averagesByTrip } from './groupStats.js'
 import { buildCareerDetail } from './careerDetail.js'
 
 const PARS = [4, 4, 3, 5, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4]
@@ -138,4 +138,70 @@ test('individual Stableford: players ranked by points, winner named', () => {
   assert.equal(r.standings.rows[0].name, 'Ben Cole')
   assert.equal(r.standings.rows[0].total, 54)
   assert.equal(r.winner.label, 'Ben Cole')
+})
+
+// A 2-round trip (rounds on consecutive days).
+function trip2(id, start, opts = {}) {
+  const t = trip(id, start, opts)
+  const r2 = { ...round(`${id}R2`, start.replace(/\d\d$/, d => String(Number(d) + 1).padStart(2, '0'))) }
+  const g = opts.gross2 || {}
+  for (const p of t.tripPlayers.slice(0, 4)) {
+    const who = p.id.slice(-1)
+    r2.holes.forEach((h, i) => t.scores.push({ round_id: r2.id, trip_player_id: p.id, hole_number: i + 1, gross_score: g[who] ? g[who](i + 1, h.par) : h.par }))
+  }
+  t.rounds.push(r2)
+  t.pairings.push({ id: `p${id}2`, round_id: r2.id, team1_id: `${id}TA`, team2_id: `${id}TB` })
+  t.pairingPlayers.push(...t.tripPlayers.slice(0, 4).map((p, i) => ({ pairing_id: `p${id}2`, trip_player_id: p.id, team_slot: i + 1 })))
+  return t
+}
+
+test('how it was won: running team totals round by round', () => {
+  const t = trip2('T1', '2026-06-01', { gross: { C: (h, p) => (h <= 2 ? p - 1 : p) }, gross2: { A: (h, p) => (h <= 5 ? p - 1 : p) } })
+  const { race } = tripResult(t, NOW)
+  assert.deepEqual(race.rounds.map(r => r.label), ['Jun 1', 'Jun 2'])
+  assert.deepEqual(race.lines.map(l => [l.name, l.values]), [['Team Owen', [0, 5]], ['Team 2', [2, 2]]])
+  assert.equal(race.lowWins, false)
+})
+
+test('how it was won: individual stroke play runs net to par, lowest wins', () => {
+  const t = trip2('T1', '2026-06-01', { format: 'stroke_play', gross: { B: (h, p) => (h <= 3 ? p + 1 : p) } })
+  t.tripPlayers.forEach(p => { p.team_id = null })
+  const { race } = tripResult(t, NOW)
+  assert.equal(race.lowWins, true)
+  assert.deepEqual(race.lines.find(l => l.name === 'Ben Cole').values, [3, 3])
+  assert.equal(race.lines.find(l => l.name === 'Owen C').key, 'u:U')
+})
+
+test('head to head by rounds: lower net wins each round both played (any format)', () => {
+  const g = buildGroupStats([trip2('T1', '2026-06-01', { format: 'stableford', gross: { A: (h, p) => p - 1 }, gross2: { B: (h, p) => p - 1 } })], 'U', NOW)
+  const h = headToHead(g, 'rounds')
+  assert.equal(h.order[0].key, 'u:U') // you first
+  assert.deepEqual(h.cell('u:U', 'u:P'), { w: 1, t: 0, l: 1 })
+  assert.deepEqual(h.cell('u:U', 'u:X'), { w: 1, t: 1, l: 0 })
+  assert.equal(h.cell('u:U', 'u:U'), null)
+})
+
+test('head to head by matches comes from match play records', () => {
+  const g = buildGroupStats([trip('T1', '2026-06-01', { gross: { A: (h, p) => p - 1 } })], 'U', NOW)
+  assert.deepEqual(headToHead(g, 'matches').cell('u:U', 'u:X'), { w: 1, t: 0, l: 0 })
+  assert.equal(headToHead(g, 'matches').cell('u:U', 'u:P'), null) // partners never played each other
+})
+
+test('stroke play gets a leaderboard and a record', () => {
+  const t = trip('T1', '2026-06-01', { format: 'stroke_play', gross: { C: (h, p) => (h <= 2 ? p - 1 : p) } })
+  t.tripPlayers.forEach(p => { p.team_id = null })
+  const g = buildGroupStats([t], 'U', NOW)
+  const lb = rankLeaderboard(g, 'strokeNet')
+  assert.deepEqual([lb[0].member.name, lb[0].v], ['Mike Ross', -2])
+  assert.equal(g.records.find(r => r.id === 'strokeRound').rec.v, -2)
+})
+
+test('averages by trip: oldest first, null when a member missed a trip', () => {
+  const t2 = trip('T2', '2027-06-01')
+  t2.tripPlayers = t2.tripPlayers.filter(p => !p.id.endsWith('D'))
+  t2.scores = t2.scores.filter(sc => !sc.trip_player_id.endsWith('D'))
+  const g = buildGroupStats([trip('T1', '2026-06-01'), t2], 'U', NOW)
+  const c = averagesByTrip(g)
+  assert.deepEqual(c.trips.map(t => t.year), ['2026', '2027'])
+  assert.deepEqual(c.lines.find(l => l.name === 'Dan Smith').values, [72, null])
 })
