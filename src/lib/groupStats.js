@@ -8,6 +8,7 @@ import { buildCareerDetail, personKey, FORMAT_NAMES } from './careerDetail.js'
 import { rankRows } from './statRanks.js'
 import { tripTimeStatus } from './myTrips.js'
 import { getTeamDisplayName } from './teamColors.js'
+import { pastResult } from './pastTrips.js'
 import {
   playerName, tripGameType, isIndividualGameType, teamStandingsFromRows,
   individualStandings, roundCourseName, isNoneRound,
@@ -37,6 +38,7 @@ function teamFormatName(trip, hasTeams) {
 // unit: 'points' (match play / Stableford: most wins), 'match points' (Standard
 // Match Play), or 'net' (stroke play: net to par, lowest wins).
 export function tripResult(t, now = new Date()) {
+  if (t.past) return pastResult(t, playerName) // the result recorded from the old spreadsheet
   const gt = tripGameType(t.trip)
   if (!gt) return { standings: null, winner: null }
   const over = tripTimeStatus(t.trip, now) === 'past'
@@ -176,14 +178,45 @@ function bestRoundBy(d, pick, hi) {
   return best
 }
 
-// perTrip: loadCareerData rows for the group's trips. viewerUserId: highlights you.
+// A past trip's History card / summary (pastTrips.js): the sheet's rounds,
+// courses, teams and recorded result; no race chart, nothing to open.
+function pastEntry(t) {
+  const people = t.tripPlayers.filter(isPerson)
+  const { standings, winner } = pastResult(t, playerName)
+  return {
+    tripId: t.tripId,
+    name: t.tripName,
+    startDate: t.trip.start_date || null,
+    endDate: t.trip.end_date || null,
+    status: 'past',
+    past: true,
+    format: t.past.formatLabel || (t.past.kind === 'team' ? 'Team event' : 'Individual'),
+    players: people.length,
+    rounds: t.past.rounds || 0,
+    playedRounds: t.past.rounds || 0,
+    courses: t.past.courses,
+    winner,
+    location: t.past.location ? [t.past.location] : [],
+    roundList: [],
+    playerNames: people.map(p => playerName(p)).sort((a, b) => a.localeCompare(b)),
+    teams: t.past.kind === 'team'
+      ? t.past.teams.slice().sort((a, b) => a.index - b.index)
+        .map(tm => ({ id: tm.id, name: tm.name || `Team ${tm.index}`, teamIndex: tm.index, players: people.filter(p => p.team_id === tm.id).map(p => playerName(p)) }))
+        .filter(tm => tm.players.length)
+      : [],
+    standings,
+    race: null,
+  }
+}
+
+// perTrip: loadCareerData rows (plus pastTripRows) for the group's trips. viewerUserId: highlights you.
 export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Date()) {
   // Everyone who's been on one of the group's trips, matched across trips by
   // account (or by name for guests), like the Career page.
   const people = new Map()
   for (const t of perTrip) {
     for (const tp of t.tripPlayers || []) {
-      if (!isPerson(tp)) continue
+      if (!isPerson(tp) || tp.pastGuest) continue // past-trip players without an account get no stats
       const key = personKey(tp)
       if (!people.has(key)) people.set(key, { key, name: playerName(tp), accountId: tp.claimed_user_id || tp.user_id || null })
     }
@@ -198,6 +231,7 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
   const trips = perTrip
     .filter(t => t.trip)
     .map(t => {
+      if (t.past) return pastEntry(t)
       const rounds = (t.rounds || []).filter(r => !isNoneRound(r))
       const scoredIds = new Set((t.scores || []).filter(s => s.gross_score != null).map(s => s.round_id))
       const playedRounds = rounds.filter(r => scoredIds.has(r.id))
@@ -235,7 +269,7 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
 
   const allCourses = new Set(trips.flatMap(t => t.courses))
   const years = trips.map(t => t.startDate?.slice(0, 4)).filter(Boolean).sort()
-  const formats = new Set(perTrip.map(t => formatOf(t.trip)).filter(Boolean))
+  const formats = new Set(perTrip.filter(t => !t.past).map(t => formatOf(t.trip)).filter(Boolean))
 
   // Group records: who holds the best of each, with where (tap to see).
   const records = [

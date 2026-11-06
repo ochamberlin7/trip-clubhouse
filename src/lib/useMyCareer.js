@@ -5,6 +5,7 @@ import { loadCareerData, buildCareer, tripFinishes, individualFinishes } from '.
 import { computeBadges } from './badges'
 import { buildCareerDetail } from './careerDetail'
 import { saveCopy, readCopy, mapToJson, jsonToMap } from './offlineCache'
+import { loadMyPastTrips } from './pastTrips'
 
 // The signed-in player's trips, career totals, badges, past-trip finishes and the full
 // Career page numbers (`detail`) — one loader shared by the Clubhouse Home page, the
@@ -38,13 +39,16 @@ export function useMyCareer(userId) {
         return
       }
       setState(s => ({ ...s, trips: rows, deleted }))
-      const perTrip = await loadCareerData(supabase, rows.map(t => t.id))
+      const [perTrip, past] = await Promise.all([loadCareerData(supabase, rows.map(t => t.id)), loadMyPastTrips(supabase, userId)])
       if (cancelled) return
-      const career = buildCareer(perTrip, userId)
+      // Past trips (pastTrips.js: from the old spreadsheets, no scores) count toward
+      // trips, handicap and finishes; badges stay scorecard-only.
+      const withPast = [...perTrip, ...past]
+      const career = buildCareer(withPast, userId)
       const badges = computeBadges(perTrip, userId)
       // Team finishes, plus your own place on individual Stableford / stroke play trips.
-      const finishes = new Map([...tripFinishes(perTrip, userId), ...individualFinishes(perTrip, userId)])
-      const detail = buildCareerDetail(perTrip, userId)
+      const finishes = new Map([...tripFinishes(withPast, userId), ...individualFinishes(withPast, userId)])
+      const detail = buildCareerDetail(withPast, userId)
       setState(s => ({ ...s, career, badges, finishes, detail }))
       saveCopy(copyKey, { trips: rows, deleted, career, badges: mapToJson(badges), finishes: mapToJson(finishes), detail })
     })()

@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { loadMyGroups } from './myGroups'
 import { loadCareerData } from './careerStats'
 import { buildGroupStats } from './groupStats'
+import { loadGroupPastTrips } from './pastTrips'
 
 // The Group stats page's data: your groups (for the picker) and the chosen
 // group's stats across all its trips. The last group you looked at is
@@ -38,9 +39,10 @@ export function useGroupStats(userId, { enabled = true } = {}) {
       const { data: trips, error: tErr } = await supabase.from('trips').select('id').eq('group_id', groupId).is('deleted_at', null)
       if (cancelled) return
       if (tErr) { setError('Couldn\'t load this group. Check your signal and try again.'); return }
-      const perTrip = await loadCareerData(supabase, (trips || []).map(t => t.id))
+      const [perTrip, past] = await Promise.all([loadCareerData(supabase, (trips || []).map(t => t.id)), loadGroupPastTrips(supabase, groupId)])
       if (cancelled) return
-      setStats({ groupId, data: buildGroupStats(perTrip, userId) })
+      // Real trips first, so members keep the names they use in the app.
+      setStats({ groupId, data: buildGroupStats([...perTrip, ...past], userId) })
     })()
     return () => { cancelled = true }
   }, [groupId, userId, enabled])

@@ -169,10 +169,21 @@ function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
               <b style={{ ...g.value, alignSelf: 'center' }}>{fmtTotal(r.total)}</b>
             </div>
           )) : <div style={{ ...s.note, marginTop: 0, textAlign: 'center' }}>{res.text}</div>}
-          {st && <div style={s.note}>{st.unit === 'net' ? 'Net to par, lowest wins.' : st.unit === 'match points' ? 'Match points: 1 for a win, ½ for a tie.' : 'Most points wins.'}</div>}
+          {t.past && <div style={s.note}>From the trip spreadsheet, before the app{st && st.rows.some(r => r.total == null) ? '; the final points weren\'t recorded' : ''}.</div>}
+          {st && !t.past && <div style={s.note}>{st.unit === 'net' ? 'Net to par, lowest wins.' : st.unit === 'match points' ? 'Match points: 1 for a win, ½ for a tie.' : 'Most points wins.'}</div>}
         </Tile>
 
         <RaceChart t={t} viewerKey={viewerKey} />
+
+        {t.past && t.courses.length > 0 && (
+          <Tile title="Courses" note={`${t.rounds} round${t.rounds === 1 ? '' : 's'}`}>
+            {t.courses.map((c, i) => (
+              <div key={c} style={{ ...g.listRow, ...(i === 0 ? { borderTop: 'none', paddingTop: 0 } : null) }}>
+                <span style={{ minWidth: 0 }}>{c}</span>
+              </div>
+            ))}
+          </Tile>
+        )}
 
         {t.roundList.length > 0 && (
           <Tile title="Courses" note={`${t.roundList.length} round${t.roundList.length === 1 ? '' : 's'}`}>
@@ -213,8 +224,8 @@ function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
           </Tile>
         )}
 
-        {onOpenTrip && <button type="button" style={g.openBtn} onClick={() => onOpenTrip(t.tripId)}>Open trip</button>}
-        {onOpenTrip && <div style={{ ...s.note, textAlign: 'center', marginTop: -6 }}>Scorecards, leaderboard, schedule and chat for this trip.</div>}
+        {onOpenTrip && !t.past && <button type="button" style={g.openBtn} onClick={() => onOpenTrip(t.tripId)}>Open trip</button>}
+        {onOpenTrip && !t.past && <div style={{ ...s.note, textAlign: 'center', marginTop: -6 }}>Scorecards, leaderboard, schedule and chat for this trip.</div>}
       </div>
     </div>
   )

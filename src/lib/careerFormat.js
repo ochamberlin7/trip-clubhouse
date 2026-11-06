@@ -15,7 +15,7 @@ export const roundWhere = r => (r ? { title: r.tripName, detail: [r.course, fmtD
 export const tripWhere = f => (f ? { title: f.tripName, detail: f.date ? fmtDate(f.date, { month: 'short', year: 'numeric' }) : '' } : null)
 export const intVsPar = n => (n == null ? '—' : n === 0 ? 'E' : `${n > 0 ? '+' : '−'}${Math.abs(n)}`)
 export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : word.endsWith('h') ? 'es' : 's'}`
-export const formatLabel = f => ((f.format === 'stableford' || f.format === 'stroke') && f.teams ? `Team ${FORMAT_NAMES[f.format]}` : FORMAT_NAMES[f.format])
+export const formatLabel = f => f.pastFormat || ((f.format === 'stableford' || f.format === 'stroke') && f.teams ? `Team ${FORMAT_NAMES[f.format]}` : FORMAT_NAMES[f.format])
 
 // "Oct 1 – 4, 2026", "Sep 30 – Oct 3, 2026", "Dec 30, 2026 – Jan 2, 2027", or one day.
 export function fmtRange(start, end) {

@@ -102,6 +102,22 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
   for (const t of perTrip) {
     const me = meOf(t, who)
     if (!me) continue
+    // Past trip (pastTrips.js): from the old spreadsheet — handicap and result
+    // only, no scores. It shows on the Trips tab and the handicap chart and counts
+    // toward trips won; nothing that needs a scorecard.
+    if (t.past) {
+      const hi = me.handicap_index != null && me.handicap_index !== '' ? Number(me.handicap_index) : null
+      if (hi != null) handicap.push({ tripId: t.tripId, tripName: t.tripName, date: t.trip?.start_date || null, index: hi })
+      trips.push({
+        tripId: t.tripId, name: t.tripName, startDate: t.trip?.start_date || null,
+        finish: finishes.get(t.tripId) || null,
+        rounds: t.past.rounds, average: null, netAverage: null, best: null,
+        points: null, stableford: null, netToPar: null, gameType: null,
+        format: 'past', pastFormat: t.past.formatLabel, teams: !!me.team_id,
+        roundsList: [], past: true, handicap: hi, courses: t.past.courses,
+      })
+      continue
+    }
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue
 
@@ -296,7 +312,7 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
       titles: finished.filter(t => t.finish === 'Champion' || t.finish === 'Winner').length,
       top3: finished.filter(t => finishRank(t.finish) <= 3).length,
       tournamentTrips: trips.filter(t => t.format).length,
-      finishes: finished.map(t => ({ tripId: t.tripId, name: t.name, startDate: t.startDate, format: t.format, teams: t.teams, finish: t.finish })),
+      finishes: finished.map(t => ({ tripId: t.tripId, name: t.name, startDate: t.startDate, format: t.format, pastFormat: t.pastFormat || null, teams: t.teams, finish: t.finish })),
       record: sum(mp.standard.record, mp.points.record),
       formats: {
         standard: matchOut('standard'),

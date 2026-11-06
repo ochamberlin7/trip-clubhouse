@@ -6,6 +6,7 @@
 import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
 import { roundHoleCount, teamStandingsFromRows, finishLabel, tripGameType, isIndividualGameType, individualStandings } from './scoring.js'
 import { tripTimeStatus } from './myTrips.js'
+import { pastFinish } from './pastTrips.js'
 
 // Which trip player is "you". `who` is an account id (matches user_id or
 // claimed_user_id), or a function (tripPlayer) => boolean — the Group stats page
@@ -25,6 +26,8 @@ export function buildCareer(perTrip = [], userId) {
   for (const t of perTrip) {
     const me = findPlayer(t.tripPlayers, userId)
     if (!me) continue
+    // A past trip (pastTrips.js) counts as a trip; it has no scores to add up.
+    if (t.past) { out.trips++; continue }
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue // signed up but never played → not a trip played yet
     out.trips++
@@ -56,6 +59,12 @@ export function buildCareer(perTrip = [], userId) {
 export function tripFinishes(perTrip = [], userId, now = new Date()) {
   const out = new Map()
   for (const t of perTrip) {
+    if (t.past) {
+      // Past trip: the result recorded from the old spreadsheet.
+      const label = pastFinish(t, findPlayer(t.tripPlayers, userId))
+      if (label) out.set(t.tripId, label)
+      continue
+    }
     if (!t.trip?.team_mode || tripTimeStatus(t.trip, now) !== 'past') continue
     const me = findPlayer(t.tripPlayers, userId)
     if (!me?.team_id) continue
@@ -77,6 +86,7 @@ export function tripFinishes(perTrip = [], userId, now = new Date()) {
 export function individualFinishes(perTrip = [], userId, now = new Date()) {
   const out = new Map()
   for (const t of perTrip) {
+    if (t.past) continue // tripFinishes covers past trips
     const gameType = tripGameType(t.trip)
     if (!isIndividualGameType(gameType) || tripTimeStatus(t.trip, now) !== 'past') continue
     const me = findPlayer(t.tripPlayers, userId)

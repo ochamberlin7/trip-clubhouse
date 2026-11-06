@@ -306,6 +306,12 @@ function TripsTab({ d }) {
           </span>
           <span style={{ marginLeft: 'auto', color: '#9AA6B5', fontSize: 18 }}>{isOpen ? '⌃' : '⌄'}</span>
         </button>
+        {t.past ? (
+          <div style={{ ...s.grid4, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+            <div><b style={s.g4Num}>{t.rounds ?? '—'}</b><span style={s.g4Lab}>Rounds</span></div>
+            <div><b style={s.g4Num}>{t.handicap == null ? '—' : one(t.handicap)}</b><span style={s.g4Lab}>Handicap</span></div>
+          </div>
+        ) : (
         <div style={s.grid4}>
           <div><b style={s.g4Num}>{t.rounds}</b><span style={s.g4Lab}>Rounds</span></div>
           <div><b style={s.g4Num}>{one(t.average)}</b><span style={s.g4Lab}>Avg</span></div>
@@ -316,7 +322,14 @@ function TripsTab({ d }) {
               ? <div><b style={s.g4Num}>{intVsPar(t.netToPar)}</b><span style={s.g4Lab}>Net</span></div>
               : <div><b style={s.g4Num}>{t.gameType === 'match' ? t.points : '—'}</b><span style={s.g4Lab}>Points</span></div>}
         </div>
-        {isOpen && (
+        )}
+        {isOpen && t.past && (
+          <div style={s.rounds}>
+            {t.courses.map(c => <div key={c} style={s.roundRow}><span style={{ minWidth: 0 }}>{c}</span></div>)}
+            <div style={{ ...s.note, marginTop: 6 }}>{[t.pastFormat, 'From the trip spreadsheet, before the app. No scorecards.'].filter(Boolean).join(' · ')}</div>
+          </div>
+        )}
+        {isOpen && !t.past && (
           <div style={s.rounds}>
             {t.roundsList.map(r => (
               <div key={r.roundId} style={s.roundRow}>
