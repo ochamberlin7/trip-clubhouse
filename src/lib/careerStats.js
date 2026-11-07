@@ -26,8 +26,10 @@ export function buildCareer(perTrip = [], userId) {
   for (const t of perTrip) {
     const me = findPlayer(t.tripPlayers, userId)
     if (!me) continue
-    // A past trip (pastTrips.js) counts as a trip; it has no scores to add up.
-    if (t.past) { out.trips++; continue }
+    // A past trip (pastTrips.js) counts as a trip, and its rounds count as rounds
+    // (Owen 2026-11-06: Total rounds should match the Trips tab). No scores, so
+    // no holes or points.
+    if (t.past) { out.trips++; out.rounds += t.past.rounds || 0; continue }
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue // signed up but never played → not a trip played yet
     out.trips++

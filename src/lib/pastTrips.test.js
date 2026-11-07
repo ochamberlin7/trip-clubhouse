@@ -26,10 +26,10 @@ const PLAYERS = [
 ]
 const rows = pastTripRows(TRIPS, PLAYERS)
 
-test('past trips count as trips, with no rounds or holes', () => {
+test('past trips count as trips and their rounds count as rounds; no holes', () => {
   const c = buildCareer(rows, 'U')
   assert.equal(c.trips, 3)
-  assert.equal(c.rounds, 0)
+  assert.equal(c.rounds, 16) // 5 + 5 + 6, matching each trip's card on the Trips tab
   assert.equal(c.holes, 0)
 })
 
