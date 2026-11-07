@@ -20,6 +20,11 @@ import { useGroupStats } from '../../lib/useGroupStats'
 // they match Home and the Trophy Room. Every number is black (Owen, 2026-10-31);
 // a number that came from one trip or round can be tapped to see where.
 
+// Fire / drinks / defended totals. A copy saved on the phone before these existed
+// has none, so fall back to zeros until the fresh numbers arrive.
+const NO_EXTRAS = { defended: 0, drinks: 0, fireHoles: 0, longestFire: null }
+const ex = d => d.extras || NO_EXTRAS
+
 const TABS = [{ id: 'scoring', label: 'Scoring' }, { id: 'competition', label: 'Competition' }, { id: 'trips', label: 'Trips' }]
 
 
@@ -140,6 +145,14 @@ function ScoringTab({ d }) {
         <ScoreMixBars rows={mix} />
         {g.counts.aces > 0 && <div style={s.note}>Holes in one: {g.counts.aces} (counted in Eagle+).</div>}
       </Tile>
+      {/* Fire and drinks (Owen 2026-11-06): each trip's Stats tab numbers, added up. */}
+      <Tile title="Fire and drinks">
+        <Cols items={[
+          { label: 'Fire holes', value: ex(d).fireHoles },
+          { label: 'Longest streak', value: ex(d).longestFire ? plural(ex(d).longestFire.holes, 'hole') : '—', where: tripWhere(ex(d).longestFire) },
+          { label: 'Drinks', value: ex(d).drinks },
+        ]} />
+      </Tile>
     </>
   )
 }
@@ -165,7 +178,7 @@ function People({ f, unit }) {
   )
 }
 
-function AllPanel({ c }) {
+function AllPanel({ c, defended }) {
   const { standard, points } = c.formats
   return (
     <>
@@ -187,7 +200,7 @@ function AllPanel({ c }) {
       )}
       {(standard || points) && (
         <Tile title="Match play record" note={standard && points ? 'both formats' : null}>
-          <Cols items={[{ record: c.record }]} />
+          <Cols items={[{ record: c.record }, { label: 'Points defended', value: defended }]} />
         </Tile>
       )}
     </>
@@ -282,7 +295,7 @@ function CompetitionTab({ d }) {
           <button key={k} role="tab" aria-selected={pill === k} className={`pill-btn${pill === k ? ' active' : ''}`} onClick={() => setPill(k)}>{label}</button>
         ))}
       </div>
-      {pill === 'all' ? <AllPanel c={c} /> : <Panel f={c.formats[pill]} />}
+      {pill === 'all' ? <AllPanel c={c} defended={ex(d).defended} /> : <Panel f={c.formats[pill]} />}
       {(pill === 'all' || pill === 'standard' || pill === 'points') && (c.formats.standard || c.formats.points) && (
         <div style={{ ...s.note, textAlign: 'center', marginTop: 0 }}>A match counts once every hole is scored. The side that won more holes wins it; equal holes is a tie.</div>
       )}

@@ -286,3 +286,17 @@ test('each trip carries its gross and net average (full 18-hole rounds)', () => 
   assert.equal(d.trips[0].average, 78)
   assert.equal(d.trips[0].netAverage, 72)
 })
+
+test('extras: points defended, drinks, fire holes and the longest fire streak add up across trips', () => {
+  // A birdies everything on trip 1 (a long fire run) and holes 1-3 on trip 2.
+  const t1 = { ...trip('E1', [round('R1')], { gross: { A: (h, par) => par - 1 }, start: '2025-06-01' }), drinks: [{ round_id: 'R1', trip_player_id: 'E1A', count: 3 }] }
+  const t2 = { ...trip('E2', [round('R2')], { gross: { A: (h, par) => (h <= 3 ? par - 1 : par) }, start: '2026-06-01' }), drinks: [{ round_id: 'R2', trip_player_id: 'E2A', count: 2 }, { round_id: 'R2', trip_player_id: 'E2B', count: 9 }] }
+  const d = buildCareerDetail([t1, t2], 'U')
+  const each = [t1, t2].map(t => computePlayerStats({ ...t, courseHoles: courseHolesFromRounds(t.rounds) }, 100, { fullHandicapNet: true }).stats.get(`${t.tripId}A`))
+  assert.equal(d.extras.drinks, 5) // only mine
+  assert.equal(d.extras.defended, each[0].defended + each[1].defended)
+  assert.equal(d.extras.fireHoles, each[0].fireHolesTotal + each[1].fireHolesTotal)
+  assert.ok(d.extras.fireHoles > 0)
+  assert.equal(d.extras.longestFire.holes, Math.max(each[0].fireStreak, each[1].fireStreak))
+  assert.equal(d.extras.longestFire.tripName, 'Trip E1')
+})

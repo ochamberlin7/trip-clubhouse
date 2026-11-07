@@ -87,6 +87,9 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
   const gross = emptyMode(), net = emptyMode()
   const handicap = []
   const trips = []
+  // Points defended (both match formats), drinks, fire holes and the longest fire
+  // streak (Owen 2026-11-06) — each trip's own Stats tab numbers, added up.
+  const extras = { defended: 0, drinks: 0, fireHoles: 0, longestFire: null }
   const sf = { trips: 0, points: 0, rounds: [] }   // Stableford: complete counting rounds
   const sp = { trips: 0, rounds: [] }              // stroke play: complete counting rounds
   // Match play, kept apart per format (Standard vs Point). Records are win / tie / loss.
@@ -124,12 +127,19 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
     const gameType = tripGameType(t.trip)
     const fmt = formatKey(t.trip, gameType)
     const courseHoles = courseHolesFromRounds(t.rounds || [])
-    const bundle = { ...t, courseHoles, drinks: [] }
+    const bundle = { ...t, courseHoles, drinks: t.drinks || [] }
     const allowance = t.allowance ?? 100
 
     // Score counts, points and defended: the Stats tab's own numbers for this trip.
-    const mine = computePlayerStats(bundle, allowance, { gameType, fullHandicapNet: true }).stats.get(me.id)
+    const { stats: tripStats, drinkByPlayer } = computePlayerStats(bundle, allowance, { gameType, fullHandicapNet: true })
+    const mine = tripStats.get(me.id)
+    extras.drinks += drinkByPlayer.get(me.id) || 0
     if (mine) {
+      extras.defended += mine.defended || 0
+      extras.fireHoles += mine.fireHolesTotal || 0
+      if ((mine.fireStreak || 0) > (extras.longestFire?.holes || 0)) {
+        extras.longestFire = { holes: mine.fireStreak, tripName: t.tripName, date: t.trip?.start_date || null }
+      }
       for (const k of COUNT_KEYS) {
         // computePlayerStats' eagles include albatrosses; the Career table lists them apart.
         const g = k === 'eagles' ? mine.gross.eagles - mine.gross.albatrosses : mine.gross[k]
@@ -297,6 +307,7 @@ export function buildCareerDetail(perTrip = [], who, now = new Date()) {
 
   return {
     totals: { trips: base.trips, rounds: base.rounds, holes: base.holes },
+    extras,
     gross: finishMode(gross),
     net: finishMode(net),
     handicap,

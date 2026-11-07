@@ -1,7 +1,7 @@
 // Group stats (groupStats.js). Run: `npm test`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildGroupStats, rankLeaderboard, rivalsOf, tripWinner, tripResult, headToHead, averagesByTrip } from './groupStats.js'
+import { buildGroupStats, rankLeaderboard, rivalsOf, tripWinner, tripResult, headToHead, averagesByTrip, LEADERBOARDS } from './groupStats.js'
 import { buildCareerDetail } from './careerDetail.js'
 
 const PARS = [4, 4, 3, 5, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4]
@@ -214,4 +214,15 @@ test('a group whose only trip has no scores yet: no members, and the rivals help
   assert.deepEqual(rivalsOf(undefined), { partners: [], opponents: [] })
   assert.equal(headToHead(g, 'matches').order.length, 0)
   assert.equal(headToHead(g, 'rounds').order.length, 0)
+})
+
+test('points defended and drinks leaderboards (drinks only once someone logged one)', () => {
+  const t = trip('A', '2026-06-01')
+  const g0 = buildGroupStats([t], 'U', NOW)
+  const has = (g, id) => LEADERBOARDS.some(l => l.id === id && (!l.onlyIf || l.onlyIf(g)))
+  assert.equal(has(g0, 'defended'), true)  // a match play group
+  assert.equal(has(g0, 'drinks'), false)   // nobody logged a drink
+  const g1 = buildGroupStats([{ ...t, drinks: [{ round_id: 'AR', trip_player_id: 'AB', count: 4 }] }], 'U', NOW)
+  assert.equal(has(g1, 'drinks'), true)
+  assert.equal(rankLeaderboard(g1, 'drinks')[0].member.name, 'Ben Cole')
 })
