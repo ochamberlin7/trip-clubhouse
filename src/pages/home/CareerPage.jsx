@@ -141,7 +141,7 @@ function ScoringTab({ d }) {
         </div>
         <div style={s.note}>Hardest 6 = the holes with stroke index 1–6. Bounce-back = par or better on the hole right after a bogey or worse.</div>
       </Tile>
-      <Tile title="Score totals" note={`gross · ${d.totals.holes} holes`}>
+      <Tile title="Score totals" note={`gross · ${mix.reduce((a, r) => a + r.n, 0)} holes`}>
         <ScoreMixBars rows={mix} />
         {g.counts.aces > 0 && <div style={s.note}>Holes in one: {g.counts.aces} (counted in Eagle+).</div>}
       </Tile>

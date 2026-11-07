@@ -226,3 +226,10 @@ test('points defended and drinks leaderboards (drinks only once someone logged o
   assert.equal(has(g1, 'drinks'), true)
   assert.equal(rankLeaderboard(g1, 'drinks')[0].member.name, 'Ben Cole')
 })
+
+test("trip summary rounds carry the course's city and state", () => {
+  const t = trip('L', '2026-06-01')
+  t.rounds[0].location_city = 'Arcadia'; t.rounds[0].location_state = 'MI'
+  const g = buildGroupStats([t], 'U', NOW)
+  assert.equal(g.trips[0].roundList[0].place, 'Arcadia, MI')
+})

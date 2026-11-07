@@ -135,6 +135,12 @@ function HistoryTab({ d, onOpenTrip }) {
   return d.trips.map(t => <TripCard key={t.tripId} t={t} onOpen={() => onOpenTrip(t.tripId)} />)
 }
 
+// A course's city and state, on the right of its row (Owen 2026-11-07).
+function Place({ text }) {
+  if (!text) return null
+  return <span style={{ marginLeft: 'auto', paddingLeft: 10, flex: 'none', fontSize: 12, color: MUTED, textAlign: 'right' }}>{text}</span>
+}
+
 // Players in a two-column grid (Owen 2026-11-06: anywhere it lists who went,
 // a grid, not a list) — team cards and "Who went".
 function NameGrid({ names, pad = 0 }) {
@@ -192,6 +198,7 @@ function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
             {t.courses.map((c, i) => (
               <div key={c} style={{ ...g.listRow, ...(i === 0 ? { borderTop: 'none', paddingTop: 0 } : null) }}>
                 <span style={{ minWidth: 0 }}>{c}</span>
+                <Place text={t.coursePlaces?.[i]} />
               </div>
             ))}
           </Tile>
@@ -203,6 +210,7 @@ function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
               <div key={r.id} style={{ ...g.listRow, ...(i === 0 ? { borderTop: 'none', paddingTop: 0 } : null) }}>
                 <span style={{ width: 92, flex: 'none', color: MUTED, fontSize: 13 }}>{r.date ? fmtDate(r.date, { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}</span>
                 <span style={{ minWidth: 0 }}>{r.course}{r.practice && <span style={{ color: MUTED }}> · Practice</span>}</span>
+                <Place text={r.place} />
               </div>
             ))}
           </Tile>

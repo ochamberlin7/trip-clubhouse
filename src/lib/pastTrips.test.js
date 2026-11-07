@@ -26,11 +26,12 @@ const PLAYERS = [
 ]
 const rows = pastTripRows(TRIPS, PLAYERS)
 
-test('past trips count as trips and their rounds count as rounds; no holes', () => {
+test('past trips count as trips, rounds and holes (every past round was 18 holes)', () => {
   const c = buildCareer(rows, 'U')
   assert.equal(c.trips, 3)
   assert.equal(c.rounds, 16) // 5 + 5 + 6, matching each trip's card on the Trips tab
-  assert.equal(c.holes, 0)
+  assert.equal(c.holes, 16 * 18)
+  assert.equal(buildCareer(rows, 'J').holes, 16 * 18) // everyone on the trips, not just you
 })
 
 test('finishes come from the recorded result', () => {
@@ -71,4 +72,11 @@ test('group page: past trips in history with their result; no-account players ge
 test('pastFinish is null when the sheet has no result for you', () => {
   const r = pastTripRows([{ ...TRIPS[1], teams: [] }], PLAYERS)[0]
   assert.equal(pastFinish(r, r.tripPlayers[0]), null)
+})
+
+test('group summary: each past course carries its city and state', () => {
+  const r = pastTripRows([{ ...TRIPS[0], course_locations: ['Erin, WI', 'Nekoosa, WI'] }], PLAYERS)
+  const g = buildGroupStats(r, 'U', NOW)
+  assert.deepEqual(g.trips[0].coursePlaces, ['Erin, WI', 'Nekoosa, WI'])
+  assert.equal(g.members.find(m => m.name === 'Jeff Nelson').detail.totals.holes, 5 * 18)
 })

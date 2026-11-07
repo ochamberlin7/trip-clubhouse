@@ -6,7 +6,7 @@
 import { computePlayerStats, courseHolesFromRounds } from './playerStats.js'
 import { roundHoleCount, teamStandingsFromRows, finishLabel, tripGameType, isIndividualGameType, individualStandings } from './scoring.js'
 import { tripTimeStatus } from './myTrips.js'
-import { pastFinish } from './pastTrips.js'
+import { pastFinish, PAST_ROUND_HOLES } from './pastTrips.js'
 
 // Which trip player is "you". `who` is an account id (matches user_id or
 // claimed_user_id), or a function (tripPlayer) => boolean — the Group stats page
@@ -26,10 +26,15 @@ export function buildCareer(perTrip = [], userId) {
   for (const t of perTrip) {
     const me = findPlayer(t.tripPlayers, userId)
     if (!me) continue
-    // A past trip (pastTrips.js) counts as a trip, and its rounds count as rounds
-    // (Owen 2026-11-06: Total rounds should match the Trips tab). No scores, so
-    // no holes or points.
-    if (t.past) { out.trips++; out.rounds += t.past.rounds || 0; continue }
+    // A past trip (pastTrips.js) counts as a trip, its rounds as rounds and their
+    // holes as holes played — every past round was 18 holes (Owen 2026-11-07).
+    // No scores, so no points.
+    if (t.past) {
+      out.trips++
+      out.rounds += t.past.rounds || 0
+      out.holes += (t.past.rounds || 0) * PAST_ROUND_HOLES
+      continue
+    }
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue // signed up but never played → not a trip played yet
     out.trips++

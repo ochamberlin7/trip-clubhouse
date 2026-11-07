@@ -19,6 +19,9 @@
 // A player with no account (user_id null) is listed on the trip but gets no
 // stats of their own (Owen: ignore the guys without logins for now).
 
+// Every round on the old spreadsheet trips was 18 holes (Owen 2026-11-07).
+export const PAST_ROUND_HOLES = 18
+
 const splitName = name => {
   const parts = String(name || '').trim().split(/\s+/)
   return { first: parts[0] || '', last: parts.slice(1).join(' ') }
@@ -60,6 +63,8 @@ export function pastTripRows(trips = [], players = []) {
         formatLabel: t.format_label || null,
         rounds: t.rounds ?? null,
         courses: t.courses || [],
+        // "City, ST" for each course, same order (migration 20260685); may be empty.
+        coursePlaces: t.course_locations || [],
         location: t.location || null,
         teams: (t.teams || []).map(tm => ({ id: teamId(tm.index), index: tm.index, name: tm.name || null, points: tm.points ?? null, rank: tm.rank ?? null })),
       },
@@ -126,7 +131,9 @@ async function rowsFor(client, trips) {
   return pastTripRows(trips, players || [])
 }
 
-const TRIP_COLS = 'id, group_id, name, start_date, end_date, location, format_label, rounds, courses, result_kind, teams'
+// '*' so a column added later (course_locations) doesn't break loading before
+// its migration has run.
+const TRIP_COLS = '*'
 
 // Every past trip of one group (Group stats page).
 export async function loadGroupPastTrips(client, groupId) {

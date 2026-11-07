@@ -199,6 +199,7 @@ function pastEntry(t) {
     rounds: t.past.rounds || 0,
     playedRounds: t.past.rounds || 0,
     courses: t.past.courses,
+    coursePlaces: t.past.coursePlaces,
     winner,
     location: t.past.location ? [t.past.location] : [],
     roundList: [],
@@ -259,7 +260,7 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
         winner,
         // For the trip summary screen:
         location: [...new Set(rounds.map(r => [r.location_city, r.location_state].filter(Boolean).join(', ')).filter(Boolean))],
-        roundList: sortedRounds.filter(r => scoredIds.has(r.id)).map(r => ({ id: r.id, date: r.date || null, course: roundCourseName(r) || 'Course TBD', practice: r.round_type === 'practice', played: scoredIds.has(r.id) })),
+        roundList: sortedRounds.filter(r => scoredIds.has(r.id)).map(r => ({ id: r.id, date: r.date || null, course: roundCourseName(r) || 'Course TBD', place: [r.location_city, r.location_state].filter(Boolean).join(', '), practice: r.round_type === 'practice', played: scoredIds.has(r.id) })),
         playerNames: people.map(p => playerName(p)).sort((a, b) => a.localeCompare(b)),
         teams: hasTeams
           ? (t.teams || []).slice().sort((a, b) => (a.team_index || 0) - (b.team_index || 0))
