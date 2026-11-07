@@ -16,7 +16,9 @@ export function Tile({ title, note, children, pad = true }) {
 
 // A number that came from one trip or round: tap it for a small pop-up naming where.
 // size: 'sm' for numbers in a list row.
+// size: undefined (big tile number) | 'sm' (leaderboard) | 'row' (a StatList row: same size as the row)
 export function TapValue({ value, where, size }) {
+  const small = size === 'sm' || size === 'row'
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useEffect(() => {
@@ -27,10 +29,10 @@ export function TapValue({ value, where, size }) {
   }, [open])
   return (
     <span ref={ref} style={{ position: 'relative', display: 'block' }}>
-      <button type="button" style={size === 'sm' ? { ...s.tap, fontSize: 15, lineHeight: '20px' } : s.tap} onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={`${value}. Show where`}>{value}</button>
+      <button type="button" style={size === 'row' ? { ...s.tap, fontSize: 'inherit', fontWeight: 'inherit', lineHeight: 'inherit' } : size === 'sm' ? { ...s.tap, fontSize: 15, lineHeight: '20px' } : s.tap} onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={`${value}. Show where`}>{value}</button>
       {open && (
-        <span role="status" style={size === 'sm' ? { ...s.pop, left: 'auto', right: 0, transform: 'none' } : s.pop}>
-          <span style={size === 'sm' ? { ...s.popArrow, left: 'auto', right: 8, marginLeft: 0 } : s.popArrow} />
+        <span role="status" style={small ? { ...s.pop, left: 'auto', right: 0, transform: 'none' } : s.pop}>
+          <span style={small ? { ...s.popArrow, left: 'auto', right: 8, marginLeft: 0 } : s.popArrow} />
           {where.title}
           {where.detail && <small style={s.popSmall}>{where.detail}</small>}
         </span>

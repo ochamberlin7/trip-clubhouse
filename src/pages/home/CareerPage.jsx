@@ -6,7 +6,7 @@ import { useGroup } from '../../context/GroupContext'
 import { FORMAT_KEYS, FORMAT_NAMES } from '../../lib/careerDetail'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM } from './careerTheme'
 import { one, vsPar, pct, half, fmtDate, roundWhere, tripWhere, intVsPar, plural, formatLabel } from '../../lib/careerFormat'
-import { Tile, Cols, StatList, PeopleTile, CareerSwitch } from './statTiles'
+import { Tile, Cols, StatList, PeopleTile, CareerSwitch, TapValue } from './statTiles'
 import { ScrollLineChart, ScoreMixBars, VsParDots } from './statCharts'
 import { niceScale } from '../../lib/chartScale'
 import { GroupStatsView } from './GroupStatsPage'
@@ -146,10 +146,16 @@ function ScoringTab({ d }) {
         {g.counts.aces > 0 && <div style={s.note}>Holes in one: {g.counts.aces} (counted in Eagle+).</div>}
       </Tile>
       {/* Fire and drinks (Owen 2026-11-06): each trip's Stats tab numbers, added up. */}
+      {/* Rows, label left / number right (Owen 2026-11-06), like Front 9 / Back 9. */}
       <Tile title="Fire and drinks">
-        <Cols items={[
+        <StatList rows={[
           { label: 'Fire holes', value: ex(d).fireHoles },
-          { label: 'Longest streak', value: ex(d).longestFire ? plural(ex(d).longestFire.holes, 'hole') : '—', where: tripWhere(ex(d).longestFire) },
+          {
+            label: 'Longest fire streak',
+            value: ex(d).longestFire
+              ? <span style={{ display: 'inline-block' }}><TapValue value={plural(ex(d).longestFire.holes, 'hole')} where={tripWhere(ex(d).longestFire)} size="row" /></span>
+              : '—',
+          },
           { label: 'Drinks', value: ex(d).drinks },
         ]} />
       </Tile>
