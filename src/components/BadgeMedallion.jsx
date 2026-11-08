@@ -6,7 +6,7 @@ const TIER_RING = ['#A9703D', '#AEB8C2', BRASS] // bronze, silver, brass (tier m
 
 export default function BadgeMedallion({ badge, state, size = 64 }) {
   const earned = !!state?.earned
-  const ring = earned ? (badge.tiers ? TIER_RING[state.tier ?? 0] : BRASS) : 'var(--line)'
+  const ring = earned ? (badge.tiers ? TIER_RING[state.tier ?? 0] : BRASS) : 'var(--mist)'
   const markSize = badge.mark.length >= 3 ? size * 0.26 : badge.mark.length === 2 ? size * 0.32 : size * 0.4
   return (
     <span style={{ position: 'relative', display: 'inline-flex', width: size, height: size, flexShrink: 0 }}>
@@ -16,7 +16,7 @@ export default function BadgeMedallion({ badge, state, size = 64 }) {
         background: earned ? 'var(--primary)' : 'transparent',
         border: earned ? `2px solid ${ring}` : `1.5px dashed ${ring}`,
         boxShadow: earned ? 'inset 0 0 0 2px var(--primary), inset 0 0 0 3px rgba(255,255,255,.25)' : 'none',
-        color: earned ? 'var(--accent-soft)' : 'var(--mist)',
+        color: earned ? 'var(--accent-soft)' : 'var(--slate)',
         fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: markSize,
         fontVariantNumeric: 'lining-nums', letterSpacing: badge.mark.length >= 3 ? '-0.5px' : 0,
       }}>

@@ -31,7 +31,7 @@ const st = {
   split: { display: 'grid', gridTemplateColumns: '1fr 1fr' },
   half: { minWidth: 0 },
   halfRight: { minWidth: 0, borderLeft: '1px solid var(--line)', paddingLeft: 12 },
-  mode: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
+  mode: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 },
   num: { fontSize: 18, fontWeight: 700, color: NAVY, lineHeight: 1.25 },
   nm: { fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', lineHeight: 1.35 },
   none: { color: MUTED, fontWeight: 500 },

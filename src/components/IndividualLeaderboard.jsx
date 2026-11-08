@@ -19,14 +19,14 @@ import LeaderboardPills from './LeaderboardPills'
 const st = {
   card: { background: 'var(--bg1)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow-card)' },
   row: { display: 'grid', alignItems: 'center', padding: '10px 12px', fontSize: 14 },
-  head: { fontSize: 10, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--muted)', padding: '8px 12px' },
+  head: { fontSize: 10, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--muted)', padding: '8px 12px' },
   line: { borderTop: '1px solid var(--bg2)' },
-  rank: { fontWeight: 800, color: 'var(--navy)' },
+  rank: { fontWeight: 700, color: 'var(--navy)' },
   name: { fontWeight: 600, color: 'var(--cream)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   dot: { display: 'inline-block', width: 8, height: 8, borderRadius: '50%', marginRight: 7, verticalAlign: 1 },
   muted: { color: 'var(--muted)', textAlign: 'center' },
   num: { textAlign: 'center' },
-  total: { fontWeight: 800, textAlign: 'right', color: 'var(--navy)' },
+  total: { fontWeight: 700, textAlign: 'right', color: 'var(--navy)' },
   empty: { padding: 16, textAlign: 'center', color: 'var(--muted)', fontStyle: 'italic', fontSize: 13 },
   note: { fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: 8 },
 }

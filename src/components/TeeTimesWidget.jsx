@@ -67,7 +67,7 @@ const styles = {
   },
   teeTime: {
     fontSize: '18px',
-    fontWeight: 800,
+    fontWeight: 700,
     color: 'var(--ink)',
     textAlign: 'right',
     lineHeight: 1.1,

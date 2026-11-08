@@ -181,16 +181,16 @@ export default function JoinTrip() {
     page: { minHeight: '100vh', background: 'var(--stone)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
     card: { background: '#fff', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', textAlign: 'center' },
     eyebrow: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--primary)', fontWeight: 600, marginBottom: 6 },
-    eyebrowLg: { fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--primary)', fontWeight: 700, marginBottom: 8 },
+    eyebrowLg: { fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--primary)', fontWeight: 600, marginBottom: 8 },
     tripName: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 },
     prompt: { fontSize: 16, color: 'var(--ink)', lineHeight: 1.5, marginBottom: 4 },
-    matchName: { fontWeight: 800, color: 'var(--primary)' },
+    matchName: { fontWeight: 700, color: 'var(--primary)' },
     error: { fontSize: 15, color: 'var(--bad)', lineHeight: 1.5 },
     body: { fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.5 },
     contact: { fontSize: 15, color: 'var(--primary)', fontWeight: 700, marginTop: 8 },
     loading: { fontSize: 14, color: 'var(--slate)', padding: '20px 0' },
     code: { fontSize: 12, color: 'var(--slate)', marginTop: 14, fontFamily: 'ui-monospace, Menlo, monospace', letterSpacing: '0.5px' }, // design-check: allow (invite code)
-    btn: { width: '100%', padding: 15, borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 16, fontWeight: 800, marginTop: 16, cursor: 'pointer', fontFamily: 'inherit' },
+    btn: { width: '100%', padding: 15, borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 16, fontWeight: 700, marginTop: 16, cursor: 'pointer', fontFamily: 'inherit' },
     btnGhost: { width: '100%', padding: 15, borderRadius: 10, border: '2px solid var(--line)', background: '#fff', color: 'var(--primary)', fontSize: 16, fontWeight: 700, marginTop: 10, cursor: 'pointer', fontFamily: 'inherit' },
   }
 

@@ -21,7 +21,7 @@ export const InfoButton = forwardRef(function InfoButton({ open, onToggle, color
         // Superscript: sits up against the end of the title, not centred beside it.
         alignSelf: 'flex-start', position: 'relative', top: -2, verticalAlign: 'super',
         border: `1.2px solid ${color}`, background: open ? color : 'transparent',
-        color: open ? '#fff' : color, fontSize: 8.5, fontWeight: 800, fontStyle: 'italic',
+        color: open ? '#fff' : color, fontSize: 8.5, fontWeight: 700, fontStyle: 'italic',
         fontFamily: 'var(--font-serif)', lineHeight: 1, cursor: 'pointer', opacity: open ? 1 : 0.8,
       }}
     >

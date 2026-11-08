@@ -313,7 +313,7 @@ const pc = {
   detailLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--slate)', minWidth: 72 },
   muted: { color: 'var(--slate)' },
   editInput: { background: 'var(--paper-2)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: '100%', fontFamily: 'inherit', color: 'var(--ink)' },
-  editLabel: { display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--slate)', marginBottom: 4 },
+  editLabel: { display: 'block', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--slate)', marginBottom: 4 },
   editField: { display: 'block', flex: 1, minWidth: 0 },
   saveBtn: { background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 }
@@ -606,12 +606,12 @@ const trs = {
   card: { ...HOME_CARD, marginBottom: 0, alignSelf: 'start' },
   span: { gridColumn: '1 / -1' },
   band: { padding: '7px 10px' },
-  teamName: { fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.2 },
+  teamName: { fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.2 },
   row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: '1px solid var(--line-soft)' },
   rowLast: { borderBottom: 'none' },
   nameWrap: { display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 },
   name: { fontSize: 12, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  capTag: { flexShrink: 0, marginLeft: 6, background: 'var(--accent-ink)', color: '#fff', fontSize: 9, fontWeight: 800, lineHeight: 1.4, padding: '1px 5px', borderRadius: 3 },
+  capTag: { flexShrink: 0, marginLeft: 6, background: 'var(--accent-ink)', color: '#fff', fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: '1px 5px', borderRadius: 3 },
   hcp: { fontSize: 11, fontWeight: 700, flexShrink: 0 },
 }
 
@@ -802,7 +802,7 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   const show18 = roundHoleCount(round) === 18
   const grid = { display: 'grid', gridTemplateColumns: show18 ? 'minmax(0, 1fr) 56px 38px 32px 32px 30px' : 'minmax(0, 1fr) 56px 38px 30px', alignItems: 'center', gap: 6 }
   const numCell = { fontSize: 13, textAlign: 'right' }
-  const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--slate)' }
+  const headCell = { fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--slate)' }
   const muted = { color: 'var(--slate)', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
   const teeSelect = { width: '100%', fontSize: 12, fontWeight: 600, color: 'var(--ink)', fontFamily: 'inherit', border: '1px solid var(--line)', borderRadius: 6, padding: '4px 4px', background: '#fff', boxSizing: 'border-box' }
 
@@ -988,7 +988,7 @@ function EditCourseButton({ round, locked, lockReason, onEditCourse }) {
   )
 }
 
-const typeBadgeBase = { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit', whiteSpace: 'nowrap' }
+const typeBadgeBase = { fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit', whiteSpace: 'nowrap' }
 const typeBadgeTour = { ...typeBadgeBase, background: 'rgba(27,63,110,0.1)', color: 'var(--primary)', border: '1px solid var(--primary)' }
 const typeBadgePrac = { ...typeBadgeBase, background: 'var(--paper-2)', color: 'var(--slate)', border: '1px solid var(--line)' }
 const typeBadgeNone = { ...typeBadgeBase, background: 'var(--paper-2)', color: 'var(--mist)', border: '1px dashed var(--mist)' }
@@ -1079,7 +1079,7 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
 }
 
 const cdRow = (last) => ({ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'baseline', padding: '4px 0', borderBottom: last ? 'none' : '1px solid var(--paper-2)' })
-const cdLabel = { fontSize: 9, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--slate)' }
+const cdLabel = { fontSize: 9, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--slate)' }
 const cdValue = { fontSize: 12, fontWeight: 600, color: 'var(--ink)' }
 
 function locationText(r) {
@@ -1102,10 +1102,10 @@ const DAY_PLACEHOLDER_META = {
   non_golf: { label: 'Non-Golf Day',      accent: 'var(--primary)' },
   unknown:  { label: 'Not Scheduled Yet', accent: 'var(--mist)' },
 }
-const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--slate)', marginBottom: 6 }
+const roundNumLabel = { fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--slate)', marginBottom: 6 }
 
 // Day-card chrome (navy bar Today badge, bottom text-link actions, non-golf type label).
-const todayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: 'var(--primary)', background: '#fff', borderRadius: 10, padding: '1px 8px' }
+const todayBadgeStyle = { fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', color: 'var(--primary)', background: '#fff', borderRadius: 10, padding: '1px 8px' }
 const dayActionsRowStyle = { display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 14, borderTop: '1px solid var(--paper-2)', paddingTop: 10 }
 const dayActionLinkStyle = { background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }
 const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: 'var(--slate)' }
@@ -1173,7 +1173,7 @@ function RoundStrokesRecap({ round, pairings, playersById, playerRounds, allowan
   const alw = effectiveAllowance(round, allowance)
   const show18 = roundHoleCount(round) === 18
   const grid = { display: 'grid', gridTemplateColumns: show18 ? 'minmax(0, 1fr) 70px 40px 54px' : 'minmax(0, 1fr) 90px 60px', alignItems: 'center', gap: 6, padding: '7px 10px' }
-  const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)' }
+  const headCell = { fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)' }
   const numCell = { fontSize: 13, textAlign: 'right', color: 'var(--ink)' }
   return (
     <div style={{ marginTop: 8, border: '1px solid var(--bg3)', borderRadius: 8, overflow: 'hidden' }}>
@@ -1320,15 +1320,15 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
 // ── Stays (lodging) + Meals ───────────────────────────────────────
 // Shared visual tokens, matching the app's card/pill/field-row language.
 const stayBannerStyle = { background: 'var(--paper-2)', border: '1px solid var(--line)', borderLeft: '5px solid var(--primary)', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }
-const stayLabelStyle = { fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' }
+const stayLabelStyle = { fontSize: 11, fontWeight: 600, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' }
 const stayTitleStyle = { fontSize: 15, fontWeight: 700, color: 'var(--ink-2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const staySubStyle = { fontSize: 12, color: 'var(--slate)', marginTop: 2 }
-const mealsLabelStyle = { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--slate)', margin: '14px 0 8px' }
+const mealsLabelStyle = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--slate)', margin: '14px 0 8px' }
 const mealSubCardStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: 8 }
 const addActionStyle = { display: 'block', width: '100%', background: '#fff', border: '1px dashed var(--mist)', color: 'var(--primary)', fontSize: 12, fontWeight: 700, borderRadius: 6, padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }
 const mealCustomInputStyle = { width: '100%', marginTop: 8, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--line)', fontSize: 13, fontFamily: 'inherit', color: 'var(--ink)', boxSizing: 'border-box' }
 const mealBadgeStyle = { ...typeBadgeBase, background: 'rgba(15,110,86,0.1)', color: 'var(--ok)', border: '1px solid var(--ok)' }
-const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--slate)', margin: '12px 0 5px' }
+const modalFieldLabel = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--slate)', margin: '12px 0 5px' }
 // Fixed height so text / date / time inputs render identically (native date/time
 // inputs otherwise pick their own intrinsic height). Textareas override height:auto.
 const modalInput = { width: '100%', height: 40, padding: '9px 11px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 14, lineHeight: '20px', fontFamily: 'inherit', color: 'var(--ink)', boxSizing: 'border-box', background: '#fff', WebkitAppearance: 'none', appearance: 'none' }
@@ -1559,10 +1559,10 @@ const fl = {
   // HOME_CARD shell; keeps its navy header (player name + Driving toggle).
   card: { ...HOME_CARD, marginBottom: 14 },
   header: { background: 'var(--primary)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  name: { fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px' },
+  name: { fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '-0.2px' },
   // Prominent bold label shown in the header when a person is driving.
-  driving: { fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '0.5px' },
-  drivingBtn: { fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '0.5px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 },
+  driving: { fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '0.5px' },
+  drivingBtn: { fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '0.5px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 },
   // Visible toggle button on the navy header (off state).
   toggleBtn: { fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.45)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
   // Read-only (non-editable) version of the toggle — clearly disabled: muted,
@@ -1572,9 +1572,9 @@ const fl = {
   cols: { display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: '#fff' },
   col: { padding: '10px 12px' },
   divider: { background: 'var(--line)' },
-  colHeader: { fontSize: 8, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: 8 },
+  colHeader: { fontSize: 8, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: 8 },
   colRow: { display: 'flex', flexDirection: 'column', marginBottom: 7 },
-  label: { fontSize: 8, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--slate)', marginBottom: 2 },
+  label: { fontSize: 8, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--slate)', marginBottom: 2 },
   cellValue: { fontSize: 13, fontWeight: 600, color: 'var(--ink)' },
   placeholder: { fontSize: 12, fontWeight: 400, color: 'var(--slate)' },
   // All four field types share this box — same height, padding, border; no focus underline.
@@ -2234,8 +2234,8 @@ const sw = {
   // The SecondaryPage frame already shows the "Switch Trip" title; this is just
   // the ledger's "N trips · viewing X" subtitle beneath it.
   subtitle: { fontSize: 13, color: 'var(--slate)', padding: '2px 16px 10px' },
-  sectionHeader: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--slate)', padding: '14px 16px 4px' },
-  deletedLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--slate)' },
+  sectionHeader: { fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--slate)', padding: '14px 16px 4px' },
+  deletedLabel: { fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--slate)' },
   row: { display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' },
   rowDivider: { borderBottom: '1px solid var(--paper-2)' },
   dot: { width: 9, height: 9, borderRadius: '50%', flexShrink: 0, marginTop: 5 },
@@ -2429,7 +2429,7 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
       {pendingDelete && (
         <div style={s.modalOverlay} onClick={() => setPendingDelete(null)}>
           <div style={{ ...s.modalSheet, maxWidth: 360 }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink)', marginBottom: 8 }}>Delete this trip?</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Delete this trip?</div>
             <div style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
               Deleting <strong>{pendingDelete.name || 'this trip'}</strong> will remove its history and data. You’ll have 30 days to restore it before it’s permanently deleted.
             </div>
@@ -3051,6 +3051,20 @@ export default function MenuDrawer({
           <button style={{ ...s.iconBox, background: 'var(--paper)' }} onClick={goToProfile} aria-label="Profile"><Icon name="user" size={18} /></button>
         </div>
         <div style={s.nav}>
+          {/* Your clubhouse: the player's home across trips, always first */}
+          <div style={{ ...s.group, borderColor: 'var(--primary)' }}>
+            <button style={{ ...s.item, borderTop: 'none', padding: '14px 14px' }} onClick={() => { onClose(); navigate('/home') }}>
+              <span style={{ ...s.clubTile, position: 'relative' }}>
+                <Icon name="clubhouse" size={18} />
+                {otherTripUnread && <span className="unread-dot" aria-label="Unread messages in another trip" />}
+              </span>
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span style={s.itemLabel}>Your clubhouse</span>
+                <span style={s.itemSub}>All trips, career stats, trophy room</span>
+              </span>
+              <RowChevron />
+            </button>
+          </div>
           {/* This trip */}
           <div style={s.groupLabel}><span style={s.groupRule} />This trip<span style={s.groupRule} /></div>
           <div style={s.group}>
@@ -3084,18 +3098,7 @@ export default function MenuDrawer({
           {/* You */}
           <div style={s.groupLabel}><span style={s.groupRule} />You<span style={s.groupRule} /></div>
           <div style={s.group}>
-            <button style={{ ...s.item, borderTop: 'none' }} onClick={() => { onClose(); navigate('/home') }}>
-              <span style={{ ...s.clubTile, position: 'relative' }}>
-                <Icon name="clubhouse" size={18} />
-                {otherTripUnread && <span className="unread-dot" aria-label="Unread messages in another trip" />}
-              </span>
-              <span style={{ minWidth: 0, flex: 1 }}>
-                <span style={s.itemLabel}>Your clubhouse</span>
-                <span style={s.itemSub}>All trips, career stats, trophy room</span>
-              </span>
-              <RowChevron />
-            </button>
-            <button style={s.item} onClick={goToProfile}>
+            <button style={{ ...s.item, borderTop: 'none' }} onClick={goToProfile}>
               <span style={s.iconBox}><Icon name="user" size={18} /></span>
               <span style={{ minWidth: 0, flex: 1 }}>
                 <span style={s.itemLabel}>Profile</span>

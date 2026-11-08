@@ -20,7 +20,7 @@
   --accent:      #A8893F;   /* brass: today, focus ring, practice marker */
   --accent-tint: #F3EBD8;
   --accent-ink:  #6E5620;   /* brass as text on light */
-  --accent-soft: var(--accent-soft);   /* brass as text on green */
+  --accent-soft: #D8C08A;   /* brass as text on green */
   --on-accent:   #1A1407;
   /* text */
   --ink:    #161C26;
@@ -255,7 +255,7 @@ select {
 
 /* ── Countdown card — CTI .countdown-wrap ── */
 .countdown-card { background: var(--navy); border-radius: var(--radius); padding: 20px 16px; text-align: center; margin-bottom: 10px; }
-.countdown-number { font-size: 64px; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -2px; }
+.countdown-number { font-size: 64px; font-weight: 700; color: #fff; line-height: 1; letter-spacing: -2px; }
 .countdown-label { font-size: 11px; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 8px; }
 .countdown-date-str { font-size: 13px; color: rgba(255,255,255,0.8); margin-top: 6px; }
 
@@ -280,7 +280,7 @@ select {
 .pill-btn { position: relative; flex-shrink: 0; padding: 7px 12px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--paper); color: var(--ink-2); font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all 0.15s; }
 .pill-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .round-pill-name { display: inline-block; }
-.round-practice-badge { position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 8px; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1; pointer-events: none; border: 1.5px solid var(--paper); z-index: 2; }
+.round-practice-badge { position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; line-height: 1; pointer-events: none; border: 1.5px solid var(--paper); z-index: 2; }
 
 /* ── Pairing tabs — CTI .pair-tabs ── */
 .pair-tabs { display: grid; grid-template-columns: 1fr 1fr; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); margin-bottom: 12px; }
@@ -298,7 +298,7 @@ select {
 .lb-team-header { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; }
 .lb-team-header.t1 { background: var(--team-1); }
 .lb-team-header.t2 { background: var(--team-2); }
-.lb-team-name { font-size: 16px; font-weight: 800; color: #fff; }
+.lb-team-name { font-size: 16px; font-weight: 700; color: #fff; }
 .lb-team-pts  { font-family: var(--font-serif); font-size: 30px; font-weight: 700; color: #fff; font-variant-numeric: lining-nums; }
 .lb-rounds { background: var(--bg1); border-radius: 0 0 var(--card-radius) var(--card-radius); }
 .lb-round-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--bg2); font-size: 13px; }
@@ -331,14 +331,14 @@ select {
 .round-input-row input { flex: 1; font-size: 14px; }
 .btn-remove-round { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 4px; width: auto; line-height: 1; flex-shrink: 0; font-family: inherit; }
 .btn-remove-round:active { color: var(--red); }
-.btn-add-round { background: none; border: none; color: var(--navy); font-size: 11px; font-weight: 800; letter-spacing: 0.5px; cursor: pointer; padding: 8px 0 2px; margin-top: 2px; width: auto; display: flex; align-items: center; gap: 4px; text-transform: uppercase; font-family: inherit; }
+.btn-add-round { background: none; border: none; color: var(--navy); font-size: 11px; font-weight: 600; letter-spacing: 0.5px; cursor: pointer; padding: 8px 0 2px; margin-top: 2px; width: auto; display: flex; align-items: center; gap: 4px; text-transform: uppercase; font-family: inherit; }
 
 /* ── Player counter ── */
 .player-counter { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 24px 20px; background: var(--bg1); border: 1px solid var(--bg3); border-radius: var(--radius); }
 .player-counter-btn { width: 64px; height: 64px; border: 1px solid var(--bg3); background: var(--bg2); color: var(--cream); font-size: 32px; font-weight: 300; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); font-family: inherit; }
 .player-counter-btn:active { background: var(--bg3); }
 .player-counter-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.player-counter-display { width: 80px; text-align: center; font-size: 52px; font-weight: 900; color: var(--cream); line-height: 1; }
+.player-counter-display { width: 80px; text-align: center; font-size: 52px; font-weight: 700; color: var(--cream); line-height: 1; }
 .player-counter-label { text-align: center; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; font-weight: 600; }
 
 /* ── Tournament step ── */
@@ -347,22 +347,22 @@ select {
 .yes-no-btn { flex: 1; padding: 14px; border-radius: var(--radius); border: 1px solid var(--bg3); background: var(--bg2); font-size: 15px; font-weight: 700; cursor: pointer; color: var(--muted); transition: all 0.15s; font-family: inherit; }
 .yes-no-btn.selected { border-color: var(--navy); background: var(--navy); color: #fff; }
 .team-count-options { display: flex; gap: 8px; flex-wrap: wrap; }
-.team-count-btn { padding: 14px 28px; border-radius: var(--radius); border: 1px solid var(--bg3); background: var(--bg2); font-size: 22px; font-weight: 900; cursor: pointer; color: var(--muted); transition: all 0.15s; font-family: inherit; }
+.team-count-btn { padding: 14px 28px; border-radius: var(--radius); border: 1px solid var(--bg3); background: var(--bg2); font-size: 22px; font-weight: 700; cursor: pointer; color: var(--muted); transition: all 0.15s; font-family: inherit; }
 .team-count-btn.selected { border-color: var(--navy); background: var(--navy); color: #fff; }
-.format-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--bg2); color: var(--navy); border: 1px solid var(--bg3); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.format-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--bg2); color: var(--navy); border: 1px solid var(--bg3); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
 .format-tag.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
 .format-options { display: flex; gap: 8px; }
 .format-option { flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px; border-radius: var(--radius); border: 1px solid var(--bg3); background: var(--bg2); color: var(--muted); cursor: pointer; font-family: inherit; transition: all 0.15s; }
 .format-option.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
-.format-option-name { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+.format-option-name { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .format-option-desc { font-size: 11px; font-weight: 500; line-height: 1.35; opacity: 0.85; }
 
 /* ── Section header ── */
-.section-header { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; margin-top: 6px; }
+.section-header { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; margin-top: 6px; }
 
 /* ── Menu — CTI drawer style ── */
 .menu-profile-row { display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg1); border: 1px solid var(--bg3); border-radius: var(--radius); margin-bottom: 4px; }
-.menu-avatar { width: 40px; height: 40px; border-radius: 8px; background: var(--bg2); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: var(--navy); flex-shrink: 0; border: 1px solid var(--bg3); letter-spacing: 0; }
+.menu-avatar { width: 40px; height: 40px; border-radius: 8px; background: var(--bg2); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: var(--navy); flex-shrink: 0; border: 1px solid var(--bg3); letter-spacing: 0; }
 .menu-profile-name { font-size: 15px; font-weight: 700; color: var(--cream); }
 .menu-profile-sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
@@ -399,7 +399,7 @@ select {
 .chat-bubble-wrap { display: flex; flex-direction: column; max-width: 80%; }
 .chat-bubble-wrap.me { align-self: flex-end; align-items: flex-end; }
 .chat-bubble-wrap.them { align-self: flex-start; align-items: flex-start; }
-.chat-sender { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+.chat-sender { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
 .chat-bubble { padding: 7px 10px; border-radius: var(--radius); font-size: 14px; line-height: 1.4; word-break: break-word; border: 1px solid var(--line-soft); }
 .chat-bubble.me { background: var(--primary-tint); color: var(--ink); border-color: transparent; }
 .chat-bubble.them { background: var(--paper-2); color: var(--ink); }
@@ -490,10 +490,10 @@ select {
 .sc-sub-score { font-family: var(--font-serif); font-size: 15px; font-weight: 700; text-align: center; font-variant-numeric: lining-nums; }
 .sc-sub-score.t1 { color: var(--team-1); }
 .sc-sub-score.t2 { color: var(--team-2); }
-.sc-sub-pts { font-size: 11px; font-weight: 800; color: var(--cream); text-align: center; }
+.sc-sub-pts { font-size: 11px; font-weight: 700; color: var(--cream); text-align: center; }
 
 /* ── Misc ── */
-.you-badge { font-size: 10px; background: var(--navy); color: #fff; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.3px; }
+.you-badge { font-size: 10px; background: var(--navy); color: #fff; font-weight: 600; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.3px; }
 .empty-state { text-align: center; padding: 32px 20px; color: var(--slate); font-size: 14px; }
 .empty-state-icon { display: flex; justify-content: center; margin-bottom: 10px; color: var(--primary); }
 .divider { border: none; border-top: 1px solid var(--bg2); margin: 4px 0; }
@@ -508,7 +508,7 @@ select {
 .match-banner-rows{display:flex;flex-direction:column;gap:4px}
 .match-banner-row{display:flex;align-items:center;gap:6px}
 .match-banner-pair-label{font-size:10px;color:var(--muted);min-width:56px;font-weight:600}
-.match-banner-status{font-size:13px;font-weight:800;color:var(--cream);flex:1}
+.match-banner-status{font-size:13px;font-weight: 700;color:var(--cream);flex:1}
 .match-banner-status.t1lead{color:var(--team-1)}
 .match-banner-status.t2lead{color:var(--team-2)}
 .match-banner-status.tied{color:var(--cream2)}
@@ -524,7 +524,7 @@ select {
 .stat-rank{font-size:11px;font-weight:700;color:var(--muted);width:16px;flex-shrink:0}
 .stat-rank.gold{color:var(--gold)}
 .stat-player-name{font-size:12px;font-weight:600;color:var(--cream);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stat-value{font-size:13px;font-weight:800;color:var(--cream2);min-width:24px;text-align:right}
+.stat-value{font-size:13px;font-weight: 700;color:var(--cream2);min-width:24px;text-align:right}
 .stat-value.highlight{color:var(--gold)}
 /* Empty stat card (no scores entered anywhere yet) */
 .stat-empty{padding:10px 8px;font-size:12px;font-style:italic;color:var(--muted)}
@@ -541,7 +541,7 @@ select {
 .drink-inline-popup{position:absolute;right:0;top:50%;transform:translateY(-50%);background:var(--bg1);border:1px solid var(--bg3);border-radius:8px;padding:4px 6px;display:none;align-items:center;gap:4px;z-index:10;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
 .drink-inline-popup.open{display:flex}
 .dip-btn{width:28px;height:28px;border-radius:50%;border:1px solid var(--bg3);background:var(--bg2);color:var(--gold);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
-.dip-val{font-size:13px;font-weight:800;color:var(--gold);min-width:20px;text-align:center}
+.dip-val{font-size:13px;font-weight: 700;color:var(--gold);min-width:20px;text-align:center}
 
 /* ── Stats page: category tabs + podium tiles ── */
 .stat-tabs{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px 0 4px;margin-bottom:12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -557,7 +557,7 @@ select {
 .stat-tile-header{background:var(--paper);border-bottom:1px solid var(--line-soft);padding:8px 14px;display:flex;align-items:center;gap:8px;position:relative}
 .stat-tile-title{color:inherit;font-family:var(--font-serif);font-size:15px;font-weight:700;line-height:1.3}
 .stat-tile-icon{width:16px;height:16px;color:#fff;flex-shrink:0;display:block}
-.stat-tile-plus{color:#fff;font-size:13px;font-weight:800;line-height:1}
+.stat-tile-plus{color:#fff;font-size:13px;font-weight: 700;line-height:1}
 .stat-tile-row{display:flex;align-items:center;gap:10px;padding:10px 14px}
 .stat-tile-row + .stat-tile-row{border-top:1px solid var(--line-soft)}
 .stat-tile-rank{width:18px;font-size:13px;font-weight:700;color:var(--mist);flex-shrink:0}
@@ -572,18 +572,18 @@ select {
 .stat-split{display:grid;grid-template-columns:1fr 1fr}
 .stat-split-col{min-width:0}
 .stat-split-col + .stat-split-col{border-left:1px solid var(--line-soft)}
-.stat-split-mode{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mist);padding:8px 14px 0}
+.stat-split-mode{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mist);padding:8px 14px 0}
 .stat-split .stat-tile-row{padding:7px 14px;gap:8px}
 .stat-split .stat-tile-name,.stat-split .stat-tile-val{font-size:14px}
 /* "See all" table: every player, Gross / Net columns, sortable. */
 .stat-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}
-.stat-table th{position:sticky;top:0;background:#fff;font-size:11px;font-weight:700;color:var(--slate);text-align:right;padding:8px 14px;border-bottom:1px solid var(--line);letter-spacing:.04em;text-transform:uppercase}
+.stat-table th{position:sticky;top:0;background:#fff;font-size:11px;font-weight:600;color:var(--slate);text-align:right;padding:8px 14px;border-bottom:1px solid var(--line);letter-spacing:.04em;text-transform:uppercase}
 .stat-table th:first-child{text-align:left;width:52%}
 .stat-table th.on{color:var(--primary)}
 .stat-sort{background:none;border:none;padding:0;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
 .stat-table td{padding:8px 14px;border-bottom:1px solid var(--line-soft);color:var(--ink)}
 .stat-table-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stat-table-val{text-align:right;font-weight:800;color:var(--primary);white-space:nowrap}
+.stat-table-val{text-align:right;font-weight: 700;color:var(--primary);white-space:nowrap}
 .stat-modal-close{position:absolute;top:50%;right:10px;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;border:none;background:var(--line);color:var(--slate);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 /* Flights page — keep entered date/time values left-aligned like the text fields
    (WebKit date/time inputs otherwise center/right-align their value). */
@@ -605,28 +605,28 @@ select {
   padding: 11px 12px; font-size: 15px; color: var(--ink);
 }
 .wizard-page input:focus, .wizard-page select:focus { border-color: var(--navy); }
-.wizard-page .btn { border-radius: 4px; font-size: 13px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; padding: 15px 16px; }
+.wizard-page .btn { border-radius: 4px; font-size: 13px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; padding: 15px 16px; }
 .wizard-page .btn-outline { background: transparent; color: var(--navy); border: 1px solid var(--navy); font-size: 13px; }
 .wizard-page .btn-outline:active:not(:disabled) { background: rgba(27,63,110,0.06); }
 .wizard-page .error-msg { border-radius: 3px; }
-.wz-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: var(--slate); margin: 0 0 8px; }
+.wz-label { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; color: var(--slate); margin: 0 0 8px; }
 .wz-intro { font-family: var(--font-serif); font-size: 17px; line-height: 1.4; color: var(--cream2); margin: 0; }
 .wz-hint { font-size: 12px; color: var(--slate); margin: 6px 0 0; line-height: 1.4; }
-.wz-link { background: none; border: none; padding: 10px 0 0; color: var(--navy); font-size: 10.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; cursor: pointer; font-family: inherit; text-align: left; width: auto; }
+.wz-link { background: none; border: none; padding: 10px 0 0; color: var(--navy); font-size: 10.5px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; cursor: pointer; font-family: inherit; text-align: left; width: auto; }
 .wz-x { flex-shrink: 0; margin-left: auto; background: none; border: none; color: var(--mist); font-size: 18px; line-height: 1; padding: 0 2px; cursor: pointer; font-family: inherit; width: auto; }
 .wz-day { border-bottom: 1px solid var(--line); padding: 14px 0; }
 .wz-day-head { display: flex; align-items: center; gap: 12px; }
 .wz-day-name { font-family: var(--font-serif); font-size: 18px; color: var(--ink); line-height: 1.2; flex: 1; min-width: 0; }
-.wz-day-name small { display: block; font-family: inherit; font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--slate); margin-bottom: 2px; font-weight: 700; }
+.wz-day-name small { display: block; font-family: inherit; font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--slate); margin-bottom: 2px; font-weight: 600; }
 .wizard-page .wz-day-head select { width: auto; flex-shrink: 0; font-size: 13px; padding: 8px 32px 8px 10px; background-position: right 10px center; }
 .wz-rounds { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding-left: 12px; border-left: 1px solid var(--navy); }
 .wz-add-row { display: flex; align-items: center; width: 100%; background: none; border: none; border-bottom: 1px solid var(--line); padding: 14px 2px; cursor: pointer; font-family: var(--font-serif); font-size: 17px; color: var(--ink); text-align: left; }
 /* Section stripe (design "V1", 2026-10-29): grey band, navy small caps, and an
    optional short summary on the right ("4 days", "3 rounds", a player's name). */
-.wz-stripe { display: flex; align-items: center; gap: 8px; background: var(--primary-tint); color: var(--navy); padding: 8px 10px; margin: 0; font-size: 11.5px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; min-height: 34px; box-sizing: border-box; }
+.wz-stripe { display: flex; align-items: center; gap: 8px; background: var(--primary-tint); color: var(--navy); padding: 8px 10px; margin: 0; font-size: 11.5px; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; min-height: 34px; box-sizing: border-box; }
 .wz-stripe-detail { margin-left: auto; font-size: 12.5px; font-weight: 600; letter-spacing: 0.2px; text-transform: none; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .wz-stripe .wz-x { margin-left: 0; color: var(--slate); }
-.wz-cancel { background: none; border: none; padding: 4px 0; width: auto; color: var(--navy); font-size: 10.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; cursor: pointer; font-family: inherit; }
+.wz-cancel { background: none; border: none; padding: 4px 0; width: auto; color: var(--navy); font-size: 10.5px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; cursor: pointer; font-family: inherit; }
 
 
 /* ══════════════════════════════════════════════════════════════════════════

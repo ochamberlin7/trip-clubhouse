@@ -37,15 +37,15 @@ const styles = {
   // Centered modal overlay — matches the app's backdrop convention (ScoringTab).
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   card: { position: 'relative', background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: '14px', padding: 0, overflow: 'hidden', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
-  header: { position: 'relative', background: 'var(--primary)', color: '#fff', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', padding: '12px 40px 12px 14px' },
+  header: { position: 'relative', background: 'var(--primary)', color: '#fff', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', padding: '12px 40px 12px 14px' },
   // Absolutely centered within the header (the blue banner): top:50% + translateY
   // vertically centers the circle to the banner; the flexbox centers the ✕ glyph
   // within the circle. lineHeight:0 removes the glyph's line-box bias so it's
   // optically centered rather than sitting slightly low.
   close: { position: 'absolute', top: '50%', right: 8, transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 15, lineHeight: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
   body: { padding: '6px 14px 12px' },
-  sectionLabel: { fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', margin: '12px 0 4px' },
-  subLabel: { fontSize: '12px', fontWeight: 800, color: 'var(--primary)', margin: '12px 0 2px' },
+  sectionLabel: { fontSize: '10px', fontWeight: 600, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', margin: '12px 0 4px' },
+  subLabel: { fontSize: '12px', fontWeight: 700, color: 'var(--primary)', margin: '12px 0 2px' },
   item: { display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px 0', borderBottom: '1px solid var(--paper-2)' },
   // Turn the row into a full-width tappable button without changing its look
   // (overrides the global button reset: transparent bg, no border/rounding).
@@ -57,7 +57,7 @@ const styles = {
   itemText: { fontSize: '14px', fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 },
   itemHint: { fontSize: '11px', color: 'var(--slate)', marginTop: '1px' },
   tipButton: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 12px', margin: '6px 0', fontSize: '13px', fontWeight: 700, lineHeight: 1.3, cursor: 'pointer', fontFamily: 'inherit' },
-  tipButtonArrow: { marginLeft: 'auto', fontWeight: 800, flexShrink: 0 },
+  tipButtonArrow: { marginLeft: 'auto', fontWeight: 700, flexShrink: 0 },
   footer: { display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid var(--paper-2)', padding: '11px 14px', cursor: 'pointer', userSelect: 'none' },
   // Restore the native checkbox: the global `input` reset stretches it to 100%
   // width and strips its appearance, which renders it as a full-width bar.

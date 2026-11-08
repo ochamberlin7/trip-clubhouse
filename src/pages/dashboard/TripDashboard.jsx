@@ -83,7 +83,7 @@ const wxStyles = {
   headerRight: { ...HOME_CARD_TAIL },
   inner: { padding: '14px' },
   mainRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  temp: { fontSize: '42px', fontWeight: 900, color: 'var(--ink)', lineHeight: 1 },
+  temp: { fontSize: '42px', fontWeight: 700, color: 'var(--ink)', lineHeight: 1 },
   condition: { fontSize: '13px', color: 'var(--ink-2)', marginTop: '4px' },
   rightCol: { display: 'flex', alignItems: 'center', gap: '10px' },
   hiloBlock: { textAlign: 'right', lineHeight: 1.6 },
@@ -620,8 +620,8 @@ const powCard = {
   // matching the tournament Leaderboard team cards.
   card: { ...HOME_CARD },
   header: { padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  name: { fontSize: 16, fontWeight: 800, color: '#fff' },
-  total: { fontSize: 28, fontWeight: 900, color: '#fff' },
+  name: { fontSize: 16, fontWeight: 700, color: '#fff' },
+  total: { fontSize: 28, fontWeight: 700, color: '#fff' },
   body: { background: '#fff', padding: '10px 12px' },
   divider: { height: 1, background: 'var(--paper-2)', margin: '8px 0' },
 }
@@ -632,7 +632,7 @@ function PowHoleGrid({ cells, start }) {
       {cells.map((v, i) => (
         <div key={i} style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 9, color: 'var(--slate)', fontWeight: 700 }}>{start + i}</div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: v == null ? 'var(--mist)' : 'var(--ink)' }}>{v == null ? '·' : v}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: v == null ? 'var(--mist)' : 'var(--ink)' }}>{v == null ? '·' : v}</div>
         </div>
       ))}
     </div>
@@ -799,18 +799,18 @@ const tp = {
   popover: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: '0 8px 28px rgba(13,27,42,0.18)', padding: 16, width: 240 },
   cols: { display: 'flex', gap: 8 },
   colWrap: { flex: 1, minWidth: 0 },
-  colLabel: { fontSize: 9, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--slate)', textAlign: 'center', marginBottom: 4 },
+  colLabel: { fontSize: 9, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--slate)', textAlign: 'center', marginBottom: 4 },
   // overscrollBehavior:contain + touchAction:pan-y keep touch scrolling inside the
   // list instead of chaining to the page behind the popover.
   list: { height: 150, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y', display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: 'var(--paper-2)', borderRadius: 8 },
   item: { padding: '7px 0', fontSize: 14, fontWeight: 600, color: 'var(--ink-2)', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
-  itemActive: { background: 'var(--primary)', color: '#fff', fontWeight: 800 },
+  itemActive: { background: 'var(--primary)', color: '#fff', fontWeight: 700 },
   apCol: { display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' },
   ap: { padding: '8px 12px', fontSize: 13, fontWeight: 700, color: 'var(--slate)', background: 'var(--paper-2)', border: '1px solid var(--line)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' },
   apActive: { background: 'var(--primary)', color: '#fff', border: '1px solid var(--primary)' },
   footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
   cancel: { background: 'none', border: 'none', color: 'var(--slate)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '6px 4px' },
-  confirm: { width: 38, height: 38, borderRadius: '50%', background: 'var(--primary)', color: '#fff', border: 'none', fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  confirm: { width: 38, height: 38, borderRadius: '50%', background: 'var(--primary)', color: '#fff', border: 'none', fontSize: 18, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' },
 }
 
 // Tee-time cell: TBD placeholder or formatted time + Clear. Tapping opens a custom
@@ -874,7 +874,7 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
 
   if (!isCommissioner) {
     return value
-      ? <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--primary)' }}>{value}</span>
+      ? <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--primary)' }}>{value}</span>
       : <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate)' }}>TBD</span>
   }
 
@@ -882,7 +882,7 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
     <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
       {value ? (
         <>
-          <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 17, fontWeight: 800, color: 'var(--primary)' }}>{value}</button>
+          <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 17, fontWeight: 700, color: 'var(--primary)' }}>{value}</button>
           <button onClick={() => onSave(round.id, col, null)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: 'var(--slate)' }}>Clear</button>
         </>
       ) : (
@@ -949,7 +949,7 @@ function MealTeeRow({ meal }) {
 const teeRoundCardStyle = { background: 'var(--bg2)', border: '1px solid var(--bg3)', borderRadius: 14, margin: '10px 12px', overflow: 'hidden' }
 const teeRoundHeaderStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '10px 12px', borderBottom: '1px solid var(--bg3)' }
 const teePairingLabelStyle = { fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }
-const teeTodayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: 'var(--navy)', background: '#fff', borderRadius: 10, padding: '1px 8px' }
+const teeTodayBadgeStyle = { fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', color: 'var(--navy)', background: '#fff', borderRadius: 10, padding: '1px 8px' }
 
 function TabTeeTimes({ rounds, meals = [], trip, isCommissioner, onUpdateRound, playerCount = 0 }) {
   // One tee-time row per pairing — a pairing is a 2v2 foursome, so pairings

@@ -1087,7 +1087,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
             {onOpenMenuPage && (
               <button
                 onClick={() => { setNotice(null); onOpenMenuPage('players') }}
-                style={{ width: '100%', padding: 13, background: 'var(--primary)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ width: '100%', padding: 13, background: 'var(--primary)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 Go to Players &amp; Teams
               </button>
@@ -1167,19 +1167,19 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
     overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 400, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' },
     sheet: { background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 32px', width: '100%', maxWidth: 430, borderTop: '1px solid var(--line)' },
     round: { fontSize: 11, color: 'var(--slate)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 },
-    holeNum: { fontSize: 30, fontWeight: 900, color: 'var(--ink)', textAlign: 'center', lineHeight: 1 },
+    holeNum: { fontSize: 30, fontWeight: 700, color: 'var(--ink)', textAlign: 'center', lineHeight: 1 },
     parInfo: { fontSize: 13, color: 'var(--primary)', textAlign: 'center', marginBottom: 16 },
     playerRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     team: { fontSize: 10, padding: '2px 7px', borderRadius: 10, marginRight: 10, fontWeight: 700 },
     name: { fontSize: 14, fontWeight: 600, color: 'var(--ink)', flex: 1 },
     controls: { display: 'flex', alignItems: 'center' },
     scoreBtn: { width: 52, height: 52, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--paper-2)', color: 'var(--ink)', fontSize: 28, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation', fontFamily: 'inherit' },
-    scoreDisp: { width: 60, textAlign: 'center', fontSize: 28, fontWeight: 900, color: 'var(--ink)' },
+    scoreDisp: { width: 60, textAlign: 'center', fontSize: 28, fontWeight: 700, color: 'var(--ink)' },
     divider: { height: 1, background: 'var(--line)', margin: '12px 0', border: 'none' },
     label: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--slate)', marginBottom: 8, fontWeight: 600 },
     drinkBtn: { width: 40, height: 40, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--paper-2)', color: 'var(--primary-mid)', fontSize: 22, fontWeight: 300, cursor: 'pointer', touchAction: 'manipulation', fontFamily: 'inherit' },
-    drinkDisp: { width: 48, textAlign: 'center', fontSize: 22, fontWeight: 900, color: 'var(--primary-mid)' },
-    save: { width: '100%', padding: 15, background: 'var(--primary)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
+    drinkDisp: { width: 48, textAlign: 'center', fontSize: 22, fontWeight: 700, color: 'var(--primary-mid)' },
+    save: { width: '100%', padding: 15, background: 'var(--primary)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
     disabled: { width: '100%', padding: 15, background: 'var(--paper-2)', border: 'none', borderRadius: 10, color: 'var(--slate)', fontSize: 15, fontWeight: 700, textAlign: 'center', marginTop: 4 },
     remove: { width: '100%', padding: 10, background: 'none', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 10, color: 'var(--bad)', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8, fontFamily: 'inherit' },
     cancel: { width: '100%', padding: 10, background: 'none', border: 'none', color: 'var(--slate)', fontSize: 14, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },

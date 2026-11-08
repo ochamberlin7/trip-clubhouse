@@ -47,7 +47,7 @@ const h = {
   heroCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginTop: 22, textAlign: 'center', padding: '22px 16px 20px', background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit', color: INK, boxSizing: 'border-box' },
   // Lining (capital-height) figures so the serif digits sit on the baseline.
   big: { marginTop: 10, fontFamily: SERIF, fontSize: 72, fontWeight: 700, lineHeight: 1, color: NAVY, fontVariantNumeric: 'lining-nums', fontFeatureSettings: '"lnum" 1' },
-  eyebrow: { fontSize: 10.5, letterSpacing: '1.8px', color: MUTED, fontWeight: 700, textTransform: 'uppercase' },
+  eyebrow: { fontSize: 10.5, letterSpacing: '1.8px', color: MUTED, fontWeight: 600, textTransform: 'uppercase' },
   until: { marginTop: 6, fontSize: 14, color: 'var(--slate)' },
   heroName: { fontFamily: SERIF, fontSize: 23, fontWeight: 700, color: INK, marginTop: 10 },
   heroSub: { fontSize: 13, color: MUTED, marginTop: 4 },
@@ -55,7 +55,7 @@ const h = {
   actionRow: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 },
   btn: { padding: '13px 0', borderRadius: 4, border: `1px solid ${NAVY}`, background: 'transparent', color: NAVY, fontSize: 12, ...CAPS, letterSpacing: '1.4px', cursor: 'pointer', fontFamily: 'inherit' },
   btnPrimary: { background: NAVY, borderColor: NAVY, color: '#fff', fontSize: 13, padding: '15px 16px' },
-  sec: { display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 6px', fontSize: 11, fontWeight: 800, letterSpacing: '2.2px', textTransform: 'uppercase', color: NAVY },
+  sec: { display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 6px', fontSize: 11, fontWeight: 600, letterSpacing: '2.2px', textTransform: 'uppercase', color: NAVY },
   secRule: { flex: 1, height: 1, background: RULE },
   link: { display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', padding: '12px 0 0', color: NAVY, fontSize: 10.5, ...CAPS, cursor: 'pointer', fontFamily: 'inherit' },
   // Bottom-right footnote.

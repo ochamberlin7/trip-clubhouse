@@ -253,7 +253,7 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
                         </div>
                         <button
                           onClick={() => setRoundCourse(idx, rIdx, null)}
-                          style={{ flexShrink: 0, background: 'none', border: 'none', color: 'var(--primary)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' }}
+                          style={{ flexShrink: 0, background: 'none', border: 'none', color: 'var(--primary)', fontSize: 10.5, fontWeight: 600, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' }}
                         >Change</button>
                       </div>
                     ) : (
@@ -418,7 +418,7 @@ const T = {
   // stripe (.wz-stripe in index.css), same as the other wizard steps.
   list: {},
   // Field labels inside a section (e.g. Number of teams) stay light grey.
-  fieldLabel: { fontSize: 10.5, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: 'var(--slate)', margin: '0 0 10px' },
+  fieldLabel: { fontSize: 10.5, fontWeight: 600, letterSpacing: '1.8px', textTransform: 'uppercase', color: 'var(--slate)', margin: '0 0 10px' },
   row: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--line)', padding: '14px 2px', cursor: 'pointer', fontFamily: 'inherit' },
   name: { display: 'block', fontFamily: "var(--font-serif)", fontSize: 18, color: 'var(--ink)', lineHeight: 1.2 },
   desc: { display: 'block', fontSize: 13, color: 'var(--slate)', marginTop: 3, lineHeight: 1.4 },

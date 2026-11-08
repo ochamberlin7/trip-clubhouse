@@ -36,7 +36,7 @@ function CatIcon({ name }) {
 
 const styles = {
   intro: { fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5, marginBottom: 16 },
-  label: { fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--slate)', margin: '0 0 8px' },
+  label: { fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--slate)', margin: '0 0 8px' },
   field: { marginBottom: 18 },
   pillRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 },
   pill: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', gap: 7, padding: '12px 4px', borderRadius: 12, cursor: 'pointer', background: '#fff', border: '1.5px solid var(--hairline)', color: 'var(--slate)', fontFamily: 'inherit', textAlign: 'center', transition: 'background .12s, border-color .12s, color .12s' },
@@ -44,14 +44,14 @@ const styles = {
   pillLabel: { fontSize: 11, fontWeight: 700, lineHeight: 1.2 },
   textarea: { width: '100%', boxSizing: 'border-box', minHeight: 124, resize: 'vertical', lineHeight: 1.45, border: '1px solid var(--hairline)', borderRadius: 14, padding: '12px 14px', fontSize: 14, color: 'var(--ink)', fontFamily: 'inherit', background: '#fff' },
   error: { color: 'var(--bad)', fontSize: 13, marginBottom: 12 },
-  sendBase: { width: '100%', borderRadius: 14, padding: '13px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', border: 'none', color: '#fff', background: 'var(--navy)' },
+  sendBase: { width: '100%', borderRadius: 14, padding: '13px 16px', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', border: 'none', color: '#fff', background: 'var(--navy)' },
   // Elevated success state.
   doneWrap: { textAlign: 'center', padding: '18px 8px 12px' },
   doneBadge: { width: 76, height: 76, borderRadius: '50%', background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 12px 24px -6px rgba(27,63,110,.45), 0 4px 10px rgba(27,63,110,.26)' },
   doneHead: { fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.2px', margin: '0 0 8px' },
   doneSub: { fontSize: 14, color: 'var(--slate)', lineHeight: 1.5, margin: '0 auto 22px', maxWidth: 300 },
-  doneLink: { background: 'none', border: 'none', padding: 6, fontFamily: 'inherit', fontSize: 15, fontWeight: 800, color: 'var(--navy)', cursor: 'pointer' },
-  doneDone: { width: '100%', borderRadius: 14, padding: '13px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', border: 'none', color: '#fff', background: 'var(--navy)', cursor: 'pointer', marginBottom: 6 },
+  doneLink: { background: 'none', border: 'none', padding: 6, fontFamily: 'inherit', fontSize: 15, fontWeight: 700, color: 'var(--navy)', cursor: 'pointer' },
+  doneDone: { width: '100%', borderRadius: 14, padding: '13px 16px', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', border: 'none', color: '#fff', background: 'var(--navy)', cursor: 'pointer', marginBottom: 6 },
 }
 
 // On the full page the fields sit inside the shared HOME_CARD shell with a navy
