@@ -12,7 +12,8 @@ export const PATHS = {
   // menu sections
   players: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5a3.5 3.5 0 0 1 0 7"/><path d="M17.5 14.5a6 6 0 0 1 4 5.5"/>',
   schedule: '<rect x="3" y="5" width="18" height="16" rx="1.5"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m8.5 15.5 2.3 2.3 4.7-4.8"/>',
-  plane: '<path d="M3 13.5 20.5 5l-5 15.5-3.3-6.5z"/><path d="M12.2 14 20.5 5"/>',
+  // Airplane from above, nose up, mirrored about x=12 so it reads as one symmetrical shape.
+  plane: '<path d="M12 3c1 0 1.8.9 1.8 2v5l5.4 4.2v2l-5.4-2.4v3.6l2 1.5v1.6L12 19.4l-3.8 1.1v-1.6l2-1.5v-3.6L4.8 16.2v-2l5.4-4.2V5c0-1.1.8-2 1.8-2z"/>',
   book: '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/><path d="M9 8h6M9 11.5h6"/>',
   chat: '<path d="M4 5.5h16v10H10l-4.5 3.5v-3.5H4z"/>',
   sliders: '<path d="M5 4v16M12 4v16M19 4v16"/><circle cx="5" cy="9" r="2.2" fill="var(--paper,#fff)"/><circle cx="12" cy="15" r="2.2" fill="var(--paper,#fff)"/><circle cx="19" cy="8" r="2.2" fill="var(--paper,#fff)"/>',
