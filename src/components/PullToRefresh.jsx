@@ -58,7 +58,7 @@ export default function PullToRefresh({ onRefresh, disabled = false, children })
         <div style={{ height: pull, overflow: 'hidden', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 6 }}>
           <div style={{
             width: 22, height: 22, borderRadius: '50%',
-            border: '2.5px solid rgba(27,63,110,0.2)', borderTopColor: '#1B3F6E',
+            border: '2.5px solid rgba(27,63,110,0.2)', borderTopColor: 'var(--primary)',
             animation: refreshing ? 'ptr-spin 0.7s linear infinite' : 'none',
             transform: refreshing ? 'none' : `rotate(${pull * 3}deg)`,
             opacity: Math.min(1, pull / THRESHOLD),

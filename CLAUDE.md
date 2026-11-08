@@ -5,9 +5,11 @@ match-play scoring, leaderboards, stats, trash-talk chat, and per-trip handicaps
 Owner/dev: Owen Chamberlin (o.chamberlin@gmail.com).
 
 Read BACKLOG.md at the start of each session; update it when a branch merges or a decision changes.
+**Read DESIGN_SYSTEM.md before any UI change** (anything that renders): it is the one visual and
+editorial system (Letterpress Green) and the rules below are not optional.
 
 ## Stack
-- **Frontend:** React 18 + Vite (JavaScript, **not** TypeScript). Plain CSS in `src/index.css` (design tokens as CSS vars) plus inline style objects in components.
+- **Frontend:** React 18 + Vite (JavaScript, **not** TypeScript). Plain CSS in `src/index.css` (design tokens in `:root` plus the `.ds-*` component classes) and inline style objects in components that read those tokens. Shared UI components in `src/components/ui/` (`Icon`, `Button`, `Card`/`Row`, `PageHeader`, `Pills`, `Segmented`, `Field`, `StatusTag`, `EmptyState`, `Switch`, `SectionLabel`).
 - **Backend:** Supabase (Postgres + RLS + Realtime + Auth). Client in `src/lib/supabase.js`.
 - **Serverless:** Netlify Functions in `netlify/functions/*.cjs` (golf-course API proxy, scorecard OCR scan, push/email notify). They use server-side secrets (`GOLF_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) — not the `VITE_` ones.
 - **Hosting:** Netlify. Site **`trip-clubhouse`** (id `55e25b5c-c796-452e-af09-4f63fcd0b477`, `thetripclubhouse.com`), connected to GitHub `ochamberlin7/trip-clubhouse`. Pushing any branch builds a branch-deploy preview at `https://<branch-with-slashes-as-dashes>--<site>.netlify.app`.
@@ -17,6 +19,7 @@ Read BACKLOG.md at the start of each session; update it when a branch merges or 
 - `npm run build` — production build (must pass before merging).
 - `npm run lint` — ESLint over the repo. **The repo is NOT lint-clean** (see Gotchas). Rule: *add no NEW lint errors*; pre-existing ones are acceptable.
 - `npm test` / `node --test 'src/**/*.test.js'` — Node's built-in test runner. Tests are pure-logic unit tests (mostly `src/lib/scoring.test.js`). No DOM/component tests.
+- `npm run check:design` — design-system check (`scripts/check-design.mjs`): fails on a new hex color in `src/`, an emoji or text glyph used as an icon, an em dash joining words in copy, or a font named directly. **Must pass before pushing UI work.**
 
 ## Environment (`.env.local`, gitignored)
 Frontend reads these `VITE_` vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY`, and optional `VITE_GOLF_API_KEY` (dev-only fallback for calling the golf API directly on plain `npm run dev`; in prod the `golf-course-proxy` function uses server-side `GOLF_API_KEY`). Recreate the file with `netlify link` (pick `trip-clubhouse`) then `netlify env:list --plain > .env.local` (this CLI, v26, has no `env:pull`). `supabase.js` tolerates missing env (logs a warning, uses placeholders).
@@ -41,13 +44,24 @@ Frontend reads these `VITE_` vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 - **Test mode (dev override):** `trips.test_mode` (migration `20260674`, applied). When ON and the signed-in email is `o.chamberlin@gmail.com`, that account can score ANY pairing and edit even past trips (read-only bypass). Toggle is on the **Profile page** (dev-only row). Nobody else benefits; real trips (`test_mode=false`) unaffected. Email is hardcoded in `can_write_score` and `TripDashboard.jsx` (`DEV_USER_EMAIL`).
 - **Time zone:** `trips.time_zone` (IANA, migration `20260673`, applied). `getTripPhase` reads it so out-of-zone viewers (Owen in Phoenix, trips in Michigan/Eastern) see the trip's day. Callers pass `trip.time_zone`.
 - **The Dozen:** a real 12-hole round. Completion/stroke logic must use the round's own hole count, never a hard-coded 18 for display math. (`isRoundComplete` keeps an 18 *default* for back-compat; pass the real count where it matters.)
-- **Team colors:** `src/lib/teamColors.js` — index-keyed palette (single source): red / blue / green / purple / amber / teal, injected as CSS vars (merged 2026-10-27).
+- **Team colors:** `src/lib/teamColors.js` — index-keyed palette (single source): red / blue / green / purple / amber / teal, injected as CSS vars (merged 2026-10-27). Team colors appear only on player header cells, point badges and totals; never reuse them for UI chrome.
+- **Mockups:** the 2026-11-08 redesign exploration (nine directions) lives locally in `.claude/mockups/redesign/` (untracked; served by the `mockups` launch config at `/redesign/`) and in the review artifact. Letterpress Green (direction B) was chosen; the others are reference only.
+
+## Design system (Letterpress Green) — rules for every UI change
+Full detail, tokens and component usage: **`DESIGN_SYSTEM.md`**. In short:
+- **Read it first**, then reuse what exists: tokens (`var(--primary)`, `var(--accent)`, `var(--ink)`, `var(--slate)`, `var(--line)`, `var(--paper)`, `var(--stone)`, `var(--radius)`, `var(--font-serif)`, `var(--font-sans)`), the `ui/` components and the `.ds-*` classes. The old aliases (`--navy`, `--muted`, `--bg0`, …) resolve to the new tokens; don't write them in new code.
+- **No new colors, spacing, radii or control styles.** No hex/rgb literals in components. No shadows on cards (hairlines separate them), no gradients, no glow, radius 3px or 4px only.
+- **Icons come from `src/components/ui/iconPaths.js` via `<Icon name=… />`.** Never emoji, never text glyphs (✕ ✓ › ☰ ⚠). Add a missing icon to the family (24 grid, 1.5px stroke) rather than inlining an SVG.
+- **Extend, don't fork.** A new pattern becomes a variant of a shared component (or a new one in `ui/`), documented in DESIGN_SYSTEM.md, not a one-off style object.
+- **Copy:** sentence case, no ampersands in labels, **no em dashes**, **no emoji**, concrete action labels ("Save changes"), empty/error states that say what happened and what to do next. Keep the app's terms: Score, Standings, Tee times, Menu, Trash talk, Commissioner tools, Your clubhouse, Trophy room, pairing, round, allowance.
+- **Scorecard notation** is fixed: circles under par, squares over par, filled circle for an ace, stroke dots bottom-left, brass flame badge for "on fire", no current-hole marker, marks in ink not team color.
+- **Before finishing UI work:** `npm run check:design`, then check keyboard focus (brass ring), contrast (no `--mist` for words), and the 320px layout. Any approved addition to the system gets a line in DESIGN_SYSTEM.md and BACKLOG.md.
 
 ## Working conventions (how Owen wants changes made)
 - **Proceed directly — don't ask permission before making changes.** Only ask when a decision is genuinely the user's (product/security trade-offs). Pick sensible defaults and report them.
 - **Adapt specs to the real codebase.** Specs sometimes assume structure that doesn't exist (e.g. a "Leaderboard round view" that isn't there) — bend the feature to the app; flag the mismatch; don't re-architect working systems.
 - **Branch per feature**, named `feat/...` or `fix/...` off `main`. Push so the Netlify preview builds. **Do not merge until explicitly told.** Owen verifies on the preview, then says "merge it."
-- **Gates before merge:** `npm test` and `npm run build` pass; no *new* lint errors. When merging, first `git merge main` into the branch to surface conflicts; if conflicts appear, STOP and report before touching `main`.
+- **Gates before merge:** `npm test`, `npm run build` and `npm run check:design` pass; no *new* lint errors. When merging, first `git merge main` into the branch to surface conflicts; if conflicts appear, STOP and report before touching `main`.
 - **Migrations are never auto-applied.** Write the `.sql` file; Owen runs it in the Supabase SQL editor. Don't run anything destructive against prod.
 - **Secrets:** never print `.env.local` contents or secret values.
 - Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
@@ -61,6 +75,7 @@ Since then (2026-10-23 → 10-27) everything below is merged; see BACKLOG.md for
 
 ## Gotchas
 - **`src/components/MenuDrawer.jsx` has 20 PRE-EXISTING lint errors** (as of `main` @ `043071f`). Same rule: count only new ones.
+- **MenuDrawer is now the Menu screen**, not a side drawer: it renders full-width under the bottom nav while the Menu tab is active (`drawerOpen` in `TripDashboard.jsx` marks the tab active; any other tab closes it). Its secondary pages still open as full-screen overlays with a back button.
 - **`src/pages/dashboard/TripDashboard.jsx` has 6 PRE-EXISTING lint errors** (`groupByDate`, two `WeatherWidget` setState-in-effect, dead `TabMenu`/unused `trip`, `devReset`). They are NOT yours — count only *new* ones. `node_modules`-wide `npm run lint` fails on these + others by design.
 - **Disk/corruption history:** this folder is a **fresh re-clone** (the earlier working copy corrupted when the disk hit 100% full). A backup of the broken copy sits at `~/Desktop/trip-clubhouse-fresh.corrupt-20261021` — safe to delete once you're confident (only unrecoverable thing in it was `.env.local`, already recreated). The repo lives under `~/Desktop` (watch disk space; if reads start timing out, the disk is likely full again — stop and tell Owen, don't delete).
 - Tests are logic-only; there's no component/browser test harness. Verify UI changes on the Netlify preview.

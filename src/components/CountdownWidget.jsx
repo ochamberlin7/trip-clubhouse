@@ -1,15 +1,15 @@
-// CTI Clubhouse Home banner.
-//  - Pre-trip  : the day countdown (unchanged copy).
-//  - Post-trip : the thank-you message (unchanged copy).
-//  - In-trip   : the day strip — which day of the trip it is + where you're playing.
+// Home banner (trip Home tab).
+//  - Pre-trip  : the day countdown.
+//  - Post-trip : "Trip complete" with a pointer to Standings.
+//  - In-trip   : today's title + course, then the day strip: one labelled segment per
+//                trip day (weekday and date side by side through 6 days, date only
+//                from 7), today's segment in brass.
 // Facts come from getTripPhase (dayNumber / totalDays / todaysRounds / phase), fed the
 // trip's time zone exactly like the routing code, so an out-of-zone viewer sees the
-// trip's day. This is the Home banner only — the live-score banner is a separate
-// component and is untouched.
+// trip's day. The live-score banner is a separate component.
 
-import { getTripPhase, homeBannerModel, bannerGridColumns } from '../lib/scoring'
+import { getTripPhase, homeBannerModel, bannerDayLabels } from '../lib/scoring'
 
-// Parse an ISO date string to a local-midnight Date (date-level, ignores time).
 function parseDate(iso) {
   if (!iso) return null
   const d = new Date(iso + 'T00:00:00')
@@ -26,94 +26,53 @@ function daysUntil(startIso) {
 }
 
 const styles = {
-  container: {
-    background: '#1B3F6E',
-    borderRadius: '20px',
-    boxShadow: '0 18px 32px -12px rgba(15,30,51,.42), 0 4px 10px rgba(15,30,51,.18)',
-    padding: '16px',
-    marginBottom: '14px',
-  },
-  // Pre-trip countdown + post-trip message keep their original centered styling.
-  centered: { textAlign: 'center' },
-  number: { fontSize: '44px', fontWeight: 700, color: '#fff', lineHeight: 1 },
-  label: { fontSize: '12px', color: '#C7D6EA', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '6px', fontWeight: 600 },
-  message: { fontSize: '17px', color: '#fff', fontWeight: 700, lineHeight: 1.4 },
-
-  // Day-strip layout. The strip sits at the BOTTOM of the banner; dots are connected
-  // by a hairline that runs through their centres (one line per wrapped row, trimmed to
-  // the row's first/last dot).
-  welcome: { fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C9D6E8', fontWeight: 600, marginBottom: '12px' },
-  strip: { marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' },
-  stripRow: { position: 'relative' },
-  stripLine: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: '2px', borderRadius: '1px', background: 'rgba(255,255,255,0.3)', zIndex: 0 },
-  stripDots: { position: 'relative', zIndex: 1, display: 'grid', gap: '8px' },
-  dotCell: { display: 'flex', justifyContent: 'center' },
-  // Opaque navy base (same as the card) so the connecting line doesn't show through a
-  // dot's centre; the state styles layer on top.
-  dotBase: { width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', boxSizing: 'border-box', background: '#1B3F6E' },
-  dotToday: { background: '#E7EDF5', color: '#1B3F6E', fontWeight: 800 },
-  dotPast: { background: '#446288', color: '#DCE5F1', fontWeight: 700 },
-  dotFuture: { border: '1px solid rgba(255,255,255,0.4)', color: '#C9D6E8', fontWeight: 700 },
-  title: { fontSize: '20px', fontWeight: 700, color: '#fff', lineHeight: 1.2 },
-  courseLine: { fontSize: '15px', color: '#DCE5F1', marginTop: '3px', lineHeight: 1.3 },
-}
-
-function dotStyle(state) {
-  return { ...styles.dotBase, ...(state === 'today' ? styles.dotToday : state === 'past' ? styles.dotPast : styles.dotFuture) }
+  container: { background: 'var(--primary)', borderRadius: 'var(--card-radius)', padding: '14px 16px 12px', marginBottom: 12, color: '#fff' },
+  centered: { textAlign: 'center', padding: '18px 16px' },
+  number: { fontFamily: 'var(--font-serif)', fontSize: 48, fontWeight: 700, color: '#fff', lineHeight: 1, fontVariantNumeric: 'lining-nums' },
+  label: { fontSize: 11, color: 'var(--on-primary-soft)', textTransform: 'uppercase', letterSpacing: '.14em', marginTop: 8, fontWeight: 600 },
+  message: { fontFamily: 'var(--font-serif)', fontSize: 20, color: '#fff', fontWeight: 700, lineHeight: 1.3 },
+  messageSub: { fontSize: 13, color: 'var(--on-primary)', marginTop: 6 },
+  eyebrow: { fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--on-primary-soft)', fontWeight: 600 },
+  title: { fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 700, color: '#fff', lineHeight: 1.2, marginTop: 6 },
+  courseLine: { fontSize: 14, color: 'var(--on-primary)', marginTop: 2, lineHeight: 1.3 },
 }
 
 export default function CountdownWidget({ trip, rounds = [] }) {
   const tripName = trip?.name
   const phase = getTripPhase({ trip, rounds, now: new Date(), timeZone: trip?.time_zone ?? undefined })
 
-  // Pre-trip: keep the existing countdown copy.
   if (phase.phase === 'before-trip') {
     const days = daysUntil(trip?.start_date)
     return (
       <div style={{ ...styles.container, ...styles.centered }}>
         <div style={styles.number}>{days}</div>
-        <div style={styles.label}>{days === 1 ? 'day until trip' : 'days until trip'}</div>
+        <div style={styles.label}>{days === 1 ? 'day until the trip' : 'days until the trip'}</div>
       </div>
     )
   }
 
-  // Post-trip: keep the existing copy.
   if (phase.phase === 'after-trip') {
     return (
       <div style={{ ...styles.container, ...styles.centered }}>
-        <div style={styles.message}>Thanks for an amazing trip! See you next time</div>
+        <div style={styles.message}>Trip complete</div>
+        <div style={styles.messageSub}>Final standings are on the Standings tab.</div>
       </div>
     )
   }
 
-  // In-trip (and dateless trips): text first, then the day strip at the BOTTOM.
   const { showWelcome, dots, title, lines } = homeBannerModel(phase)
-  const columns = bannerGridColumns(dots.length)
-  // Wrap the dots into rows of `columns` so the connecting line is drawn per row and
-  // never links the end of one row to the start of the next.
-  const dotRows = []
-  for (let i = 0; i < dots.length; i += columns) dotRows.push(dots.slice(i, i + columns))
+  const labels = bannerDayLabels(trip?.start_date, dots.length)
+  const eyebrow = [showWelcome ? `Welcome to ${tripName || 'the trip'}` : null, title ? `${title} of ${dots.length}` : null].filter(Boolean).join(' · ')
   return (
     <div style={styles.container}>
-      {showWelcome && <div style={styles.welcome}>Welcome to {tripName || 'the trip'}</div>}
-      {title && <div style={styles.title}>{title}</div>}
-      {lines.map((line, i) => <div key={i} style={styles.courseLine}>{line}</div>)}
-      {dots.length > 0 && (
-        <div style={styles.strip}>
-          {dotRows.map((row, ri) => (
-            <div key={ri} style={styles.stripRow}>
-              {/* Line from the first dot's centre to the last dot's centre in this row.
-                  Dot n sits in grid column n at centre (n + 0.5)/columns of the width. */}
-              {row.length > 1 && (
-                <div style={{ ...styles.stripLine, left: `${(0.5 / columns) * 100}%`, width: `${((row.length - 1) / columns) * 100}%` }} />
-              )}
-              <div style={{ ...styles.stripDots, gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
-                {row.map(d => (
-                  <div key={d.n} style={styles.dotCell}>
-                    <div style={dotStyle(d.state)}>{d.n}</div>
-                  </div>
-                ))}
-              </div>
+      {eyebrow && <div style={styles.eyebrow}>{eyebrow}</div>}
+      {lines.map((line, i) => <div key={i} style={i === 0 ? styles.title : styles.courseLine}>{line}</div>)}
+      {dots.length > 0 && labels.length === dots.length && (
+        <div className="ds-dseg" style={{ gridTemplateColumns: `repeat(${dots.length}, 1fr)` }} aria-label={`Day ${phase.dayNumber ?? ''} of ${dots.length}`}>
+          {dots.map((d, i) => (
+            <div key={d.n} className={`ds-ds ${d.state === 'past' ? 'past' : d.state === 'today' ? 'now' : ''}`} aria-current={d.state === 'today' ? 'date' : undefined}>
+              <i />
+              <b>{labels[i].weekday && labels[i].label !== labels[i].date ? <>{labels[i].weekday}<span>{labels[i].date}</span></> : labels[i].date}</b>
             </div>
           ))}
         </div>

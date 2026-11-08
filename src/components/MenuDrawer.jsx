@@ -20,6 +20,7 @@ import { ProfileBadge } from './ProfileAvatar'
 import { useAvatarPicker } from './useAvatarPicker'
 import { attachAvatars, playerAccountIds } from '../lib/avatar'
 import { useAuth } from '../context/AuthContext'
+import Icon from './ui/Icon'
 import { version as APP_VERSION } from '../../package.json'
 import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
@@ -64,93 +65,97 @@ function fmtRange(s, e) {
 
 // ── styles ────────────────────────────────────────────────────────
 const s = {
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, transition: 'opacity 0.25s ease' },
-  drawer: { position: 'fixed', right: 0, top: 0, bottom: 0, width: '280px', maxWidth: '85vw', background: '#FFFFFF', borderLeft: '1px solid #DDE3EA', zIndex: 301, display: 'flex', flexDirection: 'column', transition: 'transform 0.25s ease', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)' },
-  drawerHeader: { display: 'flex', alignItems: 'center', gap: '14px', padding: '28px 52px 20px 18px', paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 28px)', borderBottom: '1px solid #E5E7EB', position: 'relative' },
+  // The Menu screen: a full-width page that sits above the tab content and below the
+  // bottom nav, so Menu is a real tab (the nav shows it active) and any other tab
+  // closes it. Same 430px column as the rest of the app.
+  drawer: { position: 'fixed', top: 0, bottom: 'var(--tab-bar-space)', left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: 'var(--stone)', zIndex: 210, display: 'flex', flexDirection: 'column', overflowY: 'auto' },
+  drawerHeader: { display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', paddingTop: 'max(calc(env(safe-area-inset-top) + 8px), 14px)', background: 'var(--paper)', borderBottom: '1px solid var(--line)', position: 'relative', flexShrink: 0 },
   profileBtn: { display: 'block', flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' },
   badgeBtn: { display: 'block', background: 'none', border: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%' },
-  photoErr: { display: 'block', fontSize: '11px', color: '#C0392B', marginTop: '3px', lineHeight: 1.3 },
-  profileBadge: { width: 58, height: 58, fontSize: 19, background: '#E7EDF5', color: '#33455E', border: 'none', boxShadow: 'none' },
-  cameraDot: { position: 'absolute', right: -3, bottom: -3, width: 22, height: 22, padding: 0, borderRadius: '50%', background: '#94A3B8', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', cursor: 'pointer' },
-  profileName: { display: 'block', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#0F1E33', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  profileLink: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#5B6B84', marginTop: '2px' },
-  closeBtn: { position: 'absolute', top: 'max(env(safe-area-inset-top), 12px)', right: '12px', width: '32px', height: '32px', borderRadius: '50%', background: 'none', border: 'none', color: '#94A3B8', fontSize: '17px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  nav: { flex: 1, overflowY: 'auto', padding: '4px 0' },
-  item: { display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', background: '#fff', width: '100%', borderTop: 'none', borderLeft: 'none', borderRight: 'none', textAlign: 'left', fontFamily: 'inherit' },
-  clubTile: { width: '42px', height: '42px', borderRadius: '11px', background: '#1B3F6E', border: '2px solid #C49A2A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxSizing: 'border-box' },
-  drawerFooter: { padding: '14px 18px', paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 12px), 22px)', textAlign: 'center', color: '#94A3B8', flexShrink: 0 },
-  footerRule: { width: '30px', height: '1.5px', background: '#E3C77A', margin: '0 auto 10px' },
-  footerBrand: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '14px', fontWeight: 700, color: '#94A3B8' },
+  photoErr: { display: 'block', fontSize: '11px', color: 'var(--bad)', marginTop: '3px', lineHeight: 1.3 },
+  profileBadge: { width: 50, height: 50, fontSize: 17, background: 'var(--primary)', color: '#fff', border: 'none', boxShadow: '0 0 0 2px var(--paper), 0 0 0 4px var(--accent)', fontFamily: 'var(--font-serif)' },
+  cameraDot: { position: 'absolute', right: -3, bottom: -3, width: 22, height: 22, padding: 0, borderRadius: '50%', background: 'var(--mist)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', cursor: 'pointer' },
+  profileName: { display: 'block', fontFamily: 'var(--font-serif)', fontSize: '19px', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  profileLink: { display: 'block', fontSize: '12.5px', fontWeight: 500, color: 'var(--slate)', marginTop: '3px' },
+  closeBtn: { position: 'absolute', top: 'max(env(safe-area-inset-top), 12px)', right: '12px', width: '32px', height: '32px', borderRadius: '50%', background: 'none', border: 'none', color: 'var(--mist)', fontSize: '17px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  nav: { flex: 1, padding: '14px 14px 20px', display: 'flex', flexDirection: 'column', gap: 12 },
+  group: { background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 'var(--card-radius)', overflow: 'hidden' },
+  groupLabel: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 10.5, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--primary)', margin: '4px 0 -4px' },
+  groupRule: { flex: 1, height: 1, background: 'var(--line)' },
+  item: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', cursor: 'pointer', borderTop: '1px solid var(--line-soft)', background: 'var(--paper)', width: '100%', borderBottom: 'none', borderLeft: 'none', borderRight: 'none', textAlign: 'left', fontFamily: 'inherit' },
+  clubTile: { width: '32px', height: '32px', borderRadius: 'var(--radius)', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxSizing: 'border-box' },
+  drawerFooter: { padding: '4px 18px 18px', textAlign: 'center', color: 'var(--slate)', flexShrink: 0 },
+  footerRule: { width: '34px', height: '2px', background: 'var(--accent)', margin: '0 auto 10px' },
+  footerBrand: { fontFamily: 'var(--font-serif)', fontSize: '15px', fontWeight: 700, color: 'var(--primary)' },
   footerLinks: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px', marginTop: '4px' },
-  footerLink: { background: 'none', border: 'none', padding: '4px 0', color: '#94A3B8', fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer' },
-  iconBox: { width: '36px', height: '36px', borderRadius: '6px', background: '#E8EDF3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  itemLabel: { fontSize: '15px', fontWeight: 600, color: '#0D1B2A' },
-  itemSub: { fontSize: '11px', color: '#7A8FA6', marginTop: '1px' },
+  footerLink: { background: 'none', border: 'none', padding: '4px 0', color: 'var(--slate)', fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer' },
+  iconBox: { width: '32px', height: '32px', borderRadius: 'var(--radius)', background: 'var(--paper-2)', border: '1px solid var(--line)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  itemLabel: { fontSize: '15px', fontWeight: 600, color: 'var(--ink)', display: 'block' },
+  itemSub: { fontSize: '12px', color: 'var(--slate)', marginTop: '1px', display: 'block' },
 
   // z above the persistent bottom chrome (tab-bar 100, live banner 200, feedback
   // FAB 201) so a secondary page fully covers the scorecard — no leftover shows.
   // Constrained to the same 430px column the main tabs use (#root max-width: 430),
   // centered on desktop. On mobile the viewport is ≤430 so width:100% wins and it
   // renders full-bleed exactly as before — desktop-only change.
-  page: { position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, zIndex: 250, background: '#F0F4F8', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
-  pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: '16px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 16px)', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: '12px' },
-  backBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1B3F6E', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 },
-  pageContext: { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 500 },
-  pageTitle: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '22px', fontWeight: 700, color: '#0D1B2A', marginTop: '1px' },
+  page: { position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, zIndex: 250, background: 'var(--stone)', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
+  pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: 'var(--paper)', padding: '12px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 12px)', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'flex-start', gap: '12px' },
+  backBtn: { width: 34, height: 34, background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--primary)', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  pageContext: { fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--slate)', fontWeight: 600 },
+  pageTitle: { fontFamily: 'var(--font-serif)', fontSize: '22px', fontWeight: 700, color: 'var(--primary)', marginTop: '3px', lineHeight: 1.15 },
+  pageRule: { width: 34, height: 2, background: 'var(--accent)', marginTop: 9 },
   // paddingBottom clears the floating feedback pill (z-index 201) which renders
   // above these secondary pages — same shared clearance as .dashboard-content.
   pageBody: { padding: '16px', paddingBottom: 'var(--content-bottom-clearance)' },
 
-  card: { background: '#fff', border: '1px solid #DDE3EA', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px' },
-  cardHeader: { background: '#1B3F6E', padding: '10px 14px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#fff' },
+  card: { background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 'var(--card-radius)', overflow: 'hidden', marginBottom: '12px' },
+  cardHeader: { background: 'var(--paper)', borderBottom: '1px solid var(--line-soft)', padding: '9px 14px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--primary)' },
   cardBody: { padding: '14px' },
-  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid #E8EDF3' },
-  rowLabel: { fontSize: '13px', color: '#7A8FA6' },
-  rowValue: { fontSize: '13px', fontWeight: 600, color: '#0D1B2A' },
-  muted: { fontSize: '13px', color: '#7A8FA6', fontStyle: 'italic' },
-  note: { fontSize: '12px', color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: '4px 0 8px' },
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid var(--paper-2)' },
+  rowLabel: { fontSize: '13px', color: 'var(--slate)' },
+  rowValue: { fontSize: '13px', fontWeight: 600, color: 'var(--ink)' },
+  muted: { fontSize: '13px', color: 'var(--slate)', fontStyle: 'italic' },
+  note: { fontSize: '12px', color: 'var(--slate)', fontStyle: 'italic', textAlign: 'center', padding: '4px 0 8px' },
 
-  badge: { fontSize: '10px', padding: '2px 7px', borderRadius: '10px', fontWeight: 700, display: 'inline-block' },
-  badgeTour: { background: 'rgba(27,63,110,0.1)', color: '#1B3F6E', border: '1px solid #1B3F6E' },
-  badgePrac: { background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' },
+  badge: { fontSize: '10.5px', padding: '3px 8px', borderRadius: 'var(--radius-sm)', fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', display: 'inline-block' },
+  badgeTour: { background: 'var(--accent-tint)', color: 'var(--accent-ink)', border: '1px solid transparent' },
+  badgePrac: { background: 'var(--paper-2)', color: 'var(--slate)', border: '1px solid var(--line)' },
 
-  dot: { width: '6px', height: '6px', borderRadius: '50%', background: '#1B3F6E', flexShrink: 0, marginTop: '7px' },
-  ruleRow: { display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid #E8EDF3', fontSize: '13px', lineHeight: 1.5, color: '#0D1B2A' },
+  dot: { width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', flexShrink: 0, marginTop: '7px' },
+  ruleRow: { display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid var(--paper-2)', fontSize: '13px', lineHeight: 1.5, color: 'var(--ink)' },
 
-  toggleRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid #E8EDF3', background: '#fff', width: '100%', border: 'none', fontFamily: 'inherit', textAlign: 'left' },
-  stepRow: { display: 'flex', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid #E8EDF3' },
-  stepNum: { width: '22px', height: '22px', borderRadius: '50%', background: '#1B3F6E', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  stepText: { fontSize: '13px', color: '#0D1B2A', lineHeight: 1.4 },
-  introText: { fontSize: '13px', color: '#2C3E50', lineHeight: 1.5, paddingBottom: '10px' },
-  editCourseBtn: { marginTop: '8px', background: '#fff', border: '1px solid #DDE3EA', color: '#1B3F6E', fontSize: '12px', fontWeight: 700, borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' },
+  toggleRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid var(--paper-2)', background: '#fff', width: '100%', border: 'none', fontFamily: 'inherit', textAlign: 'left' },
+  stepRow: { display: 'flex', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid var(--paper-2)' },
+  stepNum: { width: '22px', height: '22px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  stepText: { fontSize: '13px', color: 'var(--ink)', lineHeight: 1.4 },
+  introText: { fontSize: '13px', color: 'var(--ink-2)', lineHeight: 1.5, paddingBottom: '10px' },
+  editCourseBtn: { marginTop: '8px', background: '#fff', border: '1px solid var(--line)', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' },
 
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  modalSheet: { background: '#fff', borderRadius: '12px', padding: '24px', width: 'calc(100% - 40px)', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
-  modalTitle: { fontSize: '18px', fontWeight: 700, color: '#0D1B2A', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  modalClose: { width: '28px', height: '28px', borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  modalSheet: { background: 'var(--paper)', borderRadius: 'var(--radius)', padding: '22px', width: 'calc(100% - 40px)', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto', boxShadow: 'var(--shadow-pop)' },
+  modalTitle: { fontFamily: 'var(--font-serif)', fontSize: '19px', fontWeight: 700, color: 'var(--primary)', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  modalClose: { width: '30px', height: '30px', borderRadius: 'var(--radius)', background: 'var(--paper)', border: '1px solid var(--line)', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 },
 }
 
-const svgProps = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: '#1B3F6E', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
-
 const MENU_ITEMS = [
-  { id: 'players', label: 'Players & Teams', sub: 'Roster & teams', icon: <g><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g> },
-  { id: 'courses', label: 'Schedule & Courses', sub: 'Schedule & course info', icon: <g><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></g> },
-  { id: 'flights', label: 'Flights', sub: 'Arrival & departure info', icon: <g><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></g> },
-  { id: 'rules', label: 'Rules', sub: 'Local rules & format', icon: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></g> },
-  { id: 'archives', label: 'Archives', sub: 'Past trips & records', icon: <g><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5" rx="1"/><line x1="10" y1="12" x2="14" y2="12"/></g> },
-  { id: 'support', label: 'Support', sub: 'Report a bug or share an idea', icon: <g><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></g> },
+  { id: 'players', label: 'Players and teams', sub: 'Roster, teams, handicaps', iconName: 'players' },
+  { id: 'courses', label: 'Schedule and courses', sub: 'Days, rounds, lodging, meals', iconName: 'schedule' },
+  { id: 'flights', label: 'Flights', sub: 'Arrivals and departures', iconName: 'plane' },
+  { id: 'rules', label: 'Rules', sub: 'Format, allowance, local rules', iconName: 'book' },
+  { id: 'archives', label: 'Archives', sub: 'Past trips and records', iconName: 'archive' },
+  { id: 'support', label: 'Support', sub: 'Report a problem or suggest a change', iconName: 'chat' },
 ]
 
 // Commissioner-only item, rendered at the top of the drawer when isCommissioner.
 // App Info is not a menu row — it lives in the drawer's footer links
 // ("App info · Install guide"), which open the same 'app-info' page.
 
-const COMMISSIONER_ITEM = { id: 'commissioner', label: 'Commissioner Tools', sub: 'Dates, teams, allowance & invites', icon: <g><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></g> }
+const COMMISSIONER_ITEM = { id: 'commissioner', label: 'Commissioner tools', sub: 'Dates, teams, allowance, invites, purse', iconName: 'sliders' }
 
 // ── small building blocks ─────────────────────────────────────────
 function Chevron({ open }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7A8FA6" strokeWidth="2"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--slate)" strokeWidth="2"
       strokeLinecap="round" strokeLinejoin="round"
       style={{ transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'none' }}>
       <polyline points="9 18 15 12 9 6" />
@@ -161,7 +166,7 @@ function Chevron({ open }) {
 // Plain right chevron at the end of a drawer row.
 function RowChevron() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="2"
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mist)" strokeWidth="2"
       strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto', flexShrink: 0 }} aria-hidden="true">
       <polyline points="9 18 15 12 9 6" />
     </svg>
@@ -214,8 +219,8 @@ function Expandable({ title, sub, steps }) {
     <div>
       <button style={s.toggleRow} onClick={() => setOpen(o => !o)}>
         <div>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#0D1B2A' }}>{title}</div>
-          <div style={{ fontSize: '11px', color: '#7A8FA6', marginTop: '1px' }}>{sub}</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>{title}</div>
+          <div style={{ fontSize: '11px', color: 'var(--slate)', marginTop: '1px' }}>{sub}</div>
         </div>
         <Chevron open={open} />
       </button>
@@ -238,14 +243,11 @@ function SecondaryPage({ context, title, onBack, children }) {
   return (
     <div style={s.page}>
       <div style={s.pageHeader}>
-        <button style={s.backBtn} onClick={onBack} aria-label="Back">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-        <div>
+        <button style={s.backBtn} onClick={onBack} aria-label="Back"><Icon name="left" size={18} /></button>
+        <div style={{ minWidth: 0 }}>
           <div style={s.pageContext}>{context}</div>
           <div style={s.pageTitle}>{title}</div>
+          <div style={s.pageRule} />
         </div>
       </div>
       <div style={s.pageBody}>{children}</div>
@@ -263,7 +265,7 @@ function PlayerAvatar({ player }) {
   const url = player.avatar_url
   if (url && failedUrl !== url) {
     return (
-      <div style={{ ...pc.avatar, overflow: 'hidden', background: '#E7EDF5' }}>
+      <div style={{ ...pc.avatar, overflow: 'hidden', background: 'var(--primary-tint)' }}>
         <img src={url} alt="" onError={() => setFailedUrl(url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       </div>
     )
@@ -294,26 +296,26 @@ const pc = {
   // Top-aligned 3-column header: avatar · name + role meta · team pill over pencil.
   // The name gets its own flexing column so it never fights the pill.
   header: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
-  avatar: { width: 40, height: 40, borderRadius: '50%', background: '#1B3F6E', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
+  avatar: { width: 40, height: 40, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
   headerMain: { flex: 1, minWidth: 0, paddingTop: 1 },
-  name: { fontSize: 16, fontWeight: 700, color: '#0D1B2A', lineHeight: 1.25, overflowWrap: 'anywhere' },
+  name: { fontSize: 16, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.25, overflowWrap: 'anywhere' },
   // Role/status line under the name: plain coloured text, no pills. Joined (green),
   // Commissioner (red), Captain (amber) — same subtle 11px/600 treatment.
   metaRow: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 3, flexWrap: 'wrap' },
-  joined: { color: '#2E7D32', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 },
-  joinedDot: { width: 6, height: 6, borderRadius: '50%', background: '#2E7D32', display: 'inline-block' },
-  commish: { color: '#C0392B', fontSize: 11, fontWeight: 600 },
-  captainTag: { color: '#92600A', fontSize: 11, fontWeight: 600 },
+  joined: { color: 'var(--ok)', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 },
+  joinedDot: { width: 6, height: 6, borderRadius: '50%', background: 'var(--ok)', display: 'inline-block' },
+  commish: { color: 'var(--bad)', fontSize: 11, fontWeight: 600 },
+  captainTag: { color: 'var(--accent-ink)', fontSize: 11, fontWeight: 600 },
   headerRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 },
   teamPill: { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' },
-  pencil: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#7A8FA6', flexShrink: 0, display: 'flex', alignItems: 'center' },
-  detailRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #E8EDF3', fontSize: 13, color: '#2C3E50' },
-  detailLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', minWidth: 72 },
-  muted: { color: '#7A8FA6' },
-  editInput: { background: '#F5F8FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: '100%', fontFamily: 'inherit', color: '#0D1B2A' },
-  editLabel: { display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', marginBottom: 4 },
+  pencil: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--slate)', flexShrink: 0, display: 'flex', alignItems: 'center' },
+  detailRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--paper-2)', fontSize: 13, color: 'var(--ink-2)' },
+  detailLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--slate)', minWidth: 72 },
+  muted: { color: 'var(--slate)' },
+  editInput: { background: 'var(--paper-2)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: '100%', fontFamily: 'inherit', color: 'var(--ink)' },
+  editLabel: { display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--slate)', marginBottom: 4 },
   editField: { display: 'block', flex: 1, minWidth: 0 },
-  saveBtn: { background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  saveBtn: { background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 }
 
 function PencilIcon() {
@@ -401,7 +403,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
       <div style={pc.header}>
         <PlayerAvatar player={player} />
         <div style={pc.headerMain}>
-          <div style={{ ...pc.name, ...(isOpenSpot ? { color: '#7A8FA6', fontStyle: 'italic' } : null) }}>{isOpenSpot ? PLACEHOLDER_LABEL : player.name}</div>
+          <div style={{ ...pc.name, ...(isOpenSpot ? { color: 'var(--slate)', fontStyle: 'italic' } : null) }}>{isOpenSpot ? PLACEHOLDER_LABEL : player.name}</div>
           {(player.is_claimed || commissioner || player.is_captain) && (
             <div style={pc.metaRow}>
               {player.is_claimed && <span style={pc.joined}><span style={pc.joinedDot} />Joined</span>}
@@ -424,20 +426,20 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           <div style={pc.detailRow}>
             <span style={pc.detailLabel}>Email</span>
             {player.email
-              ? <a href={`mailto:${player.email}`} style={{ color: '#1B3F6E', textDecoration: 'none', fontSize: 12 }}>{player.email}</a>
+              ? <a href={`mailto:${player.email}`} style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: 12 }}>{player.email}</a>
               : <span style={pc.muted}>—</span>}
           </div>
           <div style={pc.detailRow}>
             <span style={pc.detailLabel}>Phone</span>
             {player.phone
-              ? <a href={`tel:${player.phone}`} style={{ color: '#2C3E50', textDecoration: 'none' }}>{formatPhone(player.phone)}</a>
+              ? <a href={`tel:${player.phone}`} style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>{formatPhone(player.phone)}</a>
               : <span style={pc.muted}>—</span>}
           </div>
           <div style={{ ...pc.detailRow, ...(isCommissioner ? null : { borderBottom: 'none' }) }}>
             <span style={pc.detailLabel}>Handicap</span>
             {player.handicap_index != null
-              ? <span style={{ color: '#0D1B2A', fontWeight: 600 }}>{player.handicap_index}</span>
-              : <span style={{ color: '#1B3F6E', fontWeight: 700 }}>TBD</span>}
+              ? <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{player.handicap_index}</span>
+              : <span style={{ color: 'var(--primary)', fontWeight: 700 }}>TBD</span>}
           </div>
           {isCommissioner && (
             <div style={{ ...pc.detailRow, borderBottom: 'none', cursor: 'pointer' }} onClick={onStartEdit}>
@@ -494,12 +496,12 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           {isCommissioner && (
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content', padding: '2px 0' }}>
               <input type="checkbox" checked={!!form.is_captain} onChange={e => setForm({ ...form, is_captain: e.target.checked })} style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }} />
-              <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${form.is_captain ? '#1B3F6E' : '#C4CEDA'}`, background: form.is_captain ? '#1B3F6E' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+              <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${form.is_captain ? 'var(--primary)' : 'var(--mist)'}`, background: form.is_captain ? 'var(--primary)' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
                 {form.is_captain && <CheckIcon />}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>Team Captain</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Team Captain</span>
               {!form.team_id && form.is_captain && (
-                <span style={{ fontSize: 11, color: '#C0392B' }}>— assign a team to show in the summary</span>
+                <span style={{ fontSize: 11, color: 'var(--bad)' }}>Assign a team to show in the summary</span>
               )}
             </label>
           )}
@@ -512,11 +514,11 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
             <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
           </label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
-            <button onClick={save} disabled={saving} style={{ background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
-            <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            <button onClick={save} disabled={saving} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
+            <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: 'var(--slate)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
             {/* Remove lives in edit mode only, bottom-right of the panel. */}
             {canRemove && (
-              <button onClick={() => setConfirmRemove(true)} disabled={saving} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
+              <button onClick={() => setConfirmRemove(true)} disabled={saving} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, color: 'var(--bad)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
             )}
           </div>
         </div>
@@ -541,14 +543,14 @@ function RemovePlayerModal({ player, groupId, rosterLocked, onClose, onRemoved }
   return createPortal(
     <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={() => !busy && onClose()}>
       <div style={{ ...s.modalSheet, maxWidth: 360, textAlign: 'center' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>Remove {player.name}?</div>
-        <div style={{ fontSize: 14, color: '#2C3E50', lineHeight: 1.45 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Remove {player.name}?</div>
+        <div style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.45 }}>
           Are you sure? This cannot be undone. Their spot stays in the pairings, empty and unassigned to a team, so you can add a new player.
         </div>
-        {err && <div style={{ marginTop: 10, fontSize: 12, color: '#C0392B' }}>{err}</div>}
+        {err && <div style={{ marginTop: 10, fontSize: 12, color: 'var(--bad)' }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
-          <button onClick={onClose} disabled={busy} style={{ background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-          <button onClick={confirm} disabled={busy} style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Removing…' : 'Remove'}</button>
+          <button onClick={onClose} disabled={busy} style={{ background: 'var(--paper-2)', color: 'var(--ink-2)', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={confirm} disabled={busy} style={{ background: 'var(--bad)', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Removing…' : 'Remove'}</button>
         </div>
       </div>
     </div>,
@@ -605,11 +607,11 @@ const trs = {
   span: { gridColumn: '1 / -1' },
   band: { padding: '7px 10px' },
   teamName: { fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.2 },
-  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: '1px solid #EEF1F4' },
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: '1px solid var(--line-soft)' },
   rowLast: { borderBottom: 'none' },
   nameWrap: { display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 },
-  name: { fontSize: 12, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  capTag: { flexShrink: 0, marginLeft: 6, background: '#92600A', color: '#fff', fontSize: 9, fontWeight: 800, lineHeight: 1.4, padding: '1px 5px', borderRadius: 3 },
+  name: { fontSize: 12, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  capTag: { flexShrink: 0, marginLeft: 6, background: 'var(--accent-ink)', color: '#fff', fontSize: 9, fontWeight: 800, lineHeight: 1.4, padding: '1px 5px', borderRadius: 3 },
   hcp: { fontSize: 11, fontWeight: 700, flexShrink: 0 },
 }
 
@@ -676,29 +678,29 @@ function InviteNewPlayerModal({ name, inviteToken, onClose }) {
       <div style={{ ...s.modalSheet, maxWidth: 360, padding: 22 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
         <div style={{ ...s.modalTitle, marginBottom: 6 }}>
           <span>Invite {name}</span>
-          <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
+          <button style={s.modalClose} onClick={onClose} aria-label="Close"><Icon name="close" size={14} /></button>
         </div>
-        <div style={{ fontSize: 13.5, color: '#5A7290', lineHeight: 1.45 }}>
+        <div style={{ fontSize: 13.5, color: 'var(--slate)', lineHeight: 1.45 }}>
           Send {firstName} this link. When they sign in, they're added to the trip automatically.
         </div>
 
         {/* One-row link, cut off with an ellipsis; tapping it copies too. */}
         <button onClick={copy} aria-label="Copy invite link"
-          style={{ marginTop: 16, width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: '#F4F7FA', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A8FA6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          style={{ marginTop: 16, width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'var(--paper-2)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--slate)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
           </svg>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#2C3E50', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--ink-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {url.replace(/^https?:\/\//, '')}
           </span>
         </button>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
           {canShare && (
-            <button onClick={share} style={{ ...btn, background: '#E8EDF3', color: '#1B3F6E' }}>Share</button>
+            <button onClick={share} style={{ ...btn, background: 'var(--paper-2)', color: 'var(--primary)' }}>Share</button>
           )}
-          <button onClick={copy} style={{ ...btn, background: copied ? '#0F6E56' : '#1B3F6E', color: '#fff' }}>
-            {copied ? '✓ Copied' : 'Copy link'}
+          <button onClick={copy} style={{ ...btn, background: copied ? 'var(--ok)' : 'var(--primary)', color: '#fff' }}>
+            {copied ? 'Copied' : 'Copy link'}
           </button>
         </div>
       </div>
@@ -800,9 +802,9 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   const show18 = roundHoleCount(round) === 18
   const grid = { display: 'grid', gridTemplateColumns: show18 ? 'minmax(0, 1fr) 56px 38px 32px 32px 30px' : 'minmax(0, 1fr) 56px 38px 30px', alignItems: 'center', gap: 6 }
   const numCell = { fontSize: 13, textAlign: 'right' }
-  const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6' }
-  const muted = { color: '#7A8FA6', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
-  const teeSelect = { width: '100%', fontSize: 12, fontWeight: 600, color: '#0D1B2A', fontFamily: 'inherit', border: '1px solid #DDE3EA', borderRadius: 6, padding: '4px 4px', background: '#fff', boxSizing: 'border-box' }
+  const headCell = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--slate)' }
+  const muted = { color: 'var(--slate)', fontStyle: 'italic', textAlign: 'center', padding: 14, fontSize: 13 }
+  const teeSelect = { width: '100%', fontSize: 12, fontWeight: 600, color: 'var(--ink)', fontFamily: 'inherit', border: '1px solid var(--line)', borderRadius: 6, padding: '4px 4px', background: '#fff', boxSizing: 'border-box' }
 
   // Course HCP uses each player's individual tee (WHS). Playing handicap is the
   // absolute round(courseHCP * allowance/100) per player (the PLAYING column).
@@ -877,11 +879,11 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   for (const id of targetOrder) if (!placed.has(id)) orderedRows.push(rowById.get(id))
 
   function playingColor(v) {
-    if (v == null) return '#7A8FA6'
-    if (v === 0) return '#7A8FA6'
-    if (v <= 9) return '#0D1B2A'
-    if (v <= 18) return '#1B3F6E'
-    return '#C0392B'
+    if (v == null) return 'var(--slate)'
+    if (v === 0) return 'var(--slate)'
+    if (v <= 9) return 'var(--ink)'
+    if (v <= 18) return 'var(--primary)'
+    return 'var(--bad)'
   }
 
   const allNull = rows.every(r => r.idx == null)
@@ -890,14 +892,14 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
   return (
     <div style={{ marginTop: 8 }}>
       {(
-        <div style={{ border: '1px solid #DDE3EA', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>
           {!hasCourse ? (
             <div style={muted}>Set a course to calculate handicaps</div>
           ) : allNull ? (
             <div style={muted}>Add player handicaps in the Players tab</div>
           ) : (
             <>
-              <div style={{ ...grid, padding: '8px 10px', background: '#F5F8FA', borderBottom: '1px solid #DDE3EA' }}>
+              <div style={{ ...grid, padding: '8px 10px', background: 'var(--paper-2)', borderBottom: '1px solid var(--line)' }}>
                 <span style={headCell}>Player</span>
                 <span style={headCell}>Tee</span>
                 <span style={{ ...headCell, textAlign: 'right' }}>Idx</span>
@@ -908,8 +910,8 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
               {orderedRows.map((r, i) => (
                 <div key={r.id}
                   ref={node => { const m = rowElemsRef.current; if (node) m.set(r.id, node); else m.delete(r.id) }}
-                  style={{ ...grid, padding: '8px 10px', borderBottom: i === orderedRows.length - 1 ? 'none' : '1px solid #E8EDF3' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', lineHeight: 1.2, overflowWrap: 'break-word', wordBreak: 'normal' }}>{r.name}</span>
+                  style={{ ...grid, padding: '8px 10px', borderBottom: i === orderedRows.length - 1 ? 'none' : '1px solid var(--paper-2)' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.2, overflowWrap: 'break-word', wordBreak: 'normal' }}>{r.name}</span>
                   {tees.length > 0 ? (
                     <select
                       style={teeSelect}
@@ -920,15 +922,15 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
                       {tees.map((t, ti) => <option key={`${t.label}-${ti}`} value={t.label}>{t.label}</option>)}
                     </select>
                   ) : (
-                    <span style={{ fontSize: 12, color: '#7A8FA6' }}>{r.teeName ?? round.tee_name ?? '—'}</span>
+                    <span style={{ fontSize: 12, color: 'var(--slate)' }}>{r.teeName ?? round.tee_name ?? '—'}</span>
                   )}
-                  <span style={{ ...numCell, color: r.idx == null ? '#7A8FA6' : '#2C3E50' }}>{r.idx ?? 'TBD'}</span>
-                  {show18 && <span style={{ ...numCell, color: '#2C3E50' }}>{r.courseHCP ?? '—'}</span>}
-                  {show18 && <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{r.playing ?? '—'}</span>}
-                  <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{r.shotsOff ?? '—'}</span>
+                  <span style={{ ...numCell, color: r.idx == null ? 'var(--slate)' : 'var(--ink-2)' }}>{r.idx ?? 'TBD'}</span>
+                  {show18 && <span style={{ ...numCell, color: 'var(--ink-2)' }}>{r.courseHCP ?? '—'}</span>}
+                  {show18 && <span style={{ ...numCell, fontWeight: 700, color: 'var(--primary)' }}>{r.playing ?? '—'}</span>}
+                  <span style={{ ...numCell, fontWeight: 700, color: 'var(--primary)' }}>{r.shotsOff ?? '—'}</span>
                 </div>
               ))}
-              <div style={{ background: '#F5F8FA', padding: '8px 10px', fontSize: 11, color: '#7A8FA6', fontStyle: 'italic' }}>
+              <div style={{ background: 'var(--paper-2)', padding: '8px 10px', fontSize: 11, color: 'var(--slate)', fontStyle: 'italic' }}>
                 {round.handicap_allowance != null
                   ? `Allowance: ${alw}% (course override)`
                   : (allowance == null ? 'Allowance: 100% (default)' : `Allowance: ${alw}%`)}
@@ -943,14 +945,14 @@ function HandicapCalculator({ round, players, allowance, playerRoundsMap, onChan
 }
 
 const editRowStyle = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }
-const lockToastStyle = { flexBasis: '100%', fontSize: 12, color: '#C0392B', padding: '6px 10px', background: 'rgba(192,57,43,0.08)', borderRadius: 6, border: '1px solid rgba(192,57,43,0.2)' }
+const lockToastStyle = { flexBasis: '100%', fontSize: 12, color: 'var(--bad)', padding: '6px 10px', background: 'rgba(192,57,43,0.08)', borderRadius: 6, border: '1px solid rgba(192,57,43,0.2)' }
 
 // Course-card action toolbar: a row of equal-weight navy-outline pills (icon +
 // label), centered at the bottom of the card. Handicaps · Tournament · Edit.
 const toolbarRowStyle = { display: 'flex', gap: 8, marginTop: 12 }
-const toolbarPillStyle = { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, background: '#fff', border: '1px solid #1B3F6E', color: '#1B3F6E', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '7px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', width: '100%' }
-const nameEditBtnStyle = { background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: '#7A8FA6', display: 'inline-flex', alignItems: 'center', flexShrink: 0, fontFamily: 'inherit' }
-const toolbarPillDisabledStyle = { ...toolbarPillStyle, opacity: 0.4, cursor: 'not-allowed', borderColor: '#DDE3EA', color: '#7A8FA6' }
+const toolbarPillStyle = { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, background: '#fff', border: '1px solid var(--primary)', color: 'var(--primary)', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '7px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', width: '100%' }
+const nameEditBtnStyle = { background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--slate)', display: 'inline-flex', alignItems: 'center', flexShrink: 0, fontFamily: 'inherit' }
+const toolbarPillDisabledStyle = { ...toolbarPillStyle, opacity: 0.4, cursor: 'not-allowed', borderColor: 'var(--line)', color: 'var(--slate)' }
 const ICON = { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
 const IconHandicaps = () => <svg {...ICON}><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
 const IconTournament = () => <svg {...ICON}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
@@ -972,8 +974,8 @@ function EditCourseButton({ round, locked, lockReason, onEditCourse }) {
     // A score-lock can be undone by clearing scores; a date-lock (past round)
     // cannot, so each explains itself differently.
     const message = lockReason === 'scored'
-      ? 'Locked — scores have been entered. Delete all scores to change the course.'
-      : 'Scoring has started — course cannot be changed'
+      ? 'Locked. Scores have been entered. Delete all scores to change the course.'
+      : 'Scoring has started, so the course cannot be changed'
     return (
       <>
         <button style={toolbarPillDisabledStyle} onClick={showToast}><IconEdit />Edit</button>
@@ -987,9 +989,9 @@ function EditCourseButton({ round, locked, lockReason, onEditCourse }) {
 }
 
 const typeBadgeBase = { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit', whiteSpace: 'nowrap' }
-const typeBadgeTour = { ...typeBadgeBase, background: 'rgba(27,63,110,0.1)', color: '#1B3F6E', border: '1px solid #1B3F6E' }
-const typeBadgePrac = { ...typeBadgeBase, background: '#E8EDF3', color: '#7A8FA6', border: '1px solid #DDE3EA' }
-const typeBadgeNone = { ...typeBadgeBase, background: '#F5F8FA', color: '#9AA8B8', border: '1px dashed #C4CEDA' }
+const typeBadgeTour = { ...typeBadgeBase, background: 'rgba(27,63,110,0.1)', color: 'var(--primary)', border: '1px solid var(--primary)' }
+const typeBadgePrac = { ...typeBadgeBase, background: 'var(--paper-2)', color: 'var(--slate)', border: '1px solid var(--line)' }
+const typeBadgeNone = { ...typeBadgeBase, background: 'var(--paper-2)', color: 'var(--mist)', border: '1px dashed var(--mist)' }
 
 // round_type meta. 'none' = "not decided yet" (hidden elsewhere in the app); the
 // commissioner picks Tournament or Practice here.
@@ -1046,7 +1048,7 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
       position: 'fixed',
       right: Math.max(8, window.innerWidth - rect.right),
       ...(dropUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
-      zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8,
+      zIndex: 1000, background: '#fff', border: '1px solid var(--line)', borderRadius: 8,
       boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: 150,
     }
     menu = createPortal(
@@ -1055,11 +1057,11 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
           const active = val === type
           return (
             <div key={val} onClick={() => { if (!active) pick(val); else setOpen(false) }}
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: '#0D1B2A' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#F5F8FA' }}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 14px', cursor: 'pointer', color: 'var(--ink)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--paper-2)' }}
               onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
               <span>{txt}</span>
-              {active && <span style={{ color: '#1B3F6E' }}>✓</span>}
+              {active && <Icon name="check" size={14} style={{ color: 'var(--primary)' }} />}
             </div>
           )
         })}
@@ -1076,9 +1078,9 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
   )
 }
 
-const cdRow = (last) => ({ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'baseline', padding: '4px 0', borderBottom: last ? 'none' : '1px solid #E8EDF3' })
-const cdLabel = { fontSize: 9, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7A8FA6' }
-const cdValue = { fontSize: 12, fontWeight: 600, color: '#0D1B2A' }
+const cdRow = (last) => ({ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'baseline', padding: '4px 0', borderBottom: last ? 'none' : '1px solid var(--paper-2)' })
+const cdLabel = { fontSize: 9, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--slate)' }
+const cdValue = { fontSize: 12, fontWeight: 600, color: 'var(--ink)' }
 
 function locationText(r) {
   if (r.location_city && r.location_state) return `${r.location_city}, ${r.location_state}`
@@ -1096,17 +1098,17 @@ function parText(r) {
 
 // Labels for empty (non-golf) days, by stored schedule type.
 const DAY_PLACEHOLDER_META = {
-  travel:   { label: 'Travel Day',        accent: '#1B3F6E' },
-  non_golf: { label: 'Non-Golf Day',      accent: '#1B3F6E' },
-  unknown:  { label: 'Not Scheduled Yet', accent: '#9AA8B8' },
+  travel:   { label: 'Travel Day',        accent: 'var(--primary)' },
+  non_golf: { label: 'Non-Golf Day',      accent: 'var(--primary)' },
+  unknown:  { label: 'Not Scheduled Yet', accent: 'var(--mist)' },
 }
-const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7A8FA6', marginBottom: 6 }
+const roundNumLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--slate)', marginBottom: 6 }
 
 // Day-card chrome (navy bar Today badge, bottom text-link actions, non-golf type label).
-const todayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: '#1B3F6E', background: '#fff', borderRadius: 10, padding: '1px 8px' }
-const dayActionsRowStyle = { display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 14, borderTop: '1px solid #E8EDF3', paddingTop: 10 }
-const dayActionLinkStyle = { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }
-const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: '#7A8FA6' }
+const todayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: 'var(--primary)', background: '#fff', borderRadius: 10, padding: '1px 8px' }
+const dayActionsRowStyle = { display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 14, borderTop: '1px solid var(--paper-2)', paddingTop: 10 }
+const dayActionLinkStyle = { background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }
+const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: 'var(--slate)' }
 
 // One golf round: unchanged content (name, rating/slope, location, par) plus the
 // new bottom toolbar (Handicaps · Tournament · Edit). Own hcOpen state so the
@@ -1125,16 +1127,16 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
       {roundCount > 1 && <div style={roundNumLabel}>Round {roundIndex + 1}</div>}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B2A' }}>{r.club_name || r.course_name}</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--ink)' }}>{r.club_name || r.course_name}</div>
           {isCommissioner && !readOnly && (
             <button style={nameEditBtnStyle} onClick={() => onEditName(r)} aria-label="Edit course name"><IconEdit /></button>
           )}
         </div>
         {r.club_name && r.course_name && r.course_name !== r.club_name && (
-          <div style={{ fontSize: '12px', color: '#7A8FA6', marginTop: '1px' }}>{r.course_name}</div>
+          <div style={{ fontSize: '12px', color: 'var(--slate)', marginTop: '1px' }}>{r.course_name}</div>
         )}
         {(r.course_rating != null || r.slope_rating != null) && (
-          <div style={{ fontSize: '11px', color: '#7A8FA6', marginTop: '3px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--slate)', marginTop: '3px' }}>
             Rating: {r.course_rating ?? '—'} · Slope: {r.slope_rating ?? '—'}
           </div>
         )}
@@ -1147,7 +1149,7 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
         )}
       </div>
       <div style={toolbarRowStyle}>
-        <button style={{ ...toolbarPillStyle, ...(hcOpen ? { background: '#1B3F6E', color: '#fff' } : null) }} onClick={() => setHcOpen(o => !o)}><IconHandicaps />Handicaps</button>
+        <button style={{ ...toolbarPillStyle, ...(hcOpen ? { background: 'var(--primary)', color: '#fff' } : null) }} onClick={() => setHcOpen(o => !o)}><IconHandicaps />Handicaps</button>
         {isCommissioner && <RoundTypeBadge round={r} isCommissioner onChange={onRoundTypeChange} />}
         {isCommissioner && <EditCourseButton round={r} locked={locked} lockReason={lockReason} onEditCourse={onEditCourse} />}
       </div>
@@ -1204,7 +1206,7 @@ function RoundStrokesRecap({ round, pairings, playersById, playerRounds, allowan
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p?.name || 'Player'}</span>
                   <span style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{teeName}</span>
                   {show18 && <span style={numCell}>{ch ?? '—'}</span>}
-                  <span style={{ ...numCell, fontWeight: 700, color: '#1B3F6E' }}>{shots.get(id) ?? 0}</span>
+                  <span style={{ ...numCell, fontWeight: 700, color: 'var(--primary)' }}>{shots.get(id) ?? 0}</span>
                 </div>
               )
             })}
@@ -1225,13 +1227,13 @@ function NameEditModal({ round, saving, onSave, onClose }) {
       <div style={s.modalSheet} onClick={e => e.stopPropagation()}>
         <div style={s.modalTitle}>
           <span>Edit Course Name</span>
-          <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
+          <button style={s.modalClose} onClick={onClose} aria-label="Close"><Icon name="close" size={14} /></button>
         </div>
         <div style={modalFieldLabel}>Course name</div>
         <input style={modalInput} value={name} onChange={e => setName(e.target.value)} placeholder="Course name" />
         <div style={modalFieldLabel}>Scorecard display name</div>
         <input style={modalInput} value={scName} onChange={e => setScName(e.target.value)} placeholder="e.g. The Loop – Red" />
-        <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Shown on the round pill in the Scores tab. Leave blank to use the course sub-name automatically.</div>
+        <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 6 }}>Shown on the round pill in the Scores tab. Leave blank to use the course sub-name automatically.</div>
         <button style={{ ...pc.saveBtn, width: '100%', marginTop: 16 }} disabled={saving} onClick={() => onSave(name, scName)}>{saving ? 'Saving…' : 'Save'}</button>
       </div>
     </div>
@@ -1317,23 +1319,23 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
 
 // ── Stays (lodging) + Meals ───────────────────────────────────────
 // Shared visual tokens, matching the app's card/pill/field-row language.
-const stayBannerStyle = { background: '#EAEFF4', border: '1px solid #CFD9E4', borderLeft: '5px solid #1B3F6E', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }
-const stayLabelStyle = { fontSize: 11, fontWeight: 700, color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' }
-const stayTitleStyle = { fontSize: 15, fontWeight: 700, color: '#2C3E50', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-const staySubStyle = { fontSize: 12, color: '#7A8FA6', marginTop: 2 }
-const mealsLabelStyle = { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: '#7A8FA6', margin: '14px 0 8px' }
+const stayBannerStyle = { background: 'var(--paper-2)', border: '1px solid var(--line)', borderLeft: '5px solid var(--primary)', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }
+const stayLabelStyle = { fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' }
+const stayTitleStyle = { fontSize: 15, fontWeight: 700, color: 'var(--ink-2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const staySubStyle = { fontSize: 12, color: 'var(--slate)', marginTop: 2 }
+const mealsLabelStyle = { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--slate)', margin: '14px 0 8px' }
 const mealSubCardStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: 8 }
-const addActionStyle = { display: 'block', width: '100%', background: '#fff', border: '1px dashed #C4CEDA', color: '#1B3F6E', fontSize: 12, fontWeight: 700, borderRadius: 6, padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }
-const mealCustomInputStyle = { width: '100%', marginTop: 8, padding: '7px 10px', borderRadius: 6, border: '1px solid #DDE3EA', fontSize: 13, fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box' }
-const mealBadgeStyle = { ...typeBadgeBase, background: 'rgba(15,110,86,0.1)', color: '#0F6E56', border: '1px solid #0F6E56' }
-const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7A8FA6', margin: '12px 0 5px' }
+const addActionStyle = { display: 'block', width: '100%', background: '#fff', border: '1px dashed var(--mist)', color: 'var(--primary)', fontSize: 12, fontWeight: 700, borderRadius: 6, padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }
+const mealCustomInputStyle = { width: '100%', marginTop: 8, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--line)', fontSize: 13, fontFamily: 'inherit', color: 'var(--ink)', boxSizing: 'border-box' }
+const mealBadgeStyle = { ...typeBadgeBase, background: 'rgba(15,110,86,0.1)', color: 'var(--ok)', border: '1px solid var(--ok)' }
+const modalFieldLabel = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--slate)', margin: '12px 0 5px' }
 // Fixed height so text / date / time inputs render identically (native date/time
 // inputs otherwise pick their own intrinsic height). Textareas override height:auto.
-const modalInput = { width: '100%', height: 40, padding: '9px 11px', borderRadius: 8, border: '1px solid #DDE3EA', fontSize: 14, lineHeight: '20px', fontFamily: 'inherit', color: '#0D1B2A', boxSizing: 'border-box', background: '#fff', WebkitAppearance: 'none', appearance: 'none' }
-const convertDayBtnStyle = { flex: 1, padding: '9px', background: '#fff', border: '1px solid #DDE3EA', borderRadius: 8, color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
-const removeRoundBtnStyle = { width: '100%', padding: '9px', background: '#fff', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
-const manualAddLinkStyle = { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 13, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap' }
-const editDetailsBtnStyle = { display: 'block', width: '100%', marginTop: 12, padding: '10px', background: '#fff', border: '1px solid #1B3F6E', borderRadius: 8, color: '#1B3F6E', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
+const modalInput = { width: '100%', height: 40, padding: '9px 11px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 14, lineHeight: '20px', fontFamily: 'inherit', color: 'var(--ink)', boxSizing: 'border-box', background: '#fff', WebkitAppearance: 'none', appearance: 'none' }
+const convertDayBtnStyle = { flex: 1, padding: '9px', background: '#fff', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--slate)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
+const removeRoundBtnStyle = { width: '100%', padding: '9px', background: '#fff', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, color: 'var(--bad)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
+const manualAddLinkStyle = { background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap' }
+const editDetailsBtnStyle = { display: 'block', width: '100%', marginTop: 12, padding: '10px', background: '#fff', border: '1px solid var(--primary)', borderRadius: 8, color: 'var(--primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
 
 // "AUG 13 – 16" (same month collapses to one label; cross-month shows both).
 function fmtStayRange(ci, co) {
@@ -1346,8 +1348,8 @@ function fmtStayRange(ci, co) {
 }
 
 // Two-line row styling shared by meals + lodging.
-const mealLabelLineStyle = { fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#1f6f5c' }
-const lodgingLabelLineStyle = { fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#3346ab' }
+const mealLabelLineStyle = { fontSize: 10.5, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ok)' }
+const lodgingLabelLineStyle = { fontSize: 10.5, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--primary)' }
 const scheduleRowStyle = { display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', fontFamily: 'inherit', padding: '8px 0' }
 
 // Compact meal row: teal uppercase "Meal · <type>" label, then
@@ -1363,8 +1365,8 @@ function MealRow({ meal, isCommissioner, onEditMeal }) {
       style={{ ...scheduleRowStyle, cursor: clickable ? 'pointer' : 'default' }}>
       <div style={mealLabelLineStyle}>{typeLabel || 'Meal'}</div>
       <div style={{ fontSize: 13, marginTop: 2 }}>
-        <span style={{ fontWeight: 700, color: '#0D1B2A' }}>{name}</span>
-        {detail && <span style={{ color: '#7A8FA6' }}> — {detail}</span>}
+        <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{name}</span>
+        {detail && <span style={{ color: 'var(--slate)' }}> · {detail}</span>}
       </div>
     </button>
   )
@@ -1378,7 +1380,7 @@ function MealsSection({ meals = [], isCommissioner, onEditMeal }) {
     <div style={{ marginTop: 12 }}>
       <div style={mealsLabelStyle}>Meals</div>
       {meals.map((m, i) => (
-        <div key={m.id} style={i > 0 ? { borderTop: '1px solid #E8EDF3' } : undefined}>
+        <div key={m.id} style={i > 0 ? { borderTop: '1px solid var(--paper-2)' } : undefined}>
           <MealRow meal={m} isCommissioner={isCommissioner} onEditMeal={onEditMeal} />
         </div>
       ))}
@@ -1403,17 +1405,17 @@ function LodgingRow({ stay, isCommissioner, onEditStay }) {
       {/* Left: hotel name + address. Right: CHECK-IN label above the date range. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginTop: 2 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-          {address && <div style={{ fontSize: 12, color: '#7A8FA6', marginTop: 2 }}>{address}</div>}
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+          {address && <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 2 }}>{address}</div>}
         </div>
         {range
           ? (
             <div style={{ flexShrink: 0, textAlign: 'right' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#8a96a3' }}>Check-in</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1B3F6E', marginTop: 2 }}>{range}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--slate)' }}>Check-in</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)', marginTop: 2 }}>{range}</div>
             </div>
           )
-          : confFallback && <span style={{ fontSize: 12, color: '#7A8FA6', flexShrink: 0 }}>{confFallback}</span>}
+          : confFallback && <span style={{ fontSize: 12, color: 'var(--slate)', flexShrink: 0 }}>{confFallback}</span>}
       </div>
     </button>
   )
@@ -1444,7 +1446,7 @@ function MealModal({ meal, saving, onSave, onDelete, onClose }) {
       <div style={s.modalSheet} onClick={e => e.stopPropagation()}>
         <div style={s.modalTitle}>
           <span>{isNew ? 'Add Meal' : 'Edit Meal'}</span>
-          <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
+          <button style={s.modalClose} onClick={onClose} aria-label="Close"><Icon name="close" size={14} /></button>
         </div>
         <div style={modalFieldLabel}>Type</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -1452,7 +1454,7 @@ function MealModal({ meal, saving, onSave, onDelete, onClose }) {
             const active = value === type
             return (
               <button key={value} onClick={() => setType(value)}
-                style={{ ...mealBadgeStyle, cursor: 'pointer', padding: '5px 10px', ...(active ? { background: '#0F6E56', color: '#fff' } : null) }}>
+                style={{ ...mealBadgeStyle, cursor: 'pointer', padding: '5px 10px', ...(active ? { background: 'var(--ok)', color: '#fff' } : null) }}>
                 {label}
               </button>
             )
@@ -1472,10 +1474,10 @@ function MealModal({ meal, saving, onSave, onDelete, onClose }) {
         <input style={{ ...modalInput, display: 'block', WebkitAppearance: 'none', appearance: 'none' }} type="time" value={time} onChange={e => setTime(e.target.value)} />
         <div style={modalFieldLabel}>Notes (optional)</div>
         <textarea style={{ ...modalInput, height: 'auto', minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
-        <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
+        <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: 'var(--primary)', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
           onClick={submit} disabled={saving}>{saving ? 'Saving…' : (isNew ? 'Add Meal' : 'Save Meal')}</button>
         {!isNew && (
-          <button style={{ width: '100%', marginTop: 8, padding: '9px', background: 'none', border: 'none', color: '#C0392B', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+          <button style={{ width: '100%', marginTop: 8, padding: '9px', background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             onClick={() => onDelete(meal)} disabled={saving}>Delete Meal</button>
         )}
       </div>
@@ -1509,7 +1511,7 @@ function StayModal({ stay, saving, tripStartDate, tripEndDate, onSave, onDelete,
       <div style={s.modalSheet} onClick={e => e.stopPropagation()}>
         <div style={s.modalTitle}>
           <span>{isNew ? 'Add Stay' : 'Edit Stay'}</span>
-          <button style={s.modalClose} onClick={onClose} aria-label="Close">✕</button>
+          <button style={s.modalClose} onClick={onClose} aria-label="Close"><Icon name="close" size={14} /></button>
         </div>
         <div style={modalFieldLabel}>Hotel name</div>
         <input style={modalInput} value={hotel} onChange={e => setHotel(e.target.value)} placeholder="e.g. Marriott Downtown" />
@@ -1529,10 +1531,10 @@ function StayModal({ stay, saving, tripStartDate, tripEndDate, onSave, onDelete,
         <input style={modalInput} value={confirmation} onChange={e => setConfirmation(e.target.value)} />
         <div style={modalFieldLabel}>Notes (optional)</div>
         <textarea style={{ ...modalInput, height: 'auto', minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
-        <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
+        <button style={{ ...s.editCourseBtn, width: '100%', marginTop: 16, padding: '11px', background: 'var(--primary)', color: '#fff', border: 'none', fontSize: 14, opacity: saving ? 0.6 : 1 }}
           onClick={submit} disabled={saving}>{saving ? 'Saving…' : (isNew ? 'Add Stay' : 'Save Stay')}</button>
         {!isNew && (
-          <button style={{ width: '100%', marginTop: 8, padding: '9px', background: 'none', border: 'none', color: '#C0392B', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+          <button style={{ width: '100%', marginTop: 8, padding: '9px', background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             onClick={() => onDelete(stay)} disabled={saving}>Delete Stay</button>
         )}
       </div>
@@ -1556,7 +1558,7 @@ const DEPART_FIELDS = [
 const fl = {
   // HOME_CARD shell; keeps its navy header (player name + Driving toggle).
   card: { ...HOME_CARD, marginBottom: 14 },
-  header: { background: '#1B3F6E', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  header: { background: 'var(--primary)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   name: { fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px' },
   // Prominent bold label shown in the header when a person is driving.
   driving: { fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '0.5px' },
@@ -1569,16 +1571,16 @@ const fl = {
   toggleBtnDisabled: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', background: 'transparent', border: '1px dashed rgba(255,255,255,0.35)', borderRadius: 6, padding: '4px 10px', cursor: 'not-allowed', fontFamily: 'inherit', whiteSpace: 'nowrap' },
   cols: { display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: '#fff' },
   col: { padding: '10px 12px' },
-  divider: { background: '#DDE3EA' },
-  colHeader: { fontSize: 8, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#1B3F6E', marginBottom: 8 },
+  divider: { background: 'var(--line)' },
+  colHeader: { fontSize: 8, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: 8 },
   colRow: { display: 'flex', flexDirection: 'column', marginBottom: 7 },
-  label: { fontSize: 8, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#7A8FA6', marginBottom: 2 },
-  cellValue: { fontSize: 13, fontWeight: 600, color: '#0D1B2A' },
-  placeholder: { fontSize: 12, fontWeight: 400, color: '#7A8FA6' },
+  label: { fontSize: 8, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--slate)', marginBottom: 2 },
+  cellValue: { fontSize: 13, fontWeight: 600, color: 'var(--ink)' },
+  placeholder: { fontSize: 12, fontWeight: 400, color: 'var(--slate)' },
   // All four field types share this box — same height, padding, border; no focus underline.
   // appearance:none stops mobile from giving date/time inputs an intrinsic (thin) width,
   // so they fill 100% and match the text inputs even when empty.
-  input: { width: '100%', display: 'block', appearance: 'none', WebkitAppearance: 'none', border: '1px solid #DDE3EA', borderRadius: 5, background: '#F5F8FA', color: '#0D1B2A', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '5px 7px', minHeight: 30, boxSizing: 'border-box', minWidth: 0, textAlign: 'left' },
+  input: { width: '100%', display: 'block', appearance: 'none', WebkitAppearance: 'none', border: '1px solid var(--line)', borderRadius: 5, background: 'var(--paper-2)', color: 'var(--ink)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', outline: 'none', padding: '5px 7px', minHeight: 30, boxSizing: 'border-box', minWidth: 0, textAlign: 'left' },
 }
 
 function FlightField({ label, type = 'text', placeholder, value, canEdit, onSave, isLast }) {
@@ -1693,7 +1695,7 @@ const DEFAULT_LOCAL_RULES = [
   'Lift, clean & place throughout',
   'Everything is a lateral hazard',
   'Divots are ground under repair',
-  'Breakfast ball on the 1st tee — use it or lose it',
+  'Breakfast ball on the 1st tee. Use it or lose it',
 ]
 
 // Local rules, stored per trip in trips.local_rules (JSONB array). Commissioners get
@@ -1764,7 +1766,7 @@ function LocalRulesCard({ tripId, isCommissioner }) {
         {isCommissioner && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
             <button onClick={() => setEditing(true)} style={s.editCourseBtn}>Edit</button>
-            {saved && <span style={{ fontSize: 12, color: '#2E7D32' }}>Saved ✓</span>}
+            {saved && <span style={{ fontSize: 12, color: 'var(--ok)' }}>Saved</span>}
           </div>
         )}
       </Card>
@@ -1780,17 +1782,17 @@ function LocalRulesCard({ tripId, isCommissioner }) {
             value={rule} placeholder="Rule…"
             onChange={e => editRule(i, e.target.value)}
             onBlur={blurSave}
-            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, lineHeight: 1.5, color: '#0D1B2A', fontFamily: 'inherit', padding: 0 }}
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, lineHeight: 1.5, color: 'var(--ink)', fontFamily: 'inherit', padding: 0 }}
           />
           <button onClick={() => deleteRule(i)} aria-label="Remove rule"
-            style={{ background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, cursor: 'pointer', padding: '0 0 0 6px', flexShrink: 0, lineHeight: 1 }}>✕</button>
+            style={{ background: 'none', border: 'none', color: 'var(--slate)', cursor: 'pointer', padding: '0 0 0 6px', flexShrink: 0, lineHeight: 1, display: 'flex' }}><Icon name="close" size={14} /></button>
         </div>
       ))}
       <button onClick={addRule}
-        style={{ background: 'none', border: 'none', color: '#1B3F6E', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '10px 0 0' }}>+ Add Rule</button>
+        style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '10px 0 0' }}>Add rule</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
         <button onClick={save} disabled={saving} style={pc.saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
-        <button onClick={() => setEditing(false)} style={{ background: 'transparent', border: 'none', color: '#7A8FA6', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+        <button onClick={() => setEditing(false)} style={{ background: 'transparent', border: 'none', color: 'var(--slate)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
       </div>
     </Card>
   )
@@ -1800,38 +1802,38 @@ const STANDARD_MATCH_RULES = [
   'Better ball match play: best net score per pair per hole',
   'Win a hole to go 1 up; a tied hole leaves the match score unchanged',
   'Handicap strokes applied to hole by stroke index',
-  'A match is won once a team leads by more holes than remain — each round scores as W, L, or H',
+  'A match is won once a team leads by more holes than remain. Each round scores as W, L or H',
 ]
 
 // DRAFT — derived from liveMatchTally() in src/lib/scoring.js. Review wording
 // before treating as official.
 const POINTS_MATCH_RULES = [
   'Better ball: on each hole, each team’s best (lowest) net score counts',
-  'Win a hole (lower best-ball net) to earn 1 point; a tied hole is halved — 0 points to either team',
+  'Win a hole (lower best-ball net) to earn 1 point. A tied hole is halved: 0 points to either team',
   'Handicap strokes applied hole-by-hole by stroke index (net = gross minus strokes received)',
-  'Points accumulate across every tournament round — most total points at the end of the trip wins',
+  'Points accumulate across every tournament round. Most total points at the end of the trip wins',
 ]
 
 const PRINCE_OF_WALES_RULES = [
-  'A trip-long team game, separate from the main tournament (tournament rounds only — practice rounds don’t count)',
+  'A trip-long team game, separate from the main tournament. Tournament rounds only; practice rounds don’t count',
   'Each team builds one composite scorecard: for every hole, take the best (lowest) score any teammate posted on that hole across the whole trip',
   'Holes are matched by position (hole 1, hole 2, …) across all rounds, whatever course was played',
   'Lowest 18-hole composite total wins; ties are possible',
-  'A Gross and a Net composite are both kept — toggle between them on the Prince of Wales tab',
+  'A Gross and a Net composite are both kept. Toggle between them on the Prince of Wales tab',
 ]
 
 const STABLEFORD_RULES = [
   'Every player scores points on each hole from their NET score (gross minus handicap strokes)',
   'Net double bogey or worse 0 · bogey 1 · par 2 · birdie 3 · eagle 4 · albatross 5',
   'Strokes come from each player\'s full course handicap with the trip allowance',
-  'Most points wins — per round and for the whole trip',
+  'Most points wins, per round and for the whole trip',
   'Teams (if any): a team\'s score is the sum of every member\'s points',
 ]
 
 const STROKE_PLAY_RULES = [
   'Every stroke counts; gross and net totals are both kept',
   'Net = gross minus handicap strokes from each player\'s full course handicap with the trip allowance',
-  'Lowest net score to par wins — per round and for the whole trip',
+  'Lowest net score to par wins, per round and for the whole trip',
   'Teams (if any): a team\'s score is the sum of every member\'s net score to par; lowest wins',
 ]
 
@@ -2036,7 +2038,7 @@ function PurseBody({ tripId, purseAmount, showPurseOnHome, onUpdate, onClose }) 
     <>
       <div style={rowUI.fieldLabel}>Purse Amount</div>
       <div style={{ position: 'relative' }}>
-        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#7A8FA6', fontSize: 14 }}>$</span>
+        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', fontSize: 14 }}>$</span>
         <input type="number" min="0" inputMode="decimal" placeholder="e.g., 640" value={amount}
           onChange={e => setAmount(e.target.value)} style={{ ...rowUI.input, paddingLeft: 24 }} />
       </div>
@@ -2077,7 +2079,7 @@ function InvitePlayersRow({ inviteToken }) {
       </div>
       {open && (
         <div style={{ padding: '0 2px 16px' }}>
-          <div style={{ background: '#EEF2F6', border: '1px solid #DDE3EA', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: '#5A7290', wordBreak: 'break-all' }}>{url}</div>
+          <div style={{ background: 'var(--line-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: 'var(--slate)', wordBreak: 'break-all' }}>{url}</div>
         </div>
       )}
     </div>
@@ -2163,7 +2165,7 @@ function AppInfoPage() {
           'Open this page in Safari',
           'Tap the Share button (box with arrow) at the bottom of the screen',
           'Scroll down and tap "Add to Home Screen"',
-          'Tap "Add" — the app icon will appear on your home screen',
+          'Tap Add. The app icon will appear on your home screen',
         ]} />
         <Expandable title="Android Instructions" sub="Chrome · 3 steps" steps={[
           'Open this page in Chrome',
@@ -2191,7 +2193,7 @@ function AppInfoPage() {
         <InfoRow label="App" value="Trip Clubhouse" />
         <InfoRow label="Built by" value="Owen Chamberlin" />
         <InfoRow label="Version" value="v2026.1" last />
-        <div style={{ fontSize: '12px', color: '#7A8FA6', textAlign: 'center', marginTop: '12px' }}>
+        <div style={{ fontSize: '12px', color: 'var(--slate)', textAlign: 'center', marginTop: '12px' }}>
           © 2026 The Trip Clubhouse. All rights reserved.
         </div>
       </Card>
@@ -2231,31 +2233,31 @@ function fmtLedgerDate(startIso, endIso) {
 const sw = {
   // The SecondaryPage frame already shows the "Switch Trip" title; this is just
   // the ledger's "N trips · viewing X" subtitle beneath it.
-  subtitle: { fontSize: 13, color: '#7A8FA6', padding: '2px 16px 10px' },
-  sectionHeader: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#8A98A8', padding: '14px 16px 4px' },
-  deletedLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#8A98A8' },
+  subtitle: { fontSize: 13, color: 'var(--slate)', padding: '2px 16px 10px' },
+  sectionHeader: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--slate)', padding: '14px 16px 4px' },
+  deletedLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--slate)' },
   row: { display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' },
-  rowDivider: { borderBottom: '1px solid #EAEEF3' },
+  rowDivider: { borderBottom: '1px solid var(--paper-2)' },
   dot: { width: 9, height: 9, borderRadius: '50%', flexShrink: 0, marginTop: 5 },
-  dotCurrent: { background: '#22A559' },
+  dotCurrent: { background: 'var(--ok)' },
   left: { minWidth: 0, flex: 1 },
-  name: { display: 'block', fontSize: 15, fontWeight: 700, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  loc: { display: 'block', fontSize: 12.5, color: '#8A98A8', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  name: { display: 'block', fontSize: 15, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  loc: { display: 'block', fontSize: 12.5, color: 'var(--slate)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   right: { textAlign: 'right', flexShrink: 0, paddingLeft: 8 },
-  dates: { display: 'block', fontSize: 12.5, fontWeight: 600, color: '#5A7290', fontVariantNumeric: 'tabular-nums' },
-  golfers: { display: 'block', fontSize: 12, color: '#8A98A8', marginTop: 1, fontVariantNumeric: 'tabular-nums' },
-  empty: { padding: '6px 16px 10px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
-  loading: { padding: '16px', fontSize: 13, color: '#7A8FA6', fontStyle: 'italic' },
-  createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '18px 16px', padding: '13px', borderRadius: 8, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  dates: { display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--slate)', fontVariantNumeric: 'tabular-nums' },
+  golfers: { display: 'block', fontSize: 12, color: 'var(--slate)', marginTop: 1, fontVariantNumeric: 'tabular-nums' },
+  empty: { padding: '6px 16px 10px', fontSize: 13, color: 'var(--slate)', fontStyle: 'italic' },
+  loading: { padding: '16px', fontSize: 13, color: 'var(--slate)', fontStyle: 'italic' },
+  createBtn: { display: 'block', width: 'calc(100% - 32px)', margin: '18px 16px', padding: '13px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   // Recently Deleted — set off from the trip groups by a heavier top border.
-  deletedWrap: { borderTop: '3px solid #E1E7EE', marginTop: 14 },
+  deletedWrap: { borderTop: '3px solid var(--line)', marginTop: 14 },
   deletedHeaderBtn: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '14px 16px 4px' },
-  caret: { transition: 'transform 0.2s ease', color: '#8A98A8', display: 'flex', flexShrink: 0 },
+  caret: { transition: 'transform 0.2s ease', color: 'var(--slate)', display: 'flex', flexShrink: 0 },
   deletedInner: { overflow: 'hidden', transition: 'height 0.24s ease' },
   deletedRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 16px' },
-  deletedName: { fontSize: 14.5, color: '#A6B0BC', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
-  restoreBtn: { background: 'none', border: 'none', color: '#1B3F6E', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, padding: '2px 4px' },
-  deletedNote: { fontSize: 12, color: '#8A98A8', padding: '4px 16px 14px' },
+  deletedName: { fontSize: 14.5, color: 'var(--mist)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
+  restoreBtn: { background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, padding: '2px 4px' },
+  deletedNote: { fontSize: 12, color: 'var(--slate)', padding: '4px 16px 14px' },
 }
 
 function CaretIcon() {
@@ -2271,7 +2273,7 @@ function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
   const rowStyle = { ...sw.row, ...(divider ? sw.rowDivider : null) }
   return (
     <SwipeDeleteRow canDelete={canDelete} rowStyle={rowStyle} outerStyle={divider ? sw.rowDivider : undefined}
-      coverBg="#F0F4F8" onPick={onPick} onDelete={onDelete}>
+      coverBg="var(--stone)" onPick={onPick} onDelete={onDelete}>
       {children}
     </SwipeDeleteRow>
   )
@@ -2387,7 +2389,7 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
                 <span style={sw.name}>
                   {t.name || 'Untitled Trip'}
                   {unreadTripIds.has(t.id) && (
-                    <span aria-label="Unread messages" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#FF3B30', marginLeft: 7, verticalAlign: 'middle' }} />
+                    <span aria-label="Unread messages" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--bad)', marginLeft: 7, verticalAlign: 'middle' }} />
                   )}
                 </span>
                 {t.location && <span style={sw.loc}>{t.location}</span>}
@@ -2427,13 +2429,13 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
       {pendingDelete && (
         <div style={s.modalOverlay} onClick={() => setPendingDelete(null)}>
           <div style={{ ...s.modalSheet, maxWidth: 360 }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#0D1B2A', marginBottom: 8 }}>Delete this trip?</div>
-            <div style={{ fontSize: 13.5, color: '#2C3E50', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink)', marginBottom: 8 }}>Delete this trip?</div>
+            <div style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
               Deleting <strong>{pendingDelete.name || 'this trip'}</strong> will remove its history and data. You’ll have 30 days to restore it before it’s permanently deleted.
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={confirmDelete} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#C0392B', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Delete Trip</button>
-              <button onClick={() => setPendingDelete(null)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #DDE3EA', background: '#fff', color: '#2C3E50', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button onClick={confirmDelete} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Delete Trip</button>
+              <button onClick={() => setPendingDelete(null)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid var(--line)', background: '#fff', color: 'var(--ink-2)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -3026,67 +3028,94 @@ export default function MenuDrawer({
 
   return (
     <>
-      {/* Overlay */}
-      <div
-        style={{ ...s.overlay, opacity: drawerVisible ? 1 : 0, pointerEvents: drawerVisible ? 'auto' : 'none' }}
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <div style={{ ...s.drawer, transform: drawerVisible ? 'translateX(0)' : 'translateX(100%)' }}>
-        {/* Header: account photo/initials + name → Profile. The trip/group name
-            is intentionally not shown here (it's on every screen already). The
-            circle is soft gray so the navy Your Clubhouse tile is the one accent. */}
+      {/* The Menu screen (open while the Menu tab is active) */}
+      {drawerVisible && (
+      <div style={s.drawer}>
         <div style={s.drawerHeader}>
-          {/* Photo/initials (→ Profile) with the camera badge (→ photo picker). */}
+          {/* Photo/initials (opens Profile) with the camera badge (photo picker). */}
           <span style={{ position: 'relative', flexShrink: 0 }}>
             <button style={s.badgeBtn} onClick={goToProfile} aria-label="My profile">
               <ProfileBadge style={{ ...s.profileBadge, opacity: photo.busy ? 0.5 : 1 }} />
             </button>
             <button style={s.cameraDot} onClick={photo.edit} disabled={photo.busy}
               aria-label={photo.hasPhoto ? 'Edit profile photo' : 'Add profile photo'}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <Icon name="photo" size={11} strokeWidth={2.2} style={{ color: '#fff' }} />
             </button>
             {photo.input}
           </span>
           <button style={s.profileBtn} onClick={goToProfile}>
             <span style={s.profileName}>{firstName}</span>
-            <span style={s.profileLink}>{photo.busy ? 'Uploading photo…' : 'My profile ›'}</span>
+            <span style={s.profileLink}>{photo.busy ? 'Uploading photo' : [isCommissioner ? 'Commissioner' : null, tripName].filter(Boolean).join(' · ')}</span>
             {photo.error && <span style={s.photoErr}>{photo.error}</span>}
           </button>
-          <button style={s.closeBtn} onClick={onClose} aria-label="Close menu">✕</button>
+          <button style={{ ...s.iconBox, background: 'var(--paper)' }} onClick={goToProfile} aria-label="Profile"><Icon name="user" size={18} /></button>
         </div>
         <div style={s.nav}>
-          {/* Your Clubhouse — the player home page (all your trips, career stats).
-              Featured: navy tile, gold border, flag-on-the-peak clubhouse icon. */}
-          <button style={{ ...s.item, padding: '16px 18px' }} onClick={() => { onClose(); navigate('/home') }}>
-            <span style={{ ...s.clubTile, position: 'relative' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 6V1.5" />
-                <path d="M12 1.5l3.5 1.3L12 4" fill="#C49A2A" stroke="#C49A2A" />
-                <path d="M3 13 12 6l9 7" />
-                <path d="M5.5 11.5V21h13v-9.5" />
-                <path d="M10.2 21v-5h3.6v5" />
-              </svg>
-              {otherTripUnread && <span className="unread-dot" aria-label="Unread messages in another trip" />}
-            </span>
-            <span style={{ minWidth: 0 }}>
-              <span style={{ ...s.itemLabel, display: 'block' }}>Your Clubhouse</span>
-              <span style={{ ...s.itemSub, display: 'block' }}>Trips and career stats</span>
-            </span>
-            <RowChevron />
-          </button>
-          {[...(isCommissioner ? [COMMISSIONER_ITEM] : []), ...MENU_ITEMS]
-            .filter(item => item.id !== 'archives' || FEATURES.archives)
-            .map((item, i, arr) => (
-            <button key={item.id} style={{ ...s.item, ...(i === arr.length - 1 ? { borderBottom: 'none' } : null) }} onClick={() => setPage(item.id)}>
-              <svg {...svgProps} width={20} height={20} style={{ flexShrink: 0 }}>{item.icon}</svg>
-              <span style={s.itemLabel}>{item.label}</span>
+          {/* This trip */}
+          <div style={s.groupLabel}><span style={s.groupRule} />This trip<span style={s.groupRule} /></div>
+          <div style={s.group}>
+            {MENU_ITEMS.filter(item => (item.id !== 'archives' || FEATURES.archives) && item.id !== 'support').map((item, i) => (
+              <button key={item.id} style={{ ...s.item, ...(i === 0 ? { borderTop: 'none' } : null) }} onClick={() => setPage(item.id)}>
+                <span style={s.iconBox}><Icon name={item.iconName} size={18} /></span>
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span style={s.itemLabel}>{item.label}</span>
+                  <span style={s.itemSub}>{item.sub}</span>
+                </span>
+                <RowChevron />
+              </button>
+            ))}
+          </div>
+          {/* Commissioner */}
+          {isCommissioner && (
+            <>
+              <div style={s.groupLabel}><span style={s.groupRule} />Commissioner<span style={s.groupRule} /></div>
+              <div style={s.group}>
+                <button style={{ ...s.item, borderTop: 'none' }} onClick={() => setPage(COMMISSIONER_ITEM.id)}>
+                  <span style={{ ...s.iconBox, background: 'var(--primary)', borderColor: 'var(--primary)', color: '#fff' }}><Icon name={COMMISSIONER_ITEM.iconName} size={18} /></span>
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span style={s.itemLabel}>{COMMISSIONER_ITEM.label}</span>
+                    <span style={s.itemSub}>{COMMISSIONER_ITEM.sub}</span>
+                  </span>
+                  <RowChevron />
+                </button>
+              </div>
+            </>
+          )}
+          {/* You */}
+          <div style={s.groupLabel}><span style={s.groupRule} />You<span style={s.groupRule} /></div>
+          <div style={s.group}>
+            <button style={{ ...s.item, borderTop: 'none' }} onClick={() => { onClose(); navigate('/home') }}>
+              <span style={{ ...s.clubTile, position: 'relative' }}>
+                <Icon name="clubhouse" size={18} />
+                {otherTripUnread && <span className="unread-dot" aria-label="Unread messages in another trip" />}
+              </span>
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span style={s.itemLabel}>Your clubhouse</span>
+                <span style={s.itemSub}>All trips, career stats, trophy room</span>
+              </span>
               <RowChevron />
             </button>
-          ))}
+            <button style={s.item} onClick={goToProfile}>
+              <span style={s.iconBox}><Icon name="user" size={18} /></span>
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span style={s.itemLabel}>Profile</span>
+                <span style={s.itemSub}>Photo, phone, notifications</span>
+              </span>
+              <RowChevron />
+            </button>
+            {MENU_ITEMS.filter(item => item.id === 'support').map(item => (
+              <button key={item.id} style={s.item} onClick={() => setPage(item.id)}>
+                <span style={s.iconBox}><Icon name={item.iconName} size={18} /></span>
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span style={s.itemLabel}>{item.label}</span>
+                  <span style={s.itemSub}>{item.sub}</span>
+                </span>
+                <RowChevron />
+              </button>
+            ))}
+          </div>
         </div>
-        {/* Footer signature: quiet links to the App Info page + app version. */}
+        {/* Footer: app name, App info and Install guide, version. */}
         <div style={s.drawerFooter}>
           <div style={s.footerRule} />
           <div style={s.footerBrand}>Trip Clubhouse</div>
@@ -3095,14 +3124,15 @@ export default function MenuDrawer({
             <span aria-hidden="true">·</span>
             <button style={s.footerLink} onClick={() => setPage('app-info')}>Install guide</button>
             <span aria-hidden="true">·</span>
-            <span>v{APP_VERSION.replace(/\.0$/, '')}</span>
+            <span>Version {APP_VERSION.replace(/\.0$/, '')}</span>
           </div>
         </div>
       </div>
+      )}
 
       {/* Secondary pages */}
       {page === 'switch-trip' && (
-        <SecondaryPage context={groupName} title="Switch Trip" onBack={backToDrawer}>
+        <SecondaryPage context={groupName} title="Switch trip" onBack={backToDrawer}>
           <TripSwitcherPage
             userId={currentUserId}
             currentTripId={activeTripId}
@@ -3112,13 +3142,13 @@ export default function MenuDrawer({
             onRestore={id => restoreTrip(id)}
             onDelete={async id => {
               const { error } = await softDeleteTrip(id)
-              if (error) window.alert('Delete failed — please try again.')
+              if (error) window.alert('Delete failed. Please try again.')
             }}
           />
         </SecondaryPage>
       )}
       {page === 'commissioner' && isCommissioner && (
-        <SecondaryPage context={tripName} title="Commissioner Tools" onBack={backToDrawer}>
+        <SecondaryPage context={tripName} title="Commissioner tools" onBack={backToDrawer}>
           <CommissionerPage
             data={commissionerData}
             tripId={tripId}
@@ -3142,7 +3172,7 @@ export default function MenuDrawer({
             onTripUpdate={onTripUpdate}
             onDeleteTrip={async () => {
               const { error } = await softDeleteTrip(tripId)
-              if (error) { window.alert('Delete failed — please try again.'); return }
+              if (error) { window.alert('Delete failed. Please try again.'); return }
               onClose(); navigate('/groups')
             }}
             onTeamsSaved={next => {
@@ -3153,12 +3183,12 @@ export default function MenuDrawer({
         </SecondaryPage>
       )}
       {page === 'players' && (
-        <SecondaryPage context={groupName} title="Players & Teams" onBack={backToDrawer}>
+        <SecondaryPage context={groupName} title="Players and teams" onBack={backToDrawer}>
           <PlayersPage data={playersData} isCommissioner={isCommissioner} currentUserId={currentUserId} onReload={() => setPlayersData(null)} groupId={groupId} rosterLocked={rosterLocked} inviteToken={inviteToken} />
         </SecondaryPage>
       )}
       {page === 'courses' && (
-        <SecondaryPage context={tripName} title="Schedule & Courses" onBack={backToDrawer}>
+        <SecondaryPage context={tripName} title="Schedule and courses" onBack={backToDrawer}>
           <CoursesPage
             data={coursesData} isCommissioner={isCommissioner} readOnly={readOnly}
             onEditCourse={setEditRound} onEditName={setEditName} allowance={handicapAllowance} scoredRounds={scoredRounds}
@@ -3191,7 +3221,7 @@ export default function MenuDrawer({
         </SecondaryPage>
       )}
       {page === 'app-info' && (
-        <SecondaryPage context="Trip Clubhouse" title="App Info" onBack={backToDrawer}>
+        <SecondaryPage context="Trip Clubhouse" title="App info" onBack={backToDrawer}>
           <AppInfoPage />
         </SecondaryPage>
       )}
@@ -3219,7 +3249,7 @@ export default function MenuDrawer({
               <span>Edit Course</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
                 <button style={manualAddLinkStyle} onClick={() => setCourseFlow('scan')}>+ Manually add course</button>
-                <button style={s.modalClose} onClick={() => setEditRound(null)} aria-label="Close">✕</button>
+                <button style={s.modalClose} onClick={() => setEditRound(null)} aria-label="Close"><Icon name="close" size={14} /></button>
               </div>
             </div>
             <CourseSearchInput
@@ -3233,34 +3263,34 @@ export default function MenuDrawer({
             )}
             {savingCourse && <div style={{ ...s.muted, textAlign: 'center', marginTop: '10px' }}>Saving…</div>}
             {/* Keep score toggle — off = tee-times-only round (hidden from Scores). */}
-            <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>
+            <div style={{ borderTop: '1px solid var(--paper-2)', marginTop: 16, paddingTop: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ ...modalFieldLabel, margin: 0 }}>Keep score for this round</div>
-                  <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 4 }}>Off: shows in Tee Times and Schedule &amp; Courses, but not the Scores tab.</div>
+                  <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 4 }}>Off: shows in Tee Times and Schedule &amp; Courses, but not the Scores tab.</div>
                 </div>
                 <button
                   role="switch" aria-checked={!editRound.no_scoring} aria-label="Keep score for this round"
                   onClick={() => toggleRoundScoring(editRound, !!editRound.no_scoring)}
-                  style={{ width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0, position: 'relative', background: editRound.no_scoring ? '#cccccc' : '#1B3F6E', transition: 'background 0.15s' }}
+                  style={{ width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0, position: 'relative', background: editRound.no_scoring ? 'var(--line)' : 'var(--primary)', transition: 'background 0.15s' }}
                 >
                   <span style={{ position: 'absolute', top: 3, left: editRound.no_scoring ? 3 : 21, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
                 </button>
               </div>
             </div>
             {/* Convert this day to a non-golf day (moved here from the type pill). */}
-            <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>
+            <div style={{ borderTop: '1px solid var(--paper-2)', marginTop: 16, paddingTop: 12 }}>
               <div style={modalFieldLabel}>Change day type</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button style={convertDayBtnStyle} onClick={() => revertRoundToDay(editRound, 'travel')}>Travel Day</button>
                 <button style={convertDayBtnStyle} onClick={() => revertRoundToDay(editRound, 'non_golf')}>Non-Golf Day</button>
               </div>
-              <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Removes this round and any scores entered for it.</div>
+              <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 6 }}>Removes this round and any scores entered for it.</div>
             </div>
             {/* Delete the round entirely, leaving the day as a golf day. */}
-            <div style={{ borderTop: '1px solid #E8EDF3', marginTop: 16, paddingTop: 12 }}>
+            <div style={{ borderTop: '1px solid var(--paper-2)', marginTop: 16, paddingTop: 12 }}>
               <button style={removeRoundBtnStyle} onClick={() => removeRound(editRound)}>Remove round</button>
-              <div style={{ fontSize: 11, color: '#7A8FA6', marginTop: 6 }}>Deletes this round and any scores entered for it. The day stays a golf day.</div>
+              <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 6 }}>Deletes this round and any scores entered for it. The day stays a golf day.</div>
             </div>
             </>
             )}

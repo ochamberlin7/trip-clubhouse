@@ -62,7 +62,7 @@ export default function Signup() {
     // once `user` updates. If email confirmation is required, no session is
     // returned, so surface that instead of silently hanging.
     if (!data.session) {
-      setError('Account created — check your email to confirm, then sign in.')
+      setError('Account created. Check your email to confirm, then sign in.')
       setLoading(false)
     }
   }
@@ -109,9 +109,9 @@ export default function Signup() {
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>
-        <p style={{ textAlign: 'center', fontSize: 14, color: '#6b7280' }}>
+        <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--slate)' }}>
           Already have an account?{' '}
-          <Link to={loginTo} style={{ color: '#3b82f6', fontWeight: 600 }}>Sign In</Link>
+          <Link to={loginTo} style={{ color: 'var(--primary)', fontWeight: 600 }}>Sign In</Link>
         </p>
       </div>
     </div>

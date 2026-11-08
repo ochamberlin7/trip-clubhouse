@@ -534,7 +534,7 @@ test('screenForTripPhase: every non-live phase opens Home, even if the user is "
 // ─────────────────────────────────────────────────────────────────────────────
 // Home banner (day strip) view-model — homeBannerModel + bannerGridColumns. Pure:
 // fed a getTripPhase()-shaped object, returns { showWelcome, dots, title, lines }.
-import { homeBannerModel, bannerGridColumns, roundCourseName } from './scoring.js'
+import { homeBannerModel, bannerGridColumns, roundCourseName, bannerDayLabels } from './scoring.js'
 
 const rnd = (name, by = 'club_name') => ({ [by]: name })
 
@@ -785,4 +785,21 @@ test('defaultRoundForTrip is only the DEFAULT — a manual choice wins (componen
   const manualId = 'd3'
   const shown = TRIP3.find(r => r.id === manualId) || def
   assert.equal(idOf(shown), 'd3') // manual overrides the default
+})
+
+// Home banner day strip labels: weekday + date through 6 days, date only from 7.
+test('bannerDayLabels: short trip shows weekday and date side by side', () => {
+  const l = bannerDayLabels('2026-10-09', 3)
+  assert.deepEqual(l.map(x => x.label), ['Fri 10/9', 'Sat 10/10', 'Sun 10/11'])
+  assert.equal(l[0].n, 1)
+})
+test('bannerDayLabels: 7+ days fall back to the date only', () => {
+  const l = bannerDayLabels('2026-10-03', 8)
+  assert.deepEqual(l.map(x => x.label), ['10/3', '10/4', '10/5', '10/6', '10/7', '10/8', '10/9', '10/10'])
+})
+test('bannerDayLabels: crosses a month boundary and handles bad input', () => {
+  assert.deepEqual(bannerDayLabels('2026-09-29', 6).map(x => x.label), ['Tue 9/29', 'Wed 9/30', 'Thu 10/1', 'Fri 10/2', 'Sat 10/3', 'Sun 10/4'])
+  assert.deepEqual(bannerDayLabels(null, 3), [])
+  assert.deepEqual(bannerDayLabels('2026-10-09', 0), [])
+  assert.deepEqual(bannerDayLabels('not-a-date', 3), [])
 })

@@ -6,6 +6,7 @@ import { teamPillStyle, getTeamDisplayName, teamColor, colorIndexOf } from '../l
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import PullToRefresh from './PullToRefresh'
 import { enqueue, isNetworkError, getQueue, overlayQueue, saveScorecardSnapshot, readScorecardSnapshot } from '../lib/scoreQueue'
+import Icon from './ui/Icon'
 import { setScoreSyncHandlers } from '../lib/useScoreSync'
 
 // Live interactive scorecard — better-ball match play with drink tracking.
@@ -16,12 +17,13 @@ import { setScoreSyncHandlers } from '../lib/useScoreSync'
 const SLOT_TEAM = { 1: 0, 2: 0, 3: 1, 4: 1 } // slot -> side (0 = team1_id, 1 = team2_id)
 // Unassigned header slots render neutral gray (not pre-coloured by team) until a
 // player is placed.
-const EMPTY_TH = { background: '#E8EDF3', color: '#7A8FA6' }
+const EMPTY_TH = { background: 'var(--paper-2)', color: 'var(--slate)' }
 
 // ── scoring math ──────────────────────────────────────────────────
 function scoreClass(gross, par) {
   if (gross == null) return 'empty'
   if (par == null) return 'par'
+  if (gross === 1) return 'ace'
   if (gross <= par - 2) return 'eagle'
   if (gross === par - 1) return 'birdie'
   if (gross === par) return 'par'
@@ -377,7 +379,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           : { type: 'broadcast', event: 'score_changed', payload: { round_id: x.round_id, trip_player_id: x.trip_player_id, hole_number: x.hole_number, gross_score: x.gross_score, count: x.count } })
       },
       onRejected: () => {
-        setSaveError('Couldn’t save a score entered offline — you may not have permission for that pairing.')
+        setSaveError('Couldn’t save a score entered offline. You may not have permission for that pairing.')
         setReloadTick(t => t + 1)
       },
     })
@@ -399,7 +401,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   // Exclude 'none' placeholders and rounds the commissioner marked "no scoring"
   // (those show only in Tee Times / Schedule & Courses).
   const visibleRounds = rounds.filter(r => r.round_type !== 'none' && !r.no_scoring)
-  if (visibleRounds.length === 0) return <div className="empty-state"><span className="empty-state-icon">📊</span>No rounds to score yet.</div>
+  if (visibleRounds.length === 0) return <div className="empty-state"><span className="empty-state-icon"><Icon name="flag" size={28} /></span>No rounds yet. Rounds appear here once the commissioner adds courses in Schedule and courses.</div>
 
   const round = visibleRounds.find(r => r.id === activeRoundId) || visibleRounds[0]
   const holes = Array.isArray(round.holes) ? round.holes : null
@@ -689,7 +691,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       ? (tp?.team_id ? teams.find(t => t.id === tp.team_id) : null)
       : (SLOT_TEAM[slot] === 0 ? pairTeam1 : pairTeam2)
     const fillStyle = tp
-      ? { background: individual && !sideTeam ? '#1B3F6E' : teamColor(colorIndexOf(sideTeam)).solid, color: '#fff' }
+      ? { background: individual && !sideTeam ? 'var(--primary)' : teamColor(colorIndexOf(sideTeam)).solid, color: '#fff' }
       : EMPTY_TH
     if (!canAssign) return <div className="sc-th-name" style={fillStyle}>{tp ? firstName(tp.name) : 'TBD'}</div>
     // '+' whenever a player can be placed here — the first pick on a side lists
@@ -719,12 +721,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
               <button key={p.id} className="sc-th-opt" onClick={() => assignSlot(slot, p.id)}>
                 <span className="sc-th-opt-avatar">{initialsOf(p)}</span>
                 <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', display: 'block' }}>{p.name}</span>
-                  <span style={{ fontSize: 11, color: '#7A8FA6' }}>HCP: {p.handicap_index ?? 'TBD'}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', display: 'block' }}>{p.name}</span>
+                  <span style={{ fontSize: 11, color: 'var(--slate)' }}>HCP: {p.handicap_index ?? 'TBD'}</span>
                 </span>
               </button>
             ))}
-            {availableForSlot(slot).length === 0 && <div style={{ padding: '10px 14px', fontSize: 12, color: '#7A8FA6', fontStyle: 'italic' }}>No available players</div>}
+            {availableForSlot(slot).length === 0 && <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--slate)', fontStyle: 'italic' }}>No available players</div>}
           </div>
         )}
       </div>
@@ -785,7 +787,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         })
         // eslint-disable-next-line no-console
         console.error('[ScoringTab] score save failed:', error)
-        setSaveError('Couldn’t save score — check your connection and try again.')
+        setSaveError('Couldn’t save the score. Check your connection and try again.')
         return
       }
       // The drink count rides along with the score (one user action). A
@@ -831,7 +833,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     // Lock empty cells on holes played after the match was decided; already-scored
     // cells stay editable so a commissioner can still correct them.
     if (matchClosed && closedAtHole != null && hole > closedAtHole && gross == null) {
-      return <span className="sc-score-wrap"><button className="sc-score locked" disabled tabIndex={-1} aria-label="Hole locked — match decided">·</button></span>
+      return <span className="sc-score-wrap"><button className="sc-score locked" disabled tabIndex={-1} aria-label="Hole locked. The match is decided.">·</button></span>
     }
     const par = holes?.[hole - 1]?.par
     const onFire = !hideFire && fireByTp.get(tpId)?.has(hole)
@@ -957,7 +959,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
       {!holes && (
         <div className="info-banner" style={{ marginBottom: 10 }}>
-          <span>No course data — commissioner needs to set up courses in the Menu → Courses tab.</span>
+          <span>No course data yet. The commissioner adds courses in Schedule and courses.</span>
         </div>
       )}
 
@@ -972,12 +974,12 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       )}
 
       {!visibleFilled && !isCommissioner && (
-        <div style={{ textAlign: 'center', fontSize: 12, color: '#7A8FA6', fontStyle: 'italic', padding: '8px 0' }}>
+        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--slate)', fontStyle: 'italic', padding: '8px 0' }}>
           Pairings not set yet — ask your commissioner
         </div>
       )}
       {assignError && (
-        <div style={{ textAlign: 'center', fontSize: 12, color: '#C0392B', padding: '0 0 8px' }}>Couldn’t assign: {assignError}</div>
+        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--bad)', padding: '0 0 8px' }}>Couldn’t assign: {assignError}</div>
       )}
 
       <div className="sc-card">
@@ -1024,14 +1026,14 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       <button
         type="button" role="checkbox" aria-checked={hideFire}
         onClick={() => setHideFire(v => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: '#2C3E50' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: 'var(--ink-2)' }}
       >
         <span style={{
           width: 18, height: 18, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: hideFire ? '#1B3F6E' : '#fff', border: `1px solid ${hideFire ? '#1B3F6E' : '#C4CEDA'}`,
+          background: hideFire ? 'var(--primary)' : '#fff', border: `1px solid ${hideFire ? 'var(--primary)' : 'var(--mist)'}`,
           color: '#fff', fontSize: 12, fontWeight: 700, lineHeight: 1, transition: 'background 0.12s, border-color 0.12s',
-        }}>{hideFire ? '✓' : ''}</span>
-        Hide fire icons
+        }}>{hideFire ? <Icon name="check" size={12} strokeWidth={2.5} /> : null}</span>
+        Hide fire marks
       </button>
 
       {modal && (
@@ -1064,7 +1066,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         <div role="alert" onClick={() => setSaveError(null)} style={{
           position: 'fixed', top: 'calc(env(safe-area-inset-top) + 12px)', left: '50%',
           transform: 'translateX(-50%)', zIndex: 300, maxWidth: '90%', textAlign: 'center',
-          background: '#C0392B', color: '#fff', padding: '10px 16px', borderRadius: 8,
+          background: 'var(--bad)', color: '#fff', padding: '10px 16px', borderRadius: 8,
           fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', cursor: 'pointer',
         }}>
           {saveError}
@@ -1080,19 +1082,19 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           onClick={() => setNotice(null)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
         >
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid #DDE3EA', borderRadius: 14, padding: '24px 20px 18px', width: '100%', maxWidth: 340, textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A', lineHeight: 1.4, marginBottom: 20 }}>{notice}</div>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '24px 20px 18px', width: '100%', maxWidth: 340, textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4, marginBottom: 20 }}>{notice}</div>
             {onOpenMenuPage && (
               <button
                 onClick={() => { setNotice(null); onOpenMenuPage('players') }}
-                style={{ width: '100%', padding: 13, background: '#1B3F6E', border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ width: '100%', padding: 13, background: 'var(--primary)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 Go to Players &amp; Teams
               </button>
             )}
             <button
               onClick={() => setNotice(null)}
-              style={{ width: '100%', padding: 11, marginTop: 8, background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ width: '100%', padding: 11, marginTop: 8, background: 'none', border: 'none', color: 'var(--slate)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               OK
             </button>
@@ -1144,9 +1146,9 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
     }
     if (!data || data.length === 0) {
       setBusy(false)
-      setErr('Delete blocked — you may not have permission (check RLS).')
+      setErr('Delete blocked. You may not have permission for this pairing.')
       // eslint-disable-next-line no-console
-      console.warn('Score delete: 0 rows affected — check RLS')
+      console.warn('Score delete: 0 rows affected. Check RLS')
       return
     }
     await supabase.from('drinks').delete().eq('round_id', round.id).eq('trip_player_id', tpId).eq('hole_number', hole)
@@ -1163,24 +1165,24 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
     // matches the app's modal-overlay convention (MenuDrawer modals) and, in the
     // root context, reliably covers both the banner (200) and the Feedback FAB (201).
     overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 400, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' },
-    sheet: { background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 32px', width: '100%', maxWidth: 430, borderTop: '1px solid #DDE3EA' },
-    round: { fontSize: 11, color: '#7A8FA6', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 },
-    holeNum: { fontSize: 30, fontWeight: 900, color: '#0D1B2A', textAlign: 'center', lineHeight: 1 },
-    parInfo: { fontSize: 13, color: '#1B3F6E', textAlign: 'center', marginBottom: 16 },
+    sheet: { background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 32px', width: '100%', maxWidth: 430, borderTop: '1px solid var(--line)' },
+    round: { fontSize: 11, color: 'var(--slate)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 },
+    holeNum: { fontSize: 30, fontWeight: 900, color: 'var(--ink)', textAlign: 'center', lineHeight: 1 },
+    parInfo: { fontSize: 13, color: 'var(--primary)', textAlign: 'center', marginBottom: 16 },
     playerRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     team: { fontSize: 10, padding: '2px 7px', borderRadius: 10, marginRight: 10, fontWeight: 700 },
-    name: { fontSize: 14, fontWeight: 600, color: '#0D1B2A', flex: 1 },
+    name: { fontSize: 14, fontWeight: 600, color: 'var(--ink)', flex: 1 },
     controls: { display: 'flex', alignItems: 'center' },
-    scoreBtn: { width: 52, height: 52, borderRadius: 6, border: '1px solid #DDE3EA', background: '#E8EDF3', color: '#0D1B2A', fontSize: 28, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation', fontFamily: 'inherit' },
-    scoreDisp: { width: 60, textAlign: 'center', fontSize: 28, fontWeight: 900, color: '#0D1B2A' },
-    divider: { height: 1, background: '#DDE3EA', margin: '12px 0', border: 'none' },
-    label: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: '#7A8FA6', marginBottom: 8, fontWeight: 600 },
-    drinkBtn: { width: 40, height: 40, borderRadius: 6, border: '1px solid #DDE3EA', background: '#E8EDF3', color: '#7AAAD4', fontSize: 22, fontWeight: 300, cursor: 'pointer', touchAction: 'manipulation', fontFamily: 'inherit' },
-    drinkDisp: { width: 48, textAlign: 'center', fontSize: 22, fontWeight: 900, color: '#7AAAD4' },
-    save: { width: '100%', padding: 15, background: '#1B3F6E', border: 'none', borderRadius: 10, color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
-    disabled: { width: '100%', padding: 15, background: '#E8EDF3', border: 'none', borderRadius: 10, color: '#7A8FA6', fontSize: 15, fontWeight: 700, textAlign: 'center', marginTop: 4 },
-    remove: { width: '100%', padding: 10, background: 'none', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 10, color: '#f08080', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8, fontFamily: 'inherit' },
-    cancel: { width: '100%', padding: 10, background: 'none', border: 'none', color: '#7A8FA6', fontSize: 14, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
+    scoreBtn: { width: 52, height: 52, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--paper-2)', color: 'var(--ink)', fontSize: 28, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation', fontFamily: 'inherit' },
+    scoreDisp: { width: 60, textAlign: 'center', fontSize: 28, fontWeight: 900, color: 'var(--ink)' },
+    divider: { height: 1, background: 'var(--line)', margin: '12px 0', border: 'none' },
+    label: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--slate)', marginBottom: 8, fontWeight: 600 },
+    drinkBtn: { width: 40, height: 40, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--paper-2)', color: 'var(--primary-mid)', fontSize: 22, fontWeight: 300, cursor: 'pointer', touchAction: 'manipulation', fontFamily: 'inherit' },
+    drinkDisp: { width: 48, textAlign: 'center', fontSize: 22, fontWeight: 900, color: 'var(--primary-mid)' },
+    save: { width: '100%', padding: 15, background: 'var(--primary)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
+    disabled: { width: '100%', padding: 15, background: 'var(--paper-2)', border: 'none', borderRadius: 10, color: 'var(--slate)', fontSize: 15, fontWeight: 700, textAlign: 'center', marginTop: 4 },
+    remove: { width: '100%', padding: 10, background: 'none', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 10, color: 'var(--bad)', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8, fontFamily: 'inherit' },
+    cancel: { width: '100%', padding: 10, background: 'none', border: 'none', color: 'var(--slate)', fontSize: 14, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
   }
   // individualTeam: undefined = match play (side colours); null = an individual
   // format with no team (pill hidden); a team row = that player's team colour.
@@ -1205,9 +1207,9 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
         </div>
 
         <hr style={m.divider} />
-        <div style={m.label}>🍺 Drinks this hole</div>
+        <div style={{ ...m.label, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="drink" size={14} />Drinks this hole</div>
         <div style={{ ...m.playerRow, marginBottom: 0 }}>
-          <span style={{ color: '#7A8FA6', fontSize: 13 }}>Add drinks consumed</span>
+          <span style={{ color: 'var(--slate)', fontSize: 13 }}>Add drinks consumed</span>
           <div style={m.controls}>
             <button style={m.drinkBtn} onClick={() => setDrinkCount(d => Math.max(0, d - 1))}>−</button>
             <div style={m.drinkDisp}>{drinkCount}</div>
@@ -1215,7 +1217,7 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
           </div>
         </div>
 
-        {err && <div style={{ color: '#C0392B', fontSize: 12, textAlign: 'center', marginTop: 8 }}>Couldn’t save: {err}</div>}
+        {err && <div style={{ color: 'var(--bad)', fontSize: 12, textAlign: 'center', marginTop: 8 }}>Couldn’t save: {err}</div>}
         {canSave
           ? <button style={m.save} onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
           : <div style={m.disabled}>You're not in this pairing</div>}

@@ -5,25 +5,25 @@ import { useAuth } from '../../context/AuthContext'
 import { useMyCareer } from '../../lib/useMyCareer'
 import { BADGES, BADGE_GROUPS, TIER_NAMES } from '../../lib/badges'
 import BadgeMedallion from '../../components/BadgeMedallion'
+import Icon from '../../components/ui/Icon'
 
-// Trophy Room: every badge, earned ones lit up in gold, locked ones as faint
-// placeholders. Tap a badge for what it takes and when you earned it.
-const SERIF = "'Playfair Display', Georgia, serif"
-const GOLD_SOFT = '#D8C08A'
-const ON_NAVY = '#C7D6EA'
+// Trophy room: every badge, earned ones on a green disc with a brass ring, locked
+// ones as faint dashed placeholders. Tap a badge for what it takes and when you earned it.
+const SERIF = 'var(--font-serif)'
 
 const t = {
-  page: { minHeight: '100vh', background: 'var(--navy)', padding: '18px 16px 40px', paddingTop: 'calc(env(safe-area-inset-top) + 18px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)', boxSizing: 'border-box' },
+  page: { minHeight: '100vh', background: 'var(--stone)', padding: '18px 16px 40px', paddingTop: 'calc(env(safe-area-inset-top) + 18px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)', boxSizing: 'border-box' },
   inner: { maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 },
-  back: { background: 'none', border: 'none', padding: 0, color: GOLD_SOFT, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start' },
-  title: { fontFamily: SERIF, fontSize: 30, fontWeight: 700, color: GOLD_SOFT, margin: 0, lineHeight: 1.1 },
-  sub: { fontSize: 13, color: ON_NAVY, marginTop: 4 },
-  sec: { fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: GOLD_SOFT, margin: '0 0 10px' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '14px 8px' },
+  back: { display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start' },
+  title: { fontFamily: SERIF, fontSize: 26, fontWeight: 700, color: 'var(--primary)', margin: 0, lineHeight: 1.1 },
+  sub: { fontSize: 13, color: 'var(--slate)', marginTop: 4 },
+  rule: { width: 34, height: 2, background: 'var(--accent)', marginTop: 9 },
+  sec: { fontFamily: SERIF, fontSize: 17, fontWeight: 700, color: 'var(--primary)', margin: '0 0 8px' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '14px 6px', background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 'var(--card-radius)', padding: '14px 8px' },
   cell: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' },
   name: { fontSize: 11, fontWeight: 600, textAlign: 'center', lineHeight: 1.25 },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  sheet: { background: '#fff', borderRadius: 14, padding: 22, width: '100%', maxWidth: 360, boxSizing: 'border-box', textAlign: 'center' },
+  sheet: { background: 'var(--paper)', borderRadius: 'var(--radius)', padding: 22, width: '100%', maxWidth: 360, boxSizing: 'border-box', textAlign: 'center' },
 }
 
 function fmtDate(iso) {
@@ -56,10 +56,11 @@ export default function TrophyRoomPage() {
   return (
     <div style={t.page}>
       <div style={t.inner}>
-        <button style={t.back} onClick={() => navigate('/home')}>‹ Home</button>
+        <button style={t.back} onClick={() => navigate('/home')}><Icon name="left" size={14} />Home</button>
         <div>
-          <h1 style={t.title}>Trophy Room</h1>
-          <div style={t.sub}>{badges ? `${earnedCount} of ${BADGES.length} badges earned` : 'Loading your badges…'}</div>
+          <h1 style={t.title}>Trophy room</h1>
+          <div style={t.sub}>{badges ? `${earnedCount} of ${BADGES.length} badges earned` : 'Loading your badges'}</div>
+          <div style={t.rule} />
         </div>
 
         {BADGE_GROUPS.map(g => (
@@ -71,7 +72,7 @@ export default function TrophyRoomPage() {
                 return (
                   <button key={b.id} style={t.cell} onClick={() => setOpen(b.id)} aria-label={b.name}>
                     <BadgeMedallion badge={b} state={state} size={62} />
-                    <span style={{ ...t.name, color: state?.earned ? '#fff' : ON_NAVY, opacity: state?.earned ? 1 : 0.75 }}>{b.name}</span>
+                    <span style={{ ...t.name, color: state?.earned ? 'var(--ink)' : 'var(--mist)' }}>{b.name}</span>
                   </button>
                 )
               })}
@@ -83,13 +84,13 @@ export default function TrophyRoomPage() {
       {openBadge && createPortal(
         <div style={t.overlay} onClick={() => setOpen(null)}>
           <div style={t.sheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div style={{ background: 'var(--navy)', borderRadius: '50%', width: 92, height: 92, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 92, height: 92, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <BadgeMedallion badge={openBadge} state={badges?.get(openBadge.id)} size={80} />
             </div>
-            <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 700, color: '#0D1B2A', marginTop: 12 }}>{openBadge.name}</div>
-            <div style={{ fontSize: 14, color: '#2C3E50', marginTop: 6, lineHeight: 1.45 }}>{openBadge.desc}</div>
-            <div style={{ fontSize: 13, color: '#8A96A3', marginTop: 10, lineHeight: 1.45 }}>{statusLine(openBadge, badges?.get(openBadge.id))}</div>
-            <button onClick={() => setOpen(null)} style={{ marginTop: 16, padding: '9px 24px', borderRadius: 999, border: '1px solid #DDE3EA', background: '#fff', color: '#1B3F6E', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
+            <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 700, color: 'var(--ink)', marginTop: 12 }}>{openBadge.name}</div>
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 6, lineHeight: 1.45 }}>{openBadge.desc}</div>
+            <div style={{ fontSize: 13, color: 'var(--slate)', marginTop: 10, lineHeight: 1.45 }}>{statusLine(openBadge, badges?.get(openBadge.id))}</div>
+            <button onClick={() => setOpen(null)} className="btn btn-auto" style={{ marginTop: 16, display: 'inline-flex' }}>Close</button>
           </div>
         </div>,
         document.body,

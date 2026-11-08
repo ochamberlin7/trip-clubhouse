@@ -20,10 +20,10 @@ export default class ErrorBoundary extends Component {
         <div style={{
           maxWidth: 480, margin: '80px auto', padding: '32px 24px',
           fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-          background: '#1a1d27', borderRadius: 12, border: '1px solid #f87171',
+          background: '#1a1d27', borderRadius: 12, border: '1px solid var(--bad)',
           color: '#f0f0f0'
         }}>
-          <h2 style={{ color: '#f87171', marginBottom: 12 }}>Something went wrong</h2>
+          <h2 style={{ color: 'var(--bad)', marginBottom: 12 }}>Something went wrong</h2>
           <pre style={{
             background: '#0f1117', padding: 16, borderRadius: 8,
             fontSize: 13, overflowX: 'auto', color: '#fca5a5', whiteSpace: 'pre-wrap'

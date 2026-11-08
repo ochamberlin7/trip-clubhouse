@@ -6,5 +6,5 @@ import { useScoreSync } from '../lib/useScoreSync'
 export default function NoSignalTab() {
   const { pending, online } = useScoreSync()
   if (online && pending === 0) return null
-  return <div role="status" className="no-signal-tab">No signal — scores will update when it&apos;s back</div>
+  return <div role="status" className="no-signal-tab">No signal. Scores will send when it&apos;s back.</div>
 }

@@ -48,7 +48,7 @@ export default function ForgotPassword() {
           </>
         ) : (
           <>
-            <p style={{ fontSize: 14, color: '#6b7280', margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 14, color: 'var(--slate)', margin: 0, lineHeight: 1.5 }}>
               Enter your account email and we’ll send you a link to set a new password.
             </p>
             <form className="auth-form" onSubmit={handleSubmit}>
@@ -62,8 +62,8 @@ export default function ForgotPassword() {
                 {loading ? 'Sending…' : 'Send reset link'}
               </button>
             </form>
-            <p style={{ textAlign: 'center', fontSize: 14, color: '#6b7280' }}>
-              Remembered it? <Link to="/login" style={{ color: '#3b82f6', fontWeight: 600 }}>Sign In</Link>
+            <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--slate)' }}>
+              Remembered it? <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>Sign In</Link>
             </p>
           </>
         )}
@@ -73,6 +73,6 @@ export default function ForgotPassword() {
 }
 
 const successBox = {
-  color: '#0F6E56', fontSize: 14, background: 'rgba(15,110,86,0.08)',
+  color: 'var(--ok)', fontSize: 14, background: 'rgba(15,110,86,0.08)',
   border: '1px solid rgba(15,110,86,0.25)', borderRadius: 8, padding: '12px 14px', lineHeight: 1.5,
 }

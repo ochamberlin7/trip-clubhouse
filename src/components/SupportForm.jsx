@@ -43,12 +43,12 @@ const styles = {
   pillSel: { background: 'var(--accent-bg)', border: '1.5px solid var(--navy)', color: 'var(--navy)' },
   pillLabel: { fontSize: 11, fontWeight: 700, lineHeight: 1.2 },
   textarea: { width: '100%', boxSizing: 'border-box', minHeight: 124, resize: 'vertical', lineHeight: 1.45, border: '1px solid var(--hairline)', borderRadius: 14, padding: '12px 14px', fontSize: 14, color: 'var(--ink)', fontFamily: 'inherit', background: '#fff' },
-  error: { color: '#C0392B', fontSize: 13, marginBottom: 12 },
+  error: { color: 'var(--bad)', fontSize: 13, marginBottom: 12 },
   sendBase: { width: '100%', borderRadius: 14, padding: '13px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', border: 'none', color: '#fff', background: 'var(--navy)' },
   // Elevated success state.
   doneWrap: { textAlign: 'center', padding: '18px 8px 12px' },
   doneBadge: { width: 76, height: 76, borderRadius: '50%', background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 12px 24px -6px rgba(27,63,110,.45), 0 4px 10px rgba(27,63,110,.26)' },
-  doneHead: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.2px', margin: '0 0 8px' },
+  doneHead: { fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.2px', margin: '0 0 8px' },
   doneSub: { fontSize: 14, color: 'var(--slate)', lineHeight: 1.5, margin: '0 auto 22px', maxWidth: 300 },
   doneLink: { background: 'none', border: 'none', padding: 6, fontFamily: 'inherit', fontSize: 15, fontWeight: 800, color: 'var(--navy)', cursor: 'pointer' },
   doneDone: { width: '100%', borderRadius: 14, padding: '13px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', border: 'none', color: '#fff', background: 'var(--navy)', cursor: 'pointer', marginBottom: 6 },
@@ -98,7 +98,7 @@ export default function SupportForm({ tripId, tripName, userId, defaultCategory 
       category,
       message: body,
     })
-    if (err) { setStatus('error'); setError(err.message || 'Could not send — please try again.'); return }
+    if (err) { setStatus('error'); setError(err.message || 'Could not send. Please try again.'); return }
     setMessage('')
     setStatus('done')
   }
@@ -113,7 +113,7 @@ export default function SupportForm({ tripId, tripName, userId, defaultCategory 
               <path d="M5 12.5l4.2 4.2L19 7" />
             </svg>
           </div>
-          <div style={styles.doneHead}>Thanks — we got it</div>
+          <div style={styles.doneHead}>Thanks, we got it</div>
           <div style={styles.doneSub}>Your feedback helps make {tripLabel} better for the whole group.</div>
           {onDone && <button type="button" style={styles.doneDone} onClick={onDone}>Done</button>}
           <button type="button" style={styles.doneLink} onClick={() => setStatus('idle')}>Send another</button>

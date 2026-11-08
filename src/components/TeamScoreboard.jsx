@@ -10,7 +10,7 @@ import { fmtTotal, roundCell, dayLabel, leadLine } from '../lib/leaderboardView'
 //                 under its own block
 // Numbers come from teamStandings (shared); wording from leaderboardView.js.
 // `standings` null = still loading (blocks show a dot, rounds a dash).
-const SERIF = "'Playfair Display', Georgia, serif"
+const SERIF = 'var(--font-serif)'
 
 const sb = {
   blocks: { display: 'grid', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow-card)' },
@@ -22,7 +22,7 @@ const sb = {
   row2: { display: 'grid', gridTemplateColumns: '1fr 2.2fr 1fr', alignItems: 'center', textAlign: 'center', padding: '11px 8px' },
   course: { fontSize: 13, fontWeight: 600, color: 'var(--cream2)', lineHeight: 1.3 },
   score: { fontSize: 16, fontWeight: 800 },
-  strip: { background: '#EEF2F7', color: '#1B3F6E', fontSize: 11.5, fontWeight: 700, padding: '5px 12px' },
+  strip: { background: 'var(--paper-2)', color: 'var(--primary)', fontSize: 11.5, fontWeight: 700, padding: '5px 12px' },
   rowN: { display: 'grid', textAlign: 'center', padding: '8px 0' },
   line: { borderTop: '1px solid var(--bg2)' },
   empty: { padding: 16, textAlign: 'center', color: 'var(--muted)', fontStyle: 'italic', fontSize: 13 },

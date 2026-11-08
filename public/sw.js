@@ -20,7 +20,7 @@
  * in the payload — iOS already renders it in the system notification header.
  */
 
-const CACHE_VERSION = 'v1'
+const CACHE_VERSION = 'v2' // v2: Letterpress Green icons, fonts and stylesheet
 const SHELL = `tc-shell-${CACHE_VERSION}`   // the page (index.html)
 const ASSETS = `tc-assets-${CACHE_VERSION}` // versioned JS/CSS + icons
 const FONTS = `tc-fonts-${CACHE_VERSION}`   // Google Fonts

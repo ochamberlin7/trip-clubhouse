@@ -22,7 +22,7 @@ export const InfoButton = forwardRef(function InfoButton({ open, onToggle, color
         alignSelf: 'flex-start', position: 'relative', top: -2, verticalAlign: 'super',
         border: `1.2px solid ${color}`, background: open ? color : 'transparent',
         color: open ? '#fff' : color, fontSize: 8.5, fontWeight: 800, fontStyle: 'italic',
-        fontFamily: 'Georgia, serif', lineHeight: 1, cursor: 'pointer', opacity: open ? 1 : 0.8,
+        fontFamily: 'var(--font-serif)', lineHeight: 1, cursor: 'pointer', opacity: open ? 1 : 0.8,
       }}
     >
       i
@@ -69,8 +69,8 @@ export function InfoBubble({ anchorRef, onClose, children }) {
   if (!pos) return null
   return createPortal(
     <div ref={bubbleRef} role="note" style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 1100 }}>
-      <span aria-hidden="true" style={{ position: 'absolute', top: -5, left: pos.caret, width: 10, height: 10, background: '#0D1B2A', transform: 'rotate(45deg)', borderRadius: 2 }} />
-      <div style={{ position: 'relative', background: '#0D1B2A', color: '#fff', borderRadius: 10, padding: '9px 12px', fontSize: 12.5, lineHeight: 1.45, fontWeight: 500, boxShadow: '0 8px 24px rgba(13,27,42,0.28)' }}>
+      <span aria-hidden="true" style={{ position: 'absolute', top: -5, left: pos.caret, width: 10, height: 10, background: 'var(--ink)', transform: 'rotate(45deg)', borderRadius: 2 }} />
+      <div style={{ position: 'relative', background: 'var(--ink)', color: '#fff', borderRadius: 10, padding: '9px 12px', fontSize: 12.5, lineHeight: 1.45, fontWeight: 500, boxShadow: '0 8px 24px rgba(13,27,42,0.28)' }}>
         {children}
       </div>
     </div>,

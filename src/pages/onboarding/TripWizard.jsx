@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import Icon from '../../components/ui/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import CourseSearchInput from '../../components/CourseSearchInput'
@@ -126,7 +127,7 @@ function StepTripDetails({
           {tripDays > 0 && <span className="wz-stripe-detail">{tripDays} day{tripDays === 1 ? '' : 's'}</span>}
         </p>
         <RangeCalendar startDate={startDate} endDate={endDate} onSelect={handleDateClick} />
-        <div style={{ marginTop: 10, fontFamily: 'var(--font-serif)', fontSize: 18, color: startDate && endDate ? '#0D1B2A' : '#8C97A6' }}>
+        <div style={{ marginTop: 10, fontFamily: 'var(--font-serif)', fontSize: 18, color: startDate && endDate ? 'var(--ink)' : 'var(--slate)' }}>
           {rangeText}
         </div>
       </div>
@@ -204,7 +205,7 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
   function handleNext() {
     const totalGolfRounds = schedule.reduce((sum, d) => sum + (d.type === 'golf' ? d.rounds.length : 0), 0)
     if (totalGolfRounds === 0) {
-      const ok = window.confirm('No golf rounds scheduled — are you sure you want to continue?')
+      const ok = window.confirm('No golf rounds are scheduled. Continue anyway?')
       if (!ok) return
     }
     onNext()
@@ -241,18 +242,18 @@ function StepSchedule({ schedule, setSchedule, onBack, onNext }) {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {round.course ? (
                       // Course chosen → show it and collapse the picker. "Change" reopens it.
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #D5D9DF', borderRadius: 3, padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid var(--line)', borderRadius: 3, padding: '10px 12px' }}>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 16, color: '#0D1B2A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {round.course.club_name || round.course.course_name}
                           </div>
-                          <div style={{ fontSize: 12, color: '#7A8FA6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 12, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {[round.course.tee_name && `${round.course.tee_name} tees`, round.course.location].filter(Boolean).join(' · ') || 'Course selected'}
                           </div>
                         </div>
                         <button
                           onClick={() => setRoundCourse(idx, rIdx, null)}
-                          style={{ flexShrink: 0, background: 'none', border: 'none', color: '#1B3F6E', fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' }}
+                          style={{ flexShrink: 0, background: 'none', border: 'none', color: 'var(--primary)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' }}
                         >Change</button>
                       </div>
                     ) : (
@@ -303,7 +304,7 @@ const MAX_PLAYERS = 20
 
 // Look comes from the wizard's shared input style (index.css, .wizard-page input).
 const playerInputStyle = { width: '100%' }
-const playerInputErr = { ...playerInputStyle, borderColor: '#C0392B' }
+const playerInputErr = { ...playerInputStyle, borderColor: 'var(--bad)' }
 
 function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
   const [showErrors, setShowErrors] = useState(false)
@@ -391,8 +392,8 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
       </div>
 
       {players.length < MAX_PLAYERS && (
-        <button className="wz-add-row" style={{ borderTop: '1px solid #E3E1DA' }} onClick={addRow}>
-          Add a player<span style={{ marginLeft: 'auto', color: '#1B3F6E', fontSize: 20, lineHeight: 1 }}>+</span>
+        <button className="wz-add-row" style={{ borderTop: '1px solid var(--line)' }} onClick={addRow}>
+          Add a player<span style={{ marginLeft: 'auto', color: 'var(--primary)', fontSize: 20, lineHeight: 1 }}>+</span>
         </button>
       )}
 
@@ -412,20 +413,20 @@ function StepAddPlayers({ players, setPlayers, onBack, onNext }) {
 // small-caps group labels, a squared segmented control for teams. One list of
 // radio rows replaces the old Yes/No question — "No tournament" is its own row.
 const T = {
-  NAVY: '#1B3F6E',
+  NAVY: 'var(--primary)',
   // Section headings (Teams / Individual / No tournament) use the shared grey
   // stripe (.wz-stripe in index.css), same as the other wizard steps.
   list: {},
   // Field labels inside a section (e.g. Number of teams) stay light grey.
-  fieldLabel: { fontSize: 10.5, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: '#8C97A6', margin: '0 0 10px' },
-  row: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid #E3E1DA', padding: '14px 2px', cursor: 'pointer', fontFamily: 'inherit' },
-  name: { display: 'block', fontFamily: "var(--font-serif)", fontSize: 18, color: '#0D1B2A', lineHeight: 1.2 },
-  desc: { display: 'block', fontSize: 13, color: '#7C8796', marginTop: 3, lineHeight: 1.4 },
-  radio: on => ({ flexShrink: 0, marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%', boxSizing: 'border-box', border: on ? '5px solid #1B3F6E' : '1.5px solid #9AA6B5' }),
-  seg: { display: 'flex', border: '1px solid #1B3F6E', borderRadius: 4, overflow: 'hidden' },
-  segBtn: (on, first) => ({ flex: 1, padding: '10px 0', background: on ? '#1B3F6E' : 'transparent', color: on ? '#fff' : '#1B3F6E', border: 'none', borderLeft: first ? 'none' : '1px solid #1B3F6E', fontSize: 14, fontWeight: 600, letterSpacing: '0.3px', cursor: 'pointer', fontFamily: 'inherit' }),
-  note: { fontSize: 13, color: '#7C8796', margin: 0, lineHeight: 1.45 },
-  check: on => ({ flexShrink: 0, width: 16, height: 16, borderRadius: 2, marginTop: 3, boxSizing: 'border-box', border: `1.5px solid ${on ? '#1B3F6E' : '#9AA6B5'}`, background: on ? '#1B3F6E' : 'transparent', color: '#fff', fontSize: 11, lineHeight: '13px', textAlign: 'center' }),
+  fieldLabel: { fontSize: 10.5, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: 'var(--slate)', margin: '0 0 10px' },
+  row: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--line)', padding: '14px 2px', cursor: 'pointer', fontFamily: 'inherit' },
+  name: { display: 'block', fontFamily: "var(--font-serif)", fontSize: 18, color: 'var(--ink)', lineHeight: 1.2 },
+  desc: { display: 'block', fontSize: 13, color: 'var(--slate)', marginTop: 3, lineHeight: 1.4 },
+  radio: on => ({ flexShrink: 0, marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%', boxSizing: 'border-box', border: on ? '5px solid var(--primary)' : '1.5px solid var(--mist)' }),
+  seg: { display: 'flex', border: '1px solid var(--primary)', borderRadius: 4, overflow: 'hidden' },
+  segBtn: (on, first) => ({ flex: 1, padding: '10px 0', background: on ? 'var(--primary)' : 'transparent', color: on ? '#fff' : 'var(--primary)', border: 'none', borderLeft: first ? 'none' : '1px solid var(--primary)', fontSize: 14, fontWeight: 600, letterSpacing: '0.3px', cursor: 'pointer', fontFamily: 'inherit' }),
+  note: { fontSize: 13, color: 'var(--slate)', margin: 0, lineHeight: 1.45 },
+  check: on => ({ flexShrink: 0, width: 16, height: 16, borderRadius: 2, marginTop: 3, boxSizing: 'border-box', border: `1.5px solid ${on ? 'var(--primary)' : 'var(--mist)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 11, lineHeight: '13px', textAlign: 'center' }),
 }
 const TEAM_WORD = { 2: 'Two', 3: 'Three', 4: 'Four' }
 
@@ -478,7 +479,7 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
       <div>
         <p className="wz-stripe">No tournament</p>
         <div style={T.list} role="radiogroup" aria-label="No tournament">
-          <FormatRow name="Just for fun" desc="Scores and stats only — no standings." on={hasTournament === false} onClick={pickNone} />
+          <FormatRow name="Just for fun" desc="Scores and stats only, no standings." on={hasTournament === false} onClick={pickNone} />
         </div>
       </div>
 
@@ -508,17 +509,17 @@ function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams
             type="button"
             onClick={() => setBonusOpen(o => !o)}
             aria-expanded={bonusOpen}
-            style={{ ...T.row, borderTop: '1px solid #E3E1DA', padding: '12px 2px' }}
+            style={{ ...T.row, borderTop: '1px solid var(--line)', padding: '12px 2px' }}
           >
             <span style={{ ...T.name, fontSize: 16 }}>Add a bonus game{bonusGames.length ? ` (${bonusGames.length})` : ''}</span>
-            <span style={{ marginLeft: 'auto', color: '#9AA6B5', fontSize: 18, transform: bonusOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>›</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--mist)', display: 'flex', transform: bonusOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}><Icon name="right" size={16} /></span>
           </button>
           {bonusOpen && BONUS_GAMES.map(g => {
             const on = bonusGames.includes(g.id)
             return (
               <button key={g.id} type="button" role="checkbox" aria-checked={on} onClick={() => toggleBonus(g.id)}
                 style={{ ...T.row, alignItems: 'flex-start' }}>
-                <span style={T.check(on)}>{on ? '✓' : ''}</span>
+                <span style={T.check(on)}>{on ? <Icon name="check" size={12} strokeWidth={2.5} /> : null}</span>
                 <span style={{ minWidth: 0 }}>
                   <span style={{ ...T.name, fontSize: 16 }}>{g.name}</span>
                   <span style={T.desc}>{g.blurb}</span>

@@ -15,19 +15,19 @@ function todayIsoLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const NAVY = '#1B3F6E'
-const GREY = '#8a96a3'
-const RED = '#C0392B'
+const NAVY = 'var(--primary)'
+const GREY = 'var(--slate)'
+const RED = 'var(--bad)'
 const styles = {
   body: { padding: '16px' },
   rule: { fontSize: '13px', color: GREY, lineHeight: 1.5 },
   status: { fontSize: '13px', fontWeight: 600 },
   holes: { fontSize: '12px', color: GREY, marginTop: '4px' },
-  note: { fontSize: '11px', color: '#b0b8c1', fontStyle: 'italic', marginTop: '10px' },
-  playerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderTop: '1px solid #f0f3f7' },
+  note: { fontSize: '11px', color: 'var(--mist)', fontStyle: 'italic', marginTop: '10px' },
+  playerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderTop: '1px solid var(--paper-2)' },
   playerName: { fontSize: '13px', fontWeight: 600, color: NAVY },
   playerShare: { fontSize: '13px', fontWeight: 600, color: RED },
-  teamLabel: { fontSize: '11px', color: GREY, fontStyle: 'italic', padding: '10px 16px', borderTop: '1px solid #f0f3f7' },
+  teamLabel: { fontSize: '11px', color: GREY, fontStyle: 'italic', padding: '10px 16px', borderTop: '1px solid var(--paper-2)' },
 }
 
 export default function TournamentPurseCard({ tripId, endDate, allowance = 100 }) {

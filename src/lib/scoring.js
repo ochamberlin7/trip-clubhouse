@@ -458,6 +458,24 @@ export function roundCourseName(round) {
 // Day-strip grid width: 8 dots per row. Trips of 8 days or fewer are a single row
 // spread evenly (N columns); 9+ days wrap at 8 columns so dots line up across rows.
 // (Row count is Math.ceil(totalDays / columns).)
+// Labels for the Home banner day strip (one segment per trip day). Weekday and date
+// side by side through 6 days ("Fri 10/9"); date only from 7 days, where the
+// segments are too narrow for both. Pure; dates are parsed at local midnight.
+//   bannerDayLabels('2026-10-09', 3) → [{ n:1, weekday:'Fri', date:'10/9', label:'Fri 10/9' }, …]
+const BANNER_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+export function bannerDayLabels(startIso, totalDays) {
+  if (!startIso || !totalDays || totalDays <= 0) return []
+  const start = new Date(`${startIso}T00:00:00`)
+  if (isNaN(start)) return []
+  const dateOnly = totalDays >= 7
+  return Array.from({ length: totalDays }, (_, i) => {
+    const d = new Date(start); d.setDate(start.getDate() + i)
+    const weekday = BANNER_WEEKDAYS[d.getDay()]
+    const date = `${d.getMonth() + 1}/${d.getDate()}`
+    return { n: i + 1, weekday, date, label: dateOnly ? date : `${weekday} ${date}` }
+  })
+}
+
 export function bannerGridColumns(totalDays) {
   if (!totalDays || totalDays <= 0) return 0
   return totalDays <= 8 ? totalDays : 8

@@ -6,8 +6,8 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 
 // Trip-name headline auto-sizing bounds (px). Shrinks from MAX to fit one line;
 // won't go below MIN (below that it wraps to 2 lines rather than truncating).
-const TRIP_NAME_MAX = 34
-const TRIP_NAME_MIN = 22
+const TRIP_NAME_MAX = 28
+const TRIP_NAME_MIN = 20
 
 function parseDate(iso) {
   if (!iso) return null
@@ -22,51 +22,50 @@ function formatRange(startDate, endDate) {
   if (!s && !e) return ''
   if (s && !e) return `${MONTHS[s.getMonth()]} ${s.getDate()}, ${s.getFullYear()}`
   if (!s && e) return `${MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`
-  return `${MONTHS[s.getMonth()]} ${s.getDate()} - ${MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`
+  return `${MONTHS[s.getMonth()]} ${s.getDate()} to ${MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`
 }
 
 const styles = {
   container: {
-    background: '#FFFFFF',
+    background: 'var(--paper)',
     // Top-most element on the Home tab now (tab bar moved to the bottom), so it
     // carries the status-bar / notch inset; white bg fills the safe area.
     padding: 'max(env(safe-area-inset-top), 20px) 16px 16px',
-    borderBottom: '1px solid #DDE3EA',
+    borderBottom: '1px solid var(--line)',
     textAlign: 'center',
   },
   // "Trip Clubhouse" wordmark — TOP, small small-caps serif label. Navy to match
   // the trip name and other banner elements (var(--navy), not a hardcoded hex).
   wordmark: {
-    fontFamily: "'Playfair Display SC', serif",
-    fontStyle: 'normal',
-    fontSize: '15px',
-    fontWeight: 700,
-    color: 'var(--navy)',
-    letterSpacing: '0.5px',
+    fontFamily: 'var(--font-sans)',
+    fontSize: '10.5px',
+    fontWeight: 600,
+    color: 'var(--slate)',
+    letterSpacing: '.14em',
+    textTransform: 'uppercase',
     lineHeight: 1,
-    marginBottom: '5px',
+    marginBottom: '6px',
   },
   // Trip name — MIDDLE, the large dominant headline. Playfair Display (serif) to
   // match the "Trip Clubhouse" wordmark's type language. font-size is set
   // dynamically by TripNameFit so it always stays on one line.
   tripName: {
-    fontFamily: "'Playfair Display', serif",
+    fontFamily: 'var(--font-serif)',
     fontWeight: 700,
     // Normal tracking — Playfair Display bold's default. (The old 2px tracking
     // was for the sans-serif look and stretched the serif caps.)
     letterSpacing: 'normal',
     // Display exactly as entered (title case) — no forced uppercase.
-    color: '#000000',
-    lineHeight: 1.05,
+    color: 'var(--primary)',
+    lineHeight: 1.1,
   },
   subtitle: {
-    fontSize: '13px',
-    fontWeight: 600,
-    letterSpacing: '2px',
-    textTransform: 'uppercase',
-    color: '#5A7290',
-    marginTop: '7px',
+    fontSize: '12.5px',
+    fontWeight: 500,
+    color: 'var(--slate)',
+    marginTop: '5px',
   },
+  rule: { width: 34, height: 2, background: 'var(--accent)', margin: '9px auto 0' },
   // Commissioner-only pencil, pinned to the header's upper-right (aligned with the
   // wordmark row so it never overlaps the centered trip name).
   editBtn: {
@@ -77,7 +76,7 @@ const styles = {
     border: 'none',
     padding: 4,
     cursor: 'pointer',
-    color: '#5A7290',
+    color: 'var(--slate)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -88,20 +87,20 @@ const styles = {
   editWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, margin: '4px auto 2px', width: 'min(92%, 380px)' },
   editInput: {
     width: '100%', boxSizing: 'border-box', textAlign: 'center',
-    fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 22, color: '#0D1B2A',
-    border: '1px solid #CBD5E1', borderRadius: 12, background: '#F7F9FB',
+    fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: 22, color: 'var(--ink)',
+    border: '1px solid var(--line)', borderRadius: 'var(--radius)', background: 'var(--paper)',
     padding: '9px 14px', outline: 'none',
   },
   editActions: { display: 'flex', alignItems: 'center', gap: 8 },
   saveBtn: {
-    background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 8,
+    background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)',
     padding: '7px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
   },
   cancelBtn: {
-    background: 'transparent', color: '#7A8FA6', border: 'none',
+    background: 'transparent', color: 'var(--slate)', border: 'none',
     padding: '7px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
   },
-  editErr: { fontSize: 11, color: '#C0392B', marginTop: -2 },
+  editErr: { fontSize: 11, color: 'var(--bad)', marginTop: -2 },
 }
 
 function PencilIcon() {
@@ -179,7 +178,7 @@ export default function TripHeader({ tripName, startDate, endDate, tripId, canEd
     setSaving(true)
     const { error } = await supabase.from('trips').update({ name: trimmed }).eq('id', tripId)
     setSaving(false)
-    if (error) { setErr('Couldn’t save — try again'); return }
+    if (error) { setErr('Couldn’t save. Try again.'); return }
     setEditing(false)
     onRenamed?.()
   }
@@ -207,6 +206,7 @@ export default function TripHeader({ tripName, startDate, endDate, tripId, canEd
       )}
 
       {range && <div style={styles.subtitle}>{range}</div>}
+      <div style={styles.rule} />
 
       {canEdit && !editing && (
         <button style={styles.editBtn} onClick={startEdit} aria-label="Edit trip name"><PencilIcon /></button>

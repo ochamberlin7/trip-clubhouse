@@ -35,16 +35,16 @@ const emailLooksValid = (e) => /^\S+@\S+\.\S+$/.test((e || '').trim())
 const DEV_USER_EMAIL = 'o.chamberlin@gmail.com'
 
 const hdr = {
-  page: { minHeight: '100vh', background: '#F0F4F8' },
-  bar: { position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: 'max(env(safe-area-inset-top), 16px) 16px 12px', borderBottom: '1px solid #DDE3EA', display: 'flex', alignItems: 'center', gap: 12 },
-  back: { width: 34, height: 34, flexShrink: 0, borderRadius: 8, border: '1px solid #E1E7EE', background: '#fff', color: '#1B3F6E', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 },
-  eyebrow: { fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#7A8FA6' },
-  title: { fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: '#0D1B2A', lineHeight: 1.1 },
+  page: { minHeight: '100vh', background: 'var(--stone)' },
+  bar: { position: 'sticky', top: 0, zIndex: 10, background: 'var(--paper)', padding: 'max(env(safe-area-inset-top), 16px) 16px 12px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 12 },
+  back: { width: 34, height: 34, flexShrink: 0, borderRadius: 'var(--radius)', border: '1px solid var(--line)', background: 'var(--paper)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 },
+  eyebrow: { fontSize: 10.5, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--slate)' },
+  title: { fontFamily: 'var(--font-serif)', fontSize: 23, fontWeight: 700, color: 'var(--primary)', lineHeight: 1.15, marginTop: 3 },
   body: { padding: 16 },
   photoWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '8px 0 20px' },
-  photo: { width: 96, height: 96, fontSize: 30, background: '#E7EDF5', color: '#33455E', border: 'none', boxShadow: 'none' },
-  photoLink: { background: 'none', border: 'none', padding: '4px 0', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: '#1B3F6E', cursor: 'pointer' },
-  photoErr: { fontSize: 12, color: '#C0392B', textAlign: 'center' },
+  photo: { width: 96, height: 96, fontSize: 30, background: 'var(--primary)', color: '#fff', border: 'none', boxShadow: '0 0 0 3px var(--paper), 0 0 0 5px var(--accent)', fontFamily: 'var(--font-serif)' },
+  photoLink: { background: 'none', border: 'none', padding: '4px 0', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer' },
+  photoErr: { fontSize: 12, color: 'var(--bad)', textAlign: 'center' },
 }
 
 export default function ProfilePage() {
@@ -115,7 +115,7 @@ export default function ProfilePage() {
         // never shows on another device after the user has already enabled push.
         markPromptDismissed(user.id)
       } else setPushErr(
-        res.reason === 'denied' ? 'Notifications are blocked in your device settings — enable them there first.'
+        res.reason === 'denied' ? 'Notifications are blocked in your device settings. Enable them there first.'
         : res.reason === 'unsupported' ? 'Not available on this browser.'
         : res.reason === 'no-vapid-key' ? 'Push isn’t configured on the server yet.'
         : 'Could not enable notifications. Please try again.',
@@ -175,7 +175,7 @@ export default function ProfilePage() {
       // Email changes require confirming the new address before they take effect —
       // keep the row OPEN so the "check your new email" note stays visible (return
       // false so the caller doesn't collapse it).
-      setEmailState({ saving: false, saved: false, err: '', note: `Check your new email (${email.trim()}) to confirm the change — until then your login email stays the same.` })
+      setEmailState({ saving: false, saved: false, err: '', note: `Check your new email (${email.trim()}) to confirm the change. Until then your login email stays the same.` })
       return false
     } catch (err) {
       setEmailState({ saving: false, saved: false, err: err?.message || String(err), note: '' })

@@ -46,7 +46,7 @@ export default function CreateGroup() {
     <div className="auth-container">
       <h1>Trip Clubhouse</h1>
       <h2>Create a Group</h2>
-      <p>A group is your crew — CTI, Family Golf Trip, Ireland 2027, etc.</p>
+      <p>A group is your crew: CTI, Family Golf Trip, Ireland 2027.</p>
       <form onSubmit={handleCreate}>
         <input type="text" placeholder="Group name (e.g. CTI)" value={name}
           onChange={e => setName(e.target.value)} required />

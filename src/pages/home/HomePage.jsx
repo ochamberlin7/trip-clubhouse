@@ -9,6 +9,7 @@ import { splitTrips, daysUntilTrip, restoreDaysLeft } from '../../lib/myTrips'
 import { useMyCareer } from '../../lib/useMyCareer'
 import { bestBadges } from '../../lib/badges'
 import BadgeMedallion from '../../components/BadgeMedallion'
+import Icon from '../../components/ui/Icon'
 import { getTripPhase } from '../../lib/scoring'
 import { inviteTokenFrom } from '../../lib/inviteMatch'
 
@@ -17,37 +18,37 @@ import { inviteTokenFrom } from '../../lib/inviteMatch'
 // badges shelf. The app opens here except from 14 days before a trip through 7
 // days after it (landingTrip in scoring.js).
 
-const NAVY = '#1B3F6E'
-const INK = '#0D1B2A'
-const MUTED = '#5F6B7A'       // small labels / sub-lines (passes contrast on white)
-const HAIR = '#E3E1DA'        // warm hairline, as in the trip wizard
-const RULE = '#C9D3E0'        // section-heading side rules
-const BORDER = '#D5D9DF'
+const NAVY = 'var(--primary)'
+const INK = 'var(--ink)'
+const MUTED = 'var(--slate)'       // small labels / sub-lines (passes contrast on white)
+const HAIR = 'var(--line)'        // warm hairline, as in the trip wizard
+const RULE = 'var(--line)'        // section-heading side rules
+const BORDER = 'var(--line)'
 // Letterhead look (2026-10-29): navy masthead with the app name in gold serif,
 // a large profile photo, the user's name and a short gold rule ("2B" layout,
 // "2A" title font, "2C" gold); light page below in the trip wizard's editorial
 // style (serif names, small-caps labels, hairlines, square corners).
-const GOLD = '#B08A3E'        // masthead rule, profile-photo ring
-const GOLD_TEXT = '#D8C08A'   // "Trip Clubhouse" on navy
-const SERIF = "'Playfair Display', Georgia, serif"
-const CAPS = { fontWeight: 700, letterSpacing: '1.6px', textTransform: 'uppercase' }
+const GOLD = 'var(--accent)'        // masthead rule, profile-photo ring
+const GOLD_TEXT = 'var(--accent-soft)'   // "Trip Clubhouse" on navy
+const SERIF = 'var(--font-serif)'
+const CAPS = { fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase' }
 
 const h = {
   page: { minHeight: '100vh', background: 'var(--bg0)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)', boxSizing: 'border-box' },
   // Masthead: clears the phone's status bar / notch.
   mast: { background: NAVY, padding: '18px 16px 22px', paddingTop: 'calc(env(safe-area-inset-top) + 18px)', display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  brand: { margin: 0, fontFamily: SERIF, fontSize: 36, fontWeight: 700, lineHeight: 1.05, letterSpacing: '0.2px', color: GOLD_TEXT, textAlign: 'center' },
+  brand: { margin: 0, fontFamily: SERIF, fontSize: 30, fontWeight: 700, lineHeight: 1.05, color: GOLD_TEXT, textAlign: 'center' },
   // Large profile photo (initials if none) in a gold ring; opens the Profile page.
   avatar: { position: 'static', top: 'auto', right: 'auto', marginTop: 14, width: 68, height: 68, fontSize: 22, border: `2px solid ${GOLD}`, boxShadow: `0 0 0 3px ${NAVY}, 0 0 0 4px rgba(176,138,62,0.5)` },
-  who: { margin: '10px 0 0', fontFamily: SERIF, fontSize: 22, fontWeight: 400, color: '#fff' },
-  goldRule: { width: 80, height: 2, background: GOLD, marginTop: 8 },
+  who: { margin: '10px 0 0', fontFamily: SERIF, fontSize: 20, fontWeight: 600, color: '#fff' },
+  goldRule: { width: 64, height: 2, background: GOLD, marginTop: 8 },
   inner: { maxWidth: 480, margin: '0 auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 22 },
   // Next-trip countdown / live card: sits below the masthead; tapping opens the trip.
   heroCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginTop: 22, textAlign: 'center', padding: '22px 16px 20px', background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 3, cursor: 'pointer', fontFamily: 'inherit', color: INK, boxSizing: 'border-box' },
   // Lining (capital-height) figures so the serif digits sit on the baseline.
   big: { marginTop: 10, fontFamily: SERIF, fontSize: 72, fontWeight: 700, lineHeight: 1, color: NAVY, fontVariantNumeric: 'lining-nums', fontFeatureSettings: '"lnum" 1' },
   eyebrow: { fontSize: 10.5, letterSpacing: '1.8px', color: MUTED, fontWeight: 700, textTransform: 'uppercase' },
-  until: { marginTop: 6, fontFamily: SERIF, fontStyle: 'italic', fontSize: 17, color: '#2C3E50' },
+  until: { marginTop: 6, fontSize: 14, color: 'var(--slate)' },
   heroName: { fontFamily: SERIF, fontSize: 23, fontWeight: 700, color: INK, marginTop: 10 },
   heroSub: { fontSize: 13, color: MUTED, marginTop: 4 },
   actions: { display: 'flex', flexDirection: 'column', gap: 8 },
@@ -64,7 +65,7 @@ const h = {
   rowLine: { borderTop: `1px solid ${HAIR}` },
   tripName: { fontFamily: SERIF, fontSize: 17, lineHeight: 1.2, color: INK },
   tripSub: { fontSize: 12, color: MUTED, marginTop: 2 },
-  chev: { marginLeft: 'auto', color: '#9AA6B5', fontSize: 20, lineHeight: 1 },
+  chev: { marginLeft: 'auto', color: 'var(--mist)', fontSize: 20, lineHeight: 1 },
   empty: { border: `1px dashed ${RULE}`, borderRadius: 3, padding: 14, textAlign: 'center', fontSize: 13, color: MUTED, lineHeight: 1.45 },
   stats: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', textAlign: 'center', padding: '8px 0' },
   statNum: { display: 'block', fontFamily: SERIF, fontSize: 28, fontWeight: 400, lineHeight: 1, color: INK, fontVariantNumeric: 'lining-nums', fontFeatureSettings: '"lnum" 1' },
@@ -72,7 +73,7 @@ const h = {
   statLine: { borderLeft: `1px solid ${BORDER}` },
   shelf: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', width: '100%' },
   shelfCell: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 },
-  shelfName: { fontSize: 11, fontWeight: 600, color: '#2C3E50', textAlign: 'center', lineHeight: 1.25 },
+  shelfName: { fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', textAlign: 'center', lineHeight: 1.25 },
   badge: { width: 58, height: 58, borderRadius: '50%', border: `1.5px dashed ${RULE}`, boxSizing: 'border-box' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   sheet: { background: '#fff', borderRadius: 4, padding: 22, width: '100%', maxWidth: 380, boxSizing: 'border-box' },
@@ -86,7 +87,7 @@ h.pillPrimary = { background: NAVY, borderColor: NAVY, color: '#fff' }
 // Pass onClick to make the title itself a link (e.g. Trophy room).
 function SectionHead({ children, style, onClick }) {
   const title = onClick
-    ? <button onClick={onClick} style={{ background: 'none', border: 'none', padding: '6px 0', margin: '-6px 0', font: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', color: 'inherit', cursor: 'pointer' }}>{children} ›</button>
+    ? <button onClick={onClick} style={{ background: 'none', border: 'none', padding: '6px 0', margin: '-6px 0', font: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', color: 'inherit', cursor: 'pointer' }}>{children}<Icon name="right" size={12} /></button>
     : children
   return <h2 style={{ ...h.sec, ...style }}><span style={h.secRule} />{title}<span style={h.secRule} /></h2>
 }
@@ -117,11 +118,11 @@ function TripRow({ trip, live, first, unread, finish, onOpen, onDelete }) {
       <span style={{ minWidth: 0 }}>
         <div style={h.tripName}>
           {trip.name}
-          {unread && <span aria-label="Unread trash talk" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#C0392B', marginLeft: 6, verticalAlign: 'middle' }} />}
+          {unread && <span aria-label="Unread trash talk" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--bad)', marginLeft: 6, verticalAlign: 'middle' }} />}
         </div>
         <div style={h.tripSub}>{parts.join(' · ')}</div>
       </span>
-      <span style={h.chev}>›</span>
+      <span style={h.chev}><Icon name="right" size={16} /></span>
     </SwipeDeleteRow>
   )
 }
@@ -140,7 +141,7 @@ function JoinTripModal({ onClose, onJoin }) {
         <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK }}>Join a trip</div>
         <div style={{ fontSize: 14, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>Paste the invite link your commissioner sent you.</div>
         <input style={h.input} value={text} onChange={e => { setText(e.target.value); setErr(null) }} placeholder="thetripclubhouse.com/join/…" autoFocus />
-        {err && <div style={{ fontSize: 12, color: '#C0392B', marginTop: 8 }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: 'var(--bad)', marginTop: 8 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           <button style={{ ...h.pill, flex: 1 }} onClick={onClose}>Cancel</button>
           <button style={{ ...h.pill, ...h.pillPrimary, flex: 1 }} onClick={submit}>Join</button>
@@ -191,7 +192,7 @@ export default function HomePage() {
     const phase = getTripPhase({ trip: next, now, timeZone: next.time_zone || undefined })
     hero = (
       <button style={h.heroCard} onClick={() => openTrip(next.id)}>
-        <div style={{ ...h.eyebrow, color: '#0F6E56' }}>Live now{phase.dayNumber ? ` · Day ${phase.dayNumber} of ${phase.totalDays}` : ''}</div>
+        <div style={{ ...h.eyebrow, color: 'var(--ok)' }}>Live now{phase.dayNumber ? ` · Day ${phase.dayNumber} of ${phase.totalDays}` : ''}</div>
         <div style={{ ...h.heroName, fontSize: 26 }}>{next.name}</div>
         <div style={h.heroSub}>{[fmtRange(next), next.location].filter(Boolean).join(' · ')}</div>
       </button>
@@ -249,7 +250,7 @@ export default function HomePage() {
         </div>
 
         {isNew && (
-          <div style={{ ...h.box, padding: 14, fontSize: 13, color: '#2C3E50', lineHeight: 1.5 }}>
+          <div style={{ ...h.box, padding: 14, fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>
             <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 700, color: INK, marginBottom: 4 }}>Got an invite?</div>
             Tap the link your commissioner sent, or tap <b>Join a trip</b> and paste it.
           </div>
@@ -332,17 +333,17 @@ export default function HomePage() {
         <div style={h.overlay} onClick={() => setPendingDelete(null)}>
           <div style={h.sheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
             <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK }}>Delete this trip?</div>
-            <div style={{ fontSize: 14, color: '#2C3E50', marginTop: 8, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.5 }}>
               <b>{pendingDelete.name}</b> will be deleted for everyone on it. You'll have 30 days to restore it before it's gone for good.
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
               <button style={{ ...h.pill, flex: 1 }} onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button style={{ ...h.pill, flex: 1, background: '#C0392B', borderColor: '#C0392B', color: '#fff' }}
+              <button style={{ ...h.pill, flex: 1, background: 'var(--bad)', borderColor: 'var(--bad)', color: '#fff' }}
                 onClick={async () => {
                   const t = pendingDelete
                   setPendingDelete(null)
                   const { error } = await softDeleteTrip(t.id)
-                  if (error) window.alert('Delete failed — please try again.')
+                  if (error) window.alert('Delete failed. Please try again.')
                   reload()
                 }}>Delete</button>
             </div>
@@ -359,7 +360,7 @@ export default function HomePage() {
                 <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK }}>Recently deleted</div>
                 <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>Trips can be restored for 30 days.</div>
               </div>
-              <button onClick={() => setShowDeleted(false)} aria-label="Close" style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--bg2)', color: '#7A8FA6', fontSize: 14, cursor: 'pointer' }}>✕</button>
+              <button onClick={() => setShowDeleted(false)} aria-label="Close" style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--paper-2)', color: 'var(--slate)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><Icon name="close" size={14} /></button>
             </div>
             <div style={{ marginTop: 10 }}>
               {deleted.map((t, i) => {

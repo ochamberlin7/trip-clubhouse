@@ -15,35 +15,35 @@ import HomeCard from './homeCard'
 // earlier days; it opens on the most recent day and stays after the trip, so by
 // the end you can flip through every day. All math is in src/lib/dailyLeaders.js.
 
-const NAVY = '#1B3F6E'
-const GREY = '#8a96a3'
-const MUTED = '#A9B4C0'
+const NAVY = 'var(--primary)'
+const GREY = 'var(--slate)'
+const MUTED = 'var(--mist)'
 const st = {
   body: { display: 'flex', flexDirection: 'column', gap: 8, padding: 10 },
-  tile: { border: '1px solid #E3E8EE', borderRadius: 10, overflow: 'hidden', minWidth: 0 },
+  tile: { border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden', minWidth: 0 },
   // Light navy title bar across the top of each tile; the title keeps its tone colour.
-  titleBar: { background: '#EEF2F7', padding: '5px 12px' },
+  titleBar: { background: 'var(--paper-2)', padding: '5px 12px' },
   inner: { padding: '7px 12px 9px' },
   wideRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   title: { fontSize: 15, fontWeight: 700, lineHeight: 1.3 },
-  who: { fontSize: 14, fontWeight: 600, color: '#2C3E50', lineHeight: 1.35 },
+  who: { fontSize: 14, fontWeight: 600, color: 'var(--ink-2)', lineHeight: 1.35 },
   bigNum: { fontSize: 24, fontWeight: 700, color: NAVY, flexShrink: 0, lineHeight: 1.1 },
   split: { display: 'grid', gridTemplateColumns: '1fr 1fr' },
   half: { minWidth: 0 },
-  halfRight: { minWidth: 0, borderLeft: '1px solid #E3E8EE', paddingLeft: 12 },
+  halfRight: { minWidth: 0, borderLeft: '1px solid var(--line)', paddingLeft: 12 },
   mode: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 },
   num: { fontSize: 18, fontWeight: 700, color: NAVY, lineHeight: 1.25 },
-  nm: { fontSize: 13, fontWeight: 600, color: '#2C3E50', lineHeight: 1.35 },
+  nm: { fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', lineHeight: 1.35 },
   none: { color: MUTED, fontWeight: 500 },
   placeholder: { fontSize: 13, color: GREY, fontStyle: 'italic', padding: '14px 16px' },
   dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '2px 0 12px' },
-  dot: { width: 7, height: 7, borderRadius: '50%', background: '#C4CEDA', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
+  dot: { width: 7, height: 7, borderRadius: '50%', background: 'var(--mist)', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
   dotActive: { background: NAVY },
 }
 
 // Title colour says what kind of stat it is: green = bragging rights,
 // red = the roast, gold = drinks.
-const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
+const TONE = { good: 'var(--ok)', bad: 'var(--bad)', drinks: 'var(--accent-ink)' }
 
 // Card layout, top to bottom: full-width tiles for Most Points, Points Defended
 // and Most Drinks; Gross | Net split tiles for everything else (Fire splits

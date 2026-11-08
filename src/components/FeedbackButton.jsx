@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import Icon from './ui/Icon'
 import { createPortal } from 'react-dom'
 import SupportForm from './SupportForm'
 
@@ -10,8 +11,8 @@ import SupportForm from './SupportForm'
 const styles = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   card: { position: 'relative', background: '#fff', borderRadius: '14px', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
-  header: { position: 'relative', background: '#1B3F6E', color: '#fff', padding: '12px 44px 12px 16px', borderRadius: '14px 14px 0 0' },
-  headerTitle: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '18px', fontWeight: 700 },
+  header: { position: 'relative', background: 'var(--primary)', color: '#fff', padding: '12px 44px 12px 16px', borderRadius: '14px 14px 0 0' },
+  headerTitle: { fontFamily: 'var(--font-serif)', fontSize: '18px', fontWeight: 700 },
   close: { position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
   body: { padding: '16px' },
 }
@@ -52,7 +53,7 @@ export default function FeedbackButton({ tripId, tripName, userId }) {
           <div style={styles.card} onClick={e => e.stopPropagation()}>
             <div style={styles.header}>
               <span style={styles.headerTitle}>Share an idea</span>
-              <button style={styles.close} aria-label="Close" onClick={() => setOpen(false)}>✕</button>
+              <button style={styles.close} aria-label="Close" onClick={() => setOpen(false)}><Icon name="close" size={14} /></button>
             </div>
             <div style={styles.body}>
               <SupportForm
@@ -60,7 +61,7 @@ export default function FeedbackButton({ tripId, tripName, userId }) {
                 tripName={tripName}
                 userId={userId}
                 defaultCategory="feature_request"
-                intro="Got an idea to make this better? We'd love to hear it — big or small."
+                intro="Got an idea to make this better? Tell us, big or small."
                 onDone={() => setOpen(false)}
               />
             </div>

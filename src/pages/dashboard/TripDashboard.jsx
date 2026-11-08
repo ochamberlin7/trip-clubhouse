@@ -33,6 +33,8 @@ import FeedbackButton from '../../components/FeedbackButton'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL, HOME_CARD_TAIL } from '../../components/homeCardTokens'
 import { buildWeatherLocations, defaultWeatherIndex } from '../../lib/weatherLocations'
 import { FEATURES } from '../../lib/features'
+import Icon from '../../components/ui/Icon'
+import { weatherIcon } from '../../components/ui/iconPaths'
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -48,19 +50,10 @@ function groupByDate(rounds) {
   return Object.entries(g).sort(([a], [b]) => a.localeCompare(b))
 }
 
-function initials(name) {
-  if (!name) return '?'
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-}
 
 
 // ── Weather widget — single-day current conditions ───────────────
 
-const WX_ICONS = {
-  0:'☀️',1:'☀️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',
-  61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',80:'🌦️',81:'🌧️',82:'⛈️',
-  95:'⛈️',96:'⛈️',99:'⛈️',
-}
 const WX_DESC = {
   0:'Clear skies',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',
   45:'Foggy',48:'Rime fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',
@@ -68,7 +61,6 @@ const WX_DESC = {
   80:'Light showers',81:'Showers',82:'Violent showers',
   95:'Thunderstorm',96:'Thunderstorm w/ hail',99:'Severe thunderstorm',
 }
-function wxIcon(code) { return WX_ICONS[code] ?? '-' }
 function wxDesc(code) { return WX_DESC[code] ?? '—' }
 
 // Open-Meteo's daily weathercode over-calls severity vs. how TWC/WU/AccuWeather
@@ -91,32 +83,32 @@ const wxStyles = {
   headerRight: { ...HOME_CARD_TAIL },
   inner: { padding: '14px' },
   mainRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  temp: { fontSize: '42px', fontWeight: 900, color: '#0D1B2A', lineHeight: 1 },
-  condition: { fontSize: '13px', color: '#2C3E50', marginTop: '4px' },
+  temp: { fontSize: '42px', fontWeight: 900, color: 'var(--ink)', lineHeight: 1 },
+  condition: { fontSize: '13px', color: 'var(--ink-2)', marginTop: '4px' },
   rightCol: { display: 'flex', alignItems: 'center', gap: '10px' },
   hiloBlock: { textAlign: 'right', lineHeight: 1.6 },
-  hi: { fontSize: '13px', fontWeight: 700, color: '#0D1B2A' },
-  lo: { fontSize: '13px', fontWeight: 700, color: '#7A8FA6' },
-  emoji: { fontSize: '36px' },
-  detailsRow: { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #E8EDF3', display: 'flex', gap: '16px' },
-  detailLabel: { fontSize: '11px', color: '#7A8FA6', textTransform: 'uppercase', letterSpacing: '0.5px' },
-  detailValue: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#2C3E50' },
-  loading: { padding: '14px', fontSize: '13px', color: '#7A8FA6', textAlign: 'center' },
-  forecastHint: { marginLeft: 'auto', alignSelf: 'center', fontSize: '12px', fontWeight: 700, color: '#1B3F6E' },
+  hi: { fontSize: '13px', fontWeight: 700, color: 'var(--ink)' },
+  lo: { fontSize: '13px', fontWeight: 700, color: 'var(--slate)' },
+  emoji: { color: 'var(--primary)', display: 'flex' },
+  detailsRow: { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--paper-2)', display: 'flex', gap: '16px' },
+  detailLabel: { fontSize: '11px', color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  detailValue: { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--ink-2)' },
+  loading: { padding: '14px', fontSize: '13px', color: 'var(--slate)', textAlign: 'center' },
+  forecastHint: { marginLeft: 'auto', alignSelf: 'center', fontSize: '12px', fontWeight: 700, color: 'var(--primary)' },
   // Location pager dots — muted gray, active filled navy (widget accent).
   dotsRow: { display: 'flex', justifyContent: 'center', gap: 6, padding: '2px 0 12px' },
-  dot: { width: 7, height: 7, borderRadius: '50%', background: '#C4CEDA', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
-  dotActive: { background: '#1B3F6E' },
+  dot: { width: 7, height: 7, borderRadius: '50%', background: 'var(--mist)', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
+  dotActive: { background: 'var(--primary)' },
   // 10-day forecast modal (portal + centered overlay, matching the app pattern).
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  modalCard: { position: 'relative', background: '#fff', borderRadius: '14px', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
-  modalClose: { position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
-  fRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid #E8EDF3' },
-  fDay: { fontSize: '13px', fontWeight: 700, color: '#0D1B2A', width: 78, flexShrink: 0 },
-  fEmoji: { fontSize: '22px', width: 26, textAlign: 'center', flexShrink: 0 },
-  fCond: { fontSize: '12px', color: '#7A8FA6', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  fPop: { fontSize: '12px', color: '#3F6FA6', width: 40, textAlign: 'right', flexShrink: 0 },
-  fTemp: { fontSize: '13px', fontWeight: 700, color: '#0D1B2A', width: 74, textAlign: 'right', flexShrink: 0 },
+  modalCard: { position: 'relative', background: 'var(--paper)', borderRadius: 'var(--radius)', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
+  modalClose: { position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: 'var(--radius-sm)', border: '1px solid var(--line)', background: 'var(--paper)', color: 'var(--primary)', fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
+  fRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid var(--paper-2)' },
+  fDay: { fontSize: '13px', fontWeight: 700, color: 'var(--ink)', width: 78, flexShrink: 0 },
+  fEmoji: { width: 26, display: 'flex', justifyContent: 'center', flexShrink: 0, color: 'var(--primary)' },
+  fCond: { fontSize: '12px', color: 'var(--slate)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  fPop: { fontSize: '12px', color: 'var(--primary-mid)', width: 40, textAlign: 'right', flexShrink: 0 },
+  fTemp: { fontSize: '13px', fontWeight: 700, color: 'var(--ink)', width: 74, textAlign: 'right', flexShrink: 0 },
 }
 
 const WX_DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -282,8 +274,8 @@ function WeatherWidget({ rounds = [], tripName }) {
           </div>
           <div style={wxStyles.rightCol}>
             <div style={wxStyles.hiloBlock}>
-              <div style={wxStyles.hi}>↑ —°</div>
-              <div style={wxStyles.lo}>↓ —°</div>
+              <div style={wxStyles.hi}>High —°</div>
+              <div style={wxStyles.lo}>Low —°</div>
             </div>
             <div style={wxStyles.emoji}>-</div>
           </div>
@@ -303,16 +295,16 @@ function WeatherWidget({ rounds = [], tripName }) {
           </div>
           <div style={wxStyles.rightCol}>
             <div style={wxStyles.hiloBlock}>
-              <div style={wxStyles.hi}>↑ {faceWx.hi}°</div>
-              <div style={wxStyles.lo}>↓ {faceWx.lo}°</div>
+              <div style={wxStyles.hi}>High {faceWx.hi}°</div>
+              <div style={wxStyles.lo}>Low {faceWx.lo}°</div>
             </div>
-            <div style={wxStyles.emoji}>{wxIcon(faceWx.code)}</div>
+            <div style={wxStyles.emoji}><Icon name={weatherIcon(faceWx.code)} size={36} strokeWidth={1.25} /></div>
           </div>
         </div>
         <div style={wxStyles.detailsRow}>
           <div><span style={wxStyles.detailLabel}>Wind</span><span style={wxStyles.detailValue}>{faceWx.wind} mph</span></div>
           <div><span style={wxStyles.detailLabel}>Humidity</span><span style={wxStyles.detailValue}>{faceWx.humidity}%</span></div>
-          {faceWx.daily && faceWx.daily.length > 1 && <span style={wxStyles.forecastHint}>10-day ›</span>}
+          {faceWx.daily && faceWx.daily.length > 1 && <span style={{ ...wxStyles.forecastHint, display: 'inline-flex', alignItems: 'center', gap: 2 }}>10-day forecast<Icon name="right" size={12} /></span>}
         </div>
       </div>
     )
@@ -381,16 +373,16 @@ function WeatherWidget({ rounds = [], tripName }) {
             {/* Close button lives inside the header (position: relative) and is
                 vertically centred on the same plane as the city label; the right
                 padding reserves its space so the label doesn't run under it. */}
-            <div style={{ ...wxStyles.header, borderRadius: '14px 14px 0 0', position: 'relative', paddingRight: '44px' }}>
-              <span style={wxStyles.headerLeft}><WeatherIcon /> 10-Day Forecast</span>
+            <div style={{ ...wxStyles.header, position: 'relative', paddingRight: '44px' }}>
+              <span style={wxStyles.headerLeft}><WeatherIcon /> 10-day forecast</span>
               <span style={wxStyles.headerRight}>{activeLabel}</span>
-              <button style={wxStyles.modalClose} aria-label="Close" onClick={() => setShowForecast(false)}>✕</button>
+              <button style={wxStyles.modalClose} aria-label="Close" onClick={() => setShowForecast(false)}><Icon name="close" size={14} /></button>
             </div>
             <div>
               {days.map((day, i) => (
                 <div key={day.date} style={{ ...wxStyles.fRow, ...(i === days.length - 1 ? { borderBottom: 'none' } : null) }}>
                   <span style={wxStyles.fDay}>{fmtForecastDay(day.date, i)}</span>
-                  <span style={wxStyles.fEmoji}>{wxIcon(day.code)}</span>
+                  <span style={wxStyles.fEmoji}><Icon name={weatherIcon(day.code)} size={22} /></span>
                   <span style={wxStyles.fCond}>{wxDescPop(day.code, day.pop)}</span>
                   <span style={wxStyles.fPop}>{day.pop != null ? `${day.pop}%` : ''}</span>
                   <span style={wxStyles.fTemp}>{day.hi}° / {day.lo}°</span>
@@ -453,8 +445,8 @@ function TabLeaderboard({ trip, teams, rounds }) {
   if (!trip.team_mode) {
     return (
       <div className="empty-state">
-        <span className="empty-state-icon">🏆</span>
-        No tournament set up
+        <span className="empty-state-icon"><Icon name="trophy" size={28} /></span>
+        No tournament set up. The commissioner turns one on in Commissioner tools.
       </div>
     )
   }
@@ -631,7 +623,7 @@ const powCard = {
   name: { fontSize: 16, fontWeight: 800, color: '#fff' },
   total: { fontSize: 28, fontWeight: 900, color: '#fff' },
   body: { background: '#fff', padding: '10px 12px' },
-  divider: { height: 1, background: '#E8EDF3', margin: '8px 0' },
+  divider: { height: 1, background: 'var(--paper-2)', margin: '8px 0' },
 }
 
 function PowHoleGrid({ cells, start }) {
@@ -639,8 +631,8 @@ function PowHoleGrid({ cells, start }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 2 }}>
       {cells.map((v, i) => (
         <div key={i} style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 9, color: '#7A8FA6', fontWeight: 700 }}>{start + i}</div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: v == null ? '#C4CEDA' : '#0D1B2A' }}>{v == null ? '·' : v}</div>
+          <div style={{ fontSize: 9, color: 'var(--slate)', fontWeight: 700 }}>{start + i}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: v == null ? 'var(--mist)' : 'var(--ink)' }}>{v == null ? '·' : v}</div>
         </div>
       ))}
     </div>
@@ -761,7 +753,7 @@ function PrinceOfWalesLeaderboard({ trip, teams, rounds }) {
       </div>
 
       {teams.length === 0 && (
-        <div className="empty-state"><span className="empty-state-icon">👑</span>No teams yet</div>
+        <div className="empty-state"><span className="empty-state-icon"><Icon name="crown" size={28} /></span>No teams yet. The commissioner sets teams in Commissioner tools.</div>
       )}
 
       {teams.map(team => {
@@ -804,21 +796,21 @@ const tp = {
   // Rendered via a portal to document.body and fixed-centred so the parent card's
   // overflow:hidden (.tee-group) can't clip it.
   backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 999, touchAction: 'none' },
-  popover: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, background: '#fff', border: '1px solid #DDE3EA', borderRadius: 12, boxShadow: '0 8px 28px rgba(13,27,42,0.18)', padding: 16, width: 240 },
+  popover: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: '0 8px 28px rgba(13,27,42,0.18)', padding: 16, width: 240 },
   cols: { display: 'flex', gap: 8 },
   colWrap: { flex: 1, minWidth: 0 },
-  colLabel: { fontSize: 9, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: '#7A8FA6', textAlign: 'center', marginBottom: 4 },
+  colLabel: { fontSize: 9, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--slate)', textAlign: 'center', marginBottom: 4 },
   // overscrollBehavior:contain + touchAction:pan-y keep touch scrolling inside the
   // list instead of chaining to the page behind the popover.
-  list: { height: 150, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y', display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: '#F5F8FA', borderRadius: 8 },
-  item: { padding: '7px 0', fontSize: 14, fontWeight: 600, color: '#2C3E50', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
-  itemActive: { background: '#1B3F6E', color: '#fff', fontWeight: 800 },
+  list: { height: 150, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y', display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: 'var(--paper-2)', borderRadius: 8 },
+  item: { padding: '7px 0', fontSize: 14, fontWeight: 600, color: 'var(--ink-2)', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
+  itemActive: { background: 'var(--primary)', color: '#fff', fontWeight: 800 },
   apCol: { display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' },
-  ap: { padding: '8px 12px', fontSize: 13, fontWeight: 700, color: '#7A8FA6', background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' },
-  apActive: { background: '#1B3F6E', color: '#fff', border: '1px solid #1B3F6E' },
+  ap: { padding: '8px 12px', fontSize: 13, fontWeight: 700, color: 'var(--slate)', background: 'var(--paper-2)', border: '1px solid var(--line)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' },
+  apActive: { background: 'var(--primary)', color: '#fff', border: '1px solid var(--primary)' },
   footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-  cancel: { background: 'none', border: 'none', color: '#7A8FA6', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '6px 4px' },
-  confirm: { width: 38, height: 38, borderRadius: '50%', background: '#1B3F6E', color: '#fff', border: 'none', fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  cancel: { background: 'none', border: 'none', color: 'var(--slate)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '6px 4px' },
+  confirm: { width: 38, height: 38, borderRadius: '50%', background: 'var(--primary)', color: '#fff', border: 'none', fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' },
 }
 
 // Tee-time cell: TBD placeholder or formatted time + Clear. Tapping opens a custom
@@ -882,19 +874,19 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
 
   if (!isCommissioner) {
     return value
-      ? <span style={{ fontSize: 17, fontWeight: 800, color: '#1B3F6E' }}>{value}</span>
-      : <span style={{ fontSize: 13, fontWeight: 600, color: '#7A8FA6' }}>TBD</span>
+      ? <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--primary)' }}>{value}</span>
+      : <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate)' }}>TBD</span>
   }
 
   return (
     <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
       {value ? (
         <>
-          <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 17, fontWeight: 800, color: '#1B3F6E' }}>{value}</button>
-          <button onClick={() => onSave(round.id, col, null)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: '#7A8FA6' }}>Clear</button>
+          <button onClick={openPicker} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 17, fontWeight: 800, color: 'var(--primary)' }}>{value}</button>
+          <button onClick={() => onSave(round.id, col, null)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: 'var(--slate)' }}>Clear</button>
         </>
       ) : (
-        <button onClick={openPicker} style={{ background: '#fff', border: '1px solid #1B3F6E', color: '#1B3F6E', padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>TBD</button>
+        <button onClick={openPicker} style={{ background: '#fff', border: '1px solid var(--primary)', color: 'var(--primary)', padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>TBD</button>
       )}
 
       {open && createPortal(
@@ -930,7 +922,7 @@ function TimeCell({ round, slot, isCommissioner, onSave }) {
             </div>
             <div style={tp.footer}>
               <button onClick={() => setOpen(false)} style={tp.cancel}>Cancel</button>
-              <button onClick={confirm} style={tp.confirm} aria-label="Confirm time">✓</button>
+              <button onClick={confirm} style={tp.confirm} aria-label="Confirm time"><Icon name="check" size={16} /></button>
             </div>
           </div>
         </>,
@@ -948,15 +940,15 @@ function MealTeeRow({ meal }) {
   const label = type && name !== type ? `${name} · ${type}` : name
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '4px 14px 4px 26px' }}>
-      <span style={{ fontSize: 12, color: '#7A8FA6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      <span style={{ fontSize: 12, color: '#7A8FA6', flexShrink: 0 }}>{meal.meal_time || ''}</span>
+      <span style={{ fontSize: 12, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <span style={{ fontSize: 12, color: 'var(--slate)', flexShrink: 0 }}>{meal.meal_time || ''}</span>
     </div>
   )
 }
 
 const teeRoundCardStyle = { background: 'var(--bg2)', border: '1px solid var(--bg3)', borderRadius: 14, margin: '10px 12px', overflow: 'hidden' }
 const teeRoundHeaderStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '10px 12px', borderBottom: '1px solid var(--bg3)' }
-const teePairingLabelStyle = { fontSize: 13, fontWeight: 600, color: '#2C3E50' }
+const teePairingLabelStyle = { fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }
 const teeTodayBadgeStyle = { fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', color: 'var(--navy)', background: '#fff', borderRadius: 10, padding: '1px 8px' }
 
 function TabTeeTimes({ rounds, meals = [], trip, isCommissioner, onUpdateRound, playerCount = 0 }) {
@@ -1018,8 +1010,8 @@ function TabTeeTimes({ rounds, meals = [], trip, isCommissioner, onUpdateRound, 
                   <div key={r.id} style={teeRoundCardStyle}>
                     <div style={teeRoundHeaderStyle}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#0D1B2A' }}>{primary}</div>
-                        {secondary && <div style={{ fontSize: 12, color: '#7A8FA6', marginTop: 1 }}>{secondary}</div>}
+                        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{primary}</div>
+                        {secondary && <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 1 }}>{secondary}</div>}
                       </div>
                       <span className={`type-pill ${isTournament ? 'tournament' : 'practice'}`}>
                         {isTournament ? 'Tournament' : 'Practice'}
@@ -1050,133 +1042,14 @@ function TabTeeTimes({ rounds, meals = [], trip, isCommissioner, onUpdateRound, 
 
 // ── Tab: Menu ────────────────────────────────────────────────────
 
-function TabMenu({ players, navigate, trip, activeGroup, onDevReset, user }) {
-  const [resetting, setResetting] = useState(false)
-  const me = players.find(p => !p.isGuest)
-  const displayName = me?.displayName ?? user?.email?.split('@')[0] ?? 'You'
-
-  async function handleSignOut() {
-    await supabase.auth.signOut()
-    navigate('/login', { replace: true })
-  }
-
-  async function handleDevReset() {
-    const ok = window.confirm('This will permanently delete your trip and all associated data. Continue?')
-    if (!ok) return
-    setResetting(true)
-    try {
-      await onDevReset(trip, activeGroup)
-      navigate('/onboarding/trip', { replace: true })
-    } catch (err) {
-      alert('Reset failed: ' + (err?.message || String(err)))
-      setResetting(false)
-    }
-  }
-
-  return (
-    <div style={{ paddingBottom: 32 }}>
-      {/* Profile */}
-      <div className="menu-profile-row">
-        <div className="menu-avatar">{initials(displayName)}</div>
-        <div>
-          <div className="menu-profile-name">{displayName}</div>
-          <div className="menu-profile-sub">{trip?.name}</div>
-        </div>
-      </div>
-
-      {/* Roster */}
-      <p className="menu-section-label">Roster</p>
-      <div className="menu-section">
-        {players.map(p => (
-          <div key={p.id} className="menu-item" style={{ cursor: 'default' }}>
-            <div className="menu-item-left">
-              <div className="menu-item-icon-box" style={{ background: 'var(--bg2)', fontSize: 14 }}>
-                {initials(p.displayName)}
-              </div>
-              <div>
-                <div className="menu-item-label">{p.displayName}</div>
-                <div className="menu-item-sub">{p.isGuest ? 'Guest player' : 'Member'}</div>
-              </div>
-            </div>
-          </div>
-        ))}
-        {players.length === 0 && (
-          <div className="menu-item" style={{ cursor: 'default', color: 'var(--muted)', fontStyle: 'italic' }}>
-            No players added yet.
-          </div>
-        )}
-      </div>
-
-      {/* More */}
-      <p className="menu-section-label">More</p>
-      <div className="menu-section">
-        <button className="menu-item">
-          <div className="menu-item-left">
-            <div className="menu-item-icon-box">✈️</div>
-            <div>
-              <div className="menu-item-label">Flights</div>
-              <div className="menu-item-sub">Arrival & departure info</div>
-            </div>
-          </div>
-          <span className="menu-item-chevron">›</span>
-        </button>
-        <button className="menu-item">
-          <div className="menu-item-left">
-            <div className="menu-item-icon-box">ℹ️</div>
-            <div>
-              <div className="menu-item-label">App Info</div>
-              <div className="menu-item-sub">Install guide & about</div>
-            </div>
-          </div>
-          <span className="menu-item-chevron">›</span>
-        </button>
-      </div>
-
-      {/* Account */}
-      <p className="menu-section-label">Account</p>
-      <div className="menu-section">
-        <button className="menu-item" onClick={handleSignOut}>
-          <div className="menu-item-left">
-            <div className="menu-item-icon-box">🚪</div>
-            <div>
-              <div className="menu-item-label" style={{ color: 'var(--red)' }}>Sign Out</div>
-            </div>
-          </div>
-        </button>
-      </div>
-
-      {/* DEV tools */}
-      {import.meta.env.DEV && (
-        <>
-          <p className="menu-section-label" style={{ color: '#f59e0b' }}>Developer Tools</p>
-          <div className="menu-section">
-            <button className="menu-item" onClick={handleDevReset} disabled={resetting}
-              style={{ opacity: resetting ? 0.5 : 1 }}>
-              <div className="menu-item-left">
-                <div className="menu-item-icon-box">🗑</div>
-                <div>
-                  <div className="menu-item-label" style={{ color: 'var(--red)' }}>
-                    {resetting ? 'Deleting…' : 'Reset Trip & Start Over'}
-                  </div>
-                  <div className="menu-item-sub">Deletes all trip data</div>
-                </div>
-              </div>
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
 // ── Main Dashboard ────────────────────────────────────────────────
 
 const TABS = [
   { id: 'dashboard',   label: 'Home'        },
   { id: 'scores',      label: 'Score'       },
-  { id: 'leaderboard', label: 'Leaderboard' },
+  { id: 'leaderboard', label: 'Standings'   },
   { id: 'stats',       label: 'Stats'       },
-  { id: 'tee-times',   label: 'Tee Times'   },
+  { id: 'tee-times',   label: 'Tee times'   },
   { id: 'menu',        label: 'Menu'        },
 ]
 
@@ -1450,21 +1323,21 @@ export default function TripDashboard() {
   if (!trip) return (
     <div className="loading-screen" style={{ flexDirection: 'column', gap: 20 }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 48 }}>⛳</div>
+        <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--primary)' }}><Icon name="flag" size={40} strokeWidth={1.25} /></div>
         <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--navy)', marginTop: 12 }}>No active trip</p>
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>Create a trip to get started.</p>
       </div>
-      <button className="btn btn-primary btn-auto" onClick={() => navigate('/onboarding/trip')}>Create a Trip</button>
+      <button className="btn btn-primary btn-auto" onClick={() => navigate('/onboarding/trip')}>Create a trip</button>
     </div>
   )
 
   // Page header content per tab (dashboard uses the TripHeader component instead)
   const headers = {
     dashboard:   null,
-    scores:      { eyebrow: 'Live Scoring',   title: trip.name },
-    leaderboard: { eyebrow: 'Trip Leaderboard', title: trip.name },
-    stats:       { eyebrow: 'Trip Stats',    title: trip.name },
-    'tee-times': { eyebrow: 'Tee Times',     title: trip.name },
+    scores:      { eyebrow: 'Score',      title: trip.name },
+    leaderboard: { eyebrow: 'Standings',  title: trip.name },
+    stats:       { eyebrow: 'Stats',      title: trip.name },
+    'tee-times': { eyebrow: 'Tee times',  title: trip.name },
     menu:        null,
   }
   const hdr = headers[activeTab]
@@ -1490,8 +1363,11 @@ export default function TripDashboard() {
       {/* ── Floating bottom nav — shared global chrome ── */}
       <BottomNav
         items={TABS}
-        active={activeTab}
-        onSelect={id => (id === 'menu' ? openMenuPage(null) : setActiveTab(id))}
+        active={drawerOpen ? 'menu' : activeTab}
+        onSelect={id => {
+          if (id === 'menu') { openMenuPage(null); return }
+          setDrawerOpen(false); setDrawerPage(null); setActiveTab(id)
+        }}
         menuDot={otherTripUnread}
       />
 
@@ -1513,7 +1389,7 @@ export default function TripDashboard() {
                   display: 'inline-block', width: 7, height: 7, borderRadius: '50%', marginLeft: 4, verticalAlign: 'super',
                   // Red while any score is saved on this phone but not synced (or no signal);
                   // green once everything has synced and live updates are connected.
-                  background: scoresUnsynced ? '#C0392B' : scoreConnStatus === 'connected' ? '#2E7D32' : scoreConnStatus === 'disconnected' ? '#C0392B' : '#DDE3EA',
+                  background: scoresUnsynced ? 'var(--bad)' : scoreConnStatus === 'connected' ? 'var(--ok)' : scoreConnStatus === 'disconnected' ? 'var(--bad)' : 'var(--line)',
                 }}
               />
             )}
@@ -1526,14 +1402,14 @@ export default function TripDashboard() {
       {/* ── Warning banner ── */}
       {showTripBanner && (
         <div className="info-banner" style={{ margin: '10px 16px 0' }}>
-          <span>One active trip at a time. Multi-trip support coming soon.</span>
+          <span>One active trip at a time.</span>
           <button className="info-banner-close" onClick={() => setShowTripBanner(false)}>×</button>
         </div>
       )}
 
       {/* ── Past-trip read-only indicator ── */}
       {readOnly && (
-        <div className="readonly-banner">Past Trip — Read Only</div>
+        <div className="readonly-banner">Past trip. Scores and settings can't be changed.</div>
       )}
 
       {/* ── Tab content ── (keyed by trip so switching trips remounts everything;

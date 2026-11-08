@@ -19,12 +19,12 @@ function fmt(iso) {
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`
 
 const ui = {
-  current: { fontSize: 13.5, color: '#2C3E50', margin: '2px 0 12px' },
-  rangeText: { marginTop: 10, fontFamily: 'var(--font-serif)', fontSize: 18, color: '#0D1B2A' },
-  moveRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, padding: '6px 0', borderBottom: '1px solid #EEF1F4', color: '#0D1B2A' },
+  current: { fontSize: 13.5, color: 'var(--ink-2)', margin: '2px 0 12px' },
+  rangeText: { marginTop: 10, fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--ink)' },
+  moveRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, padding: '6px 0', borderBottom: '1px solid var(--line-soft)', color: 'var(--ink)' },
   moveName: { fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
-  moveDates: { color: '#5E6E80', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' },
-  warn: { fontSize: 12.5, color: '#7A4B00', lineHeight: 1.5, marginTop: 10, background: '#FFF4DC', borderRadius: 8, padding: '9px 11px' },
+  moveDates: { color: 'var(--slate)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' },
+  warn: { fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.5, marginTop: 10, background: 'var(--warn-tint)', borderRadius: 8, padding: '9px 11px' },
 }
 
 function roundName(r) { return (r.scorecard_name || r.club_name || r.course_name || 'Round').trim() }
@@ -147,7 +147,7 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
       {plan?.ok && (
         <>
           <div style={rowUI.fieldLabel}>What changes</div>
-          {nothingScheduled && <div style={rowUI.note}>Nothing is scheduled yet — only the trip dates change.</div>}
+          {nothingScheduled && <div style={rowUI.note}>Nothing is scheduled yet, so only the trip dates change.</div>}
           {!nothingScheduled && moves.length === 0 && <div style={rowUI.note}>{cutCount ? 'Everything else' : 'Everything already scheduled'} stays on the same date.</div>}
           {moves.map(m => (
             <div key={m.key} style={ui.moveRow}>
@@ -171,13 +171,13 @@ export default function TripDatesBody({ tripId, startDate, endDate, onSaved, onC
           )}
           {plan.addedDays.length > 0 && (
             <div style={rowUI.info}>
-              New {plan.addedDays.length === 1 ? 'day' : 'days'} ({plan.addedDays.map(fmt).join(', ')}) start as “Not Scheduled Yet” — add rounds or meals in Schedule &amp; Courses.
+              New {plan.addedDays.length === 1 ? 'day' : 'days'} ({plan.addedDays.map(fmt).join(', ')}) start as “Not scheduled yet”. Add rounds or meals in Schedule and courses.
             </div>
           )}
           {(data.stays.length > 0 || data.flights > 0) && (
             <div style={rowUI.note}>
-              {data.stays.length > 0 && 'This only changes lodging dates in the app — update your actual hotel booking too. '}
-              {data.flights > 0 && 'Flights aren’t changed — each player updates their own.'}
+              {data.stays.length > 0 && 'This only changes lodging dates in the app. Update your hotel booking too. '}
+              {data.flights > 0 && 'Flights aren’t changed. Each player updates their own.'}
             </div>
           )}
         </>

@@ -25,6 +25,11 @@ Merge status verified with `git branch -r --merged origin/main` on 2026-10-23 (m
 - **Time zone:** `trips.time_zone` (IANA), backfilled for CTI Michigan. Pass it explicitly to `getTripPhase`. Never use the phone's clock for trip "today" (Owen is in Phoenix; trips often aren't).
 - **`getTripPhase`** returns `{ phase, dayNumber, totalDays, todaysRounds, liveRound, nextRound, lastCompletedRound, hasRoundsToday }`; phases: no-trip, before-trip, after-trip, no-round-day, before-first-tee, round-live, between-rounds, after-last-round. Facts only — policy lives in `screenForTripPhase` / `defaultRoundForTrip`.
 
+## In progress
+| Item | Branch | Status |
+|---|---|---|
+| **Design system: Letterpress Green** (2026-11-08). Tokens in `src/index.css`, shared `ui/` components and icon family, bottom nav as a flat bar with Menu as a real tab, Menu screen grouped This trip / Commissioner / You, Leaderboard tab renamed **Standings**, Home banner day strip as labelled segments (weekday + date through 6 days, date only from 7), scorecard golf notation (circles under par, squares over par, filled ace, flame badge for on fire, no current-hole marker), Lora numerals, copy pass (sentence case, no em dashes, no emoji, approved relabels), new app icons and manifest colors, `DESIGN_SYSTEM.md`, `npm run check:design`, CLAUDE.md rules. Decisions recorded in the review artifact and DESIGN_SYSTEM.md. | `feat/design-system-letterpress-green` | Pushed for preview; **not merged**. Open: hole-in-one mark (filled circle as built, or triple circle). |
+
 ## Done
 | Item | Branch | Status |
 |---|---|---|

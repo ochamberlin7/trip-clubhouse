@@ -7,29 +7,29 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#FFFFFF">
+    <meta name="theme-color" content="#F1F0EB">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Trip Clubhouse">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Trip Clubhouse</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Playfair+Display+SC:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #f5f5f5; color: #1a1a2e; font-family: -apple-system, BlinkMacSystemFont, sans-serif; min-height: 100vh; }
+      body { background: #F1F0EB; color: #161C26; font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif; min-height: 100vh; }
       #boot-msg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
       #boot-msg .spinner {
         width: 40px; height: 40px;
-        border: 4px solid rgba(27, 63, 110, 0.15);
-        border-top-color: #1B3F6E;
+        border: 4px solid rgba(31, 77, 58, 0.15);
+        border-top-color: #1F4D3A;
         border-radius: 50%;
         animation: boot-spin 0.8s linear infinite;
       }
       @keyframes boot-spin { to { transform: rotate(360deg); } }
       #fatal-error { display: none; padding: 32px; }
-      #fatal-error h2 { color: #ef4444; margin-bottom: 12px; font-size: 20px; }
-      #fatal-error pre { background: #fff; padding: 16px; border-radius: 8px; font-size: 13px; color: #dc2626; white-space: pre-wrap; overflow-x: auto; border: 1px solid #fecaca; }
+      #fatal-error h2 { color: #A93A3A; margin-bottom: 12px; font-size: 20px; }
+      #fatal-error pre { background: #fff; padding: 16px; border-radius: 8px; font-size: 13px; color: #A93A3A; white-space: pre-wrap; overflow-x: auto; border: 1px solid #D8D6CE; }
     </style>
   </head>
   <body>
@@ -37,7 +37,7 @@
     <div id="boot-msg"><div class="spinner"></div></div>
 
     <div id="fatal-error">
-      <h2>⚠ JavaScript error — app could not load</h2>
+      <h2>The app could not load</h2>
       <pre id="fatal-error-msg">Capturing error…</pre>
     </div>
 
