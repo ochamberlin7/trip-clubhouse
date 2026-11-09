@@ -97,6 +97,7 @@ component rather than styling around it.
 | `EmptyState` | Empty or failed-load state with title, explanation and optional action | `tone="error"` |
 | `Switch` | Toggle with a visible label | |
 | `HomeCard` (`src/components/homeCard.jsx`) | The Home-tab widget shell. Same look as `Card`; kept for existing widgets | |
+| `TeeTimeCell` (`src/components/TeeTimeCell.jsx`) | One pairing's tee time: serif time in green (or TBD), tap opens the hour / minute / AM-PM picker for a commissioner. Used by the Tee times tab and Schedule and courses; slot count from `teeSlotCount` in `src/lib/teeTimes.js` | `size`: lg (Tee times tab), sm (Schedule round card) |
 
 CSS classes for the same things: `.ds-card`, `.ds-row`, `.ds-mast`, `.ds-sec`, `.ds-pill`,
 `.ds-seg`, `.ds-field`, `.ds-tag-*`, `.ds-empty`, `.ds-switch`, `.ds-dseg` (banner day strip).
