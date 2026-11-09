@@ -123,6 +123,14 @@ export function roundHoleCount(round) {
   return 18
 }
 
+// { [round.id]: holes needed } for isRoundComplete: the caller's map when it has
+// this round, else the round's own length (so callers that pass only the round
+// rows — the trip screen, Home — still treat a 12-hole Dozen as complete at 12).
+function holeCountFor(round, holeCountByRound) {
+  const n = holeCountByRound?.[round?.id] || roundHoleCount(round)
+  return round?.id != null ? { [round.id]: n } : {}
+}
+
 // A practice / "no scoring" round carries no scorecard, so it can never be complete
 // by scores — it's done once its day has passed.
 export function isPracticeRound(round) {
@@ -147,8 +155,7 @@ export function scheduleRoundState(round, ctx, todayIso, nowMinutes) {
   // Scoring round: fully scored → completed (on any day). Otherwise a past day is
   // over (completed), a future day is upcoming, and today's round is live once it's
   // within 30 min of the first tee (matching getLiveRounds), else still upcoming.
-  const holeCountByRound = round?.id != null ? { [round.id]: roundHoleCount(round) } : {}
-  if (isRoundComplete(round?.id, ctx?.assignedByRound || {}, ctx?.holesByRoundPlayer || {}, holeCountByRound)) {
+  if (isRoundComplete(round?.id, ctx?.assignedByRound || {}, ctx?.holesByRoundPlayer || {}, holeCountFor(round, ctx?.holeCountByRound))) {
     return 'completed'
   }
   if (date && date < todayIso) return 'completed'
@@ -181,7 +188,7 @@ export function roundHasAnyScore(roundId, ctx) {
 // holeCountByRound? }). Both getLiveRounds and getTripPhase go through here.
 export function isRoundLiveAt(round, ctx, todayIso, nowMinutes) {
   if (!round || round.date !== todayIso) return false
-  if (isRoundComplete(round.id, ctx?.assignedByRound || {}, ctx?.holesByRoundPlayer || {}, ctx?.holeCountByRound)) return false
+  if (isRoundComplete(round.id, ctx?.assignedByRound || {}, ctx?.holesByRoundPlayer || {}, holeCountFor(round, ctx?.holeCountByRound))) return false
   const tee = parseTeeTimeToMinutes(round.tee_time_1)
   if (tee > 0) return nowMinutes >= tee - 30
   return roundHasAnyScore(round.id, ctx)
@@ -276,7 +283,7 @@ export function getTripPhase({ trip, rounds = [], now = new Date(), timeZone, ho
   const ctx = completenessIsFn ? null : (completeness || {})
   const isScored = (round) => completenessIsFn
     ? !!completeness(round)
-    : isRoundComplete(round.id, ctx.assignedByRound || {}, ctx.holesByRoundPlayer || {}, holeCountByRound)
+    : isRoundComplete(round.id, ctx.assignedByRound || {}, ctx.holesByRoundPlayer || {}, holeCountFor(round, holeCountByRound || ctx.holeCountByRound))
   const hasScore = (round) => completenessIsFn ? false : roundHasAnyScore(round.id, ctx)
 
   // Per-round state: 'completed' | 'live' | 'upcoming'.
@@ -804,7 +811,8 @@ export function firstName(name) {
 // tallies to specific rounds; pass null to include every complete round.
 //
 // Returns:
-//   completeRoundIds : Set of round ids where every round player has 18 scores
+//   completeRoundIds : Set of round ids where every round player has scored
+//                      every hole of that round (roundHoleCount: 18, or 12 for The Dozen)
 //   holeWinsByTeam   : Map teamId -> holes won
 //   pointsByPlayer   : Map trip_player_id -> points
 //   vsParByPlayer    : Map trip_player_id -> cumulative (net - par)
@@ -861,15 +869,17 @@ export function analyzeScoring(
     roundPlayers.set(r.id, set)
   }
 
-  // completeness: every round player has 18 scored holes
+  // completeness: every round player has scored every hole of THAT round
+  // (its own length — 12 for The Dozen — never a fixed 18)
   const completeRoundIds = new Set()
   for (const r of rounds) {
     const players = roundPlayers.get(r.id)
     if (!players || players.size === 0) continue
+    const need = roundHoleCount(r)
     let ok = true
     for (const tp of players) {
       const holes = playerHoles.get(`${r.id}:${tp}`)
-      if (!holes || holes.size < 18) { ok = false; break }
+      if (!holes || holes.size < need) { ok = false; break }
     }
     if (ok) completeRoundIds.add(r.id)
   }

@@ -22,14 +22,18 @@ import { attachAvatars, playerAccountIds } from '../lib/avatar'
 import { useAuth } from '../context/AuthContext'
 import Icon from './ui/Icon'
 import { version as APP_VERSION } from '../../package.json'
-import { rowUI, Disclosure, SaveLink, Toggle } from './DisclosureRow'
+import { rowUI, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
 import SupportForm from './SupportForm'
-import { loadMyTrips } from '../lib/myTrips'
+import { loadMyTrips, tripListRemoveNotice } from '../lib/myTrips'
 import SwipeDeleteRow from './SwipeDeleteRow'
 import TripDatesBody from './TripDatesBody'
-import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL } from '../lib/roster'
+import TeamCountBody from './TeamCountBody'
+import TripGroupBody from './TripGroupBody'
+import { StripePage, StripeSection, StripeRow, StripeInviteRow, StripeDanger, TripNameBody } from './StripeRows'
+import { removeTripPlayer, rosterChangeBlockReason, isPlaceholderPlayer, PLACEHOLDER_LABEL, leaveTrip, leaveTripBlockReason } from '../lib/roster'
+import { transferCommissioner } from '../lib/commissioner'
 
 // Slide-out menu drawer + full-screen secondary pages (CTI Clubhouse model).
 // The drawer slides from the right; tapping a menu item hides the drawer and
@@ -53,6 +57,12 @@ function daysInRange(start, end) {
     out.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`)
   }
   return out
+}
+// "Thu, Jun 10 – Sun, Jun 13" (Commissioner Tools dates row).
+function fmtDatesShort(a, b) {
+  if (!a && !b) return '—'
+  if (!b || a === b) return fmtShort(a || b)
+  return `${fmtShort(a)} – ${fmtShort(b)}`
 }
 function fmtLong(iso) { const d = parseDate(iso); return d ? `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : '—' }
 function fmtRange(s, e) {
@@ -350,6 +360,13 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
   })
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [confirmTransfer, setConfirmTransfer] = useState(false)
+  // "Make commissioner" hands the job for THIS trip to another player (you lose it).
+  // Shown on every other player's card; only someone who has joined with an
+  // account can take it, so it's greyed out for players who haven't joined yet.
+  const accountId = player.claimed_user_id || player.user_id || null
+  const canOfferCommissioner = isCommissioner && !isOwnCard && !isPlaceholderPlayer(player) && !commissioner
   const [confirmRemove, setConfirmRemove] = useState(false)
   const isOpenSpot = isPlaceholderPlayer(player)
   // Commissioner-only, before the trip starts, never on their own card or an empty spot.
@@ -392,6 +409,7 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
         .eq('team_id', form.team_id).neq('id', player.id)
     }
     setSaving(false)
+    setSaveError(error ? 'Couldn\'t save. Try again.' : '')
     // Filling an empty spot → the Players page pops up the invite link for them.
     const filledSpot = isOpenSpot && isCommissioner && !!payload.first_name
     if (!error) onSaved(filledSpot ? { invite: [payload.first_name, payload.last_name].filter(Boolean).join(' ') } : undefined)
@@ -449,6 +467,14 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
           )}
         </div>
       )}
+      {confirmTransfer && (
+        <TransferCommissionerModal
+          player={player}
+          toUserId={accountId}
+          fromUserId={currentUserId}
+          onClose={() => setConfirmTransfer(false)}
+        />
+      )}
       {confirmRemove && (
         <RemovePlayerModal
           player={{ ...player, is_commissioner: commissioner }}
@@ -490,6 +516,15 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               </label>
             </div>
           )}
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Phone</span>
+            <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span style={pc.editLabel}>Email</span>
+            <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+          </label>
+          {/* Captain and Make commissioner sit under Email (Owen 2026-11-05). */}
           {/* Subtle Captain checkmark (the global input rule would balloon a native
               checkbox to a full-width bar, so the box is a custom span). Captain
               reads the player's existing team — no team picker needed. */}
@@ -505,17 +540,23 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
               )}
             </label>
           )}
-          <label style={{ display: 'block' }}>
-            <span style={pc.editLabel}>Phone</span>
-            <input style={pc.editInput} placeholder="(555) 000-0000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
-          </label>
-          <label style={{ display: 'block' }}>
-            <span style={pc.editLabel}>Email</span>
-            <input style={pc.editInput} type="email" placeholder="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-          </label>
+          {/* Make commissioner: ticking opens the hand-over pop-up (same custom box as Captain). */}
+          {canOfferCommissioner && (
+            <div>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: accountId ? 'pointer' : 'default', width: 'fit-content', padding: '2px 0', opacity: accountId ? 1 : 0.5 }}>
+                <input type="checkbox" checked={confirmTransfer} disabled={!accountId} onChange={e => e.target.checked && setConfirmTransfer(true)} style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }} />
+                <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${confirmTransfer ? 'var(--primary)' : 'var(--mist)'}`, background: confirmTransfer ? 'var(--primary)' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+                  {confirmTransfer && <CheckIcon />}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Make commissioner</span>
+              </label>
+              {!accountId && <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 2 }}>Available once {player.first_name || 'they'} {player.first_name ? 'joins' : 'join'} the trip.</div>}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
             <button onClick={save} disabled={saving} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={onCloseEdit} style={{ background: 'transparent', border: 'none', color: 'var(--slate)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            {saveError && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{saveError}</span>}
             {/* Remove lives in edit mode only, bottom-right of the panel. */}
             {canRemove && (
               <button onClick={() => setConfirmRemove(true)} disabled={saving} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', padding: 0, color: 'var(--bad)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Remove player</button>
@@ -530,6 +571,35 @@ function PlayerCard({ player, teams, isCommissioner, currentUserId, commissioner
 
 // Centered "are you sure" pop-up for removing a player. Portaled to <body> so it
 // sits above the drawer. The write goes through src/lib/roster.js.
+// "Make commissioner" pop-up: hands this trip's commissioner job to the player.
+// On success the page reloads so every screen drops your commissioner tools.
+function TransferCommissionerModal({ player, toUserId, fromUserId, onClose }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  async function confirm() {
+    setBusy(true); setErr(null)
+    const { error } = await transferCommissioner(supabase, { tripId: player.trip_id, toUserId, fromUserId })
+    if (error) { setBusy(false); setErr(error.message || 'Something went wrong.'); return }
+    window.location.reload()
+  }
+  return createPortal(
+    <div style={{ ...s.modalOverlay, zIndex: 1000 }} onClick={() => !busy && onClose()}>
+      <div style={{ ...s.modalSheet, maxWidth: 360, textAlign: 'center' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Make {player.name} commissioner?</div>
+        <div style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.45 }}>
+          You are about to transfer commissioner duties for this trip to {player.name}. You will lose all commissioner authority for this trip. Are you sure?
+        </div>
+        {err && <div style={{ marginTop: 10, fontSize: 12, color: 'var(--bad)' }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
+          <button onClick={onClose} disabled={busy} style={{ background: 'var(--paper-2)', color: 'var(--ink-2)', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={confirm} disabled={busy} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Transferring…' : 'Yes, transfer'}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function RemovePlayerModal({ player, groupId, rosterLocked, onClose, onRemoved }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
@@ -2055,90 +2125,81 @@ function inviteUrl(inviteToken) {
   return `https://thetripclubhouse.com/join/${inviteToken || ''}`
 }
 
-function InvitePlayersRow({ inviteToken }) {
-  const [open, setOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const url = inviteUrl(inviteToken)
-  async function copy() {
-    try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-  return (
-    <div style={rowUI.divider}>
-      <div style={rowUI.rowStatic}>
-        <span style={rowUI.label}>Invite Link</span>
-        <button style={{ ...rowUI.linkBtn, marginLeft: 'auto' }} onClick={copy}>{copied ? 'Copied!' : 'Copy link'}</button>
-        <button onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label="Show invite link"
-          style={{ ...rowUI.chevronBox, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
-      </div>
-      {open && (
-        <div style={{ padding: '0 2px 16px' }}>
-          <div style={{ background: 'var(--line-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: 'var(--slate)', wordBreak: 'break-all' }}>{url}</div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Bottom danger action: soft-delete this trip (stays in Recently Deleted 30 days).
-function DeleteTripAction({ tripName, onDelete }) {
+// Only before the trip starts (`locked` = isRosterLocked); after that it just says why.
+function DeleteTripAction({ tripName, locked, onDelete }) {
   const [busy, setBusy] = useState(false)
   async function handle() {
     if (busy) return
-    if (!window.confirm(`Delete "${tripName || 'this trip'}"? It moves to Recently Deleted and can be restored for 30 days.`)) return
+    if (!window.confirm(`Delete "${tripName || 'this trip'}" for everyone on it? You can restore it for 30 days.`)) return
     setBusy(true)
     await onDelete?.()
     setBusy(false) // on success the drawer closes + routes away
   }
+  if (locked) return <StripeDanger note="This trip has started, so it can't be deleted." />
   return (
-    <div style={rowUI.dangerWrap}>
-      <div style={rowUI.note}>Removes this trip from the trip list. It stays in Recently Deleted and can be restored for 30 days.</div>
-      <button style={{ ...rowUI.dangerBtn, marginTop: 10 }} onClick={handle} disabled={busy}>{busy ? 'Deleting…' : 'Delete Trip'}</button>
-    </div>
+    <StripeDanger note="Deletes this trip for everyone on it. It stays in Recently Deleted and can be restored for 30 days."
+      label="Delete trip" busyLabel="Deleting…" onClick={handle} busy={busy} />
   )
 }
 
-function CommissionerPage({ data, tripId, tripName, tripStartDate, tripEndDate, onDatesChanged, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
+// Commissioner Tools (redesign "1C", 2026-10-30): wizard-style grey stripes
+// grouping The Trip / Players & Teams / The Game, with Fraunces + Inter.
+// Each row expands in place to edit; Roster opens Players & Teams.
+function CommissionerPage({ data, tripId, groupId, groupName, tripName, tripStartDate, tripEndDate, rosterLocked = true, onDatesChanged, onNameChanged, onOpenPlayers, onTeamCountChanged, handicapAllowance, tournamentFormat, tournamentOn, purseAmount, showPurseOnHome, inviteToken, onTeamsSaved, onTripUpdate, onDeleteTrip }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const teams = data.teams || []
-  const teamsValue = teams.length ? teams.map(getTeamDisplayName).join(' vs ') : '—'
-  const purseValue = Number(purseAmount) > 0
-    ? `$${formatMoney(Number(purseAmount))}`
-    : (showPurseOnHome ? 'Not set' : 'Not set · hidden')
-  const allowanceValue = `${handicapAllowance ?? 100}%`
   const joined = data.joinedCount ?? 0
+  const total = data.playerCount ?? 0
+  const days = daysInRange(tripStartDate, tripEndDate).length
+  const purseSet = Number(purseAmount) > 0
   return (
-    <div>
-      <Disclosure label="Trip Dates" value={fmtRange(tripStartDate, tripEndDate)}>
-        {({ close }) => <TripDatesBody tripId={tripId} startDate={tripStartDate} endDate={tripEndDate} onSaved={onDatesChanged} onClose={close} />}
-      </Disclosure>
-      <Disclosure label="Team Names" value={teamsValue}>
-        {({ close }) => <TeamNamesBody teams={teams} onSaved={onTeamsSaved} onClose={close} />}
-      </Disclosure>
-      {tournamentOn && (
-        <Disclosure label="Tournament Format" value={tournamentFormatLabel(tournamentFormat)}>
-          {({ close }) => <FormatBody tripId={tripId} format={tournamentFormat} teamCount={teams.length} onUpdate={onTripUpdate} onClose={close} />}
-        </Disclosure>
-      )}
-      <Disclosure label="Tournament Purse" value={purseValue}>
-        {({ close }) => <PurseBody tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} onUpdate={onTripUpdate} onClose={close} />}
-      </Disclosure>
-      <Disclosure label="Handicap Allowance" value={allowanceValue}>
-        {({ close }) => <AllowanceBody tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} onClose={close} />}
-      </Disclosure>
-      <InvitePlayersRow inviteToken={inviteToken} />
-      <div style={{ ...rowUI.rowStatic, ...rowUI.divider }}>
-        <span style={rowUI.label}>Players Joined</span>
-        <span style={rowUI.value}>{joined} of open invite</span>
-      </div>
-      <DeleteTripAction tripName={tripName} onDelete={onDeleteTrip} />
-    </div>
+    <StripePage intro="Everything about the trip, in one place. Tap a row to change it.">
+      <StripeSection title="The trip">
+        <StripeRow label="Trip name" value={tripName || '—'}>
+          {({ close }) => <TripNameBody tripId={tripId} name={tripName} onSaved={onNameChanged} onClose={close} />}
+        </StripeRow>
+        {/* Group (under Trip name, above Dates — Owen 2026-11-05): move this trip into another of your groups (migration 20260682).
+            The page reloads after a move so every screen picks up the new group. */}
+        <StripeRow label="Group" value={groupName || '—'}>
+          {() => <TripGroupBody tripId={tripId} tripName={tripName} groupId={groupId} groupName={groupName} onMoved={() => window.location.reload()} />}
+        </StripeRow>
+        <StripeRow label="Dates" value={fmtDatesShort(tripStartDate, tripEndDate)} detail={days ? `${days} day${days === 1 ? '' : 's'}` : null}>
+          {({ close }) => <TripDatesBody tripId={tripId} startDate={tripStartDate} endDate={tripEndDate} onSaved={onDatesChanged} onClose={close} />}
+        </StripeRow>
+      </StripeSection>
+
+      <StripeSection title="Players & teams" detail={total ? `${joined} of ${total} joined` : null}>
+        <StripeRow label="Roster" value={`${total} player${total === 1 ? '' : 's'}`} detail="Players & Teams" onClick={onOpenPlayers} />
+        {teams.length > 0 && (
+          <StripeRow label="Number of teams" value={`${teams.length} teams`}>
+            {({ close }) => <TeamCountBody tripId={tripId} teams={teams} onSaved={onTeamCountChanged} onClose={close} />}
+          </StripeRow>
+        )}
+        {teams.length > 0 && (
+          <StripeRow label="Team names" value={teams.map(getTeamDisplayName).join(' vs ')}>
+            {({ close }) => <TeamNamesBody teams={teams} onSaved={onTeamsSaved} onClose={close} />}
+          </StripeRow>
+        )}
+        <StripeInviteRow url={inviteUrl(inviteToken)} />
+      </StripeSection>
+
+      <StripeSection title="The game">
+        {tournamentOn && (
+          <StripeRow label="Format" value={tournamentFormatLabel(tournamentFormat)}>
+            {({ close }) => <FormatBody tripId={tripId} format={tournamentFormat} teamCount={teams.length} onUpdate={onTripUpdate} onClose={close} />}
+          </StripeRow>
+        )}
+        <StripeRow label="Handicap allowance" value={`${handicapAllowance ?? 100}%`}>
+          {({ close }) => <AllowanceBody tripId={tripId} allowance={handicapAllowance} onUpdate={onTripUpdate} onClose={close} />}
+        </StripeRow>
+        <StripeRow label="Purse" value={purseSet ? `$${formatMoney(Number(purseAmount))}` : 'Not set'} detail={showPurseOnHome ? 'Shown on Home' : 'Hidden on Home'}>
+          {({ close }) => <PurseBody tripId={tripId} purseAmount={purseAmount} showPurseOnHome={showPurseOnHome} onUpdate={onTripUpdate} onClose={close} />}
+        </StripeRow>
+      </StripeSection>
+
+      <DeleteTripAction tripName={tripName} locked={rosterLocked} onDelete={onDeleteTrip} />
+    </StripePage>
   )
 }
 
@@ -2268,11 +2329,12 @@ function CaretIcon() {
   )
 }
 
-// Swipe-to-delete trip row — shared component (also used on the Clubhouse page).
-function SwipeRow({ canDelete, divider, onPick, onDelete, children }) {
+// Swipeable trip row — shared component (also used on the Clubhouse page). The
+// swipe only opens a notice (tripListRemoveNotice); nothing is deleted from a list.
+function SwipeRow({ deleteLabel, divider, onPick, onDelete, children }) {
   const rowStyle = { ...sw.row, ...(divider ? sw.rowDivider : null) }
   return (
-    <SwipeDeleteRow canDelete={canDelete} rowStyle={rowStyle} outerStyle={divider ? sw.rowDivider : undefined}
+    <SwipeDeleteRow canDelete deleteLabel={deleteLabel} rowStyle={rowStyle} outerStyle={divider ? sw.rowDivider : undefined}
       coverBg="var(--stone)" onPick={onPick} onDelete={onDelete}>
       {children}
     </SwipeDeleteRow>
@@ -2307,7 +2369,9 @@ function RecentlyDeleted({ trips, onRestore }) {
           {trips.map(t => (
             <div key={t.id} style={sw.deletedRow}>
               <span style={sw.deletedName}>{t.name || 'Untitled Trip'}</span>
-              <button style={sw.restoreBtn} onClick={() => onRestore(t.id)}>Restore</button>
+              {t.canRestore
+                ? <button style={sw.restoreBtn} onClick={() => onRestore(t.id)}>Restore</button>
+                : <span style={{ fontSize: 12, color: 'var(--slate)' }}>Commissioner can restore</span>}
             </div>
           ))}
           <div style={sw.deletedNote}>Permanently deleted after 30 days.</div>
@@ -2321,10 +2385,10 @@ function RecentlyDeleted({ trips, onRestore }) {
 // Upcoming / Past (name + location left, date + golfer count right), plus a
 // collapsible Recently Deleted section for soft-deleted trips restorable within
 // 30 days. Trip names/dates/locations/counts all come from the live trip data.
-function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), onPick, onCreate, onRestore, onDelete }) {
+function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), onPick, onCreate, onRestore }) {
   const [rows, setRows] = useState(null)       // active trips — null = loading
   const [deleted, setDeleted] = useState([])   // soft-deleted, restorable (<30d)
-  const [pendingDelete, setPendingDelete] = useState(null) // trip awaiting delete confirm
+  const [notice, setNotice] = useState(null) // { title, body, canOpen, trip } from a row swipe
   const mountedRef = useRef(true)
   useEffect(() => () => { mountedRef.current = false }, [])
 
@@ -2350,20 +2414,6 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
     .filter(t => t.id !== currentTripId && t.end_date && t.end_date < today)
     .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
 
-  // Soft-delete uses an in-app confirm modal (below) rather than window.confirm —
-  // the native dialog repaints the page white behind it on mobile. The trash tap
-  // opens the modal; confirming runs the delete.
-  async function confirmDelete() {
-    const t = pendingDelete
-    setPendingDelete(null)
-    if (!t) return
-    // Optimistically move it into Recently Deleted, then reconcile with the server.
-    setRows(rs => (rs || []).filter(x => x.id !== t.id))
-    setDeleted(d => [{ id: t.id, name: t.name }, ...d])
-    await onDelete?.(t.id)
-    load() // proper ordering; handles the current-trip case
-  }
-
   // Restore a soft-deleted trip: drop it from Recently Deleted immediately, run the
   // real restore, then reload so it reappears in This Trip/Upcoming/Past — with its
   // full dates/location/golfers — without needing a page refresh.
@@ -2382,8 +2432,8 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
         {list.map((t, i) => {
           const isCurrent = t.id === currentTripId
           return (
-            <SwipeRow key={t.id} canDelete={t.canDelete} divider={i < list.length - 1}
-              onPick={() => onPick(t.id)} onDelete={() => setPendingDelete(t)}>
+            <SwipeRow key={t.id} deleteLabel={t.isCommissioner ? 'Delete trip' : 'Leave trip'} divider={i < list.length - 1}
+              onPick={() => onPick(t.id)} onDelete={() => setNotice({ trip: t, ...tripListRemoveNotice(t) })}>
               {isCurrent && <span style={{ ...sw.dot, ...sw.dotCurrent }} />}
               <span style={sw.left}>
                 <span style={sw.name}>
@@ -2426,16 +2476,16 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
       )}
       <button style={sw.createBtn} onClick={onCreate}>+ Create New Trip</button>
 
-      {pendingDelete && (
-        <div style={s.modalOverlay} onClick={() => setPendingDelete(null)}>
+      {notice && (
+        <div style={s.modalOverlay} onClick={() => setNotice(null)}>
           <div style={{ ...s.modalSheet, maxWidth: 360 }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Delete this trip?</div>
-            <div style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
-              Deleting <strong>{pendingDelete.name || 'this trip'}</strong> will remove its history and data. You’ll have 30 days to restore it before it’s permanently deleted.
-            </div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>{notice.title}</div>
+            <div style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>{notice.body}</div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={confirmDelete} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Delete Trip</button>
-              <button onClick={() => setPendingDelete(null)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid var(--line)', background: '#fff', color: 'var(--ink-2)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              {notice.canOpen && (
+                <button onClick={() => { const id = notice.trip.id; setNotice(null); onPick(id) }} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: 'var(--ink)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Open trip</button>
+              )}
+              <button onClick={() => setNotice(null)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid var(--line)', background: '#fff', color: 'var(--ink-2)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{notice.canOpen ? 'Cancel' : 'OK'}</button>
             </div>
           </div>
         </div>
@@ -2444,11 +2494,69 @@ function TripSwitcherPage({ userId, currentTripId, unreadTripIds = new Set(), on
   )
 }
 
+// "Leave trip" — quiet red link at the bottom of the menu. Players only, and only
+// before the trip starts (leaveTripBlockReason); otherwise it isn't shown. Their
+// spot becomes Player TBD (same as a commissioner removing them) and the trip
+// drops off their list.
+function LeaveTripAction({ tripId, tripName, groupId, userId, isCommissioner, rosterLocked, onLeft }) {
+  const [mine, setMine] = useState(null)    // { tripId, row }: this user's trip_players row
+  const [confirm, setConfirm] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const allowed = !leaveTripBlockReason({ isCommissioner, rosterLocked })
+
+  useEffect(() => {
+    if (!allowed || !tripId || !userId) return
+    let alive = true
+    supabase.from('trip_players').select('id, user_id, claimed_user_id')
+      .eq('trip_id', tripId).or(`user_id.eq.${userId},claimed_user_id.eq.${userId}`).limit(1)
+      .then(({ data }) => { if (alive) setMine({ tripId, row: data?.[0] || null }) })
+    return () => { alive = false }
+  }, [allowed, tripId, userId])
+
+  const me = mine?.tripId === tripId ? mine.row : null
+  if (!allowed || !me) return null
+
+  async function leave() {
+    setBusy(true); setErr('')
+    const { error } = await leaveTrip(supabase, { player: me, groupId, isCommissioner, rosterLocked })
+    setBusy(false)
+    if (error) { setErr(error.message || 'Could not leave. Please try again.'); return }
+    setConfirm(false)
+    onLeft?.()
+  }
+
+  return (
+    <>
+      <button onClick={() => setConfirm(true)}
+        style={{ display: 'block', margin: '6px auto 0', background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '8px 12px' }}>
+        Leave trip
+      </button>
+      {confirm && createPortal(
+        <div style={s.modalOverlay} onClick={() => !busy && setConfirm(false)}>
+          <div style={{ ...s.modalSheet, maxWidth: 360 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Leave {tripName || 'this trip'}?</div>
+            <div style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+              Your spot becomes {PLACEHOLDER_LABEL} so the commissioner can fill it, and the trip comes off your list. To come back you'll need a new invite.
+            </div>
+            {err && <div style={{ fontSize: 13, color: 'var(--bad)', marginTop: 10 }}>{err}</div>}
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={leave} disabled={busy} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{busy ? 'Leaving…' : 'Leave trip'}</button>
+              <button onClick={() => setConfirm(false)} disabled={busy} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid var(--line)', background: '#fff', color: 'var(--ink-2)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
 // ── main component ────────────────────────────────────────────────
 export default function MenuDrawer({
   open, onClose,
   tripId, groupId, groupName, tripName, tripStartDate, tripEndDate,
-  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, tournamentOn = true, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, initialPage = null,
+  inviteToken, isCommissioner, readOnly = false, rosterLocked = true, currentUserId, handicapAllowance, tournamentFormat, tournamentOn = true, bonusGames, purseAmount, showPurseOnHome, onTripUpdate, onRoundsChanged, onTeamsChanged, initialPage = null,
 }) {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -2456,7 +2564,7 @@ export default function MenuDrawer({
   const goToProfile = () => { onClose(); navigate('/profile') }
   // First name for the drawer header; falls back to the email's local part.
   const firstName = ((user?.user_metadata?.display_name || '').trim().split(/\s+/)[0]) || (user?.email || '').split('@')[0]
-  const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds, patchTrip } = useGroup()
+  const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds, patchTrip, fetchUserGroups } = useGroup()
   // "Trips" row red dot: any trip OTHER than the active one has unread trash-talk.
   const otherTripUnread = [...unreadTripIds].some(id => id !== activeTripId)
   const [page, setPage] = useState(null)
@@ -2657,13 +2765,13 @@ export default function MenuDrawer({
       (async () => {
         const [tpRes, teamsRes, adminRes] = await Promise.all([
           supabase.from('trip_players')
-            .select('id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed, is_captain')
+            .select('id, trip_id, user_id, claimed_user_id, guest_name, first_name, last_name, email, phone, handicap_index, team_id, is_claimed, is_captain')
             .eq('trip_id', tripId).order('last_name'),
           // Ordered by team_index; includes color_index for the team-pill colours.
           supabase.from('teams').select('id, name, team_index, color_index').eq('trip_id', tripId).order('team_index'),
-          supabase.from('group_members').select('user_id').eq('group_id', groupId).eq('role', 'admin'),
+          supabase.from('trip_commissioners').select('user_id').eq('trip_id', tripId),
         ])
-        // The commissioner is the group admin; flag whichever player record they own/claimed.
+        // This trip's commissioners (per trip, not the group admin); flag whichever player record they own/claimed.
         const adminIds = new Set((adminRes.data || []).map(m => m.user_id))
         const tps = (tpRes.data || []).map(tp => ({
           ...tp,
@@ -2687,11 +2795,12 @@ export default function MenuDrawer({
         // Ordered by team_index; includes color_index for display/colour helpers.
         // Also count players who've actually joined (claimed their slot) for the
         // read-only "Players Joined" row.
-        const [{ data: teams }, { count: joinedCount }] = await Promise.all([
+        const [{ data: teams }, { count: joinedCount }, { count: playerCount }] = await Promise.all([
           supabase.from('teams').select('id, name, team_index, color_index').eq('trip_id', tripId).order('team_index'),
           supabase.from('trip_players').select('id', { count: 'exact', head: true }).eq('trip_id', tripId).eq('is_claimed', true),
+          supabase.from('trip_players').select('id', { count: 'exact', head: true }).eq('trip_id', tripId),
         ])
-        if (!cancelled) setCommissionerData({ teams: teams || [], joinedCount: joinedCount ?? 0 })
+        if (!cancelled) setCommissionerData({ teams: teams || [], joinedCount: joinedCount ?? 0, playerCount: playerCount ?? 0 })
       })()
     }
     if (page === 'courses' && !coursesData) { (async () => { await loadCoursesData() })() }
@@ -3117,6 +3226,9 @@ export default function MenuDrawer({
               </button>
             ))}
           </div>
+          <LeaveTripAction tripId={tripId} tripName={tripName} groupId={groupId} userId={currentUserId}
+            isCommissioner={isCommissioner} rosterLocked={rosterLocked}
+            onLeft={async () => { await fetchUserGroups(); onClose(); navigate('/home') }} />
         </div>
         {/* Footer: app name, App info and Install guide, version. */}
         <div style={s.drawerFooter}>
@@ -3143,10 +3255,6 @@ export default function MenuDrawer({
             onPick={id => { onClose(); switchTrip(id) }}
             onCreate={() => { onClose(); navigate('/onboarding/trip') }}
             onRestore={id => restoreTrip(id)}
-            onDelete={async id => {
-              const { error } = await softDeleteTrip(id)
-              if (error) window.alert('Delete failed. Please try again.')
-            }}
           />
         </SecondaryPage>
       )}
@@ -3155,9 +3263,21 @@ export default function MenuDrawer({
           <CommissionerPage
             data={commissionerData}
             tripId={tripId}
+            groupId={groupId}
+            groupName={groupName}
             tripName={tripName}
             tripStartDate={tripStartDate}
             tripEndDate={tripEndDate}
+            rosterLocked={rosterLocked}
+            onOpenPlayers={() => setPage('players')}
+            onTeamCountChanged={() => {
+              // Teams added/removed (players may be unassigned): reload this page,
+              // the Players tab and the trip screen's teams.
+              setCommissionerData(null)
+              setPlayersData(null)
+              onTeamsChanged?.()
+            }}
+            onNameChanged={name => { patchTrip?.(tripId, { name }); onTripUpdate?.() }}
             onDatesChanged={(start, end) => {
               // Trip dates + every round/meal/lodging date moved: refresh the
               // trip and rounds, and drop the cached Schedule page so it reloads.

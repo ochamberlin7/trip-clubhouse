@@ -10,6 +10,9 @@ import { WIZARD_CHOICES } from '../../lib/gameFormats'
 import { formatPhone } from '../../lib/formatPhone'
 import RangeCalendar from '../../components/RangeCalendar'
 import { nextRange } from '../../lib/tripDates'
+import { validTeamCounts } from '../../lib/teamCount'
+import { loadMyGroups } from '../../lib/myGroups'
+import GroupPicker, { NEW_GROUP } from '../../components/GroupPicker'
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -41,15 +44,6 @@ function uid() {
   return Math.random().toString(36).slice(2)
 }
 
-// Supported team counts: 2 (default), 3, or 4 — only those that divide the players
-// into equal teams.
-function getValidTeamCounts(n) {
-  const counts = []
-  for (let i = 2; i <= Math.min(4, Math.floor(n / 2)); i++) {
-    if (n % i === 0) counts.push(i)
-  }
-  return counts
-}
 
 // ── Step 0: Trip Details ──────────────────────────────────────────
 // Change 1: groupName field added as first field
@@ -60,6 +54,7 @@ function parseIso(s) { return s ? new Date(s + 'T00:00:00') : null }
 function fmtShort(s) { return parseIso(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
 
 function StepTripDetails({
+  groups, groupId, setGroupId,
   groupName, setGroupName,
   tripName, setTripName,
   startDate, endDate, onRangeChange,
@@ -94,22 +89,32 @@ function StepTripDetails({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      <p className="wz-intro">Name your group and trip, then pick your dates.</p>
+      <p className="wz-intro">{groups.length ? 'Pick or create your group, name the trip, then pick your dates.' : 'Name your group and trip, then pick your dates.'}</p>
       {/* Section stripes (design V1): "The trip" and "Dates", each with a short
           summary on the right. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="wz-stripe">The trip</p>
-      {/* Change 1: "Name Your Crew" — first field, drives groups.name */}
-      <div>
-        <label className="wz-label">What do you call your group?</label>
-        <input
-          type="text"
-          placeholder="The Boys, CTI Crew, etc."
-          value={groupName}
-          onChange={e => setGroupName(e.target.value)}
-          autoFocus
-        />
-      </div>
+      {/* Group: a dropdown of your groups (a group can hold many trips over the
+          years) with "+ Create new group"; the name field shows only for a new one. */}
+      {groups.length > 0 && (
+        <div>
+          <label className="wz-label">Group</label>
+          <GroupPicker groups={groups} value={groupId} onChange={setGroupId} />
+        </div>
+      )}
+      {groupId === NEW_GROUP && (
+        <div>
+          <label className="wz-label">{groups.length ? 'New group name' : 'What do you call your group?'}</label>
+          <input
+            type="text"
+            placeholder="The Boys, CTI Crew, etc."
+            value={groupName}
+            onChange={e => setGroupName(e.target.value)}
+            autoFocus={groups.length > 0}
+          />
+          <p className="wz-hint">A group keeps its trips together over the years. Next time, anyone who played can start the group's next trip.</p>
+        </div>
+      )}
       <div>
         <label className="wz-label">Trip name</label>
         <input
@@ -443,7 +448,7 @@ function FormatRow({ name, desc, on, onClick }) {
 }
 
 function StepTournament({ playerCount, hasTournament, setHasTournament, numTeams, setNumTeams, tournamentFormat, setTournamentFormat, bonusGames, setBonusGames, onBack, onFinish, loading, submitError }) {
-  const validCounts = getValidTeamCounts(playerCount)
+  const validCounts = validTeamCounts(playerCount)
   // Create Trip is available once a choice is made — when there aren't enough
   // players for teams yet, they can be assigned later.
   const canFinish = hasTournament !== null
@@ -562,6 +567,10 @@ export default function TripWizard() {
   const [checking] = useState(false)
 
   // Step 0
+  // Group: an existing group's id, or NEW_GROUP. Defaults to your most recent
+  // group once loaded; a brand-new user (no groups) creates one.
+  const [groups, setGroups] = useState([])
+  const [groupId, setGroupId] = useState(NEW_GROUP)
   const [groupName, setGroupName] = useState('')   // Change 1
   const [defaultGroupName, setDefaultGroupName] = useState('')  // "{Last Name} Group", seeded from profile
   const [tripName, setTripName] = useState('')
@@ -616,6 +625,17 @@ export default function TripWizard() {
     return () => { cancelled = true }
   }, [user])
 
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    loadMyGroups(supabase, user.id).then(list => {
+      if (cancelled) return
+      setGroups(list)
+      if (list.length) setGroupId(id => (id === NEW_GROUP ? list[0].id : id))
+    })
+    return () => { cancelled = true }
+  }, [user])
+
   // Change 4: guard date changes — confirm+clear schedule if already built. The
   // range calendar sets both dates through here (start-only mid-selection has
   // nextEnd = '').
@@ -641,19 +661,23 @@ export default function TripWizard() {
     setSubmitError(null)
 
     try {
-      // 1. Create group using groupName (Change 1)
-      const { data: group, error: groupErr } = await supabase
-        .from('groups')
-        .insert({ name: groupName.trim() || defaultGroupName, created_by: user.id })
-        .select()
-        .single()
-      if (groupErr) throw groupErr
-
-      // 2. Add user as admin
-      const { error: memberErr } = await supabase
-        .from('group_members')
-        .insert({ group_id: group.id, user_id: user.id, role: 'admin' })
-      if (memberErr) throw memberErr
+      // 1–2. An existing group (you're already a member), or a new one with you as
+      //      its creator. Either way the trip's commissioner is you — set by the
+      //      trips insert trigger (trip_commissioners, migration 20260680).
+      let group = groupId !== NEW_GROUP ? groups.find(g => g.id === groupId) : null
+      if (!group) {
+        const { data: created, error: groupErr } = await supabase
+          .from('groups')
+          .insert({ name: groupName.trim() || defaultGroupName, created_by: user.id })
+          .select()
+          .single()
+        if (groupErr) throw groupErr
+        group = created
+        const { error: memberErr } = await supabase
+          .from('group_members')
+          .insert({ group_id: group.id, user_id: user.id, role: 'admin' })
+        if (memberErr) throw memberErr
+      }
 
       // 3. Create trip
       const tripPayload = {
@@ -822,6 +846,7 @@ export default function TripWizard() {
       <div className="wizard-body">
         {step === 0 && (
           <StepTripDetails
+            groups={groups} groupId={groupId} setGroupId={setGroupId}
             groupName={groupName} setGroupName={setGroupName}
             tripName={tripName} setTripName={setTripName}
             startDate={startDate} endDate={endDate} onRangeChange={handleRangeChange}

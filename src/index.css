@@ -44,6 +44,10 @@
   /* type */
   --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
   --font-sans:  'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  /* Commissioner Tools and the wizard referenced these (Fraunces + Inter); they now
+     resolve to the system faces so there is one serif and one sans. */
+  --font-fraunces: var(--font-serif);
+  --font-inter: var(--font-sans);
   /* layout */
   --tab-bar-space: calc(62px + env(safe-area-inset-bottom));
   --content-bottom-clearance: calc(16px + max(var(--tab-bar-space), var(--live-banner-space, 0px)) + 10px + var(--feedback-btn-height, 0px) + 12px);
@@ -621,12 +625,13 @@ select {
 .wizard-page .wz-day-head select { width: auto; flex-shrink: 0; font-size: 13px; padding: 8px 32px 8px 10px; background-position: right 10px center; }
 .wz-rounds { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding-left: 12px; border-left: 1px solid var(--navy); }
 .wz-add-row { display: flex; align-items: center; width: 100%; background: none; border: none; border-bottom: 1px solid var(--line); padding: 14px 2px; cursor: pointer; font-family: var(--font-serif); font-size: 17px; color: var(--ink); text-align: left; }
-/* Section stripe (design "V1", 2026-10-29): grey band, navy small caps, and an
-   optional short summary on the right ("4 days", "3 rounds", a player's name). */
-.wz-stripe { display: flex; align-items: center; gap: 8px; background: var(--primary-tint); color: var(--navy); padding: 8px 10px; margin: 0; font-size: 11.5px; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; min-height: 34px; box-sizing: border-box; }
+/* Section heading (Owen 2026-11-05, replaced the grey band): navy small caps over a
+   full-width navy underline, with an optional short summary on the right ("4 days",
+   "3 rounds", a player's name). */
+.wz-stripe { display: flex; align-items: center; gap: 8px; background: none; color: var(--primary); padding: 0 0 7px; margin: 0; border-bottom: 2px solid var(--primary); font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; min-height: 28px; box-sizing: border-box; }
 .wz-stripe-detail { margin-left: auto; font-size: 12.5px; font-weight: 600; letter-spacing: 0.2px; text-transform: none; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .wz-stripe .wz-x { margin-left: 0; color: var(--slate); }
-.wz-cancel { background: none; border: none; padding: 4px 0; width: auto; color: var(--navy); font-size: 10.5px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; cursor: pointer; font-family: inherit; }
+.wz-cancel { background: none; border: none; padding: 4px 0; width: auto; color: var(--primary); font-size: 10.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; font-family: inherit; }
 
 
 /* ══════════════════════════════════════════════════════════════════════════

@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useGroup } from '../../context/GroupContext'
 import ProfileAvatar from '../../components/ProfileAvatar'
 import SwipeDeleteRow, { TrashIcon } from '../../components/SwipeDeleteRow'
-import { splitTrips, daysUntilTrip, restoreDaysLeft } from '../../lib/myTrips'
+import { splitTrips, daysUntilTrip, restoreDaysLeft, tripListRemoveNotice } from '../../lib/myTrips'
 import { useMyCareer } from '../../lib/useMyCareer'
 import { bestBadges } from '../../lib/badges'
 import BadgeMedallion from '../../components/BadgeMedallion'
@@ -74,6 +74,7 @@ const h = {
   shelf: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', width: '100%' },
   shelfCell: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 },
   shelfName: { fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', textAlign: 'center', lineHeight: 1.25 },
+  shelfNote: { margin: '14px 0 0', fontSize: 13, color: MUTED, textAlign: 'center', lineHeight: 1.45 },
   badge: { width: 58, height: 58, borderRadius: '50%', border: `1.5px dashed ${RULE}`, boxSizing: 'border-box' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   sheet: { background: '#fff', borderRadius: 4, padding: 22, width: '100%', maxWidth: 380, boxSizing: 'border-box' },
@@ -106,14 +107,15 @@ function fmtRange(t) {
   return `${s.toLocaleDateString('en-US', opts)} – ${end}, ${year}`
 }
 
-// One trip row. The trip's commissioner can swipe left to delete it (soft delete,
-// restorable for 30 days); everyone else just taps to open it.
+// One trip row. Tap opens it. Swiping left never deletes or leaves from here: the
+// trash opens a notice (tripListRemoveNotice) pointing into the trip, or saying a
+// started trip can't be deleted / left.
 // No status pills: the Upcoming / Past sections say it; a live trip says
 // "Live now" in its sub-line and a past trip shows its finish there.
 function TripRow({ trip, live, first, unread, finish, onOpen, onDelete }) {
   const parts = [live ? 'Live now' : null, fmtRange(trip), finish, trip.location].filter(Boolean)
   return (
-    <SwipeDeleteRow canDelete={!!trip.canDelete} rowStyle={{ ...h.row, ...(first ? null : h.rowLine) }} outerStyle={first ? undefined : h.rowLine}
+    <SwipeDeleteRow canDelete deleteLabel={trip.isCommissioner ? 'Delete trip' : 'Leave trip'} rowStyle={{ ...h.row, ...(first ? null : h.rowLine) }} outerStyle={first ? undefined : h.rowLine}
       coverBg="#fff" onPick={() => onOpen(trip.id)} onDelete={() => onDelete(trip)}>
       <span style={{ minWidth: 0 }}>
         <div style={h.tripName}>
@@ -154,15 +156,14 @@ function JoinTripModal({ onClose, onJoin }) {
 
 export default function HomePage() {
   const { user } = useAuth()
-  const { switchTrip, restoreTrip, softDeleteTrip, unreadTripIds } = useGroup()
+  const { switchTrip, restoreTrip, unreadTripIds } = useGroup()
   const navigate = useNavigate()
   // Trips, career totals and badges — shared loader with the Trophy Room.
   const { trips, deleted, career, badges, finishes, reload } = useMyCareer(user?.id)
   const [showAllPast, setShowAllPast] = useState(false)
   const [joining, setJoining] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [careerSoon, setCareerSoon] = useState(false) // full career page is on the backlog
-  const [pendingDelete, setPendingDelete] = useState(null) // trip awaiting the delete confirm
+  const [notice, setNotice] = useState(null) // { trip, title, body, canOpen } from a row swipe
   const [showDeleted, setShowDeleted] = useState(false)
 
   const now = new Date()
@@ -263,7 +264,7 @@ export default function HomePage() {
               {activeAndUpcoming.length ? (
                 <div style={h.box}>
                   {activeAndUpcoming.map((t, i) => (
-                    <TripRow key={t.id} trip={t} live={live.includes(t)} first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />
+                    <TripRow key={t.id} trip={t} live={live.includes(t)} first={i === 0} unread={unreadTripIds?.has(t.id)} onOpen={openTrip} onDelete={trip => setNotice({ trip, ...tripListRemoveNotice(trip) })} />
                   ))}
                 </div>
               ) : (
@@ -275,7 +276,7 @@ export default function HomePage() {
               <section>
                 <SectionHead>Past</SectionHead>
                 <div style={h.box}>
-                  {pastShown.map((t, i) => <TripRow key={t.id} trip={t} first={i === 0} unread={unreadTripIds?.has(t.id)} finish={finishes?.get(t.id)} onOpen={openTrip} onDelete={setPendingDelete} />)}
+                  {pastShown.map((t, i) => <TripRow key={t.id} trip={t} first={i === 0} unread={unreadTripIds?.has(t.id)} finish={finishes?.get(t.id)} onOpen={openTrip} onDelete={trip => setNotice({ trip, ...tripListRemoveNotice(trip) })} />)}
                 </div>
                 {past.length > 3 && (
                   <button style={h.link} onClick={() => setShowAllPast(v => !v)}>{showAllPast ? 'Show less' : `See all ${past.length} past trips`}</button>
@@ -286,8 +287,8 @@ export default function HomePage() {
         )}
 
         <section>
-          {/* Title is the link (like Trophy room) once there are stats; the full career page is still to come. */}
-          <SectionHead style={{ marginBottom: 4 }} onClick={hasCareer ? () => setCareerSoon(true) : undefined}>Career</SectionHead>
+          {/* "Career stats" opens the Career stats page (Individual | Group) once there are stats. */}
+          <SectionHead style={{ marginBottom: 4 }} onClick={hasCareer ? () => navigate('/career') : undefined}>Career stats</SectionHead>
           {hasCareer ? (
             <>
               <div style={h.stats}>
@@ -296,7 +297,6 @@ export default function HomePage() {
                 <div style={h.statLine}><b style={h.statNum}>{career.points}</b><span style={h.statLab}>Points</span></div>
                 <div style={h.statLine}><b style={h.statNum}>{career.bestRound ?? '—'}</b><span style={h.statLab}>Best</span></div>
               </div>
-              {careerSoon && <div style={{ fontSize: 12, color: MUTED, textAlign: 'center', marginTop: 6 }}>The full career stats page is coming soon.</div>}
             </>
           ) : (
             <div style={{ ...h.empty, marginTop: 6 }}>{career == null && trips != null && !isNew ? 'Adding up your stats…' : 'Your stats start with your first round.'}</div>
@@ -318,6 +318,10 @@ export default function HomePage() {
               return cells
             })()}
           </button>
+          {/* Not on any trip yet (only Joined the Club, once loaded): say how to start. */}
+          {badges && bestBadges(badges, 4).every(b => b.id === 'joined') && (
+            <p style={h.shelfNote}>Plan or join a trip to start earning badges.</p>
+          )}
         </section>
 
         {/* Subtle footer — only when there's something to restore. */}
@@ -329,23 +333,17 @@ export default function HomePage() {
         )}
       </div>
 
-      {pendingDelete && createPortal(
-        <div style={h.overlay} onClick={() => setPendingDelete(null)}>
+      {notice && createPortal(
+        <div style={h.overlay} onClick={() => setNotice(null)}>
           <div style={h.sheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK }}>Delete this trip?</div>
-            <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.5 }}>
-              <b>{pendingDelete.name}</b> will be deleted for everyone on it. You'll have 30 days to restore it before it's gone for good.
-            </div>
+            <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: INK }}>{notice.title}</div>
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.5 }}>{notice.body}</div>
             <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-              <button style={{ ...h.pill, flex: 1 }} onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button style={{ ...h.pill, flex: 1, background: 'var(--bad)', borderColor: 'var(--bad)', color: '#fff' }}
-                onClick={async () => {
-                  const t = pendingDelete
-                  setPendingDelete(null)
-                  const { error } = await softDeleteTrip(t.id)
-                  if (error) window.alert('Delete failed. Please try again.')
-                  reload()
-                }}>Delete</button>
+              <button style={{ ...h.pill, flex: 1 }} onClick={() => setNotice(null)}>{notice.canOpen ? 'Cancel' : 'OK'}</button>
+              {notice.canOpen && (
+                <button style={{ ...h.pill, flex: 1, background: INK, borderColor: INK, color: '#fff' }}
+                  onClick={() => { const id = notice.trip.id; setNotice(null); openTrip(id) }}>Open trip</button>
+              )}
             </div>
           </div>
         </div>,
@@ -371,8 +369,12 @@ export default function HomePage() {
                       <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{t.name}</div>
                       {left != null && <div style={{ fontSize: 12, color: MUTED }}>{left} day{left === 1 ? '' : 's'} left</div>}
                     </div>
-                    <button style={{ ...h.pill, flex: 'none', marginLeft: 'auto', padding: '6px 14px' }}
-                      onClick={async () => { await restoreTrip(t.id); reload(); if (deleted.length <= 1) setShowDeleted(false) }}>Restore</button>
+                    {t.canRestore ? (
+                      <button style={{ ...h.pill, flex: 'none', marginLeft: 'auto', padding: '6px 14px' }}
+                        onClick={async () => { await restoreTrip(t.id); reload(); if (deleted.length <= 1) setShowDeleted(false) }}>Restore</button>
+                    ) : (
+                      <div style={{ marginLeft: 'auto', fontSize: 12, color: MUTED, textAlign: 'right' }}>Only the commissioner<br />can restore it</div>
+                    )}
                   </div>
                 )
               })}

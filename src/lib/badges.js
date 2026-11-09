@@ -17,7 +17,7 @@ import {
 import { courseHolesFromRounds } from './playerStats.js'
 import { buildDailyLeaders } from './dailyLeaders.js'
 import { tripTimeStatus } from './myTrips.js'
-import { tripFinishes } from './careerStats.js'
+import { tripFinishes, finishedOnly } from './careerStats.js'
 
 export const BADGE_GROUPS = [
   { id: 'journey', title: 'Journey' },
@@ -31,6 +31,9 @@ export const TIER_NAMES = ['Bronze', 'Silver', 'Gold']
 
 // mark: the short label on the medallion. tiers: milestone thresholds (bronze, silver, gold).
 export const BADGES = [
+  { id: 'joined', group: 'journey', name: 'Joined the Club', mark: 'JC', desc: 'Join Trip Clubhouse.' },
+  { id: 'tee_time', group: 'journey', name: 'Tee Time', mark: 'TT', desc: 'Join your first trip.' },
+  { id: 'commissioner', group: 'journey', name: 'Commissioner', mark: 'CM', desc: 'Create your first trip.' },
   { id: 'first_trip', group: 'journey', name: 'First Trip', mark: '1st', desc: 'Finish your first trip.' },
   { id: 'trip_veteran', group: 'journey', name: 'Trip Veteran', mark: 'TV', tiers: [3, 5, 10], unit: 'trips', desc: 'Finish 3, 5 or 10 trips.' },
   { id: 'rounds', group: 'journey', name: 'Rounds', mark: 'R', tiers: [10, 25, 50], unit: 'rounds', desc: 'Play 10, 25 or 50 full rounds.' },
@@ -47,7 +50,8 @@ export const BADGES = [
   { id: 'broke_80', group: 'scoring', name: 'Broke 80', mark: '70s', desc: 'An 18-hole round under 80 (gross).' },
   { id: 'broke_70', group: 'scoring', name: 'Broke 70', mark: '60s', desc: 'An 18-hole round under 70 (gross).' },
   { id: 'eagle', group: 'scoring', name: 'Eagle', mark: 'E', desc: 'Two or more under par on a hole (gross).' },
-  { id: 'hole_in_one', group: 'scoring', name: 'Hole in One', mark: 'H1', desc: 'An ace.' },
+  { id: 'albatross', group: 'scoring', name: 'Albatross', mark: 'A', desc: 'Three or more under par on a hole (gross), like a 2 on a par 5.' },
+  { id: 'hole_in_one', group: 'scoring', name: 'Hole in One', mark: 'HiO', desc: 'An ace.' },
 
   { id: 'low_gross_day', group: 'daily', name: 'Low Gross of the Day', mark: 'LG', desc: 'Best gross round of a day.' },
   { id: 'low_net_day', group: 'daily', name: 'Low Net of the Day', mark: 'LN', desc: 'Best net round of a day.' },
@@ -70,14 +74,36 @@ export const BADGES = [
 // Returns Map(badgeId → { earned, count, tier, events: [{ date, tripName, detail }] }).
 // One-time badges: events holds only the FIRST time it was earned (count is 0 or 1).
 // `tier` is 0/1/2 (bronze/silver/gold) for tiered badges, else null.
-export function computeBadges(perTrip = [], userId, now = new Date()) {
+// Badges count FINISHED trips and rounds only (Owen 2026-11-06, like the stats:
+// finishedOnly in careerStats.js), except joining / creating a trip, which count
+// right away. Past trips from the old spreadsheets (t.past: roster + result, no
+// scores) earn Tee Time, First Trip, Trip Veteran and Champion.
+export function computeBadges(allTrips = [], userId, now = new Date()) {
   const ev = new Map(BADGES.map(b => [b.id, []]))
   const add = (id, e) => ev.get(id).push(e)
   let finishedTrips = 0, fullRounds = 0
 
+  // Joined the Club: you have an account — earned on sign-up, trips or not.
+  if (userId) add('joined', {})
+
+  const isMe = p => p.user_id === userId || p.claimed_user_id === userId
+  for (const t of allTrips) {
+    // Commissioner: you created this trip (trips.created_by), roster or not.
+    if (userId && t.trip?.created_by === userId) add('commissioner', { date: t.trip?.start_date, tripName: t.tripName || '' })
+    // Tee Time: you're on a trip's roster (counts before any score).
+    if ((t.tripPlayers || []).some(isMe)) add('tee_time', { date: t.trip?.start_date, tripName: t.tripName || '' })
+  }
+
+  const perTrip = finishedOnly(allTrips, now)
   for (const t of perTrip) {
-    const me = (t.tripPlayers || []).find(p => p.user_id === userId || p.claimed_user_id === userId)
+    const me = (t.tripPlayers || []).find(isMe)
     if (!me) continue
+    if (t.past) {
+      // A past trip is a finished trip; there are no scores for the rest.
+      finishedTrips++
+      add('first_trip', { date: t.trip?.end_date, tripName: t.tripName || '' })
+      continue
+    }
     const rounds = (t.rounds || []).filter(r => r && !isNoneRound(r))
     const myScores = (t.scores || []).filter(s => s.trip_player_id === me.id && s.gross_score != null)
     if (!myScores.length) continue
@@ -113,6 +139,7 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
         if (par == null) { prevBirdie = false; continue }
         const d = g - par
         if (d <= -2) add('eagle', { date: r.date, tripName, detail: `Hole ${h}` })
+        if (d <= -3) add('albatross', { date: r.date, tripName, detail: `Hole ${h}` })
         const isBirdie = d <= -1
         if (isBirdie) birdies++
         if (d === 0) pars++
@@ -216,14 +243,18 @@ export function computeBadges(perTrip = [], userId, now = new Date()) {
 // Hardest to earn first (Owen, 2026-10-29: Home shows the best trophies, never
 // the roast ones). Badges missing from this list (new ones) sort after it.
 export const BADGE_PRESTIGE = [
-  'hole_in_one', 'champion', 'broke_70', 'eagle', 'broke_80', 'birdie_bonanza', 'bogey_free',
+  'albatross', 'hole_in_one', 'champion', 'broke_70', 'eagle', 'broke_80', 'birdie_bonanza', 'bogey_free',
   'warrior_trip', 'workhorse_trip', 'trip_veteran', 'broke_90', 'par_train', 'back_to_back',
   'hat_trick', 'on_fire', 'low_gross_day', 'low_net_day', 'most_points_day', 'warrior_day',
-  'workhorse_day', 'double_bogey_free', 'rounds', 'par_machine', 'broke_100', 'first_trip',
+  'workhorse_day', 'double_bogey_free', 'rounds', 'par_machine', 'broke_100', 'first_trip', 'commissioner', 'tee_time', 'joined',
 ]
 // A stronger badge hides the weaker ones on its ladder, so the shelf doesn't
 // show Broke 80 next to Broke 90 and Broke 100.
 const SUPERSEDES = {
+  albatross: ['eagle'],
+  first_trip: ['tee_time', 'joined'],
+  commissioner: ['tee_time', 'joined'],
+  tee_time: ['joined'],
   broke_70: ['broke_80', 'broke_90', 'broke_100'],
   broke_80: ['broke_90', 'broke_100'],
   broke_90: ['broke_100'],

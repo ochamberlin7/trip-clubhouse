@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { loadMyTrips } from './myTrips'
-import { loadCareerData, buildCareer, tripFinishes } from './careerStats'
+import { loadCareerData, buildCareer, tripFinishes, individualFinishes, finishedOnly } from './careerStats'
 import { computeBadges } from './badges'
+import { buildCareerDetail } from './careerDetail'
 import { saveCopy, readCopy, mapToJson, jsonToMap } from './offlineCache'
+import { loadMyPastTrips } from './pastTrips'
 
-// The signed-in player's trips, career totals, badges and past-trip finishes — one loader shared by
-// the Clubhouse Home page and the Trophy Room so both show the same numbers.
+// The signed-in player's trips, career totals, badges, past-trip finishes and the full
+// Career page numbers (`detail`) — one loader shared by the Clubhouse Home page, the
+// Trophy Room and the Career page so all three show the same numbers.
 // `reload()` refetches (e.g. after a restore).
-const BLANK = { trips: null, deleted: [], career: null, badges: null, finishes: new Map() }
+const BLANK = { trips: null, deleted: [], career: null, badges: null, finishes: new Map(), detail: null }
 const copyKeyFor = userId => `home:${userId}`
 function fromCopy(saved) {
-  return { trips: saved.trips || [], deleted: saved.deleted || [], career: saved.career || null, badges: saved.badges ? jsonToMap(saved.badges) : null, finishes: jsonToMap(saved.finishes) }
+  return { trips: saved.trips || [], deleted: saved.deleted || [], career: saved.career || null, badges: saved.badges ? jsonToMap(saved.badges) : null, finishes: jsonToMap(saved.finishes), detail: saved.detail || null }
 }
 
 // Opens instantly from the copy saved on this phone by the last load (Home and the
@@ -36,13 +39,20 @@ export function useMyCareer(userId) {
         return
       }
       setState(s => ({ ...s, trips: rows, deleted }))
-      const perTrip = await loadCareerData(supabase, rows.map(t => t.id))
+      const [perTrip, past] = await Promise.all([loadCareerData(supabase, rows.map(t => t.id)), loadMyPastTrips(supabase, userId)])
       if (cancelled) return
-      const career = buildCareer(perTrip, userId)
-      const badges = computeBadges(perTrip, userId)
-      const finishes = tripFinishes(perTrip, userId)
-      setState(s => ({ ...s, career, badges, finishes }))
-      saveCopy(copyKey, { trips: rows, deleted, career, badges: mapToJson(badges), finishes: mapToJson(finishes) })
+      // Past trips (pastTrips.js: from the old spreadsheets, no scores) count toward
+      // trips, handicap, finishes and the badges they can earn.
+      // Stats count finished trips and finished rounds only (finishedOnly).
+      const withPast = finishedOnly([...perTrip, ...past])
+      const career = buildCareer(withPast, userId)
+      // Badges: every trip incl. past ones; computeBadges applies finishedOnly itself.
+      const badges = computeBadges([...perTrip, ...past], userId)
+      // Team finishes, plus your own place on individual Stableford / stroke play trips.
+      const finishes = new Map([...tripFinishes(withPast, userId), ...individualFinishes(withPast, userId)])
+      const detail = buildCareerDetail(withPast, userId)
+      setState(s => ({ ...s, career, badges, finishes, detail }))
+      saveCopy(copyKey, { trips: rows, deleted, career, badges: mapToJson(badges), finishes: mapToJson(finishes), detail })
     })()
     return () => { cancelled = true }
   }, [userId, tick])

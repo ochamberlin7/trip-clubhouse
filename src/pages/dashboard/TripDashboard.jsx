@@ -1147,13 +1147,14 @@ export default function TripDashboard() {
         supabase.from('rounds').select('*').eq('trip_id', tripData.id).order('date').order('round_number'),
         supabase.from('trip_players').select('id, user_id, claimed_user_id, guest_name, handicap_index').eq('trip_id', tripData.id),
         supabase.from('teams').select('*').eq('trip_id', tripData.id).order('team_index'),
+        // Commissioner is per trip (trip_commissioners, migration 20260680), not the group admin.
         user?.id
-          ? supabase.from('group_members').select('role').eq('group_id', tripData.group_id).eq('user_id', user.id).maybeSingle()
+          ? supabase.from('trip_commissioners').select('user_id').eq('trip_id', tripData.id).eq('user_id', user.id).maybeSingle()
           : Promise.resolve({ data: null }),
         supabase.from('meals').select('*').eq('trip_id', tripData.id).order('day'),
       ])
       if (roundsRes.error) throw roundsRes.error
-      setIsCommissioner(memberRes.data?.role === 'admin')
+      setIsCommissioner(!!memberRes.data)
       setMeals(mealsRes.data || [])
 
       const rawPlayers = playersRes.data || []
@@ -1174,7 +1175,7 @@ export default function TripDashboard() {
       setPlayers(playerList)
       setTeams(teamsRes.data || [])
       // Keep a copy on this phone for opening the trip with no signal.
-      saveCopy(`trip:${tripData.id}`, { trip: tripData, rounds: roundList, players: playerList, rawPlayers, teams: teamsRes.data || [], meals: mealsRes.data || [], isCommissioner: memberRes.data?.role === 'admin' })
+      saveCopy(`trip:${tripData.id}`, { trip: tripData, rounds: roundList, players: playerList, rawPlayers, teams: teamsRes.data || [], meals: mealsRes.data || [], isCommissioner: !!memberRes.data })
 
       // Determine the round being played right now → auto-open Score on load.
       // Pass the freshly-fetched trip (state `trip` isn't set yet this render) so the
@@ -1297,6 +1298,13 @@ export default function TripDashboard() {
     if (!trip?.id) return
     const { data } = await supabase.from('trips').select('*').eq('id', trip.id).maybeSingle()
     if (data) setTrip(data)
+  }
+
+  // Re-fetch teams after the commissioner changes the number of teams.
+  async function refreshTeams() {
+    if (!trip?.id) return
+    const { data } = await supabase.from('teams').select('*').eq('trip_id', trip.id).order('team_index')
+    if (data) setTeams(data)
   }
 
   // Re-fetch rounds into shared state so every consumer (tee times, weather,
@@ -1455,6 +1463,7 @@ export default function TripDashboard() {
         showPurseOnHome={trip.show_purse_on_home}
         onTripUpdate={refetchTrip}
         onRoundsChanged={refreshRounds}
+        onTeamsChanged={refreshTeams}
       />
     </div>
   )
