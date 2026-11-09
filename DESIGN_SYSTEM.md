@@ -127,8 +127,10 @@ Marks are on the gross score, in ink, the same for both teams:
 | Birdie | One circle | `.sc-score.birdie` |
 | Par | Plain | `.sc-score.par` |
 | Bogey | One square | `.sc-score.bogey` |
-| Double bogey or worse | Two squares | `.sc-score.double`, `.triple` |
+| Double bogey or worse | Two squares on a light red wash (`--bad-tint`) | `.sc-score.double`, `.triple` |
 | Shots received | Green dots at the **bottom-left** corner, one per shot | `.stroke-dots` |
+
+Stat records and other label-plus-number facts are list rows (label left, serif number right, holder or detail as the sub-line), never a lone number centered in a card.
 | Drinks | Brass badge at the bottom-right | `.drink-badge` |
 | On fire (3+ net par-or-better in a row) | Small brass flame badge at the top-right | `.sc-score.fire-score` |
 

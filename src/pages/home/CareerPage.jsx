@@ -154,7 +154,7 @@ function ScoringTab({ d }) {
           {
             label: 'Longest fire streak',
             value: ex(d).longestFire
-              ? <span style={{ display: 'inline-block' }}><TapValue value={plural(ex(d).longestFire.holes, 'hole')} where={tripWhere(ex(d).longestFire)} size="row" /></span>
+              ? <span style={{ display: 'inline-block' }}><TapValue value={ex(d).longestFire.holes} where={tripWhere(ex(d).longestFire)} size="row" /></span>
               : '—',
           },
           { label: 'Drinks', value: ex(d).drinks },

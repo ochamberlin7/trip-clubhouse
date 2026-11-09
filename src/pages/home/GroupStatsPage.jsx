@@ -4,7 +4,7 @@ import { LEADERBOARDS, rankLeaderboard, rivalsOf, headToHead, averagesByTrip } f
 import GroupPicker from '../../components/GroupPicker'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM, CAPS, CROWD } from './careerTheme'
 import { one, roundWhere, intVsPar, fmtRange, fmtDate } from '../../lib/careerFormat'
-import { Tile, Cols, TapValue, PeopleTile } from './statTiles'
+import { Tile, TapValue, PeopleTile } from './statTiles'
 import { ScrollLineChart, HeadToHeadGrid, LineKey } from './statCharts'
 import { niceScale } from '../../lib/chartScale'
 import { TEAM_COLORS, LEGACY_TEAM_COLORS, paletteForTrip } from '../../lib/teamColors'
@@ -28,7 +28,6 @@ const g = {
   name: { fontSize: 14, color: 'var(--ink-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   value: { marginLeft: 'auto', fontSize: 15, fontWeight: 700, color: INK, ...LNUM },
   me: { background: 'var(--primary-tint)', margin: '0 -12px', padding: '9px 12px' },
-  holders: { fontSize: 13, color: 'var(--ink-2)', textAlign: 'center', marginTop: 6, lineHeight: 1.4 },
   cardBtn: { display: 'block', width: '100%', padding: 0, background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: INK },
   dates: { display: 'block', fontSize: 12.5, color: MUTED, marginTop: 2 },
   listRow: { display: 'flex', alignItems: 'baseline', gap: 10, padding: '9px 0', borderTop: `1px solid ${ROW_LINE}`, fontSize: 14, color: 'var(--ink-2)' },
@@ -286,15 +285,31 @@ function LeadersTab({ d }) {
 
 function RecordsTab({ d }) {
   if (!d.records.length) return <div style={s.empty}>Records show up once the group has finished a round.</div>
-  return d.records.map(r => {
-    const one1 = r.rec.holders.length === 1 ? r.rec.holders[0] : null
-    return (
-      <Tile key={r.id} title={r.label} note={r.note}>
-        <Cols items={[{ label: r.rec.holders.length > 1 ? `${r.rec.holders.length}-way tie` : 'Record', value: r.fmt === 'vsPar' ? intVsPar(r.rec.v) : r.rec.v, where: one1?.where ? roundWhere(one1.where) : null }]} />
-        <div style={g.holders}>{r.rec.holders.map(h => h.name).join(' · ')}</div>
-      </Tile>
-    )
-  })
+  // One card, one row per record: the record on the left with who holds it underneath,
+  // the number on the right (tap it for where). Same row pattern as the rest of the app.
+  return (
+    <Tile title="Group records" pad={false}>
+      {d.records.map((r, i) => {
+        const one1 = r.rec.holders.length === 1 ? r.rec.holders[0] : null
+        const value = r.fmt === 'vsPar' ? intVsPar(r.rec.v) : r.rec.v
+        const holders = r.rec.holders.map(h => h.name).join(', ')
+        const tie = r.rec.holders.length > 1 ? ` · ${r.rec.holders.length}-way tie` : ''
+        return (
+          <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderTop: i ? `1px solid ${ROW_LINE}` : 'none' }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: INK, lineHeight: 1.3 }}>
+                {r.label}{r.note && <span style={{ fontWeight: 500, color: MUTED }}> · {r.note}</span>}
+              </span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'var(--slate)', marginTop: 2 }}>{holders}{tie}</span>
+            </span>
+            <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 700, color: NAVY, ...LNUM, flexShrink: 0, lineHeight: 1 }}>
+              {one1?.where ? <TapValue value={value} where={roundWhere(one1.where)} size="row" /> : value}
+            </span>
+          </div>
+        )
+      })}
+    </Tile>
+  )
 }
 
 // Rivals: a head-to-head grid of everyone (Rounds works for every format: the
