@@ -88,7 +88,7 @@ h.pillPrimary = { background: NAVY, borderColor: NAVY, color: '#fff' }
 // Pass onClick to make the title itself a link (e.g. Trophy room).
 function SectionHead({ children, style, onClick }) {
   const title = onClick
-    ? <button onClick={onClick} style={{ background: 'none', border: 'none', padding: '6px 0', margin: '-6px 0', font: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', color: 'inherit', cursor: 'pointer' }}>{children}<Icon name="right" size={12} /></button>
+    ? <button onClick={onClick} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', background: 'none', border: 'none', padding: '6px 0', margin: '-6px 0', font: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', color: 'inherit', cursor: 'pointer' }}>{children}<Icon name="right" size={12} /></button>
     : children
   return <h2 style={{ ...h.sec, ...style }}><span style={h.secRule} />{title}<span style={h.secRule} /></h2>
 }
