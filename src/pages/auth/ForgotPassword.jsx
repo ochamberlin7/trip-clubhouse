@@ -63,7 +63,7 @@ export default function ForgotPassword() {
               </button>
             </form>
             <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--slate)' }}>
-              Remembered it? <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>Sign In</Link>
+              Remembered it? <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>Sign in</Link>
             </p>
           </>
         )}

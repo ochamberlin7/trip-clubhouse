@@ -1069,7 +1069,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           position: 'fixed', top: 'calc(env(safe-area-inset-top) + 12px)', left: '50%',
           transform: 'translateX(-50%)', zIndex: 300, maxWidth: '90%', textAlign: 'center',
           background: 'var(--bad)', color: '#fff', padding: '10px 16px', borderRadius: 8,
-          fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', cursor: 'pointer',
+          fontSize: 13, fontWeight: 600, boxShadow: 'var(--shadow-pop)', cursor: 'pointer',
         }}>
           {saveError}
         </div>
@@ -1084,7 +1084,7 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
           onClick={() => setNotice(null)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
         >
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '24px 20px 18px', width: '100%', maxWidth: 340, textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '24px 20px 18px', width: '100%', maxWidth: 340, textAlign: 'center', boxShadow: 'var(--shadow-pop)' }}>
             <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4, marginBottom: 20 }}>{notice}</div>
             {onOpenMenuPage && (
               <button

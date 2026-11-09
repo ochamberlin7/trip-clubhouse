@@ -14,7 +14,7 @@ const st = {
   wrap: { position: 'relative' },
   button: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', boxSizing: 'border-box', padding: '12px 12px', background: '#fff', border: '1px solid var(--line)', borderRadius: 'var(--radius)', fontFamily: 'inherit', fontSize: 16, color: 'var(--ink)', textAlign: 'left', cursor: 'pointer' },
   chev: { marginLeft: 'auto', color: 'var(--mist)', fontSize: 14 },
-  pop: { position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid var(--line)', borderRadius: 'var(--radius)', boxShadow: '0 8px 22px rgba(13,27,42,0.12)', overflow: 'hidden' },
+  pop: { position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid var(--line)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-pop)', overflow: 'hidden' },
   // 4 rows tall (45px each); more groups scroll inside it.
   list: { margin: 0, padding: 0, listStyle: 'none', maxHeight: 4 * 45, overflowY: 'auto', overscrollBehavior: 'contain' },
   opt: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 45, boxSizing: 'border-box', padding: '0 12px', background: 'none', border: 'none', borderTop: `1px solid ${LINE}`, fontFamily: 'inherit', fontSize: 15, color: 'var(--ink)', textAlign: 'left', cursor: 'pointer' },

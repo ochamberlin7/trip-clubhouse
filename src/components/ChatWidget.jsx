@@ -44,7 +44,7 @@ const styles = {
   pushPrompt: { display: 'flex', alignItems: 'center', gap: 9, margin: '10px 10px 0', padding: '9px 10px 9px 12px', background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', boxShadow: 'none', flexShrink: 0 },
   pushIcon: { display: 'flex', flexShrink: 0, color: 'var(--primary)' },
   pushText: { fontSize: 12.5, color: 'var(--ink-2)', flex: 1, lineHeight: 1.3 },
-  pushEnable: { background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
+  pushEnable: { background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
   pushDismiss: { background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, color: 'var(--mist)' },
 }
 

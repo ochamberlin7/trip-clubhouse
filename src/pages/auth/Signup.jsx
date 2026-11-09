@@ -111,7 +111,7 @@ export default function Signup() {
         </form>
         <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--slate)' }}>
           Already have an account?{' '}
-          <Link to={loginTo} style={{ color: 'var(--primary)', fontWeight: 600 }}>Sign In</Link>
+          <Link to={loginTo} style={{ color: 'var(--primary)', fontWeight: 600 }}>Sign in</Link>
         </p>
       </div>
     </div>

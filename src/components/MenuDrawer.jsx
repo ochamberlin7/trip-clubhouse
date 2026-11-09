@@ -319,7 +319,7 @@ const pc = {
   commish: { color: 'var(--bad)', fontSize: 11, fontWeight: 600 },
   captainTag: { color: 'var(--accent-ink)', fontSize: 11, fontWeight: 600 },
   headerRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 },
-  teamPill: { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' },
+  teamPill: { fontSize: 10.5, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 'var(--radius-sm)', flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' },
   pencil: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--slate)', flexShrink: 0, display: 'flex', alignItems: 'center' },
   detailRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--paper-2)', fontSize: 13, color: 'var(--ink-2)' },
   detailLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--slate)', minWidth: 72 },
@@ -1121,7 +1121,7 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
       right: Math.max(8, window.innerWidth - rect.right),
       ...(dropUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
       zIndex: 1000, background: '#fff', border: '1px solid var(--line)', borderRadius: 8,
-      boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: 150,
+      boxShadow: 'var(--shadow-pop)', overflow: 'hidden', minWidth: 150,
     }
     menu = createPortal(
       <div ref={menuRef} style={menuStyle}>
@@ -1217,7 +1217,7 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
         <div style={cdRow(false)}><span style={cdLabel}>Location</span><span style={cdValue}>{locationText(r)}</span></div>
         <div style={cdRow(teeTimes.length === 0)}><span style={cdLabel}>Par</span><span style={cdValue}>{parText(r)}</span></div>
         {teeTimes.length > 0 && (
-          <div style={cdRow(true)}><span style={cdLabel}>Tee Times</span><span style={cdValue}>{teeTimes.join(' / ')}</span></div>
+          <div style={cdRow(true)}><span style={cdLabel}>Tee times</span><span style={cdValue}>{teeTimes.join(' / ')}</span></div>
         )}
       </div>
       <div style={toolbarRowStyle}>

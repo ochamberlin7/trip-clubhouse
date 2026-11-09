@@ -29,7 +29,7 @@ const s = {
   // Portaled to document.body with position:fixed (coords computed from the input
   // rect) so an overflow:hidden/auto ancestor — the course-edit modal sheet, the
   // wizard cards — can never clip it. zIndex sits above the modal overlay (400).
-  dropdown: { position: 'fixed', zIndex: 4000, background: '#fff', border: '1px solid var(--line)', borderRadius: '8px', boxShadow: '0 6px 20px rgba(0,0,0,0.18)', maxHeight: '240px', overflowY: 'auto' },
+  dropdown: { position: 'fixed', zIndex: 4000, background: '#fff', border: '1px solid var(--line)', borderRadius: '8px', boxShadow: 'var(--shadow-pop)', maxHeight: '240px', overflowY: 'auto' },
   resultRow: { padding: '12px 14px', borderBottom: '1px solid var(--paper-2)', cursor: 'pointer', background: '#fff' },
   resultName: { fontSize: '14px', fontWeight: 600, color: 'var(--ink)' },
   resultSub: { fontSize: '12px', color: 'var(--slate)', marginTop: '1px' },

@@ -101,7 +101,7 @@ const wxStyles = {
   dotActive: { background: 'var(--primary)' },
   // 10-day forecast modal (portal + centered overlay, matching the app pattern).
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  modalCard: { position: 'relative', background: 'var(--paper)', borderRadius: 'var(--radius)', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
+  modalCard: { position: 'relative', background: 'var(--paper)', borderRadius: 'var(--radius)', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: 'var(--shadow-pop)' },
   modalClose: { position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: 'var(--radius-sm)', border: '1px solid var(--line)', background: 'var(--paper)', color: 'var(--primary)', fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
   fRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid var(--paper-2)' },
   fDay: { fontSize: '13px', fontWeight: 700, color: 'var(--ink)', width: 78, flexShrink: 0 },
@@ -796,7 +796,7 @@ const tp = {
   // Rendered via a portal to document.body and fixed-centred so the parent card's
   // overflow:hidden (.tee-group) can't clip it.
   backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 999, touchAction: 'none' },
-  popover: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: '0 8px 28px rgba(13,27,42,0.18)', padding: 16, width: 240 },
+  popover: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-pop)', padding: 16, width: 240 },
   cols: { display: 'flex', gap: 8 },
   colWrap: { flex: 1, minWidth: 0 },
   colLabel: { fontSize: 9, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--slate)', textAlign: 'center', marginBottom: 4 },

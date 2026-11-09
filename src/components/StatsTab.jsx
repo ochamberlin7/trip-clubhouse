@@ -425,7 +425,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
 
           {tabName === 'Drinks' && (
             <div className="stat-tile" style={{ gridColumn: '1 / -1' }}>
-              <StatHeaderBar title="Drink Leaderboard" tone="drinks" />
+              <StatHeaderBar title="Drinks" tone="drinks" />
               {drinkRows.map((p, i) => {
                 const editable = canEditDrinks(p)
                 const open = openDrinkPopup === p.id

@@ -10,7 +10,7 @@ import SupportForm from './SupportForm'
 // banner at 200, below modals/drawer at >=300).
 const styles = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  card: { position: 'relative', background: '#fff', borderRadius: '14px', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
+  card: { position: 'relative', background: '#fff', borderRadius: '14px', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: 'var(--shadow-pop)' },
   header: { position: 'relative', background: 'var(--primary)', color: '#fff', padding: '12px 44px 12px 16px', borderRadius: '14px 14px 0 0' },
   headerTitle: { fontFamily: 'var(--font-serif)', fontSize: '18px', fontWeight: 700 },
   close: { position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },

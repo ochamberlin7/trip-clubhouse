@@ -36,7 +36,7 @@ function hasRealCourse(r) {
 const styles = {
   // Centered modal overlay — matches the app's backdrop convention (ScoringTab).
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  card: { position: 'relative', background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: '14px', padding: 0, overflow: 'hidden', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' },
+  card: { position: 'relative', background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: '14px', padding: 0, overflow: 'hidden', width: '100%', maxWidth: 400, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: 'var(--shadow-pop)' },
   header: { position: 'relative', background: 'var(--primary)', color: '#fff', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', padding: '12px 40px 12px 14px' },
   // Absolutely centered within the header (the blue banner): top:50% + translateY
   // vertically centers the circle to the banner; the flexbox centers the ✕ glyph

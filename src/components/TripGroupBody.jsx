@@ -11,7 +11,7 @@ import GroupPicker, { NEW_GROUP } from './GroupPicker'
 
 const ui = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  sheet: { background: '#fff', borderRadius: 'var(--radius)', padding: 24, width: 'calc(100% - 40px)', maxWidth: 360, textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
+  sheet: { background: '#fff', borderRadius: 'var(--radius)', padding: 24, width: 'calc(100% - 40px)', maxWidth: 360, textAlign: 'center', boxShadow: 'var(--shadow-pop)' },
   sheetTitle: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 },
   sheetText: { fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.45 },
   sheetBtns: { display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 },

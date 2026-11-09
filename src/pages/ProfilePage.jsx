@@ -321,7 +321,7 @@ export default function ProfilePage() {
         )}
 
         <div style={rowUI.dangerWrap}>
-          <button style={rowUI.dangerBtn} onClick={handleSignOut}>Sign Out</button>
+          <button style={rowUI.dangerBtn} onClick={handleSignOut}>Sign out</button>
         </div>
       </div>
     </div>

@@ -179,7 +179,7 @@ export default function JoinTrip() {
   // ── styles ──
   const sh = {
     page: { minHeight: '100vh', background: 'var(--stone)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-    card: { background: '#fff', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', textAlign: 'center' },
+    card: { background: '#fff', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', boxShadow: 'var(--shadow-pop)', textAlign: 'center' },
     eyebrow: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--primary)', fontWeight: 600, marginBottom: 6 },
     eyebrowLg: { fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--primary)', fontWeight: 600, marginBottom: 8 },
     tripName: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 },
