@@ -96,6 +96,9 @@ test('records: the best of each, everyone who holds it, and where', () => {
   assert.deepEqual(low.holders.map(h => [h.name, h.where.tripName]), [['Ben Cole', 'Trip T2'], ['Owen C', 'Trip T1']])
   assert.equal(g.records.find(r => r.id === 'birdiesRound').rec.v, 4)
   assert.equal(g.records.some(r => r.id === 'stablefordRound'), false) // nobody played Stableford
+  assert.equal(g.records.some(r => r.id === 'holes'), false) // dropped: not a record anyone cares about
+  assert.ok(g.records.find(r => r.id === 'pars').rec.v > 0) // most pars across all trips
+  assert.equal(g.records.find(r => r.id === 'lowGross').note, undefined) // record names stand alone
 })
 
 test('rivals combine Standard and Point Match Play records', () => {
