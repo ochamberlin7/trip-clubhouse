@@ -110,7 +110,7 @@ Danger is a red outline and is never the primary. Labels are concrete and senten
 ### Navigation
 
 Bottom bar: flat white, hairline on top, labels always visible, brass rule over the active tab.
-Tabs: Home · Score · Standings · Stats · Tee times · Menu. Menu is a real tab and shows active
+Tabs: Home · Score · Standings · Stats · Tee times · Menu. The trip Home header carries a clubhouse icon button at its top left (one tap back to Your clubhouse) and, for commissioners, the rename pencil at its top right. Menu is a real tab and shows active
 while the Menu screen is open. The Menu screen is a vertical list grouped **This trip**
 (Players and teams, Schedule and courses, Flights, Rules), **Commissioner** (Commissioner tools,
 commissioners only) and **You** (Your clubhouse, Profile, Support). Secondary pages open over it
