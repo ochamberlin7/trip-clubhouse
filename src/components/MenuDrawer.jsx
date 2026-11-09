@@ -21,6 +21,8 @@ import { useAvatarPicker } from './useAvatarPicker'
 import { attachAvatars, playerAccountIds } from '../lib/avatar'
 import { useAuth } from '../context/AuthContext'
 import Icon from './ui/Icon'
+import TeeTimeCell from './TeeTimeCell'
+import { teeSlotCount } from '../lib/teeTimes'
 import { version as APP_VERSION } from '../../package.json'
 import { rowUI, SaveLink, Toggle } from './DisclosureRow'
 import { HOME_CARD, HOME_CARD_HEADER, HOME_CARD_LABEL } from './homeCardTokens'
@@ -1153,6 +1155,9 @@ function RoundTypeBadge({ round, isCommissioner, onChange }) {
 const cdRow = (last) => ({ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'baseline', padding: '4px 0', borderBottom: last ? 'none' : '1px solid var(--paper-2)' })
 const cdLabel = { fontSize: 9, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--slate)' }
 const cdValue = { fontSize: 12, fontWeight: 600, color: 'var(--ink)' }
+// Per-pairing tee-time rows inside the round card: label left, shared cell right.
+const teeRowsStyle = { display: 'grid', gap: 2 }
+const teeRowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, minHeight: 28 }
 
 function locationText(r) {
   if (r.location_city && r.location_state) return `${r.location_city}, ${r.location_state}`
@@ -1185,15 +1190,17 @@ const dayTypeLabelStyle = { fontSize: 13, fontWeight: 600, color: 'var(--slate)'
 // One golf round: unchanged content (name, rating/slope, location, par) plus the
 // new bottom toolbar (Handicaps · Tournament · Edit). Own hcOpen state so the
 // Handicaps pill toggles the handicaps table below.
-function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, lockReason, muted = false, showRecap = false, roundPairings = [], playersById = {}, onEditCourse, onRoundTypeChange, onChangePlayerTee, onEditName }) {
+function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, readOnly, allowance, calcPlayers, playerRounds, locked, lockReason, muted = false, showRecap = false, roundPairings = [], playersById = {}, teeSlots = 1, teeEditable = false, onSaveTeeTime, onEditCourse, onRoundTypeChange, onChangePlayerTee, onEditName }) {
   const [hcOpen, setHcOpen] = useState(false)
   // Completed rounds read muted (lower emphasis) so live/upcoming rounds stand out —
   // but stay fully tappable (not disabled), so the handicap recap still opens.
   const entryStyle = { background: 'var(--bg0)', border: '1px solid var(--bg3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: roundIndex === roundCount - 1 ? 0 : 10, ...(muted ? { opacity: 0.62 } : null) }
-  // Tee times, same source + plain string values Home's "Today's tee times" shows
-  // (tee_time_1…5 are already stored as trip-local display strings, no conversion).
-  // Nothing renders when a round has no tee time set.
-  const teeTimes = ['tee_time_1', 'tee_time_2', 'tee_time_3', 'tee_time_4', 'tee_time_5'].map(c => r[c]).filter(Boolean)
+  // Tee times: the same per-pairing cells as the Tee times tab (shared TeeTimeCell,
+  // one row per pairing slot, stored as trip-local display strings in tee_time_1…5).
+  // A commissioner edits them here or there; everyone else sees the set times, or
+  // "Not set yet" while none are.
+  const allSlots = Array.from({ length: teeSlots }, (_, i) => i + 1)
+  const teeRows = teeEditable ? allSlots : allSlots.filter(slot => r[`tee_time_${slot}`])
   return (
     <div style={entryStyle}>
       {roundCount > 1 && <div style={roundNumLabel}>Round {roundIndex + 1}</div>}
@@ -1215,10 +1222,22 @@ function GolfRoundEntry({ round: r, roundIndex, roundCount, isCommissioner, read
       </div>
       <div style={{ paddingTop: 8 }}>
         <div style={cdRow(false)}><span style={cdLabel}>Location</span><span style={cdValue}>{locationText(r)}</span></div>
-        <div style={cdRow(teeTimes.length === 0)}><span style={cdLabel}>Par</span><span style={cdValue}>{parText(r)}</span></div>
-        {teeTimes.length > 0 && (
-          <div style={cdRow(true)}><span style={cdLabel}>Tee times</span><span style={cdValue}>{teeTimes.join(' / ')}</span></div>
-        )}
+        <div style={cdRow(false)}><span style={cdLabel}>Par</span><span style={cdValue}>{parText(r)}</span></div>
+        <div style={{ ...cdRow(true), alignItems: 'start' }}>
+          <span style={{ ...cdLabel, paddingTop: 4 }}>Tee times</span>
+          {teeRows.length === 0
+            ? <span style={{ ...cdValue, color: 'var(--slate)', paddingTop: 2 }}>Not set yet</span>
+            : (
+              <div style={teeRowsStyle}>
+                {teeRows.map(slot => (
+                  <div key={slot} style={teeRowStyle}>
+                    <span style={cdValue}>Pairing {slot}</span>
+                    <TeeTimeCell round={r} slot={slot} isCommissioner={teeEditable} onSave={onSaveTeeTime} size="sm" />
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
       </div>
       <div style={toolbarRowStyle}>
         <button style={{ ...toolbarPillStyle, ...(hcOpen ? { background: 'var(--primary)', color: '#fff' } : null) }} onClick={() => setHcOpen(o => !o)}><IconHandicaps />Handicaps</button>
@@ -1312,7 +1331,7 @@ function NameEditModal({ round, saving, onSave, onClose }) {
   )
 }
 
-function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onEditName, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onAddRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
+function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onEditName, allowance, scoredRounds, onRoundTypeChange, onChangePlayerTee, onSaveTeeTime, onAddRound, onEditStay, onAddStay, onEditMeal, onAddMeal }) {
   if (!data) return <div style={s.muted}>Loading…</div>
   const { days, roundsByDate, scheduleByDate, players, playerRounds, stays = [], mealsByDate = {}, pairingsByRound = {}, playersByRound = {}, holesByRoundPlayer = {} } = data
   if (!days || days.length === 0) {
@@ -1327,6 +1346,8 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const stateCtx = { assignedByRound: playersByRound, holesByRoundPlayer }
   const playersById = {}; players.forEach(p => { playersById[p.id] = p })
+  // Same per-pairing slot count the Tee times tab uses, so both pages show the same rows.
+  const teeSlots = teeSlotCount(players.length)
   return (
     <>
       {days.map(date => {
@@ -1367,6 +1388,7 @@ function CoursesPage({ data, isCommissioner, readOnly = false, onEditCourse, onE
                     isCommissioner={isCommissioner} readOnly={readOnly} allowance={allowance}
                     calcPlayers={calcPlayers} playerRounds={playerRounds} locked={locked} lockReason={lockReason}
                     muted={state === 'completed'} showRecap={showRecap} roundPairings={roundPairings} playersById={playersById}
+                    teeSlots={teeSlots} teeEditable={isCommissioner && !readOnly && !isPast} onSaveTeeTime={onSaveTeeTime}
                     onEditCourse={onEditCourse} onEditName={onEditName} onRoundTypeChange={onRoundTypeChange} onChangePlayerTee={onChangePlayerTee}
                   />
                 )
@@ -2969,6 +2991,26 @@ export default function MenuDrawer({
     if (onRoundsChanged) onRoundsChanged()
   }
 
+  // Tee time for one pairing slot of a round (null clears it). Same column the Tee
+  // times tab writes; patch the cached Schedule page in place and tell the dashboard
+  // so the Tee times tab, Home card and live banner pick it up.
+  async function saveTeeTime(roundId, col, display) {
+    const { error } = await supabase.from('rounds').update({ [col]: display }).eq('id', roundId)
+    if (error) {
+      console.error('[MenuDrawer] tee time save failed:', error)
+      return
+    }
+    setCoursesData(prev => {
+      if (!prev) return prev
+      const roundsByDate = {}
+      for (const [d, rs] of Object.entries(prev.roundsByDate)) {
+        roundsByDate[d] = rs.map(r => r.id === roundId ? { ...r, [col]: display } : r)
+      }
+      return { ...prev, roundsByDate }
+    })
+    if (onRoundsChanged) onRoundsChanged()
+  }
+
   // Persist a day-type change on the trip's schedule (trips.schedule JSONB).
   async function setDayType(date, dayType) {
     const { data: tripRow } = await supabase.from('trips').select('schedule').eq('id', tripId).maybeSingle()
@@ -3320,7 +3362,7 @@ export default function MenuDrawer({
           <CoursesPage
             data={coursesData} isCommissioner={isCommissioner} readOnly={readOnly}
             onEditCourse={setEditRound} onEditName={setEditName} allowance={handicapAllowance} scoredRounds={scoredRounds}
-            onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onAddRound={addRound}
+            onRoundTypeChange={handleRoundTypeSelect} onChangePlayerTee={changePlayerTee} onSaveTeeTime={saveTeeTime} onAddRound={addRound}
             onEditStay={setEditStay} onAddStay={(date) => setEditStay({ __new: true, check_in: date })}
             onEditMeal={setEditMeal} onAddMeal={(date) => setEditMeal({ __new: true, day: date, meal_type: 'dinner' })}
           />
