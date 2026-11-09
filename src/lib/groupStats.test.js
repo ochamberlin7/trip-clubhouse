@@ -98,6 +98,9 @@ test('records: the best of each, everyone who holds it, and where', () => {
   assert.equal(g.records.some(r => r.id === 'stablefordRound'), false) // nobody played Stableford
   assert.equal(g.records.some(r => r.id === 'holes'), false) // dropped: not a record anyone cares about
   assert.ok(g.records.find(r => r.id === 'pars').rec.v > 0) // most pars across all trips
+  assert.ok(g.records.find(r => r.id === 'bogeys').rec.v > 0)
+  const dw = g.records.find(r => r.id === 'doubles') // doubles plus triples, one record
+  assert.ok(dw == null || dw.rec.v > 0)
   assert.equal(g.records.find(r => r.id === 'lowGross').note, undefined) // record names stand alone
 })
 

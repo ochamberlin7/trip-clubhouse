@@ -287,6 +287,8 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
     { id: 'titles', label: 'Most trips won', rec: record(members, m => m.detail.competition.titles > 0 && { v: m.detail.competition.titles }) },
     { id: 'birdies', label: 'Most birdies', note: 'all trips', rec: record(members, m => m.detail.gross.counts.birdies > 0 && { v: m.detail.gross.counts.birdies }) },
     { id: 'pars', label: 'Most pars', note: 'all trips', rec: record(members, m => m.detail.gross.counts.pars > 0 && { v: m.detail.gross.counts.pars }) },
+    { id: 'bogeys', label: 'Most bogeys', note: 'all trips', rec: record(members, m => m.detail.gross.counts.bogeys > 0 && { v: m.detail.gross.counts.bogeys }) },
+    { id: 'doubles', label: 'Most doubles or worse', note: 'all trips', rec: record(members, m => (m.detail.gross.counts.doubles + m.detail.gross.counts.triples) > 0 && { v: m.detail.gross.counts.doubles + m.detail.gross.counts.triples }) },
   ].filter(r => r.rec)
 
   return {
