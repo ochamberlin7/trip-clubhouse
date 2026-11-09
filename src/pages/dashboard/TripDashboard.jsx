@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
@@ -918,6 +918,36 @@ export default function TripDashboard() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerPage, setDrawerPage] = useState(null) // deep-link target when opening the drawer
   const openMenuPage = (pageId) => { setDrawerPage(pageId); setDrawerOpen(true) }
+
+  // Every tab shares one scroll area (.dashboard-scroll), so a new tab would open
+  // at the old tab's scroll position. Start each tab, and each trip, at the top.
+  const scrollRef = useRef(null)
+  useLayoutEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+    window.scrollTo(0, 0)
+  }, [activeTab, activeTripId])
+
+  // The dashboard shell is exactly one screen tall, so the window itself should
+  // never be scrolled. iOS scrolls it to show a focused field above the keyboard
+  // and sometimes leaves it there after the keyboard closes, nudging the whole
+  // app down. Once no field has focus, put it back.
+  useEffect(() => {
+    const isField = el => !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
+    let t = null
+    const settle = () => {
+      clearTimeout(t)
+      t = setTimeout(() => {
+        if (!isField(document.activeElement) && (window.scrollY || document.documentElement.scrollTop)) window.scrollTo(0, 0)
+      }, 150)
+    }
+    document.addEventListener('focusout', settle)
+    window.visualViewport?.addEventListener('resize', settle)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('focusout', settle)
+      window.visualViewport?.removeEventListener('resize', settle)
+    }
+  }, [])
   const [showTripBanner, setShowTripBanner] = useState(location.state?.singleTripWarning ?? false)
   const [trip, setTrip] = useState(null)
   const [rounds, setRounds] = useState([])
@@ -1229,7 +1259,7 @@ export default function TripDashboard() {
 
       {/* Internal scroll region (headers + tab content). The page shell itself is
           fixed-height/overflow:hidden so the fixed bottom tab bar never drifts. */}
-      <div className="dashboard-scroll">
+      <div className="dashboard-scroll" ref={scrollRef}>
       {/* ── Page header ── */}
       {activeTab === 'dashboard' && (
         <TripHeader tripName={trip.name} startDate={trip.start_date} endDate={trip.end_date} tripId={trip.id} canEdit={canManage} onRenamed={refetchTrip} />

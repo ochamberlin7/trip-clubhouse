@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Icon from '../../components/ui/Icon'
@@ -561,6 +561,8 @@ export default function TripWizard() {
   const navigate = useNavigate()
 
   const [step, setStep] = useState(0)
+  // Each step opens at the top, not at the previous step's scroll position.
+  useLayoutEffect(() => { window.scrollTo(0, 0) }, [step])
   const [loading, setLoading] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   // Multi-trip: users may create additional trips, so the wizard is never blocked.
