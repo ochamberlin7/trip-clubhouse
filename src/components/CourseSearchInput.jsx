@@ -1,17 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Icon from './ui/Icon'
-import { createPortal } from 'react-dom'
 import { searchCourses, getCourseDetails } from '../lib/courseApi'
 import { labelTees } from '../lib/tees'
 
-// Suggestion-list sizing. DROPDOWN_MAX is the desired list height and the flip
-// threshold; GUTTER keeps it off the screen edge.
-const DROPDOWN_MAX = 260
-const GUTTER = 8
+// Suggestion-list height cap; longer lists scroll inside it.
+const DROPDOWN_MAX = 240
 
 // Self-contained course typeahead → tee picker.
-// Phase 1: debounced search with a results dropdown anchored directly below the
-//          input (absolute, full width) so it always reads clearly.
+// Phase 1: debounced search with the results list rendered in place, directly
+//          under the input (normal flow, full width), so it can never detach.
 // Phase 2: selected-course card + a single tee grid, then "Add". Tees show only
 //          the colour/name — no men's/women's heading — with a minimal (M)/(W)
 //          qualifier only where a colour collides across genders (see lib/tees).
@@ -24,12 +21,13 @@ const TEE_NEUTRAL = { background: 'var(--paper-2)', color: 'var(--ink)', border:
 const TEE_SELECTED = { background: 'var(--primary)', color: '#fff', border: '1px solid var(--primary)' }
 
 const s = {
-  wrap: { position: 'relative' },
   input: { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', background: '#fff', fontSize: '14px', color: 'var(--ink)', fontFamily: 'inherit', outline: 'none' },
-  // Portaled to document.body with position:fixed (coords computed from the input
-  // rect) so an overflow:hidden/auto ancestor — the course-edit modal sheet, the
-  // wizard cards — can never clip it. zIndex sits above the modal overlay (400).
-  dropdown: { position: 'fixed', zIndex: 4000, background: '#fff', border: '1px solid var(--line)', borderRadius: '8px', boxShadow: 'var(--shadow-pop)', maxHeight: '240px', overflowY: 'auto' },
+  // In normal flow right under the input. It used to be portaled with
+  // position:fixed, but on iOS the keyboard shifts the visual viewport and the
+  // fixed list landed at the top of the screen, far from the field. In flow it
+  // moves with the input and takes part in its container's height and scroll.
+  wrap: { position: 'relative', scrollMarginTop: '16px' },
+  dropdown: { marginTop: '4px', background: '#fff', border: '1px solid var(--line)', borderRadius: '4px', maxHeight: `${DROPDOWN_MAX}px`, overflowY: 'auto', WebkitOverflowScrolling: 'touch' },
   resultRow: { padding: '12px 14px', borderBottom: '1px solid var(--paper-2)', cursor: 'pointer', background: '#fff' },
   resultName: { fontSize: '14px', fontWeight: 600, color: 'var(--ink)' },
   resultSub: { fontSize: '12px', color: 'var(--slate)', marginTop: '1px' },
@@ -66,34 +64,9 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   const [tees, setTees] = useState([])            // labelled tee boxes (men's + women's, deduped)
   const [selectedTee, setSelectedTee] = useState(null)
   const [loadingCourse, setLoadingCourse] = useState(false)
-  const [dropPos, setDropPos] = useState(null) // {left,width,top,maxHeight} for the portaled list
   const wrapRef = useRef(null)
   const dropRef = useRef(null)
   const typedRef = useRef(false) // only search after the user actively types
-
-  // Compute the fixed-position box for the portaled list from the input's viewport
-  // rect. Uses visualViewport height (the iOS keyboard shrinks the visual viewport
-  // while innerHeight stays full-screen — so innerHeight would defeat the flip).
-  // Flips ABOVE the input when there isn't room below AND there's more room above,
-  // and caps the height to the available space so the list never runs off-screen.
-  const computePosition = useCallback(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const vh = window.visualViewport?.height ?? window.innerHeight
-    const spaceBelow = vh - r.bottom
-    const spaceAbove = r.top
-    const dropUp = spaceBelow < DROPDOWN_MAX && spaceAbove > spaceBelow
-    const avail = Math.max(0, (dropUp ? spaceAbove : spaceBelow) - GUTTER)
-    const maxHeight = Math.min(DROPDOWN_MAX, avail)
-    setDropPos({
-      left: r.left,
-      width: r.width,
-      // Anchor by top in both directions (fixed coords match getBoundingClientRect).
-      top: dropUp ? r.top - maxHeight - 4 : r.bottom + 4,
-      maxHeight,
-    })
-  }, [])
 
   // Debounced search.
   useEffect(() => {
@@ -106,7 +79,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
       try {
         const found = await searchCourses(q)
         setResults(found.slice(0, 10))
-        setOpen(true) // position is computed in the layout effect below
+        setOpen(true)
       } catch (err) {
         setError(err?.status === 429 ? 'rate' : 'error')
         setResults([]); setOpen(true)
@@ -117,12 +90,21 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
     return () => clearTimeout(t)
   }, [query, course])
 
-  // Position the list before paint (no flash) whenever it opens or its contents
-  // change, reading the live input rect.
-  useLayoutEffect(() => {
+  // When the list opens, make sure it's visible. On a phone the keyboard covers
+  // the bottom of the screen, so if the list wouldn't fit between the input and
+  // the bottom of the visible area, scroll the field to the top of its scroll
+  // container. Runs once per open, not on every keystroke.
+  useEffect(() => {
     if (!open) return
-    computePosition()
-  }, [open, results, loading, error, computePosition])
+    const el = wrapRef.current
+    if (!el) return
+    const vv = window.visualViewport
+    const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight
+    const spaceBelow = visibleBottom - el.getBoundingClientRect().bottom
+    if (spaceBelow < DROPDOWN_MAX + 8) {
+      el.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    }
+  }, [open])
 
   // Close dropdown on outside click / ESC (ignore clicks inside the dropdown).
   useEffect(() => {
@@ -136,28 +118,6 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onDocClick); document.removeEventListener('keydown', onKey) }
   }, [])
-
-  // While the list is open, keep it pinned to the input as things move:
-  //  • scroll with capture:true — the wizard body / modal sheet is the scroll
-  //    container, so a non-capturing window scroll listener never fires and the
-  //    list would detach while scrolling.
-  //  • window resize AND visualViewport resize — the latter fires when the iOS
-  //    keyboard opens/closes (which changes the flip decision).
-  useEffect(() => {
-    if (!open) return
-    const reposition = () => computePosition()
-    window.addEventListener('scroll', reposition, true)
-    window.addEventListener('resize', reposition)
-    const vv = window.visualViewport
-    vv?.addEventListener('resize', reposition)
-    vv?.addEventListener('scroll', reposition)
-    return () => {
-      window.removeEventListener('scroll', reposition, true)
-      window.removeEventListener('resize', reposition)
-      vv?.removeEventListener('resize', reposition)
-      vv?.removeEventListener('scroll', reposition)
-    }
-  }, [open, computePosition])
 
   async function selectCourse(result) {
     setOpen(false)
@@ -285,10 +245,8 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
   }
 
   // ── Phase 1: search ──
-  // The list is portaled to <body> with position:fixed at coords computed by
-  // computePosition() (left/width/top/maxHeight, flipped up when needed).
-  const dropdown = open && dropPos ? createPortal(
-    <div ref={dropRef} style={{ ...s.dropdown, left: dropPos.left, width: dropPos.width, top: dropPos.top, maxHeight: dropPos.maxHeight }}>
+  const dropdown = open ? (
+    <div ref={dropRef} style={s.dropdown} role="listbox" aria-label="Course results">
       {loading && <div style={s.msg}>Searching…</div>}
       {!loading && error === 'rate' && <div style={s.msg}>Search is rate-limited. Wait a moment and try again.</div>}
       {!loading && error === 'error' && <div style={s.msg}>Search unavailable</div>}
@@ -312,8 +270,7 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
           </div>
         )
       })}
-    </div>,
-    document.body,
+    </div>
   ) : null
 
   return (
@@ -326,8 +283,8 @@ export default function CourseSearchInput({ onCourseSelected, onQueryChange, pla
         onChange={e => { typedRef.current = true; setQuery(e.target.value); onQueryChange?.(e.target.value) }}
         onFocus={() => { if (results.length) setOpen(true) }}
       />
-      {loadingCourse && <div style={s.loadingCard}>Loading course…</div>}
       {dropdown}
+      {loadingCourse && <div style={s.loadingCard}>Loading course…</div>}
     </div>
   )
 }
