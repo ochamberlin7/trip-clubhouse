@@ -1,6 +1,8 @@
 // Home banner — "Trip Clubhouse" small-caps wordmark, auto-fit trip name, date range.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import Icon from './ui/Icon'
 import { saveTripName, TRIP_NAME_MAX as TRIP_NAME_MAX_CHARS } from '../lib/tripSettings'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -31,7 +33,7 @@ const styles = {
     background: 'var(--paper)',
     // Top-most element on the Home tab now (tab bar moved to the bottom), so it
     // carries the status-bar / notch inset; white bg fills the safe area.
-    padding: 'max(env(safe-area-inset-top), 20px) 16px 16px',
+    padding: 'max(env(safe-area-inset-top), 20px) 56px 16px',
     borderBottom: '1px solid var(--line)',
     textAlign: 'center',
   },
@@ -69,6 +71,24 @@ const styles = {
   rule: { width: 34, height: 2, background: 'var(--accent)', margin: '9px auto 0' },
   // Commissioner-only pencil, pinned to the header's upper-right (aligned with the
   // wordmark row so it never overlaps the centered trip name).
+  // One-tap way back to Your clubhouse: a quiet outline icon button at the top left,
+  // mirroring the commissioner's pencil at the top right (design decision 2026-11-08).
+  homeBtn: {
+    position: 'absolute',
+    top: 'max(env(safe-area-inset-top), 14px)',
+    left: 14,
+    width: 34,
+    height: 34,
+    background: 'var(--paper)',
+    border: '1px solid var(--line)',
+    borderRadius: 'var(--radius)',
+    padding: 0,
+    cursor: 'pointer',
+    color: 'var(--primary)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   editBtn: {
     position: 'absolute',
     top: 'max(env(safe-area-inset-top), 20px)',
@@ -158,6 +178,7 @@ function TripNameFit({ text }) {
 }
 
 export default function TripHeader({ tripName, startDate, endDate, tripId, canEdit = false, onRenamed }) {
+  const navigate = useNavigate()
   const range = formatRange(startDate, endDate)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(tripName || '')
@@ -183,6 +204,7 @@ export default function TripHeader({ tripName, startDate, endDate, tripId, canEd
 
   return (
     <div style={{ ...styles.container, position: 'relative' }}>
+      <button style={styles.homeBtn} onClick={() => navigate('/home')} aria-label="Your clubhouse" title="Your clubhouse"><Icon name="clubhouse" size={18} /></button>
       <div style={styles.wordmark}>Trip Clubhouse</div>
 
       {editing ? (
