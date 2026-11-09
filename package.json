@@ -9,7 +9,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test 'src/**/*.test.js'"
+    "test": "node --test 'src/**/*.test.js'",
+    "check:design": "node scripts/check-design.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

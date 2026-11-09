@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import Icon from './ui/Icon'
 import { createPortal } from 'react-dom'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import { useResumeRefetch } from '../lib/useResumeRefetch'
@@ -34,8 +35,8 @@ const STAT_TABS = ['Scoring', 'Fire', 'Rounds', 'Drinks']
 // Title colour says what kind of stat it is (same as Daily Leaders): green =
 // bragging rights, red = the roast, gold = drinks. Titles sit on the same light
 // navy bar as the Daily Leaders tiles.
-const TONE = { good: '#0F6E56', bad: '#A32D2D', drinks: '#92600A' }
-const ME_BG = '#EEF2F7' // the viewer's own row in "See all"
+const TONE = { good: 'var(--ok)', bad: 'var(--bad)', drinks: 'var(--accent-ink)' }
+const ME_BG = 'var(--paper-2)' // the viewer's own row in "See all"
 
 function StatHeaderBar({ title, tone = 'good', onClose, info, infoOpen, onInfo, infoRef }) {
   return (
@@ -45,7 +46,7 @@ function StatHeaderBar({ title, tone = 'good', onClose, info, infoOpen, onInfo, 
         <span className="stat-tile-title">{title}</span>
         {info && <InfoButton ref={infoRef} open={infoOpen} onToggle={onInfo} color={TONE[tone]} label={`What is ${title}?`} />}
       </span>
-      {onClose && <button className="stat-modal-close" aria-label="Close" onClick={onClose}>✕</button>}
+      {onClose && <button className="stat-modal-close" aria-label="Close" onClick={onClose}><Icon name="close" size={13} /></button>}
     </div>
   )
 }
@@ -143,7 +144,7 @@ function StatTile({ title, tone, cols, players, anyScore, short, isMe, info }) {
             ))}
           </div>
           {players.length > 3 && (
-            <button className="stat-tile-seeall" onClick={() => setOpen(true)}>See all ›</button>
+            <button className="stat-tile-seeall" onClick={() => setOpen(true)}>See all</button>
           )}
         </>
       )}
@@ -314,7 +315,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
   }
 
   if (!players.length) {
-    return <div className="empty-state"><span className="empty-state-icon">📊</span>No players on this trip yet.</div>
+    return <div className="empty-state"><span className="empty-state-icon"><Icon name="players" size={28} /></span>No players on this trip yet. Add them in Players and teams.</div>
   }
 
   // Accessors. Counting stats default to 0; round totals ("—" when no complete
@@ -424,7 +425,7 @@ export default function StatsTab({ trip, rounds = [], isCommissioner, currentUse
 
           {tabName === 'Drinks' && (
             <div className="stat-tile" style={{ gridColumn: '1 / -1' }}>
-              <StatHeaderBar title="Drink Leaderboard" tone="drinks" />
+              <StatHeaderBar title="Drinks" tone="drinks" />
               {drinkRows.map((p, i) => {
                 const editable = canEditDrinks(p)
                 const open = openDrinkPopup === p.id

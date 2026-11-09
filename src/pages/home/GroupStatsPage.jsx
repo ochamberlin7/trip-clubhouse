@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import Icon from '../../components/ui/Icon'
 import { LEADERBOARDS, rankLeaderboard, rivalsOf, headToHead, averagesByTrip } from '../../lib/groupStats'
 import GroupPicker from '../../components/GroupPicker'
 import { s, NAVY, INK, MUTED, HAIR, ROW_LINE, GOLD, LNUM, CAPS, CROWD } from './careerTheme'
 import { one, roundWhere, intVsPar, fmtRange, fmtDate } from '../../lib/careerFormat'
-import { Tile, Cols, TapValue, PeopleTile } from './statTiles'
+import { Tile, TapValue, PeopleTile } from './statTiles'
 import { ScrollLineChart, HeadToHeadGrid, LineKey } from './statCharts'
 import { niceScale } from '../../lib/chartScale'
 import { TEAM_COLORS, LEGACY_TEAM_COLORS, paletteForTrip } from '../../lib/teamColors'
@@ -24,15 +25,14 @@ const g = {
   statusPill: { fontSize: 10.5, ...CAPS, letterSpacing: '1px', color: NAVY },
   pills: { display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 },
   row: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: `1px solid ${ROW_LINE}` },
-  name: { fontSize: 14, color: '#2C3E50', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  value: { marginLeft: 'auto', fontSize: 15, fontWeight: 800, color: INK, ...LNUM },
-  me: { background: '#F3F6FA', margin: '0 -12px', padding: '9px 12px' },
-  holders: { fontSize: 13, color: '#2C3E50', textAlign: 'center', marginTop: 6, lineHeight: 1.4 },
+  name: { fontSize: 14, color: 'var(--ink-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  value: { marginLeft: 'auto', fontSize: 15, fontWeight: 700, color: INK, ...LNUM },
+  me: { background: 'var(--primary-tint)', margin: '0 -12px', padding: '9px 12px' },
   cardBtn: { display: 'block', width: '100%', padding: 0, background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: INK },
   dates: { display: 'block', fontSize: 12.5, color: MUTED, marginTop: 2 },
-  listRow: { display: 'flex', alignItems: 'baseline', gap: 10, padding: '9px 0', borderTop: `1px solid ${ROW_LINE}`, fontSize: 14, color: '#2C3E50' },
+  listRow: { display: 'flex', alignItems: 'baseline', gap: 10, padding: '9px 0', borderTop: `1px solid ${ROW_LINE}`, fontSize: 14, color: 'var(--ink-2)' },
   listSub: { fontSize: 12, color: MUTED, marginTop: 2, lineHeight: 1.35 },
-  openBtn: { display: 'block', width: '100%', padding: '14px 0', background: NAVY, color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' },
+  openBtn: { display: 'block', width: '100%', padding: '14px 0', background: NAVY, color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 600, letterSpacing: '1.4px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' },
 }
 
 const fmtVal = (def, v) => (v == null ? '—' : def.fmt === 'one' ? one(v) : def.fmt === 'vsPar' ? (Math.abs(v) < 0.05 ? 'E' : `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`) : v)
@@ -77,7 +77,7 @@ function RaceChart({ t, viewerKey }) {
   const crowd = race.lines.length > 4 && race.lines.every(l => l.teamIndex == null)
   const colorOf = (l, i) => {
     if (l.teamIndex != null) return (pal[l.teamIndex] || pal[1]).solid
-    if (!crowd) return [NAVY, GOLD, '#15808F', '#7A3F9E'][i] || CROWD
+    if (!crowd) return [NAVY, GOLD, '#15808F', '#7A3F9E'][i] || CROWD // design-check: allow (chart series: teal and purple from the team palette)
     return l.key && l.key === viewerKey ? NAVY : winnerIds.has(l.id) && t.status === 'past' ? GOLD : CROWD
   }
   const fmt = v => (race.lowWins ? (v === 0 ? 'E' : `${v > 0 ? '+' : '−'}${Math.abs(v)}`) : (Number.isInteger(v) ? v : v.toFixed(1)))
@@ -118,7 +118,7 @@ function TripCard({ t, onOpen }) {
             {t.startDate && <span style={g.dates}>{fmtRange(t.startDate, t.endDate)}</span>}
             <span style={{ ...(res.gold ? g.winner : g.statusPill), display: 'block', marginTop: 3 }}>{res.text}</span>
           </span>
-          <span style={{ marginLeft: 'auto', color: '#9AA6B5', fontSize: 20 }} aria-hidden="true">›</span>
+          <span style={{ marginLeft: 'auto', color: 'var(--mist)', display: 'flex' }} aria-hidden="true"><Icon name="right" size={16} /></span>
         </div>
         <div style={{ ...s.grid4, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
           <div><b style={s.g4Num}>{t.rounds}</b><span style={s.g4Lab}>Rounds</span></div>
@@ -147,7 +147,7 @@ function NameGrid({ names, pad = 0 }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 10, padding: pad }}>
       {names.map((name, j) => (
-        <div key={name + j} style={{ fontSize: 13, color: INK, padding: '5px 0', borderTop: j > 1 ? '1px solid #EEF1F4' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+        <div key={name + j} style={{ fontSize: 13, color: INK, padding: '5px 0', borderTop: j > 1 ? '1px solid var(--line-soft)' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
       ))}
     </div>
   )
@@ -163,7 +163,7 @@ function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
   return (
     <div style={s.page}>
       <header style={s.mast}>
-        <button style={s.back} onClick={onClose}>‹ Group</button>
+        <button style={s.back} onClick={onClose}><Icon name="left" size={14} />Group</button>
         <div style={s.eyebrow}>{t.startDate ? t.startDate.slice(0, 4) : 'Trip'}</div>
         <h1 style={{ ...s.title, fontSize: 30, padding: '0 40px', textWrap: 'balance' }}>{t.name}</h1>
         <div style={s.rule} />
@@ -226,8 +226,8 @@ function TripSummary({ t, onClose, onOpenTrip, viewerKey }) {
                 const pal = paletteForTrip({ end_date: t.endDate }) === 'legacy' ? LEGACY_TEAM_COLORS : TEAM_COLORS
                 const color = (pal[tm.teamIndex] || pal[1]).solid
                 return (
-                  <div key={tm.id} style={{ border: '1px solid #E1E7EE', borderRadius: 6, overflow: 'hidden' }}>
-                    <div style={{ background: color, color: '#fff', fontSize: 13, fontWeight: 800, padding: '7px 10px', lineHeight: 1.2 }}>{tm.name}</div>
+                  <div key={tm.id} style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                    <div style={{ background: color, color: '#fff', fontSize: 13, fontWeight: 700, padding: '7px 10px', lineHeight: 1.2 }}>{tm.name}</div>
                     <NameGrid names={tm.players} pad="4px 10px 6px" />
                   </div>
                 )
@@ -285,15 +285,31 @@ function LeadersTab({ d }) {
 
 function RecordsTab({ d }) {
   if (!d.records.length) return <div style={s.empty}>Records show up once the group has finished a round.</div>
-  return d.records.map(r => {
-    const one1 = r.rec.holders.length === 1 ? r.rec.holders[0] : null
-    return (
-      <Tile key={r.id} title={r.label} note={r.note}>
-        <Cols items={[{ label: r.rec.holders.length > 1 ? `${r.rec.holders.length}-way tie` : 'Record', value: r.fmt === 'vsPar' ? intVsPar(r.rec.v) : r.rec.v, where: one1?.where ? roundWhere(one1.where) : null }]} />
-        <div style={g.holders}>{r.rec.holders.map(h => h.name).join(' · ')}</div>
-      </Tile>
-    )
-  })
+  // One card, one row per record: the record on the left with who holds it underneath,
+  // the number on the right (tap it for where). Same row pattern as the rest of the app.
+  return (
+    <Tile title="Group records" pad={false}>
+      {d.records.map((r, i) => {
+        const one1 = r.rec.holders.length === 1 ? r.rec.holders[0] : null
+        const value = r.fmt === 'vsPar' ? intVsPar(r.rec.v) : r.rec.v
+        const holders = r.rec.holders.map(h => h.name).join(', ')
+        const tie = r.rec.holders.length > 1 ? ` · ${r.rec.holders.length}-way tie` : ''
+        return (
+          <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderTop: i ? `1px solid ${ROW_LINE}` : 'none' }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: INK, lineHeight: 1.3 }}>
+                {r.label}{r.note && <span style={{ fontWeight: 500, color: MUTED }}> · {r.note}</span>}
+              </span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'var(--slate)', marginTop: 2 }}>{holders}{tie}</span>
+            </span>
+            <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 700, color: NAVY, ...LNUM, flexShrink: 0, lineHeight: 1 }}>
+              {one1?.where ? <TapValue value={value} where={roundWhere(one1.where)} size="row" /> : value}
+            </span>
+          </div>
+        )
+      })}
+    </Tile>
+  )
 }
 
 // Rivals: a head-to-head grid of everyone (Rounds works for every format: the
@@ -311,16 +327,16 @@ function RivalsTab({ d }) {
     <>
       <Tile title="Head to head" note="row player's record">
         {d.hasMatchPlay && (
-          <div style={{ display: 'inline-flex', background: '#E4E8EE', borderRadius: 28, padding: 3, marginBottom: 10 }} role="tablist" aria-label="Count">
+          <div style={{ display: 'inline-flex', background: 'var(--paper-2)', borderRadius: 'var(--radius)', padding: 3, marginBottom: 10 }} role="tablist" aria-label="Count">
             {[['matches', 'Matches'], ['rounds', 'Rounds']].map(([m, label]) => (
               <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
-                style={{ padding: '5px 16px', fontSize: 12, fontWeight: 700, borderRadius: 28, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: mode === m ? NAVY : 'transparent', color: mode === m ? '#fff' : MUTED }}>{label}</button>
+                style={{ padding: '5px 16px', fontSize: 12, fontWeight: 700, borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: mode === m ? NAVY : 'transparent', color: mode === m ? '#fff' : MUTED }}>{label}</button>
             ))}
           </div>
         )}
         <HeadToHeadGrid h2h={h2h} viewerKey={d.viewerKey} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: MUTED, marginTop: 8 }}>
-          <span>Lost more</span><span style={{ flex: 1, height: 8, borderRadius: 4, background: 'linear-gradient(90deg, #B2182B, #F4A582, #F2F2F2, #92C5DE, #2166AC)' }} /><span>Won more</span>
+          <span>Lost more</span><span style={{ flex: 1, height: 8, borderRadius: 4, background: 'linear-gradient(90deg, #B2182B, #F4A582, #F2F2F2, #92C5DE, #2166AC)' }} /><span>Won more</span>{/* design-check: allow (ColorBrewer RdBu chart scale) */}
         </div>
         <div style={s.note}>{mode === 'matches'
           ? 'Read across: the row player\'s win–tie–loss in match play against the column player. Grey: never played each other.'
@@ -352,7 +368,7 @@ export function GroupStatsView({ groups, groupId, onPick, stats, error, onBack, 
   return (
     <div style={s.page}>
       <header style={s.mast}>
-        <button style={s.back} onClick={onBack}>‹ Home</button>
+        <button style={s.back} onClick={onBack}><Icon name="left" size={14} />Home</button>
         <h1 style={{ ...s.title, marginTop: 30 }}>Career stats</h1>
         {name && <div style={s.who}>{name}</div>}
         <div style={s.rule} />

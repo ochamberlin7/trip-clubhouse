@@ -11,13 +11,13 @@ import GroupPicker, { NEW_GROUP } from './GroupPicker'
 
 const ui = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  sheet: { background: '#fff', borderRadius: 12, padding: 24, width: 'calc(100% - 40px)', maxWidth: 360, textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
-  sheetTitle: { fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 },
-  sheetText: { fontSize: 14, color: '#2C3E50', lineHeight: 1.45 },
+  sheet: { background: '#fff', borderRadius: 'var(--radius)', padding: 24, width: 'calc(100% - 40px)', maxWidth: 360, textAlign: 'center', boxShadow: 'var(--shadow-pop)' },
+  sheetTitle: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 },
+  sheetText: { fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.45 },
   sheetBtns: { display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 },
   // Same as the other Commissioner Tools pop-ups: Cancel red, the action grey-blue.
-  cancelBtn: { background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  goBtn: { background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  cancelBtn: { background: 'var(--bad)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  goBtn: { background: 'var(--paper-2)', color: 'var(--ink-2)', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 }
 
 export default function TripGroupBody({ tripId, tripName, groupId, groupName, onMoved }) {
@@ -71,7 +71,7 @@ export default function TripGroupBody({ tripId, tripName, groupId, groupName, on
 
   return (
     <>
-      <div style={rowUI.note}>This trip is in <b style={{ color: '#0D1B2A' }}>{groupName || 'its own group'}</b>. Move it to put it with another group's trips, so it counts toward that group's history and stats.</div>
+      <div style={rowUI.note}>This trip is in <b style={{ color: 'var(--ink)' }}>{groupName || 'its own group'}</b>. Move it to put it with another group's trips, so it counts toward that group's history and stats.</div>
       <div style={rowUI.fieldLabel}>Move to</div>
       <GroupPicker groups={groups} value={target} onChange={setTarget} />
       {isNew && (

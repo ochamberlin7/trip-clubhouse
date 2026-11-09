@@ -279,14 +279,16 @@ export function buildGroupStats(perTrip = [], viewerUserId = null, now = new Dat
 
   // Group records: who holds the best of each, with where (tap to see).
   const records = [
-    { id: 'lowGross', label: 'Lowest round', note: 'gross, 18 holes', hi: false, rec: record(members, m => m.detail.gross.best && { v: m.detail.gross.best.total, where: m.detail.gross.best }, { hi: false }) },
-    { id: 'birdiesRound', label: 'Most birdies in a round', note: 'gross', rec: record(members, m => bestRoundBy(m.detail, r => r.birdies, true)) },
+    { id: 'lowGross', label: 'Lowest round', hi: false, rec: record(members, m => m.detail.gross.best && { v: m.detail.gross.best.total, where: m.detail.gross.best }, { hi: false }) },
+    { id: 'birdiesRound', label: 'Most birdies in a round', rec: record(members, m => bestRoundBy(m.detail, r => r.birdies, true)) },
     { id: 'pointsRound', label: 'Most points in a round', note: 'Point Match Play', rec: record(members, m => m.detail.competition.formats.points?.bestRound && { v: m.detail.competition.formats.points.bestRound.points, where: m.detail.competition.formats.points.bestRound }) },
     { id: 'stablefordRound', label: 'Best Stableford round', rec: record(members, m => m.detail.competition.formats.stableford?.best && { v: m.detail.competition.formats.stableford.best.points, where: m.detail.competition.formats.stableford.best }) },
     { id: 'strokeRound', label: 'Best stroke play round', note: 'net to par', fmt: 'vsPar', rec: record(members, m => m.detail.competition.formats.stroke?.best && { v: m.detail.competition.formats.stroke.best.netToPar, where: m.detail.competition.formats.stroke.best }, { hi: false }) },
     { id: 'titles', label: 'Most trips won', rec: record(members, m => m.detail.competition.titles > 0 && { v: m.detail.competition.titles }) },
-    { id: 'birdies', label: 'Most birdies', note: 'gross, all trips', rec: record(members, m => m.detail.gross.counts.birdies > 0 && { v: m.detail.gross.counts.birdies }) },
-    { id: 'holes', label: 'Most holes played', rec: record(members, m => ({ v: m.detail.totals.holes })) },
+    { id: 'birdies', label: 'Most birdies', note: 'all trips', rec: record(members, m => m.detail.gross.counts.birdies > 0 && { v: m.detail.gross.counts.birdies }) },
+    { id: 'pars', label: 'Most pars', note: 'all trips', rec: record(members, m => m.detail.gross.counts.pars > 0 && { v: m.detail.gross.counts.pars }) },
+    { id: 'bogeys', label: 'Most bogeys', note: 'all trips', rec: record(members, m => m.detail.gross.counts.bogeys > 0 && { v: m.detail.gross.counts.bogeys }) },
+    { id: 'doubles', label: 'Most doubles or worse', note: 'all trips', rec: record(members, m => (m.detail.gross.counts.doubles + m.detail.gross.counts.triples) > 0 && { v: m.detail.gross.counts.doubles + m.detail.gross.counts.triples }) },
   ].filter(r => r.rec)
 
   return {

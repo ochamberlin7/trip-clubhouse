@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 export const SWIPE_OPEN = 76 // px of red delete action revealed when a row is swiped left
 
 const outer = { position: 'relative', overflow: 'hidden' }
-const action = { position: 'absolute', top: 0, right: 0, bottom: 0, width: SWIPE_OPEN, background: '#C0392B', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }
+const action = { position: 'absolute', top: 0, right: 0, bottom: 0, width: SWIPE_OPEN, background: 'var(--bad)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }
 
 // The trash icon on the swipe action — also used by the Clubhouse "Deleted" footer
 // so both read as the same thing.
@@ -25,7 +25,7 @@ export function TrashIcon({ size = 20, color = '#fff' }) {
   )
 }
 
-export default function SwipeDeleteRow({ canDelete, rowStyle, outerStyle, coverBg = '#F0F4F8', deleteLabel = 'Delete trip', onPick, onDelete, children }) {
+export default function SwipeDeleteRow({ canDelete, rowStyle, outerStyle, coverBg = 'var(--stone)', deleteLabel = 'Delete trip', onPick, onDelete, children }) {
   const [dx, setDx] = useState(0)
   const [dragging, setDragging] = useState(false)
   const st = useRef({ x0: 0, y0: 0, base: 0, axis: null, drag: false })

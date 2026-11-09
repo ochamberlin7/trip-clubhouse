@@ -1,12 +1,12 @@
 {
   "name": "Trip Clubhouse",
   "short_name": "Trip Clubhouse",
-  "description": "Plan golf trips, track scores, and follow live match play.",
+  "description": "Run your golf trip: pairings, live scores, standings and the trash talk.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#1B3F6E",
-  "theme_color": "#1B3F6E",
+  "background_color": "#F1F0EB",
+  "theme_color": "#1F4D3A",
   "icons": [
     {
       "src": "/icon-192.png",

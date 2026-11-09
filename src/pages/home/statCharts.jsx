@@ -88,7 +88,7 @@ export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi,
             {xTicks
               ? xTicks.map(t => (
                 <g key={t.label}>
-                  <line x1={px(t.x)} x2={px(t.x)} y1={bot} y2={bot + 4} stroke="#C9D3E0" />
+                  <line x1={px(t.x)} x2={px(t.x)} y1={bot} y2={bot + 4} stroke="var(--line)" />
                   <text x={px(t.x)} y={height - 8} textAnchor="middle" style={txt}>{t.label}</text>
                 </g>
               ))
@@ -119,7 +119,7 @@ export function ScrollLineChart({ labels, xs, xTicks, step = 76, series, lo, hi,
           </svg>
         </div>
       </div>
-      {scrolls && <div style={{ fontSize: 10.5, color: '#9AA6B5', textAlign: 'right', marginTop: 2 }}>← swipe for earlier trips</div>}
+      {scrolls && <div style={{ fontSize: 10.5, color: 'var(--mist)', textAlign: 'right', marginTop: 2 }}>← swipe for earlier trips</div>}
     </div>
   )
 }
@@ -134,7 +134,7 @@ export function ScoreMixBars({ rows }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} role="img" aria-label={rows.map(r => `${r.label} ${r.n}`).join(', ')}>
       {rows.map(r => (
         <div key={r.label} style={{ display: 'grid', gridTemplateColumns: '64px 1fr 40px', alignItems: 'center', gap: 8 }} title={`${r.label}: ${r.n} of ${total} holes (${Math.round(r.n / total * 100)}%)`}>
-          <span style={{ fontSize: 13, color: '#2C3E50' }}>{r.label}</span>
+          <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>{r.label}</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             <span style={{ height: 14, width: `${Math.max(1.5, r.n / max * 100)}%`, background: SCORE_COLORS[r.tone], borderRadius: '0 4px 4px 0', flex: 'none', maxWidth: 'calc(100% - 30px)' }} />
             <b style={{ fontSize: 12.5, color: INK, fontVariantNumeric: 'tabular-nums' }}>{r.n}</b>
@@ -168,7 +168,7 @@ export function VsParDots({ rows }) {
         const yy = 16 + i * rowH
         return (
           <g key={r.label}>
-            <text x={0} y={yy + 4} style={{ ...txt, fontSize: 12.5, fill: '#2C3E50' }}>{r.label}</text>
+            <text x={0} y={yy + 4} style={{ ...txt, fontSize: 12.5, fill: 'var(--ink-2)' }}>{r.label}</text>
             {r.v != null && (
               <>
                 <line x1={x(0)} x2={x(r.v)} y1={yy} y2={yy} stroke={NAVY} strokeWidth="2" />
@@ -199,18 +199,18 @@ export function HeadToHeadGrid({ h2h, viewerKey }) {
         <tbody>
           {h2h.order.map(a => (
             <tr key={a.key}>
-              <th style={{ position: 'sticky', left: 0, background: '#fff', textAlign: 'left', fontSize: 11.5, color: a.key === viewerKey ? INK : '#2C3E50', fontWeight: 700, padding: '2px 6px 2px 0', whiteSpace: 'nowrap' }}>
+              <th style={{ position: 'sticky', left: 0, background: '#fff', textAlign: 'left', fontSize: 11.5, color: a.key === viewerKey ? INK : 'var(--ink-2)', fontWeight: 700, padding: '2px 6px 2px 0', whiteSpace: 'nowrap' }}>
                 {first(a.name)}{a.key === viewerKey ? ' (you)' : ''}
               </th>
               {h2h.order.map(b => {
-                if (a.key === b.key) return <td key={b.key} style={{ minWidth: 40, borderRadius: 3, background: 'repeating-linear-gradient(45deg, #EEF1F5 0 4px, #F7F8FA 4px 8px)' }} aria-label="same player" />
+                if (a.key === b.key) return <td key={b.key} style={{ minWidth: 40, borderRadius: 'var(--radius)', background: 'repeating-linear-gradient(45deg, var(--line-soft) 0 4px, var(--paper-2) 4px 8px)' }} aria-label="same player" />
                 const r = h2h.cell(a.key, b.key)
-                if (!r) return <td key={b.key} style={{ minWidth: 40, textAlign: 'center', padding: '7px 2px', borderRadius: 3, background: '#F7F8FA', color: '#9AA6B5' }}>—</td>
+                if (!r) return <td key={b.key} style={{ minWidth: 40, textAlign: 'center', padding: '7px 2px', borderRadius: 'var(--radius)', background: 'var(--paper-2)', color: 'var(--mist)' }}>—</td>
                 const games = r.w + r.t + r.l
                 const c = winShareColor((r.w + r.t / 2) / games)
                 return (
                   <td key={b.key} title={`${a.name} vs ${b.name}: ${r.w} won, ${r.t} tied, ${r.l} lost`}
-                    style={{ minWidth: 40, textAlign: 'center', padding: '7px 2px', borderRadius: 3, fontWeight: 700, background: c.bg, color: c.dark ? '#fff' : INK, whiteSpace: 'nowrap' }}>
+                    style={{ minWidth: 40, textAlign: 'center', padding: '7px 2px', borderRadius: 'var(--radius)', fontWeight: 700, background: c.bg, color: c.dark ? '#fff' : INK, whiteSpace: 'nowrap' }}>
                     {r.w}–{r.t}–{r.l}
                   </td>
                 )
@@ -228,7 +228,7 @@ export function LineKey({ items }) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 6 }}>
       {items.map(it => (
-        <span key={it.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#2C3E50' }}>
+        <span key={it.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-2)' }}>
           <span style={{ width: it.square ? 10 : 16, height: it.square ? 10 : it.thin ? 2 : 3, borderRadius: 2, background: it.color, flex: 'none' }} />
           {it.label}{it.value != null && <b style={{ color: INK, fontVariantNumeric: 'tabular-nums' }}>{it.value}</b>}
         </span>

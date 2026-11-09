@@ -82,7 +82,7 @@ export function PeopleTile({ title, list, unit = 'match' }) {
         <div key={p.key} style={{ ...s.person, ...(i ? { borderTop: `1px solid ${ROW_LINE}` } : null) }}>
           <span style={s.av}>{initials(p.name)}</span>
           <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <span style={{ fontSize: 14, color: '#2C3E50' }}>{p.name}</span>
+            <span style={{ fontSize: 14, color: 'var(--ink-2)' }}>{p.name}</span>
             <span style={{ fontSize: 11, color: MUTED }}>{plural(p.matches, unit)}</span>
           </span>
           <span style={{ marginLeft: 'auto' }}><SmallRecord r={p} /></span>

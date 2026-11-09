@@ -30,22 +30,22 @@ const styles = {
   headerText: { ...HOME_CARD_LABEL },
   area: { padding: '12px', flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' },
   msgRow: { display: 'flex', flexDirection: 'column', gap: '2px' },
-  meta: { fontSize: '10px', color: '#7A8FA6', padding: '0 4px' },
-  senderName: { fontWeight: 700, color: '#1B3F6E' },
+  meta: { fontSize: '10px', color: 'var(--slate)', padding: '0 4px' },
+  senderName: { fontWeight: 700, color: 'var(--primary)' },
   bubble: { maxWidth: '75%', padding: '7px 10px', fontSize: '13px', lineHeight: 1.4, wordBreak: 'break-word' },
-  bubbleMine: { background: '#4472A8', color: '#fff', borderRadius: '12px 12px 2px 12px' },
-  bubbleOther: { background: '#E8EDF3', color: '#0F1E33', borderRadius: '12px 12px 12px 2px' },
-  empty: { textAlign: 'center', color: '#7A8FA6', fontSize: '13px', padding: '20px 0', fontStyle: 'italic' },
-  divider: { alignSelf: 'center', color: '#9AA7B4', fontSize: '10px', letterSpacing: '0.3px', padding: '6px 0 2px', textAlign: 'center' },
-  error: { color: '#C0392B', fontSize: '11px', padding: '6px 14px 0', textAlign: 'center' },
-  inputRow: { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #DDE3EA', background: '#FFFFFF', flexShrink: 0, alignItems: 'flex-end' },
-  input: { flex: 1, background: '#E8EDF3', border: '1px solid #DDE3EA', borderRadius: '20px', padding: '8px 14px', fontSize: '16px', lineHeight: '20px', color: '#0D1B2A', outline: 'none', fontFamily: 'inherit', resize: 'none', overflowY: 'hidden', maxHeight: COMPOSER_MAX, boxSizing: 'border-box', display: 'block' },
-  sendBtn: { width: '38px', height: '38px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  pushPrompt: { display: 'flex', alignItems: 'center', gap: 9, margin: '10px 10px 0', padding: '9px 10px 9px 12px', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: 12, boxShadow: '0 2px 6px rgba(15,30,51,.06)', flexShrink: 0 },
-  pushIcon: { display: 'flex', flexShrink: 0, color: '#1B3F6E' },
-  pushText: { fontSize: 12.5, color: '#33455E', flex: 1, lineHeight: 1.3 },
-  pushEnable: { background: '#1B3F6E', color: '#fff', border: 'none', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
-  pushDismiss: { background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, color: '#94A3B8' },
+  bubbleMine: { background: 'var(--primary-tint)', color: 'var(--ink)', borderRadius: 'var(--radius)' },
+  bubbleOther: { background: 'var(--paper-2)', color: 'var(--ink)', borderRadius: 'var(--radius)', border: '1px solid var(--line-soft)' },
+  empty: { textAlign: 'center', color: 'var(--slate)', fontSize: '13px', padding: '20px 0', fontStyle: 'italic' },
+  divider: { alignSelf: 'center', color: 'var(--mist)', fontSize: '10px', letterSpacing: '0.3px', padding: '6px 0 2px', textAlign: 'center' },
+  error: { color: 'var(--bad)', fontSize: '11px', padding: '6px 14px 0', textAlign: 'center' },
+  inputRow: { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid var(--line)', background: 'var(--paper)', flexShrink: 0, alignItems: 'flex-end' },
+  input: { flex: 1, background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '8px 14px', fontSize: '16px', lineHeight: '20px', color: 'var(--ink)', outline: 'none', fontFamily: 'inherit', resize: 'none', overflowY: 'hidden', maxHeight: COMPOSER_MAX, boxSizing: 'border-box', display: 'block' },
+  sendBtn: { width: '38px', height: '38px', borderRadius: 'var(--radius)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  pushPrompt: { display: 'flex', alignItems: 'center', gap: 9, margin: '10px 10px 0', padding: '9px 10px 9px 12px', background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', boxShadow: 'none', flexShrink: 0 },
+  pushIcon: { display: 'flex', flexShrink: 0, color: 'var(--primary)' },
+  pushText: { fontSize: 12.5, color: 'var(--ink-2)', flex: 1, lineHeight: 1.3 },
+  pushEnable: { background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 },
+  pushDismiss: { background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, color: 'var(--mist)' },
 }
 
 function SendIcon() {
@@ -355,7 +355,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
   return (
     <div style={styles.card}>
       <div style={styles.header}>
-        <span style={styles.headerText}>Trash Talk Thread</span>
+        <span style={styles.headerText}>Trash talk</span>
       </div>
 
       {showPushPrompt && (
@@ -373,7 +373,7 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
 
       <div style={styles.area} ref={areaRef}>
         {messages.length === 0 ? (
-          <div style={styles.empty}>No messages yet — start the trash talk.</div>
+          <div style={styles.empty}>No messages yet. Say something to the group.</div>
         ) : (
           messages.map((m, i) => {
             const mine = m.user_id === currentUserId
@@ -423,13 +423,13 @@ export default function ChatWidget({ tripId, currentUserId, currentUserName }) {
           // Return inserts a newline (native textarea behaviour); the message only
           // sends via the blue send button. No keyboard send shortcut.
           onChange={e => { setText(e.target.value); autoGrow() }}
-          onFocus={e => { e.target.style.borderColor = '#1B3F6E' }}
-          onBlur={e => { e.target.style.borderColor = '#DDE3EA' }}
+          onFocus={e => { e.target.style.borderColor = 'var(--primary)' }}
+          onBlur={e => { e.target.style.borderColor = 'var(--line)' }}
         />
         <button
           type="button"
           aria-label="Send message"
-          style={{ ...styles.sendBtn, background: pressed ? '#163560' : '#1B3F6E' }}
+          style={{ ...styles.sendBtn, background: pressed ? 'var(--primary-deep)' : 'var(--primary)' }}
           onMouseDown={() => setPressed(true)}
           onMouseUp={() => setPressed(false)}
           onMouseLeave={() => setPressed(false)}

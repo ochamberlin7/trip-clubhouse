@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <!-- Trip Clubhouse browser-tab favicon: white serif "TC" on navy, rounded square. -->
-  <rect width="512" height="512" rx="112" ry="112" fill="#1B3F6E"/>
-  <text x="256" y="256" fill="#FFFFFF"
-        font-family="Georgia, 'Times New Roman', 'Playfair Display', serif"
-        font-weight="700" font-size="248"
+  <!-- Trip Clubhouse browser-tab favicon: white serif "TC" on bottle green with a brass rule. -->
+  <rect width="512" height="512" rx="112" ry="112" fill="#1F4D3A"/>
+  <text x="256" y="238" fill="#FFFFFF"
+        font-family="Lora, Georgia, 'Times New Roman', serif"
+        font-weight="700" font-size="232"
         text-anchor="middle" dominant-baseline="central"
-        letter-spacing="-6">TC</text>
+        letter-spacing="-4">TC</text>
+  <rect x="196" y="372" width="120" height="14" rx="2" fill="#A8893F"/>
 </svg>

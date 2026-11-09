@@ -178,20 +178,20 @@ export default function JoinTrip() {
 
   // ── styles ──
   const sh = {
-    page: { minHeight: '100vh', background: '#F0F4F8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-    card: { background: '#fff', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', textAlign: 'center' },
-    eyebrow: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '2px', color: '#1B3F6E', fontWeight: 600, marginBottom: 6 },
-    eyebrowLg: { fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', color: '#1B3F6E', fontWeight: 700, marginBottom: 8 },
-    tripName: { fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 10 },
-    prompt: { fontSize: 16, color: '#0D1B2A', lineHeight: 1.5, marginBottom: 4 },
-    matchName: { fontWeight: 800, color: '#1B3F6E' },
-    error: { fontSize: 15, color: '#C0392B', lineHeight: 1.5 },
-    body: { fontSize: 15, color: '#2C3E50', lineHeight: 1.5 },
-    contact: { fontSize: 15, color: '#1B3F6E', fontWeight: 700, marginTop: 8 },
-    loading: { fontSize: 14, color: '#7A8FA6', padding: '20px 0' },
-    code: { fontSize: 12, color: '#7A8FA6', marginTop: 14, fontFamily: 'ui-monospace, Menlo, monospace', letterSpacing: '0.5px' },
-    btn: { width: '100%', padding: 15, borderRadius: 10, border: 'none', background: '#1B3F6E', color: '#fff', fontSize: 16, fontWeight: 800, marginTop: 16, cursor: 'pointer', fontFamily: 'inherit' },
-    btnGhost: { width: '100%', padding: 15, borderRadius: 10, border: '2px solid #DDE3EA', background: '#fff', color: '#1B3F6E', fontSize: 16, fontWeight: 700, marginTop: 10, cursor: 'pointer', fontFamily: 'inherit' },
+    page: { minHeight: '100vh', background: 'var(--stone)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+    card: { background: '#fff', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', boxShadow: 'var(--shadow-pop)', textAlign: 'center' },
+    eyebrow: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--primary)', fontWeight: 600, marginBottom: 6 },
+    eyebrowLg: { fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--primary)', fontWeight: 600, marginBottom: 8 },
+    tripName: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 },
+    prompt: { fontSize: 16, color: 'var(--ink)', lineHeight: 1.5, marginBottom: 4 },
+    matchName: { fontWeight: 700, color: 'var(--primary)' },
+    error: { fontSize: 15, color: 'var(--bad)', lineHeight: 1.5 },
+    body: { fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.5 },
+    contact: { fontSize: 15, color: 'var(--primary)', fontWeight: 700, marginTop: 8 },
+    loading: { fontSize: 14, color: 'var(--slate)', padding: '20px 0' },
+    code: { fontSize: 12, color: 'var(--slate)', marginTop: 14, fontFamily: 'ui-monospace, Menlo, monospace', letterSpacing: '0.5px' }, // design-check: allow (invite code)
+    btn: { width: '100%', padding: 15, borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 16, fontWeight: 700, marginTop: 16, cursor: 'pointer', fontFamily: 'inherit' },
+    btnGhost: { width: '100%', padding: 15, borderRadius: 10, border: '2px solid var(--line)', background: '#fff', color: 'var(--primary)', fontSize: 16, fontWeight: 700, marginTop: 10, cursor: 'pointer', fontFamily: 'inherit' },
   }
 
   if (status === 'confirm' && candidate) {
@@ -201,7 +201,7 @@ export default function JoinTrip() {
           <div style={sh.eyebrow}>Trip Clubhouse</div>
           {trip?.name && <div style={sh.tripName}>{trip.name}</div>}
           <div style={sh.prompt}>
-            We found <span style={sh.matchName}>{candidate.name}</span> on the guest list — is that you?
+            We found <span style={sh.matchName}>{candidate.name}</span> on the guest list. Is that you?
           </div>
           <button style={sh.btn} onClick={() => claimSlot(candidate.slotId, trip)}>
             Yes, that&rsquo;s me
@@ -225,7 +225,7 @@ export default function JoinTrip() {
           <div style={sh.body}>
             {commissioner
               ? <>Contact your trip commissioner{commissioner.name ? <>, <span style={sh.matchName}>{commissioner.name}</span></> : ''}
-                {commissioner.email ? <> (<a href={`mailto:${commissioner.email}`} style={{ color: '#1B3F6E' }}>{commissioner.email}</a>)</> : ''}, to confirm your information.</>
+                {commissioner.email ? <> (<a href={`mailto:${commissioner.email}`} style={{ color: 'var(--primary)' }}>{commissioner.email}</a>)</> : ''}, to confirm your information.</>
               : <>Contact your trip commissioner to confirm your information.</>}
           </div>
           {supportCode && <div style={sh.code}>Support code: {supportCode}</div>}

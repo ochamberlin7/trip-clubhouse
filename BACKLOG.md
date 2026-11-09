@@ -26,6 +26,11 @@ Merge status verified with `git branch -r --merged origin/main` on 2026-10-23 (m
 - **`getTripPhase`** returns `{ phase, dayNumber, totalDays, todaysRounds, liveRound, nextRound, lastCompletedRound, hasRoundsToday }`; phases: no-trip, before-trip, after-trip, no-round-day, before-first-tee, round-live, between-rounds, after-last-round. Facts only — policy lives in `screenForTripPhase` / `defaultRoundForTrip`.
 - **Leaving / deleting trips** (decided 2026-10-30, `feat/leave-trip`): once a trip starts (or is finished) **nobody can leave it and nobody can delete it — commissioner included.** Nothing is deleted or left from a trip list (Home, Switch Trip): swiping shows a notice pointing into the trip. Before the trip starts, a player leaves via **Menu → Leave trip** (spot becomes Player TBD); the commissioner can't leave, and deletes from Commissioner Tools. Only the commissioner can restore a deleted trip. DB backstop: migration `20260679_lock_started_trips.sql` (test-mode trips exempt; applied 2026-10-30).
 
+## In progress
+| Item | Branch | Status |
+|---|---|---|
+| **Design system: Letterpress Green** (2026-11-08). Tokens in `src/index.css`, shared `ui/` components and icon family, bottom nav as a flat bar with Menu as a real tab, Menu screen grouped This trip / Commissioner / You, Leaderboard tab renamed **Standings**, Home banner day strip as labelled segments (weekday + date through 6 days, date only from 7), scorecard golf notation (circles under par, squares over par, filled ace, flame badge for on fire, no current-hole marker), Lora numerals, copy pass (sentence case, no em dashes, no emoji, approved relabels), new app icons and manifest colors, `DESIGN_SYSTEM.md`, `npm run check:design`, CLAUDE.md rules. Decisions recorded in the review artifact and DESIGN_SYSTEM.md. | `feat/design-system-letterpress-green` | Contains current main; all gates pass; **awaiting Owen's preview check, not merged**. Decided 2026-11-08: hole in one is the filled circle; the trip-dates confirm keeps red Cancel / grey Change (Owen's 10-30 call). |
+
 ## Done
 | Item | Branch | Status |
 |---|---|---|

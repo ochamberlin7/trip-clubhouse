@@ -1,7 +1,7 @@
 // Circular initials badge for the logged-in user. Reads the auth account record
 // (not any per-trip player row) so it always reflects who is signed in.
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { accountAvatarUrl } from '../lib/avatar'
 
@@ -20,7 +20,7 @@ const badgeBase = {
   width: 38,
   height: 38,
   borderRadius: '50%',
-  background: '#1B3F6E',
+  background: 'var(--primary)',
   color: '#fff',
   border: '2px solid #fff',
   boxShadow: '0 1px 4px rgba(13, 27, 42, 0.25)',
@@ -59,6 +59,7 @@ export function ProfileBadge({ style }) {
 export default function ProfileAvatar({ style }) {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   if (!user) return null
 
   return (
@@ -66,7 +67,7 @@ export default function ProfileAvatar({ style }) {
       type="button"
       aria-label="Your profile"
       title="Your profile"
-      onClick={() => navigate('/profile')}
+      onClick={() => navigate('/profile', { state: { from: location.pathname } })}
       style={{
         position: 'absolute',
         top: 'calc(env(safe-area-inset-top) + 60px)',

@@ -50,7 +50,7 @@ export default function ResetPassword() {
     // Drop the temporary recovery session and send them to the login screen so they
     // sign in fresh with the new password.
     await supabase.auth.signOut()
-    navigate(`/login?message=${encodeURIComponent('Password updated — please log in.')}`, { replace: true })
+    navigate(`/login?message=${encodeURIComponent('Password updated. Please sign in.')}`, { replace: true })
   }
 
   return (
@@ -62,7 +62,7 @@ export default function ResetPassword() {
         </div>
 
         {status === 'checking' && (
-          <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>Verifying your reset link…</p>
+          <p style={{ fontSize: 14, color: 'var(--slate)', margin: 0 }}>Verifying your reset link…</p>
         )}
 
         {status === 'invalid' && (

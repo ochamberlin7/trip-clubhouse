@@ -11,17 +11,17 @@ import { teamCountChoices, planTeamCountChange } from '../lib/teamCount'
 const TEAM_WORD = { 2: 'Two', 3: 'Three', 4: 'Four' }
 
 const ui = {
-  seg: { display: 'flex', border: '1px solid #1B3F6E', borderRadius: 4, overflow: 'hidden', marginTop: 4 },
-  segBtn: (on, first) => ({ flex: 1, padding: '11px 0', background: on ? '#1B3F6E' : 'transparent', color: on ? '#fff' : '#1B3F6E', border: 'none', borderLeft: first ? 'none' : '1px solid #1B3F6E', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }),
-  warn: { fontSize: 12.5, color: '#7A4B00', lineHeight: 1.5, marginTop: 10, background: '#FFF4DC', borderRadius: 8, padding: '9px 11px' },
+  seg: { display: 'flex', border: '1px solid var(--primary)', borderRadius: 4, overflow: 'hidden', marginTop: 4 },
+  segBtn: (on, first) => ({ flex: 1, padding: '11px 0', background: on ? 'var(--primary)' : 'transparent', color: on ? '#fff' : 'var(--primary)', border: 'none', borderLeft: first ? 'none' : '1px solid var(--primary)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }),
+  warn: { fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.5, marginTop: 10, background: 'var(--warn-tint)', borderRadius: 'var(--radius)', padding: '9px 11px' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  sheet: { background: '#fff', borderRadius: 12, padding: 24, width: 'calc(100% - 40px)', maxWidth: 360, textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
-  sheetTitle: { fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 },
-  sheetText: { fontSize: 14, color: '#2C3E50', lineHeight: 1.45 },
+  sheet: { background: '#fff', borderRadius: 'var(--radius)', padding: 24, width: 'calc(100% - 40px)', maxWidth: 360, textAlign: 'center', boxShadow: 'var(--shadow-pop)' },
+  sheetTitle: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 },
+  sheetText: { fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.45 },
   sheetBtns: { display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 },
   // Same as the Trip Dates pop-up: Cancel red, Change grey-blue.
-  cancelBtn: { background: '#C0392B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  changeBtn: { background: '#E8EDF3', color: '#2C3E50', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  cancelBtn: { background: 'var(--bad)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  changeBtn: { background: 'var(--paper-2)', color: 'var(--ink-2)', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 }
 
 const nameOf = p => [p.first_name, p.last_name].filter(Boolean).join(' ') || p.guest_name || 'Player'
@@ -105,7 +105,7 @@ export default function TeamCountBody({ tripId, teams, onSaved, onClose }) {
         <div style={ui.warn}>
           <strong>Removes {removedNames}.</strong>{' '}
           {plan.unassignPlayers.length
-            ? `${plan.unassignPlayers.map(nameOf).join(', ')} will be unassigned — re-assign them on Players & Teams.`
+            ? `${plan.unassignPlayers.map(nameOf).join(', ')} will be unassigned. Re-assign them in Players and teams.`
             : 'No players are on them.'}
         </div>
       )}

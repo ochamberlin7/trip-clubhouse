@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import Icon from './ui/Icon'
 import { fileToImageBlock, extractScorecard, toReview, resizeHoles, blockingIssues, buildCourseData, makeTee } from '../lib/scanCourse'
 
 // "Scan a scorecard" flow — rendered inside the Edit Course modal shell. States:
@@ -6,47 +7,47 @@ import { fileToImageBlock, extractScorecard, toReview, resizeHoles, blockingIssu
 // saved until the user taps Save Course with an unblocked form. Amber
 // "double-check" flags never block save; only orange "missing" cells do.
 
-const INK = '#16213a', NAVY = '#1B3F6E', MUTED = '#8a96a3', BORDER = '#e2e6ec'
-const AMBER = '#f2b23d', AMBER_BG = '#fffbf0'
-const MISS = '#d97757', MISS_DK = '#b25a41', MISS_BG = '#fdf3f0'
+const INK = 'var(--ink)', NAVY = 'var(--primary)', MUTED = 'var(--slate)', BORDER = 'var(--line)'
+const AMBER = 'var(--warn)', AMBER_BG = 'var(--warn-tint)'
+const MISS = 'var(--bad)', MISS_DK = 'var(--bad)', MISS_BG = 'var(--bad-tint)'
 
 const st = {
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   hLeft: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 },
-  back: { width: 28, height: 28, borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: 20, lineHeight: 1, cursor: 'pointer', flexShrink: 0 },
-  close: { width: 28, height: 28, borderRadius: '50%', background: '#E8EDF3', border: 'none', color: '#7A8FA6', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
+  back: { width: 28, height: 28, borderRadius: '50%', background: 'var(--paper-2)', border: 'none', color: 'var(--slate)', fontSize: 20, lineHeight: 1, cursor: 'pointer', flexShrink: 0 },
+  close: { width: 28, height: 28, borderRadius: '50%', background: 'var(--paper-2)', border: 'none', color: 'var(--slate)', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
   title: { fontSize: 18, fontWeight: 700, color: INK },
   sub: { fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.5 },
-  row: { position: 'relative', display: 'flex', flexDirection: 'column', padding: '15px 14px', border: `1px solid ${NAVY}`, borderRadius: 10, background: '#E8EDF3', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit', marginBottom: 10 },
+  row: { position: 'relative', display: 'flex', flexDirection: 'column', padding: '15px 14px', border: `1px solid ${NAVY}`, borderRadius: 10, background: 'var(--paper-2)', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit', marginBottom: 10 },
   rowTitle: { fontSize: 15, fontWeight: 700, color: INK, display: 'flex', alignItems: 'center', gap: 8 },
   rowSub: { fontSize: 13, color: MUTED, marginTop: 3, paddingRight: 44 },
-  betaBadge: { position: 'absolute', top: 12, right: 12, fontSize: 9, fontWeight: 800, color: '#fff', background: '#C0392B', borderRadius: 5, padding: '2px 6px', letterSpacing: '0.5px', textTransform: 'uppercase' },
+  betaBadge: { position: 'absolute', top: 12, right: 12, fontSize: 9, fontWeight: 600, color: '#fff', background: 'var(--bad)', borderRadius: 5, padding: '2px 6px', letterSpacing: '0.5px', textTransform: 'uppercase' },
   cta: { width: '100%', padding: 13, background: NAVY, border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 16 },
-  ctaDisabled: { width: '100%', padding: 13, background: '#C4CEDA', border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 700, marginTop: 16, cursor: 'not-allowed', fontFamily: 'inherit' },
-  slotLabel: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: MUTED, marginBottom: 6 },
-  drop: { border: `2px dashed ${BORDER}`, borderRadius: 10, padding: '26px 12px', textAlign: 'center', cursor: 'pointer', color: NAVY, fontSize: 14, fontWeight: 600, background: '#F8FAFC' },
+  ctaDisabled: { width: '100%', padding: 13, background: 'var(--mist)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 700, marginTop: 16, cursor: 'not-allowed', fontFamily: 'inherit' },
+  slotLabel: { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: MUTED, marginBottom: 6 },
+  drop: { border: `2px dashed ${BORDER}`, borderRadius: 10, padding: '26px 12px', textAlign: 'center', cursor: 'pointer', color: NAVY, fontSize: 14, fontWeight: 600, background: 'var(--paper-2)' },
   thumbWrap: { position: 'relative', borderRadius: 10, overflow: 'hidden', border: `1px solid ${BORDER}` },
   thumb: { display: 'block', width: '100%', maxHeight: 200, objectFit: 'cover' },
-  badgeOk: { position: 'absolute', top: 6, left: 6, width: 22, height: 22, borderRadius: '50%', background: '#0F6E56', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800 },
+  badgeOk: { position: 'absolute', top: 6, left: 6, width: 22, height: 22, borderRadius: '50%', background: 'var(--ok)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 },
   badgeX: { position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, lineHeight: 1 },
   addMore: { display: 'block', width: '100%', border: `2px dashed ${BORDER}`, borderRadius: 10, padding: '10px', background: 'none', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 },
   hint: { fontSize: 11, color: MUTED, marginTop: 6, lineHeight: 1.4, fontStyle: 'italic' },
   center: { textAlign: 'center', padding: '32px 12px' },
   spinner: { width: 34, height: 34, borderRadius: '50%', border: '3px solid rgba(27,63,110,0.2)', borderTopColor: NAVY, margin: '0 auto 14px', animation: 'ptr-spin 0.8s linear infinite' },
-  legend: { display: 'flex', gap: 14, alignItems: 'center', background: '#F5F8FA', borderRadius: 8, padding: '7px 10px', marginBottom: 14 },
+  legend: { display: 'flex', gap: 14, alignItems: 'center', background: 'var(--paper-2)', borderRadius: 8, padding: '7px 10px', marginBottom: 14 },
   legendItem: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: MUTED },
   dot: w => ({ width: 8, height: 8, borderRadius: '50%', background: w }),
-  fieldLabel: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: MUTED, marginBottom: 4 },
+  fieldLabel: { fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: MUTED, marginBottom: 4 },
   input: { width: '100%', border: `1px solid ${BORDER}`, borderRadius: 4, padding: '8px 10px', fontSize: 13, color: NAVY, fontFamily: 'inherit', boxSizing: 'border-box', background: '#fff' },
   section: { marginTop: 16 },
-  sectionTitle: { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px', color: MUTED, margin: '0 0 8px' },
+  sectionTitle: { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: MUTED, margin: '0 0 8px' },
   teeCard: { display: 'grid', gridTemplateColumns: '16px 1fr 1fr 1fr 24px', gap: 8, alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '10px', marginBottom: 8 },
-  teeX: { width: 24, height: 24, borderRadius: '50%', background: '#F0F2F5', border: 'none', color: MUTED, fontSize: 14, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'end', marginBottom: 1 },
+  teeX: { width: 24, height: 24, borderRadius: 'var(--radius-sm)', background: 'var(--paper-2)', border: '1px solid var(--line)', color: MUTED, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'end', marginBottom: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
   addTee: { display: 'block', width: '100%', border: `2px dashed ${BORDER}`, borderRadius: 8, padding: '9px', background: 'none', color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 2 },
   tabs: { display: 'flex', gap: 0, border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden', marginBottom: 10 },
   tab: on => ({ flex: 1, padding: 8, border: 'none', background: on ? NAVY : '#fff', color: on ? '#fff' : MUTED, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }),
-  hcell: { fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: MUTED, padding: '2px 4px', textAlign: 'center' },
-  warnNote: { background: AMBER_BG, border: `1px solid ${AMBER}`, borderRadius: 8, padding: '10px 12px', marginTop: 14, fontSize: 12.5, color: '#8a6a12', lineHeight: 1.5 },
+  hcell: { fontSize: 9, fontWeight: 600, textTransform: 'uppercase', color: MUTED, padding: '2px 4px', textAlign: 'center' },
+  warnNote: { background: AMBER_BG, border: `1px solid ${AMBER}`, borderRadius: 8, padding: '10px 12px', marginTop: 14, fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.5 },
   errNote: { background: MISS_BG, border: `1px solid ${MISS}`, borderRadius: 8, padding: '10px 12px', marginTop: 14, fontSize: 12.5, color: MISS_DK, lineHeight: 1.5 },
 }
 
@@ -89,8 +90,8 @@ function PhotoSlot({ index, photo, onPick, onRemove }) {
       {photo ? (
         <div style={st.thumbWrap}>
           <img src={photo.dataUrl} alt={`Scorecard ${index + 1}`} style={st.thumb} />
-          <span style={st.badgeOk} aria-hidden="true">✓</span>
-          <button style={st.badgeX} onClick={() => onRemove(index)} aria-label="Remove photo">✕</button>
+          <span style={st.badgeOk} aria-hidden="true"><Icon name="check" size={12} strokeWidth={2.5} /></span>
+          <button style={st.badgeX} onClick={() => onRemove(index)} aria-label="Remove photo"><Icon name="close" size={12} strokeWidth={2.5} /></button>
         </div>
       ) : (
         <div
@@ -108,12 +109,12 @@ function PhotoSlot({ index, photo, onPick, onRemove }) {
 
 const teeDot = name => {
   const n = (name || '').toLowerCase()
-  if (n.includes('blue')) return '#2b6cb0'
-  if (n.includes('white')) return '#cbd5e0'
-  if (n.includes('red')) return '#c0392b'
-  if (n.includes('gold') || n.includes('yellow')) return '#d4a017'
+  if (n.includes('blue')) return '#2b6cb0' // design-check: allow (tee-box color, not UI)
+  if (n.includes('white')) return '#cbd5e0' // design-check: allow (tee-box color, not UI)
+  if (n.includes('red')) return 'var(--bad)'
+  if (n.includes('gold') || n.includes('yellow')) return 'var(--accent)'
   if (n.includes('black')) return '#111'
-  if (n.includes('green')) return '#0F6E56'
+  if (n.includes('green')) return 'var(--ok)'
   return MUTED
 }
 
@@ -121,10 +122,10 @@ function Header({ back, title, onClose }) {
   return (
     <div style={st.header}>
       <div style={st.hLeft}>
-        {back && <button style={st.back} onClick={back} aria-label="Back">‹</button>}
+        {back && <button style={st.back} onClick={back} aria-label="Back"><Icon name="left" size={18} /></button>}
         <span style={st.title}>{title}</span>
       </div>
-      <button style={st.close} onClick={onClose} aria-label="Close">✕</button>
+      <button style={st.close} onClick={onClose} aria-label="Close"><Icon name="close" size={14} /></button>
     </div>
   )
 }
@@ -235,7 +236,7 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
         {slots < 2 && (
           <>
             <button style={st.addMore} onClick={() => setSlots(2)}>+ Add Another Photo</button>
-            <div style={st.hint}>Only if the card is split into two sections — front nine and back nine don't need to line up with the photos.</div>
+            <div style={st.hint}>Only if the card is split into two sections. Front nine and back nine don't need to line up with the photos.</div>
           </>
         )}
         {err && <div style={st.errNote}>{err}</div>}
@@ -285,7 +286,7 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
   return (
     <div>
       <Header back={() => editMode ? onBack() : setStep('upload')} title={editMode ? 'Edit Course Data' : 'Review Course Data'} onClose={onClose} />
-      <div style={st.sub}>{editMode ? 'Update the course details below — ratings, par and stroke index drive scoring and handicaps.' : 'Extracted from your photo — check anything flagged below.'}</div>
+      <div style={st.sub}>{editMode ? 'Update the course details below. Ratings, par and stroke index drive scoring and handicaps.' : 'Read from your photo. Check anything flagged below.'}</div>
       <div style={st.legend}>
         <span style={st.legendItem}><span style={st.dot(AMBER)} />Double-check</span>
         <span style={st.legendItem}><span style={st.dot(MISS)} />Missing</span>
@@ -295,11 +296,11 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 118px', gap: 8 }}>
         <div>
           <div style={st.fieldLabel}>Course Name</div>
-          <input style={st.input} value={rv.courseName} onChange={e => setRv(v => ({ ...v, courseName: e.target.value }))} placeholder="Not detected — enter manually" />
+          <input style={st.input} value={rv.courseName} onChange={e => setRv(v => ({ ...v, courseName: e.target.value }))} placeholder="Not detected. Enter it here" />
         </div>
         <div>
           <div style={st.fieldLabel}>Location</div>
-          <input style={st.input} value={rv.location} onChange={e => setRv(v => ({ ...v, location: e.target.value }))} placeholder="Not detected — enter manually" />
+          <input style={st.input} value={rv.location} onChange={e => setRv(v => ({ ...v, location: e.target.value }))} placeholder="Not detected. Enter it here" />
         </div>
         <div>
           <div style={st.fieldLabel}>Total Holes</div>
@@ -359,14 +360,14 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
       {/* Tees */}
       <div style={st.section}>
         <div style={st.sectionTitle}>Tees</div>
-        {rv.tees.length === 0 && <div style={{ fontSize: 12, color: MUTED, fontStyle: 'italic', marginBottom: 8 }}>No tees — add the one(s) your group plays below.</div>}
+        {rv.tees.length === 0 && <div style={{ fontSize: 12, color: MUTED, fontStyle: 'italic', marginBottom: 8 }}>No tees yet. Add the one(s) your group plays below.</div>}
         {rv.tees.map((t, i) => (
           <div key={t._uid ?? i} style={st.teeCard}>
             <span style={st.dot(teeDot(t.name))} />
             <input style={st.input} value={t.name} onChange={e => patchTee(i, 'name', e.target.value)} placeholder="Tee" />
             <div><div style={st.fieldLabel}>Rating</div><NumCell value={t.rating} low={t.ratingLow} decimal onChange={v => patchTee(i, 'rating', v)} /></div>
             <div><div style={st.fieldLabel}>Slope</div><NumCell value={t.slope} low={t.slopeLow} onChange={v => patchTee(i, 'slope', v)} /></div>
-            <button style={st.teeX} onClick={() => removeTee(i)} aria-label={`Remove ${t.name || 'tee'}`} title="Remove tee">✕</button>
+            <button style={st.teeX} onClick={() => removeTee(i)} aria-label={`Remove ${t.name || 'tee'}`} title="Remove tee"><Icon name="close" size={12} /></button>
           </div>
         ))}
         <button style={st.addTee} onClick={addTee}>+ Add Tee</button>
@@ -398,7 +399,7 @@ export default function CourseScanFlow({ onBack, onClose, onSave, initialReview 
 
       {/* Amber nudge — hole count off 18 (does NOT block save) */}
       {!is18 && (
-        <div style={st.warnNote}>This looks like a {rv.holes.length}-hole course — double-check the hole count above. You can still save.</div>
+        <div style={st.warnNote}>This looks like a {rv.holes.length}-hole course. Double-check the hole count above. You can still save.</div>
       )}
       {/* Blocking issues (orange/missing) */}
       {issues.length > 0 && (

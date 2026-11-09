@@ -345,7 +345,7 @@ export default function LiveScoreBanner({ trip, rounds, teams, currentUserId = n
   if (individual) {
     const toneOf = row => {
       if (row.teamId && teamById[row.teamId]) return teamColor(colorIndexOf(teamById[row.teamId])).solid
-      return row.accent ? '#1B3F6E' : 'var(--cream2)'
+      return row.accent ? 'var(--primary)' : 'var(--cream2)'
     }
     return (
       <div ref={bannerRef} className="match-banner-float visible" id="match-banner-float" role="status" aria-label="Live score">

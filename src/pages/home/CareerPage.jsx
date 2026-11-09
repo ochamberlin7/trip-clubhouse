@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Icon from '../../components/ui/Icon'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useMyCareer } from '../../lib/useMyCareer'
@@ -153,7 +154,7 @@ function ScoringTab({ d }) {
           {
             label: 'Longest fire streak',
             value: ex(d).longestFire
-              ? <span style={{ display: 'inline-block' }}><TapValue value={plural(ex(d).longestFire.holes, 'hole')} where={tripWhere(ex(d).longestFire)} size="row" /></span>
+              ? <span style={{ display: 'inline-block' }}><TapValue value={ex(d).longestFire.holes} where={tripWhere(ex(d).longestFire)} size="row" /></span>
               : '—',
           },
           { label: 'Drinks', value: ex(d).drinks },
@@ -196,7 +197,7 @@ function AllPanel({ c, defended }) {
           {c.finishes.map((f, i) => (
             <div key={f.tripId} style={{ ...s.person, ...(i ? { borderTop: `1px solid ${ROW_LINE}` } : null) }}>
               <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <span style={{ fontSize: 14, color: '#2C3E50' }}>{f.name}</span>
+                <span style={{ fontSize: 14, color: 'var(--ink-2)' }}>{f.name}</span>
                 <span style={{ fontSize: 11, color: MUTED }}>{[f.startDate?.slice(0, 4), formatLabel(f)].filter(Boolean).join(' · ')}</span>
               </span>
               <b style={{ marginLeft: 'auto', fontSize: 14, color: INK }}>{f.finish}</b>
@@ -323,7 +324,7 @@ function TripsTab({ d }) {
             <span style={{ ...s.tripName, display: 'block' }}>{t.name}</span>
             {t.finish && <span style={{ ...s.finish, display: 'block' }}>{t.finish}</span>}
           </span>
-          <span style={{ marginLeft: 'auto', color: '#9AA6B5', fontSize: 18 }}>{isOpen ? '⌃' : '⌄'}</span>
+          <span style={{ marginLeft: 'auto', color: 'var(--mist)', fontSize: 18 }}>{isOpen ? '⌃' : '⌄'}</span>
         </button>
         {t.past ? (
           <div style={{ ...s.grid4, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
@@ -410,7 +411,7 @@ export function CareerView({ detail, name, onBack, switcher }) {
   return (
     <div style={s.page}>
       <header style={s.mast}>
-        <button style={s.back} onClick={onBack}>‹ Home</button>
+        <button style={s.back} onClick={onBack}><Icon name="left" size={14} />Home</button>
         <h1 style={{ ...s.title, marginTop: 30 }}>Career stats</h1>
         {name && <div style={s.who}>{name}</div>}
         <div style={s.rule} />
