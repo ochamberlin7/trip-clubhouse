@@ -710,7 +710,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
     }
     return (
       <div style={{ position: 'relative' }}>
-        <button className="sc-th-name sc-th-btn" style={fillStyle} onClick={() => openAssign(slot)}>{label}</button>
+        <button className="sc-th-name sc-th-btn" style={fillStyle} onClick={() => openAssign(slot)} aria-haspopup="listbox" aria-expanded={openSlot === slot}>
+          <span className="sc-th-pick">{label}<Icon name="down" size={10} strokeWidth={2.2} /></span>
+        </button>
         {openSlot === slot && (
           // Anchor to the button's near edge so the picker opens INTO the screen,
           // never off it: left-side slots open rightward (left:0), right-side slots

@@ -108,7 +108,9 @@ const s = {
   // Constrained to the same 430px column the main tabs use (#root max-width: 430),
   // centered on desktop. On mobile the viewport is ≤430 so width:100% wins and it
   // renders full-bleed exactly as before — desktop-only change.
-  page: { position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, zIndex: 250, background: 'var(--stone)', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
+  // Secondary pages sit above the tab content and below the bottom nav (z 220), ending at
+  // the nav's top edge, so Score / Home / Standings stay one tap away from inside them.
+  page: { position: 'fixed', top: 0, bottom: 'var(--tab-bar-space)', left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, zIndex: 212, background: 'var(--stone)', overflowY: 'auto', display: 'flex', flexDirection: 'column' },
   pageHeader: { position: 'sticky', top: 0, zIndex: 10, background: 'var(--paper)', padding: '12px 16px 12px', paddingTop: 'max(env(safe-area-inset-top), 12px)', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'flex-start', gap: '12px' },
   backBtn: { width: 34, height: 34, background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--primary)', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   pageContext: { fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--slate)', fontWeight: 600 },
@@ -2561,7 +2563,7 @@ export default function MenuDrawer({
   const navigate = useNavigate()
   const { user } = useAuth()
   const photo = useAvatarPicker()
-  const goToProfile = () => { onClose(); navigate('/profile') }
+  const goToProfile = () => { onClose(); navigate('/profile', { state: { from: '/dashboard' } }) }
   // First name for the drawer header; falls back to the email's local part.
   const firstName = ((user?.user_metadata?.display_name || '').trim().split(/\s+/)[0]) || (user?.email || '').split('@')[0]
   const { activeTripId, switchTrip, restoreTrip, softDeleteTrip, unreadTripIds, patchTrip, fetchUserGroups } = useGroup()
@@ -2826,7 +2828,10 @@ export default function MenuDrawer({
   }, [page, tripId, groupId, tripStartDate, tripEndDate, playersData, commissionerData, coursesData, archivesData, flightsData, loadCoursesData])
 
   const drawerVisible = open && !page
-  const backToDrawer = () => setPage(null)
+  // Back: to the Menu root, unless this page was opened straight from a deep link (a
+  // Getting started tip, for example). Then the Menu was never seen, so Back closes it
+  // and returns to the screen the tap came from.
+  const backToDrawer = () => { if (initialPage && page === initialPage) onClose(); else setPage(null) }
 
   async function saveCourseEdit(courseData) {
     if (!editRound) return

@@ -455,6 +455,9 @@ select {
 
 /* Commissioner pairing header pickers */
 .sc-th-btn { width: 100%; border: none; cursor: pointer; font-family: inherit; padding: 12px 2px; min-height: 38px; font-size: 14px; line-height: 1; }
+/* Commissioner pairing header: the small caret says the name is a picker. */
+.sc-th-pick { display: inline-flex; align-items: center; justify-content: center; gap: 3px; max-width: 100%; }
+.sc-th-pick svg { opacity: .85; flex: none; }
 /* Anchored right/left per slot side (inline style) so it opens into the screen,
    never off it. Capped so it can't overflow the content column/viewport; text
    wraps inside instead of being clipped, so full names + HCP always show. */
