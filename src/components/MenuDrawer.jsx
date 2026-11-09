@@ -2997,7 +2997,6 @@ export default function MenuDrawer({
   async function saveTeeTime(roundId, col, display) {
     const { error } = await supabase.from('rounds').update({ [col]: display }).eq('id', roundId)
     if (error) {
-      // eslint-disable-next-line no-console
       console.error('[MenuDrawer] tee time save failed:', error)
       return
     }
