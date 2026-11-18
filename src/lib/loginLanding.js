@@ -2,7 +2,7 @@
 //   1. Following an invite link (?redirect=/join/:token, or the older ?invite=:token)
 //      → back to that invite, which takes them into the trip.
 //   2. Otherwise → the trip that's inside its landing window (landingTrip:
-//      14 days before → 7 days after, trip-local dates), if any.
+//      the day before → the day after, trip-local dates), if any.
 //   3. Otherwise → Trip Clubhouse Home (/home). Never the trip wizard.
 import { landingTrip } from './scoring.js'
 

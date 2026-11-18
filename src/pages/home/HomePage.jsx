@@ -15,8 +15,8 @@ import { inviteTokenFrom } from '../../lib/inviteMatch'
 
 // Player home page ("your clubhouse"): the next trip's countdown, quick actions,
 // your trips (active/upcoming, then past), career stats across trips, and a
-// badges shelf. The app opens here except from 14 days before a trip through 7
-// days after it (landingTrip in scoring.js).
+// badges shelf. The app opens here except from 24 hours before a trip through
+// 24 hours after it (landingTrip in scoring.js).
 
 const NAVY = 'var(--primary)'
 const INK = 'var(--ink)'

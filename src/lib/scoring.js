@@ -373,8 +373,10 @@ export function isRosterLocked({ trip, now = new Date(), timeZone, devOverride =
 // The app opens ON a trip from LANDING_DAYS_BEFORE days before it starts through
 // LANDING_DAYS_AFTER days after it ends (trip-local dates); otherwise it opens on
 // the player home page. One shared setting — change the numbers here.
-export const LANDING_DAYS_BEFORE = 14
-export const LANDING_DAYS_AFTER = 7
+// 1 day each side = 24 hours before the trip's first day starts through 24 hours
+// after its last day ends (Owen, 2026-11-17; was 14 before / 7 after).
+export const LANDING_DAYS_BEFORE = 1
+export const LANDING_DAYS_AFTER = 1
 
 // Is `trip` inside its open-on-the-trip window right now (trip's own time zone)?
 export function tripInLandingWindow(trip, now = new Date()) {

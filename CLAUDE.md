@@ -70,7 +70,7 @@ Full detail, tokens and component usage: **`DESIGN_SYSTEM.md`**. In short:
 ## Current state (as of 2026-10-23, `main` @ `0df8024`)
 Recently merged to `main`: trip-phase foundation (`getTripPhase`), phase-driven **routing** (`screenForTripPhase`, zone-aware default screen), **Schedule & Courses** tab (tee times, completed-round shading, post-round handicap recap), **Home day-strip banner** (dots at the bottom, connected by a line), **test mode**, and **default round selection** (`defaultRoundForTrip`).
 
-Since then (2026-10-23 → 10-27) everything below is merged; see BACKLOG.md for the full list: member removal (Player TBD), Daily Leaders, Points Defended, Stats redesign, Trip Clubhouse Home (`/home`, opens on a trip 14 days before → 7 after), badges / Trophy Room (`/trophies`), shared `teamStandings`, live-banner team fix, team colors.
+Since then (2026-10-23 → 10-27) everything below is merged; see BACKLOG.md for the full list: member removal (Player TBD), Daily Leaders, Points Defended, Stats redesign, Trip Clubhouse Home (`/home`, opens on a trip 24h before → 24h after), badges / Trophy Room (`/trophies`), shared `teamStandings`, live-banner team fix, team colors.
 
 2026-10-30: **Trip Dates** (`tripDates.js`, RPC `change_trip_dates`) and the **Commissioner Tools redesign** merged — stripes in Fraunces + Inter (that page only), trip name, number of teams (`teamCount.js`, RPC `change_team_count`). Details in BACKLOG.md.
 

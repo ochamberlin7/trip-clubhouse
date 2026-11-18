@@ -17,21 +17,22 @@ test('existing user with no trips → Home', () => {
 
 test('trip outside the window → Home', () => {
   const t = trip('T', '2027-03-12', '2027-03-15')
-  assert.deepEqual(postLoginDestination({ trips: [t], now: at('2027-02-25') }), { path: '/home', tripId: null }) // 15 days before
-  assert.deepEqual(postLoginDestination({ trips: [t], now: at('2027-03-23') }), { path: '/home', tripId: null }) // 8 days after
+  assert.deepEqual(postLoginDestination({ trips: [t], now: at('2027-03-10') }), { path: '/home', tripId: null }) // 2 days before
+  assert.deepEqual(postLoginDestination({ trips: [t], now: at('2027-03-17') }), { path: '/home', tripId: null }) // 2 days after
 })
 
 test('trip inside the window → that trip', () => {
   const t = trip('T', '2027-03-12', '2027-03-15')
-  assert.deepEqual(postLoginDestination({ trips: [t], now: at('2027-02-26') }), { path: '/dashboard', tripId: 'T' })
+  assert.deepEqual(postLoginDestination({ trips: [t], now: at('2027-03-11') }), { path: '/dashboard', tripId: 'T' }) // the day before
   assert.deepEqual(postLoginDestination({ trips: [t], now: at('2027-03-13') }), { path: '/dashboard', tripId: 'T' })
-  assert.deepEqual(postLoginDestination({ trips: [t], now: at('2027-03-22') }), { path: '/dashboard', tripId: 'T' })
+  assert.deepEqual(postLoginDestination({ trips: [t], now: at('2027-03-16') }), { path: '/dashboard', tripId: 'T' }) // the day after
 })
 
 test('mixed trips → only the in-window one opens', () => {
   const old = trip('OLD', '2026-06-01', '2026-06-04')
   const soon = trip('SOON', '2027-03-12', '2027-03-15')
-  assert.equal(postLoginDestination({ trips: [old, soon], now: at('2027-03-05') }).tripId, 'SOON')
+  assert.equal(postLoginDestination({ trips: [old, soon], now: at('2027-03-11') }).tripId, 'SOON')
+  assert.equal(postLoginDestination({ trips: [old, soon], now: at('2027-03-05') }).tripId, null) // a week out → Home
 })
 
 test('invite link (new or existing account) → back to the invite', () => {

@@ -27,7 +27,7 @@ export default function GroupSelector() {
     if (loading || !tripsLoaded) return
 
     redirected.current = true
-    // Open ON a trip from 14 days before it starts through 7 days after it ends;
+    // Open ON a trip from 24 hours before it starts through 24 hours after it ends;
     // otherwise Trip Clubhouse Home — also for brand-new users with no trips.
     // Never the trip wizard. Rule + tests: src/lib/loginLanding.js.
     const { path, tripId } = postLoginDestination({ trips: allTrips })
