@@ -41,7 +41,7 @@ inline styles. If a color you need is missing, add a token here and in `:root`, 
 | `--ok` / `--ok-tint` | #2E6B4A / #E4F0E9 | Live, saved, synced |
 | `--warn` / `--warn-tint` | #9A6A12 / #F7EDD6 | Pending, not scheduled |
 | `--bad` / `--bad-tint` | #A93A3A / #F6E4E4 | Errors, offline, destructive actions |
-| `--fire` | #C98B1E | The "on fire" streak badge on the scorecard |
+| `--fire` | #C98B1E | The "on fire" streak outline and badge on the scorecard |
 | `--team-1` … `--team-6` | from `src/lib/teamColors.js` | Team colors only. Never reuse them for anything else |
 
 Status colors (`--ok`, `--warn`, `--bad`) are separate from the accent. Brass means "now";
@@ -133,7 +133,7 @@ Marks are on the gross score, in ink, the same for both teams:
 
 Stat records and other label-plus-number facts are list rows (label left, serif number right, holder or detail as the sub-line), never a lone number centered in a card.
 | Drinks | Brass badge at the bottom-right | `.drink-badge` |
-| On fire (3+ net par-or-better in a row) | Small brass flame badge at the top-right | `.sc-score.fire-score` |
+| On fire (3+ net par-or-better in a row) | Brass outline around the cell (2px, offset 2px) plus a small brass flame badge at the top-right | `.sc-score.fire-score` |
 
 There is no current-hole marker. Team colors appear only on the player header cells, the points
 column badges and the totals.

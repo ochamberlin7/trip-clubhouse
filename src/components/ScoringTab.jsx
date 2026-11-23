@@ -551,10 +551,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
         { team1Name: getTeamDisplayName(pairTeam1), team2Name: getTeamDisplayName(pairTeam2) },
       )
     : null
-  // Once a Standard Match Play match is decided, holes after the closeout are
-  // locked (unenterable). Already-scored holes stay editable for corrections.
-  const matchClosed = isStandard && !!stdTally?.closed
-  const closedAtHole = stdTally?.closedAtHole ?? null
+  // Once a Standard Match Play match is decided the result freezes at the
+  // closeout margin (standardMatchTally ignores later holes), but every hole
+  // stays enterable so the rest of the round still counts toward stats.
 
   // Per-hole Point Match Play winners from the SINGLE source of truth
   // (matchHoleOutcomes) — the exact same function the leaderboard, live banner and
@@ -832,11 +831,6 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
       )
     }
     const gross = getScore(tpId, hole)
-    // Lock empty cells on holes played after the match was decided; already-scored
-    // cells stay editable so a commissioner can still correct them.
-    if (matchClosed && closedAtHole != null && hole > closedAtHole && gross == null) {
-      return <span className="sc-score-wrap"><button className="sc-score locked" disabled tabIndex={-1} aria-label="Hole locked. The match is decided.">·</button></span>
-    }
     const par = holes?.[hole - 1]?.par
     const onFire = !hideFire && fireByTp.get(tpId)?.has(hole)
     const cls = `${scoreClass(gross, par)}${onFire ? ' fire-score' : ''}`

@@ -14,6 +14,8 @@ import { useGroup } from '../context/GroupContext'
 import { rowUI, Disclosure, SaveLink, Toggle } from '../components/DisclosureRow'
 import { ProfileBadge } from '../components/ProfileAvatar'
 import { useAvatarPicker } from '../components/useAvatarPicker'
+import Button from '../components/ui/Button'
+import { deleteMyAccount, isDeleteConfirmed, DELETE_CONFIRM_WORD } from '../lib/deleteAccount'
 import { isPushSupported, pushPermission, enablePush, disablePush, hasActiveSubscription, markPromptDismissed, clearPromptDismissed } from '../lib/push'
 
 // Display-only phone formatting — matches Signup.jsx. Stored value is raw digits.
@@ -205,6 +207,18 @@ export default function ProfilePage() {
     }
   }
 
+  // Delete account: type the confirm word, then one RPC does it all (see
+  // lib/deleteAccount.js and migration 20260686 for what goes and what stays).
+  const [deleteTyped, setDeleteTyped] = useState('')
+  const [deleteState, setDeleteState] = useState({ busy: false, err: '' })
+  async function handleDeleteAccount() {
+    if (!isDeleteConfirmed(deleteTyped) || deleteState.busy) return
+    setDeleteState({ busy: true, err: '' })
+    const { error } = await deleteMyAccount(supabase, user?.id)
+    if (error) { setDeleteState({ busy: false, err: error }); return }
+    navigate('/login', { replace: true })
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut()
     navigate('/login', { replace: true })
@@ -319,6 +333,27 @@ export default function ProfilePage() {
             )}
           </Disclosure>
         )}
+
+        <Disclosure label="Delete account" value="">
+          <div style={rowUI.note}>
+            This deletes your login, profile, photo, group memberships and your trash talk messages. It can't be undone.
+          </div>
+          <div style={rowUI.note}>
+            Trips that have started or are over keep your name, handicap and scores, so everyone else's standings and stats stay the same. On trips that haven't started, your spot becomes Player TBD.
+          </div>
+          <div style={rowUI.note}>
+            If you're the only commissioner of an upcoming trip, make another player commissioner first.
+          </div>
+          <label style={{ ...rowUI.fieldLabel, display: 'block' }} htmlFor="delete-confirm">Type {DELETE_CONFIRM_WORD} to confirm</label>
+          <input id="delete-confirm" style={rowUI.input} type="text" autoComplete="off" autoCapitalize="characters" value={deleteTyped}
+            onChange={e => { setDeleteTyped(e.target.value); setDeleteState(s => ({ ...s, err: '' })) }} />
+          {deleteState.err && <div style={rowUI.err} role="alert">{deleteState.err}</div>}
+          <div style={{ marginTop: 12 }}>
+            <Button variant="danger" block disabled={!isDeleteConfirmed(deleteTyped)} loading={deleteState.busy} onClick={handleDeleteAccount}>
+              Delete my account
+            </Button>
+          </div>
+        </Disclosure>
 
         <div style={rowUI.dangerWrap}>
           <button style={rowUI.dangerBtn} onClick={handleSignOut}>Sign out</button>
