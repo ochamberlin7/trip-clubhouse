@@ -447,8 +447,11 @@ select {
 .sc-score.bogey  { box-shadow: inset 0 0 0 1.5px var(--ink); }
 /* Double bogey or worse: two squares plus a light red wash so a blow-up hole reads at a glance. */
 .sc-score.double, .sc-score.triple { background: var(--bad-tint); box-shadow: inset 0 0 0 1.5px var(--ink), inset 0 0 0 3.5px var(--bad-tint), inset 0 0 0 5px var(--ink); }
-/* "On fire": 3+ consecutive net par-or-better holes. A small brass flame badge at the
-   top-right corner (custom icon, no emoji); the notation ring is untouched. */
+/* "On fire": 3+ consecutive net par-or-better holes. A brass outline around the cell
+   (it follows the notation shape: circle for birdie, square for par) on the hole that
+   lights the streak and every hole after it while it lasts, plus a small brass flame
+   badge at the top-right corner (custom icon, no emoji). The notation ring is untouched. */
+.sc-score.fire-score { outline: 2px solid var(--fire); outline-offset: 2px; }
 .sc-score.fire-score::after { content: ''; position: absolute; top: -6px; right: -6px; width: 15px; height: 15px; border-radius: 50%; background: var(--fire) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2'%3E%3Cpath d='M12 21c-3.6 0-6-2.4-6-5.7 0-2.8 2-4.6 3.2-6.6.5 1.4 1.2 2.2 2.2 2.7C11.4 8.5 12 6 14 3.5c.6 3 3.9 5 4 11 0 3.5-2.4 6.5-6 6.5z'/%3E%3C/svg%3E") center / 9px 9px no-repeat; border: 1.5px solid var(--paper); z-index: 3; pointer-events: none; }
 
 .stroke-dots { position: absolute; bottom: -4px; left: -4px; display: flex; gap: 2px; align-items: center; pointer-events: none; z-index: 2; }
@@ -488,8 +491,6 @@ select {
 .sc-match-num { font-size: 14px; font-weight: 700; }
 .sc-match-up { font-size: 7px; font-weight: 700; margin-left: 0.5px; }
 .sc-match-as { font-size: 12px; font-weight: 700; letter-spacing: -0.3px; }
-/* Standard Match Play: locked (unenterable) hole after the match is decided */
-.sc-score.locked { opacity: 0.3; cursor: not-allowed; color: var(--muted); }
 /* Standard Match Play: prominent final-result banner above the scorecard */
 .sc-match-result { text-align: center; font-family: var(--font-serif); font-size: 16px; font-weight: 700; color: #fff; background: var(--primary); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 10px; }
 /* Past-trip read-only indicator at the top of the dashboard */
