@@ -116,6 +116,12 @@ select {
 .btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--primary); font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; width: 100%; transition: background 0.15s, transform 0.1s; font-family: inherit; color: var(--primary); background: var(--paper); line-height: 1.2; }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+/* Instant tap feedback for controls styled inline (score entry sheet). No double-tap
+   zoom wait, no text selection on fast taps, and a visible press on touch-down.
+   .press-step also darkens the stepper's fill while held. */
+.press { touch-action: manipulation; -webkit-user-select: none; user-select: none; transition: transform 0.06s; }
+.press:active:not(:disabled) { transform: scale(0.96); }
+.press-step:active { background: var(--line) !important; }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--primary-deep); border-color: var(--primary-deep); }
 .btn-primary:active:not(:disabled) { background: var(--primary-deep); }

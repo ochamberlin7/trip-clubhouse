@@ -242,3 +242,6 @@ must add no new errors.
    component to `src/components/ui/` with a one-line entry in the component table.
 3. Keep the addition generic (a variant, not a screen-specific special case).
 4. Note it in BACKLOG.md under the design-system entry.
+
+### Tap feedback
+- `.press` on any tappable control styled inline: no double-tap zoom wait, no text selection on fast taps, and a 0.96 scale while pressed. `.press-step` also darkens a stepper's fill to `--line` while held. Score entry steppers act on touch-down (`StepButton` in `ScoringTab.jsx`).
