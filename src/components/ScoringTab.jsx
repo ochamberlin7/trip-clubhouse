@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { strokesOnHole, netScore, rawCourseHandicapForTee, resolvePlayerTee, shotsGivenFromCourseHandicaps, standardMatchTally, matchHoleOutcomes, effectiveAllowance, playingHandicapForRound, stablefordPoints, tripGameType, isIndividualGameType } from '../lib/scoring'
@@ -1034,6 +1034,9 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
 
       {modal && (
         <ScoreModal
+          // Keyed per cell: a sheet opened while the last one's close is still
+          // finishing starts fresh (its own score, drinks and closing state).
+          key={`${modal.tpId}:${modal.hole}`}
           modal={modal} round={round} player={playersById[modal.tpId]}
           teamName={individual
             ? getTeamDisplayName(teams.find(t => t.id === playersById[modal.tpId]?.team_id))
@@ -1102,6 +1105,21 @@ export default function ScoringTab({ trip, rounds, currentUserId, isCommissioner
   )
 }
 
+// A +/- stepper button that acts the moment the finger touches down, not when it
+// lifts (a tap-and-release lag reads as "the button didn't take"). The click that
+// follows a touch is ignored; a keyboard Enter/Space click (no pointer first)
+// still steps once.
+function StepButton({ onStep, label, icon, style }) {
+  const fromPointer = useRef(false)
+  return (
+    <button type="button" className="press press-step" style={style} aria-label={label}
+      onPointerDown={e => { if (e.button !== 0) return; fromPointer.current = true; onStep() }}
+      onClick={() => { if (fromPointer.current) { fromPointer.current = false; return } onStep() }}>
+      <Icon name={icon} size={20} strokeWidth={1.75} />
+    </button>
+  )
+}
+
 // ── Score + drink entry modal ─────────────────────────────────────
 function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, courseHcp, canSave, existingScore, existingDrinks, onClose, onCommit, onRemoved }) {
   const { tpId, hole, teamSide } = modal
@@ -1109,12 +1127,21 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
   const [drinkCount, setDrinkCount] = useState(existingDrinks ?? 0)
   const [busy, setBusy] = useState(false) // used by remove() only — save is optimistic/instant
   const [err, setErr] = useState(null)
+  // Hides the sheet on this render, before the parent redraws the scorecard.
+  const [closing, setClosing] = useState(false)
   const netPar = par != null ? par - strokesOnHole(courseHcp, si) : null
 
-  // Hand the values straight to the parent, which updates the scorecard and
-  // closes this modal immediately, then persists to Supabase in the background.
+  // Close the sheet first (a tiny render that paints at once), then hand the
+  // values to the parent as a transition: the scorecard redraw (tallies, fire,
+  // dots) runs right after without holding the sheet on screen. The parent
+  // persists to Supabase in the background.
   function save() {
-    onCommit(hole, tpId, score, drinkCount)
+    setClosing(true)
+    startTransition(() => onCommit(hole, tpId, score, drinkCount))
+  }
+  function cancel() {
+    setClosing(true)
+    startTransition(() => onClose())
   }
   async function remove() {
     setBusy(true); setErr(null)
@@ -1169,11 +1196,11 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
     team: { fontSize: 10, padding: '2px 7px', borderRadius: 10, marginRight: 10, fontWeight: 700 },
     name: { fontSize: 14, fontWeight: 600, color: 'var(--ink)', flex: 1 },
     controls: { display: 'flex', alignItems: 'center' },
-    scoreBtn: { width: 52, height: 52, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--paper-2)', color: 'var(--ink)', fontSize: 28, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation', fontFamily: 'inherit' },
+    scoreBtn: { width: 52, height: 52, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--paper-2)', color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' },
     scoreDisp: { width: 60, textAlign: 'center', fontSize: 28, fontWeight: 700, color: 'var(--ink)' },
     divider: { height: 1, background: 'var(--line)', margin: '12px 0', border: 'none' },
     label: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--slate)', marginBottom: 8, fontWeight: 600 },
-    drinkBtn: { width: 40, height: 40, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--paper-2)', color: 'var(--primary-mid)', fontSize: 22, fontWeight: 300, cursor: 'pointer', touchAction: 'manipulation', fontFamily: 'inherit' },
+    drinkBtn: { width: 40, height: 40, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--paper-2)', color: 'var(--primary-mid)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' },
     drinkDisp: { width: 48, textAlign: 'center', fontSize: 22, fontWeight: 700, color: 'var(--primary-mid)' },
     save: { width: '100%', padding: 15, background: 'var(--primary)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' },
     disabled: { width: '100%', padding: 15, background: 'var(--paper-2)', border: 'none', borderRadius: 10, color: 'var(--slate)', fontSize: 15, fontWeight: 700, textAlign: 'center', marginTop: 4 },
@@ -1185,8 +1212,10 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
   const teamStyle = individualTeam ? teamPillStyle(colorIndexOf(individualTeam)) : teamPillStyle(teamSide === 'T1' ? 1 : 2)
   const showTeamPill = individualTeam !== null
 
+  if (closing) return null
+
   return createPortal(
-    <div style={m.overlay} onClick={onClose}>
+    <div style={m.overlay} onClick={cancel}>
       <div style={m.sheet} onClick={e => e.stopPropagation()}>
         <div style={m.round}>{round.club_name || round.course_name}</div>
         <div style={m.holeNum}>Hole {hole}</div>
@@ -1196,9 +1225,9 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
           {showTeamPill && <span style={{ ...m.team, ...teamStyle }}>{teamName || (teamSide === 'T1' ? 'Team 1' : 'Team 2')}</span>}
           <span style={m.name}>{firstName(player?.name)}</span>
           <div style={m.controls}>
-            <button style={m.scoreBtn} onClick={() => setScore(s => Math.max(1, s - 1))}>−</button>
-            <div style={m.scoreDisp}>{score}</div>
-            <button style={m.scoreBtn} onClick={() => setScore(s => Math.min(15, s + 1))}>+</button>
+            <StepButton style={m.scoreBtn} icon="minus" label="Lower score" onStep={() => setScore(s => Math.max(1, s - 1))} />
+            <div style={m.scoreDisp} aria-live="polite">{score}</div>
+            <StepButton style={m.scoreBtn} icon="plus" label="Raise score" onStep={() => setScore(s => Math.min(15, s + 1))} />
           </div>
         </div>
 
@@ -1207,18 +1236,18 @@ function ScoreModal({ modal, round, player, teamName, individualTeam, par, si, c
         <div style={{ ...m.playerRow, marginBottom: 0 }}>
           <span style={{ color: 'var(--slate)', fontSize: 13 }}>Add drinks consumed</span>
           <div style={m.controls}>
-            <button style={m.drinkBtn} onClick={() => setDrinkCount(d => Math.max(0, d - 1))}>−</button>
-            <div style={m.drinkDisp}>{drinkCount}</div>
-            <button style={m.drinkBtn} onClick={() => setDrinkCount(d => d + 1)}>+</button>
+            <StepButton style={m.drinkBtn} icon="minus" label="One fewer drink" onStep={() => setDrinkCount(d => Math.max(0, d - 1))} />
+            <div style={m.drinkDisp} aria-live="polite">{drinkCount}</div>
+            <StepButton style={m.drinkBtn} icon="plus" label="One more drink" onStep={() => setDrinkCount(d => d + 1)} />
           </div>
         </div>
 
         {err && <div style={{ color: 'var(--bad)', fontSize: 12, textAlign: 'center', marginTop: 8 }}>Couldn’t save: {err}</div>}
         {canSave
-          ? <button style={m.save} onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+          ? <button type="button" className="press" style={m.save} onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
           : <div style={m.disabled}>You're not in this pairing</div>}
-        {canSave && existingScore != null && <button style={m.remove} onClick={remove} disabled={busy}>Remove Score</button>}
-        <button style={m.cancel} onClick={onClose}>Cancel</button>
+        {canSave && existingScore != null && <button type="button" className="press" style={m.remove} onClick={remove} disabled={busy}>Remove score</button>}
+        <button type="button" className="press" style={m.cancel} onClick={cancel}>Cancel</button>
       </div>
     </div>,
     document.body,
